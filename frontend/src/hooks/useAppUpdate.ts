@@ -274,9 +274,10 @@ export async function fetchRemoteVersionManifest(): Promise<{
   const candidateUrls: string[] = [];
 
   // 1. Cloud Priority #1 (Works Anywhere / PC Off)
+  // GitHub Releases API first (instant, real-time, zero CDN caching delay)
   candidateUrls.push(
-    CLOUD_MANIFEST_URL,
     CLOUD_RELEASES_API_URL,
+    CLOUD_MANIFEST_URL,
     `https://raw.githubusercontent.com/${GITHUB_REPO_OWNER}/${GITHUB_REPO_NAME}/main/frontend/public/version.json`
   );
 
