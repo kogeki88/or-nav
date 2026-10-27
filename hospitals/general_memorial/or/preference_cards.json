@@ -1,0 +1,67 @@
+[
+  {
+    "id": "gen_lap_chole",
+    "procedure": "Laparoscopic Cholecystectomy",
+    "specialty": "General Surgery",
+    "surgeon": "Dr. Elena Rodriguez, MD",
+    "room": "OR 12",
+    "position": "Supine, Reverse Trendelenburg 15\u00b0, Left Tilt 10\u00b0",
+    "prep": "ChloraPrep (2% CHG / 70% IPA) - abdomen from xiphoid to pubis, bilaterally to midaxillary lines",
+    "instrumentation": [
+      "Lap Chole Set 1",
+      "Karl Storz 10mm 30\u00b0 Laparoscope",
+      "LigaSure Maryland 5mm Sealer",
+      "Endo Catch 10mm Specimen Bag"
+    ],
+    "sutures": [
+      "0 Polysorb UR-6 on fascial closure",
+      "4-0 Monocryl PS-2 for subcuticular skin closure",
+      "Endoloop 0 Vicryl (on standby)"
+    ],
+    "implants": "None",
+    "notes": "Prefers Hassan open cut-down for umbilical port. Defogger must be hot. Veress needle not used."
+  },
+  {
+    "id": "gen_tka",
+    "procedure": "Total Knee Arthroplasty (TKA)",
+    "specialty": "Orthopedic Surgery",
+    "surgeon": "Dr. Marcus Chen, MD",
+    "room": "OR 18",
+    "position": "Supine with lateral leg positioner, thigh tourniquet",
+    "prep": "DuraPrep 2-layer, foot isolated with sterile coban wrap",
+    "instrumentation": [
+      "Stryker System 8 Power Tool Set",
+      "Zimmer Persona Knee Tray 1 & 2",
+      "Pulsatile Lavage with 3L Normal Saline"
+    ],
+    "sutures": [
+      "#1 Stratafix Spiral PDS for capsule",
+      "2-0 Monocryl SH for subcutaneous tissue",
+      "Staples for skin closure"
+    ],
+    "implants": "Zimmer Persona Modular Cruciate Retaining (CR) Component",
+    "notes": "Tourniquet inflated to 250 mmHg prior to skin incision. Vancomycin cement mixed at 14 minutes. Tranexamic acid (TXA) 1g IV given at start and deflation."
+  },
+  {
+    "id": "gen_cabg",
+    "procedure": "Coronary Artery Bypass Graft (CABG x3)",
+    "specialty": "Cardiovascular OR (CVOR)",
+    "surgeon": "Dr. Arthur Vance, MD",
+    "room": "OR 21",
+    "position": "Supine with chest roll, bilateral legs externally rotated (frog-leg) with knee rolls",
+    "prep": "ChloraPrep chin-to-ankles circumferentially",
+    "instrumentation": [
+      "Cardiovascular Major Sternotomy Set",
+      "Vascular Peripheral Micro Instruments",
+      "Castroviejo Micro Needle Holders",
+      "DeBakey 1.5mm Pickups"
+    ],
+    "sutures": [
+      "7-0 Prolene BV-1 for distal coronaries",
+      "6-0 Prolene C-1 for proximal aortic anastomoses",
+      "#5 Ethibond sternal closure wires (x6)"
+    ],
+    "implants": "Hemashield 8mm vascular graft on standby",
+    "notes": "Heparin 300 units/kg prior to cannulation; Target ACT > 480 sec. Cool chest with iced sterile saline slush."
+  }
+]

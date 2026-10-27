@@ -1,0 +1,45 @@
+[
+  {
+    "id": "metro_ex_lap",
+    "procedure": "Exploratory Laparotomy for Trauma",
+    "specialty": "Trauma / Acute Care Surgery",
+    "surgeon": "Dr. Samuel Adams, MD",
+    "room": "OR 1 (Trauma Bay OR)",
+    "position": "Supine, arms out at 90\u00b0",
+    "prep": "Betadine or ChloraPrep neck-to-mid-thighs wide prep",
+    "instrumentation": [
+      "Trauma Laparotomy Major Set",
+      "Bookwalter Retractor Set",
+      "Vascular Clamps Set",
+      "Argyle Suction (x2 lines active)"
+    ],
+    "sutures": [
+      "#1 PDS loop for abdominal wall",
+      "3-0 Silk ties on passers",
+      "Skin staplers (x2 ready)"
+    ],
+    "implants": "Gore-Tex or Vicryl mesh for open abdomen temporary closure",
+    "notes": "Prepare for rapid packing of four quadrants with 10 laparotomy pads. Suction must handle massive hemoperitoneum."
+  },
+  {
+    "id": "metro_evar",
+    "procedure": "Endovascular Abdominal Aortic Aneurysm Repair (EVAR)",
+    "specialty": "Vascular Surgery",
+    "surgeon": "Dr. Jin Kim, MD",
+    "room": "Hybrid OR 3",
+    "position": "Supine on radiolucent carbon fiber table",
+    "prep": "ChloraPrep bilateral groins circumferentially",
+    "instrumentation": [
+      "Vascular Cutdown Set",
+      "Angiography Pack & Micro-puncture Kits",
+      "Lunderquist Extra-Stiff Wire",
+      "Medtronic Endurant II Stent Graft"
+    ],
+    "sutures": [
+      "4-0 Prolene RB-1 for femoral artery arteriotomy",
+      "3-0 Monocryl for skin closure"
+    ],
+    "implants": "Bifurcated Aortic Endograft System",
+    "notes": "Lead aprons and thyroid shields mandatory for all OR personnel. Heparinization before sheath insertion."
+  }
+]

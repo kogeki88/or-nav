@@ -1,0 +1,46 @@
+[
+  {
+    "id": "duke_ralp",
+    "procedure": "Robotic-Assisted Laparoscopic Prostatectomy (RALP)",
+    "specialty": "Urology / Robotic Surgery",
+    "surgeon": "Dr. Bradley Harrison, MD",
+    "room": "OR 4",
+    "position": "Steep Trendelenburg 28\u00b0, Lithotomy in Allen Yellowfin Stirrups",
+    "prep": "ChloraPrep from nipples to mid-thighs, perineum prepped with Betadine",
+    "instrumentation": [
+      "da Vinci Xi Robotic Patient Cart",
+      "Xi EndoWrist ProGrasp Forceps",
+      "Xi Monopolar Curved Scissors",
+      "Xi Fenestrated Bipolar"
+    ],
+    "sutures": [
+      "3-0 V-Loc barbed suture on V-20 needle for urethrovesical anastomosis",
+      "2-0 Vicryl CT-1 for dorsal venous complex",
+      "4-0 Monocryl for port sites"
+    ],
+    "implants": "None",
+    "notes": "Ensure patient is securely strapped with Da Vinci Pink Pad table mat to prevent sliding in steep Trendelenburg. Anesthesia must monitor peak inspiratory pressures."
+  },
+  {
+    "id": "duke_microdiscectomy",
+    "procedure": "Lumbar Microdiscectomy L4-L5",
+    "specialty": "Neurosurgery / Spine",
+    "surgeon": "Dr. Vanessa Sterling, MD",
+    "room": "OR 8",
+    "position": "Prone on Wilson Frame, abdomen hanging free to reduce epidural venous engorgement",
+    "prep": "ChloraPrep spine area from T10 to sacrum",
+    "instrumentation": [
+      "Zeiss OPMI Pentero Microscope",
+      "Caspar Lumbar Retractor Set",
+      "Kerrison Rongeurs 2mm/3mm/4mm",
+      "Pituitary Rongeurs"
+    ],
+    "sutures": [
+      "0 Vicryl CT-1 for fascia",
+      "2-0 Vicryl CT-2 for deep subcutaneous",
+      "Dermabond Prineo for skin"
+    ],
+    "implants": "None",
+    "notes": "Microscope draped sterile before incision. Keep Bipolar micro-forceps tip cleaned with wet telfa sponge. Bone wax and Gelfoam patties counted."
+  }
+]
