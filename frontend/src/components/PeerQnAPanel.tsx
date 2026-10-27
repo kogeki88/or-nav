@@ -24,6 +24,7 @@ import {
 import { createTimeoutSignal } from "@/lib/auth";
 import { type UserProfile } from "@/lib/userProfile";
 import { getDepartment } from "@/lib/departments";
+import { awardClinicalXP } from "@/lib/gamification";
 
 interface PeerQnAPanelProps {
   isOpen: boolean;
@@ -137,6 +138,7 @@ export default function PeerQnAPanel({
         const created: PeerQuestion = await res.json();
         setQuestions((prev) => [created, ...prev.filter((q) => q.id !== created.id)]);
         await saveOfflinePeerQuestion(created);
+        awardClinicalXP("ask_question", "Question Broadcasted");
         setNewQuestionText("");
         setTab("questions");
         return;
@@ -150,6 +152,7 @@ export default function PeerQnAPanel({
     // Offline local fallback
     setQuestions((prev) => [newQ, ...prev]);
     await saveOfflinePeerQuestion(newQ);
+    awardClinicalXP("ask_question", "Question Broadcasted (Offline)");
     setNewQuestionText("");
     setTab("questions");
   }
@@ -173,6 +176,7 @@ export default function PeerQnAPanel({
         const updated: PeerQuestion = await res.json();
         setQuestions((prev) => prev.map((q) => (q.id === questionId ? updated : q)));
         await saveOfflinePeerQuestion(updated);
+        awardClinicalXP("peer_answer", "Peer Answer Submitted");
         setAnswerInputs((prev) => ({ ...prev, [questionId]: "" }));
         setActiveAnsweringId(null);
         return;
@@ -199,6 +203,7 @@ export default function PeerQnAPanel({
       };
       setQuestions((prev) => prev.map((q) => (q.id === questionId ? updatedQ : q)));
       await saveOfflinePeerQuestion(updatedQ);
+      awardClinicalXP("peer_answer", "Peer Answer Submitted (Offline)");
       setAnswerInputs((prev) => ({ ...prev, [questionId]: "" }));
       setActiveAnsweringId(null);
     }
@@ -221,6 +226,7 @@ export default function PeerQnAPanel({
         const updated: PeerQuestion = await res.json();
         setQuestions((prev) => prev.map((q) => (q.id === questionId ? updated : q)));
         await saveOfflinePeerQuestion(updated);
+        awardClinicalXP("peer_verify", "Consensus Verification Vote");
         return;
       }
     } catch (err) {
@@ -254,6 +260,7 @@ export default function PeerQnAPanel({
       };
       setQuestions((prev) => prev.map((q) => (q.id === questionId ? updatedQ : q)));
       await saveOfflinePeerQuestion(updatedQ);
+      awardClinicalXP("peer_verify", "Consensus Verification Vote (Offline)");
     }
   }
 

@@ -34,6 +34,12 @@ import { type AppSettings } from "@/lib/appSettings";
 import { type CheckUpdateResult, openApkDownload } from "@/hooks/useAppUpdate";
 import { type SyncResult } from "@/lib/syncEngine";
 import { type ChatSession } from "@/lib/offlineDb";
+import {
+  getClinicianRewards,
+  getLevelInfo,
+  XP_EVENT_NAME,
+  type ClinicianRewards,
+} from "@/lib/gamification";
 
 function formatSessionTime(iso: string): string {
   try {
@@ -75,7 +81,7 @@ interface SidebarProps {
   updateInfo?: VersionManifest | null;
   onDismissUpdate?: () => void;
   userProfile?: UserProfile;
-  onOpenProfileModal?: () => void;
+  onOpenProfileModal?: (tab?: "assignment" | "rewards") => void;
   appSettings?: AppSettings;
   onToggleAutoUpdate?: () => void;
   onToggleAutoSync?: () => void;
@@ -164,6 +170,17 @@ export default function Sidebar({
     audio: false,
     diagnostics: false,
   });
+
+  const [rewards, setRewards] = useState<ClinicianRewards>(() => getClinicianRewards());
+
+  useEffect(() => {
+    setRewards(getClinicianRewards());
+    const handleXp = () => {
+      setRewards(getClinicianRewards());
+    };
+    window.addEventListener(XP_EVENT_NAME, handleXp);
+    return () => window.removeEventListener(XP_EVENT_NAME, handleXp);
+  }, []);
 
   const toggleCategory = (cat: keyof typeof openCategories) => {
     setOpenCategories((prev) => ({
@@ -291,25 +308,36 @@ export default function Sidebar({
         {userProfile && (
           <button
             type="button"
-            onClick={onOpenProfileModal}
-            title="Edit User Profile & Clinical Assignment"
+            onClick={() => onOpenProfileModal?.("rewards")}
+            title="View Clinical Rewards & Rank"
             data-testid="sidebar-profile-badge"
-            className="w-full mt-2.5 flex items-center justify-between p-2 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 text-left transition-colors cursor-pointer group"
+            className="w-full mt-2.5 p-2 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 text-left transition-colors cursor-pointer group"
           >
-            <div className="flex items-center gap-2 truncate">
-              <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 text-[10px] font-bold">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 text-xs font-bold">
                 {userProfile.fullName ? userProfile.fullName[0].toUpperCase() : "RN"}
               </div>
-              <div className="truncate">
-                <div className="text-[11px] font-semibold text-zinc-200 group-hover:text-emerald-300 transition-colors truncate">
-                  {userProfile.fullName}
+              <div className="truncate flex-1">
+                <div className="flex items-center justify-between mb-0.5">
+                  <div className="text-[11px] font-semibold text-zinc-200 group-hover:text-emerald-300 transition-colors truncate">
+                    {userProfile.fullName}
+                  </div>
+                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0 ml-1">
+                    Lv.{getLevelInfo(rewards.xp).level} · {rewards.xp} XP
+                  </span>
                 </div>
                 <div className="text-[10px] text-zinc-400 font-mono truncate">
                   {userProfile.facilityName} · {userProfile.clinicalRole}
                 </div>
               </div>
             </div>
-            <User className="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-300 shrink-0" />
+            {/* XP Mini Progress Bar */}
+            <div className="w-full h-1 rounded-full bg-zinc-800 mt-2 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
+                style={{ width: `${getLevelInfo(rewards.xp).progressPercent}%` }}
+              />
+            </div>
           </button>
         )}
 
@@ -675,7 +703,7 @@ export default function Sidebar({
                 <div className="p-2.5 pt-1.5 border-t border-zinc-800/60 bg-zinc-950/60">
                   <button
                     type="button"
-                    onClick={onOpenProfileModal}
+                    onClick={() => onOpenProfileModal?.("assignment")}
                     data-testid="sidebar-profile-button"
                     className="w-full flex items-center justify-between p-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-200 text-xs transition-colors cursor-pointer group"
                   >

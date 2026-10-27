@@ -61,6 +61,11 @@ import { useUserProfile } from "@/hooks/useUserProfile";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { CURRENT_VERSION } from "@/lib/version";
 import { UserProfile } from "@/lib/userProfile";
+import {
+  awardClinicalXP,
+  XP_EVENT_NAME,
+  type XpGainedDetail,
+} from "@/lib/gamification";
 
 export default function Home() {
   const [tenants, setTenants] = useState<string[]>([
@@ -101,9 +106,24 @@ export default function Home() {
   // User Profile & Clinical Assignment Modal
   const { profile, saveProfile } = useUserProfile();
   const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
+  const [profileModalTab, setProfileModalTab] = useState<"assignment" | "rewards">("assignment");
   const [resourceModalOpen, setResourceModalOpen] = useState<boolean>(false);
   const [peerQnAOpen, setPeerQnAOpen] = useState<boolean>(false);
   const [peerQnAPrefill, setPeerQnAPrefill] = useState<string>("");
+  const [xpToast, setXpToast] = useState<XpGainedDetail | null>(null);
+
+  useEffect(() => {
+    const handleXpGained = (e: any) => {
+      if (e.detail) {
+        setXpToast(e.detail);
+        setTimeout(() => {
+          setXpToast((cur) => (cur === e.detail ? null : cur));
+        }, 3500);
+      }
+    };
+    window.addEventListener(XP_EVENT_NAME, handleXpGained);
+    return () => window.removeEventListener(XP_EVENT_NAME, handleXpGained);
+  }, []);
 
   // Authentication & Session State (Phase 33)
   const [authSession, setAuthSession] = useState<AuthSession | null>(null);
@@ -481,6 +501,7 @@ export default function Home() {
         };
 
         setMessages((prev) => [...prev, botMessage]);
+        awardClinicalXP("lookup", "Clinical Lookup: " + trimmed.slice(0, 30));
 
         // Auto-TTS if enabled
         if (response.reply_text) {
@@ -589,6 +610,7 @@ export default function Home() {
           ]);
 
           speakText(res.reply_text);
+          awardClinicalXP("lookup", "Voice Lookup: " + (res.safe_transcript || "Voice Query").slice(0, 30));
         }
         return true;
       } catch (err: unknown) {
@@ -635,6 +657,7 @@ export default function Home() {
   const handleVerifyPendingMove = async (item: string) => {
     try {
       const res = await verifyMove(selectedTenant, item);
+      awardClinicalXP("inventory_fix", "Verified Move: " + item);
       setMessages((prev) => [
         ...prev,
         {
@@ -655,6 +678,7 @@ export default function Home() {
         item,
         timestamp: new Date().toISOString(),
       });
+      awardClinicalXP("inventory_fix", "Verified Move (Offline): " + item);
       setMessages((prev) => [
         ...prev,
         {
@@ -674,6 +698,7 @@ export default function Home() {
   const handleFlagWrong = async (item: string) => {
     try {
       const res = await flagItemWrong(selectedTenant, item);
+      awardClinicalXP("inventory_fix", "Location Flagged: " + item);
       setMessages((prev) => [
         ...prev,
         {
@@ -695,6 +720,7 @@ export default function Home() {
         reason: "Location empty or item moved",
         timestamp: new Date().toISOString(),
       });
+      awardClinicalXP("inventory_fix", "Location Flagged (Offline): " + item);
       setMessages((prev) => [
         ...prev,
         {
@@ -928,7 +954,10 @@ export default function Home() {
             updateInfo={updateInfo}
             onDismissUpdate={dismissUpdate}
             userProfile={profile}
-            onOpenProfileModal={() => setProfileModalOpen(true)}
+            onOpenProfileModal={(tab) => {
+              setProfileModalTab(tab || "assignment");
+              setProfileModalOpen(true);
+            }}
             onOpenResourceManager={() => setResourceModalOpen(true)}
             onOpenPeerQnA={() => {
               setPeerQnAPrefill("");
@@ -989,8 +1018,9 @@ export default function Home() {
               updateInfo={updateInfo}
               onDismissUpdate={dismissUpdate}
               userProfile={profile}
-              onOpenProfileModal={() => {
+              onOpenProfileModal={(tab) => {
                 setMobileSidebarOpen(false);
+                setProfileModalTab(tab || "assignment");
                 setProfileModalOpen(true);
               }}
               onOpenResourceManager={() => {
@@ -1182,6 +1212,7 @@ export default function Home() {
         isOpen={profileModalOpen}
         onClose={() => setProfileModalOpen(false)}
         currentProfile={profile}
+        initialTab={profileModalTab}
         onSaveProfile={(updated) => {
           handleSaveProfile(updated);
           setIsOnboardingMode(false);
@@ -1201,6 +1232,33 @@ export default function Home() {
         onboardingMode={isOnboardingMode}
         onSignOut={handleSignOut}
       />
+
+      {/* Floating XP Micro-Feedback Toast Pill */}
+      {xpToast && (
+        <aside
+          role="status"
+          aria-live="polite"
+          data-testid="xp-toast-pill"
+          className="fixed top-3 right-3 sm:top-4 sm:right-4 z-50 flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-zinc-950/95 border border-emerald-500/50 text-zinc-100 shadow-2xl backdrop-blur-md animate-in slide-in-from-top-2 duration-200 pointer-events-none"
+        >
+          <div className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-sm shrink-0">
+            {xpToast.levelUp ? "🏆" : xpToast.badgeUnlocked ? "🎖️" : "✨"}
+          </div>
+          <div className="text-xs">
+            <div className="font-semibold text-emerald-400 flex items-center gap-1.5">
+              <span>+{xpToast.amount} XP</span>
+              {xpToast.levelUp && (
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  LEVEL UP! (Lv.{xpToast.level})
+                </span>
+              )}
+            </div>
+            <div className="text-[11px] text-zinc-300 truncate max-w-[220px]">
+              {xpToast.badgeUnlocked ? `Badge: ${xpToast.badgeUnlocked.title}!` : xpToast.label}
+            </div>
+          </div>
+        </aside>
+      )}
 
       {/* On-Demand Hospital Knowledge Packs & Resource Manager Modal */}
       <ResourceManagerModal

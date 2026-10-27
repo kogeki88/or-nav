@@ -28,6 +28,7 @@ import {
 } from "@/lib/resourceManager";
 import { type InstalledResourcePack } from "@/lib/offlineDb";
 import { getUserProfile, type UserProfile } from "@/lib/userProfile";
+import { awardClinicalXP } from "@/lib/gamification";
 
 interface ResourceManagerModalProps {
   isOpen: boolean;
@@ -104,6 +105,7 @@ export default function ResourceManagerModal({
     try {
       await installPack(pack);
       setStatusMessage(`Installed ${pack.title}`);
+      awardClinicalXP("pack_sync", `Synced Pack: ${pack.title}`);
       await loadData();
     } catch (err: any) {
       setStatusMessage(`Error: ${err.message}`);
@@ -137,6 +139,7 @@ export default function ResourceManagerModal({
         await installPack(pack);
       }
       setStatusMessage("All required packs synced successfully!");
+      awardClinicalXP("pack_sync", "All Required Packs Synced");
       await loadData();
     } catch (err: any) {
       setStatusMessage(`Sync error: ${err.message}`);

@@ -168,12 +168,12 @@ async def get_version(response: Response):
             pass
 
     return {
-        "version": "v0.5",
-        "build_number": 7,
+        "version": "v0.51",
+        "build_number": 8,
         "release_date": "2026-10-27",
         "apk_download_url": f"http://{lan_ip or '192.168.1.217'}:8000/api/download-apk",
         "min_supported_version": "v0.1",
-        "changelog": "v0.5 (Build 7): Added Login & First-Time Profile Onboarding, Fictional Hospital 3-Tier GitHub Resource Packs, Persistent Multi-Case Chat History, Peer Q&A Verification, and 95% APK Size Reduction.",
+        "changelog": "v0.51 (Build 8): Clinical Mastery & Gamification Engine on User Profile, Level Progression, Shift Quests, and Achievement Badges.",
     }
 
 
