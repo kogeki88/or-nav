@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">OR-Nav</string>
+    <string name="title_activity_main">OR-Nav</string>
+    <string name="package_name">com.ornav.clinical</string>
+    <string name="custom_url_scheme">com.ornav.clinical</string>
+</resources>

@@ -1,0 +1,51 @@
+# Environment & Secrets (NEVER commit live API keys)
+.env
+.env.*
+backend/.env
+backend/.env.*
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+backend/venv/
+venv/
+ENV/
+.pytest_cache/
+.coverage
+htmlcov/
+*.wav
+
+# Node & Next.js
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+frontend/chrome/
+chrome/
+out/
+frontend/out/
+build/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Android & Gradle
+.android-sdk/
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/app/build/
+frontend/android/.idea/
+frontend/android/local.properties
+
+# OS & Temp
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+*.tmp.*
+*.swp
+*~
