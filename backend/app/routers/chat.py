@@ -23,7 +23,7 @@ from typing import Optional
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
-from app.config import get_tenant, settings
+from app.config import get_tenant, settings, DEPARTMENTS
 from app.scrubber import scrub_phi
 from app.services.governance import get_governance_service
 from app.services.inventory_search import (
@@ -31,7 +31,11 @@ from app.services.inventory_search import (
     split_compound_query,
     preprocess_voice_query,
 )
-from app.services.rag_fallback import get_rag_service
+from app.services.rag_fallback import (
+    get_rag_service,
+    evaluate_rbac,
+    filter_surgeon_note_for_role,
+)
 
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -47,6 +51,14 @@ class ChatRequest(BaseModel):
     tenant_id: str = Field(
         default=settings.default_tenant,
         description="Hospital tenant directory ID",
+    )
+    facility_name: Optional[str] = Field(
+        default="General Memorial Hospital",
+        description="Root hospital facility name",
+    )
+    clinical_role: Optional[str] = Field(
+        default=None,
+        description="Assigned clinical role (e.g. Circulating RN (CNOR), Scrub Nurse / CST)",
     )
 
 
@@ -146,7 +158,7 @@ class CreateQuestionRequest(BaseModel):
     """Request body for POST /api/questions."""
     tenant_id: str = Field(default=settings.default_tenant)
     question_text: str = Field(..., min_length=3)
-    asked_by_role: str = Field(default="CVOR Orientee RN")
+    asked_by_role: str = Field(default="Clinical Orientee RN")
 
 
 class AnswerQuestionRequest(BaseModel):
@@ -154,7 +166,7 @@ class AnswerQuestionRequest(BaseModel):
     tenant_id: str = Field(default=settings.default_tenant)
     answer_text: Optional[str] = Field(default=None)
     confidence: str = Field(default="confident")  # "confident" | "tentative_unsure" | "verified"
-    responder_role: str = Field(default="CVOR Peer RN")
+    responder_role: str = Field(default="Clinical Peer RN")
     promote_to_verified: bool = Field(default=False)
 
 
@@ -242,6 +254,12 @@ async def handle_chat(req: ChatRequest):
                     if spec_note:
                         card.surgeon_filter = surgeon_name
                         card.highlighted_surgeon_note = spec_note
+                if req.clinical_role:
+                    card.surgeon_notes = filter_surgeon_note_for_role(card.surgeon_notes, req.clinical_role) or ""
+                    if card.highlighted_surgeon_note:
+                        card.highlighted_surgeon_note = filter_surgeon_note_for_role(card.highlighted_surgeon_note, req.clinical_role)
+                        if not card.highlighted_surgeon_note:
+                            card.surgeon_filter = None
                 if not any(existing.item == card.item for existing in cards_found):
                     cards_found.append(card)
             else:
@@ -274,8 +292,16 @@ async def handle_chat(req: ChatRequest):
             if procedural_parts:
                 rag_service = get_rag_service(req.tenant_id)
                 for p_query in procedural_parts:
-                    rag_reply, _ = await rag_service.query_with_meta(p_query)
-                    reply += f"\n\n📋 Clinical Guidance for '{p_query}':\n{rag_reply}"
+                    allowed, denial_reason = evaluate_rbac(p_query, req.clinical_role)
+                    if not allowed:
+                        reply += f"\n\n📋 Clinical Guidance for '{p_query}':\n{denial_reason}"
+                    else:
+                        rag_reply, _ = await rag_service.query_with_meta(
+                            p_query,
+                            facility_name=req.facility_name,
+                            clinical_role=req.clinical_role,
+                        )
+                        reply += f"\n\n📋 Clinical Guidance for '{p_query}':\n{rag_reply}"
 
             if missing_parts:
                 missing_str = ", ".join(f"'{p}'" for p in missing_parts)
@@ -298,6 +324,9 @@ async def handle_chat(req: ChatRequest):
         if len(family_cards_dict) > 1:
             elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
             family_cards = [CoordinateCard(**cd) for cd in family_cards_dict]
+            if req.clinical_role:
+                for fc in family_cards:
+                    fc.surgeon_notes = filter_surgeon_note_for_role(fc.surgeon_notes, req.clinical_role) or ""
             reply_lines = [
                 f"• {c.item}: {c.room}, Cabinet {c.cabinet}, Shelf {c.shelf}, Bin {c.container}"
                 for c in family_cards
@@ -326,6 +355,13 @@ async def handle_chat(req: ChatRequest):
             if spec_note:
                 card.surgeon_filter = surgeon_name
                 card.highlighted_surgeon_note = spec_note
+
+        if req.clinical_role:
+            card.surgeon_notes = filter_surgeon_note_for_role(card.surgeon_notes, req.clinical_role) or ""
+            if card.highlighted_surgeon_note:
+                card.highlighted_surgeon_note = filter_surgeon_note_for_role(card.highlighted_surgeon_note, req.clinical_role)
+                if not card.highlighted_surgeon_note:
+                    card.surgeon_filter = None
 
         reply = f"{card.item} is in {card.room}, Cabinet {card.cabinet}, Shelf {card.shelf}, Container {card.container}."
         if card.highlighted_surgeon_note:
@@ -356,8 +392,26 @@ async def handle_chat(req: ChatRequest):
         )
 
     # Step 4: Tier 2 Gemini 2.5 Flash RAG Fallback (+ GLOBAL_BASELINE)
+    allowed, denial_reason = evaluate_rbac(scrubbed_text, req.clinical_role)
+    if not allowed:
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
+        return ChatResponse(
+            reply_text=denial_reason or "Access restricted.",
+            routing_tier="RBAC_RESTRICTED",
+            scrubbed_query=scrubbed_text,
+            phi_detected=phi_detected,
+            latency_ms=elapsed_ms,
+            is_educational_baseline=False,
+            coordinate_card=None,
+            move_widget=None,
+        )
+
     rag_service = get_rag_service(req.tenant_id)
-    rag_reply, is_baseline = await rag_service.query_with_meta(scrubbed_text)
+    rag_reply, is_baseline = await rag_service.query_with_meta(
+        scrubbed_text,
+        facility_name=req.facility_name,
+        clinical_role=req.clinical_role,
+    )
     elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
 
     return ChatResponse(
@@ -485,14 +539,15 @@ async def handle_in_ram_voice_query(
                         data=audio_bytes,
                         mime_type=mime_type,
                     )
+                    dept_info = DEPARTMENTS.get(tenant_id, {})
+                    vocab_hint = dept_info.get("vocab_hint", "Prolene, Silk, Ti-Cron, DeBakey, Weitlaner, Bovie, Heparin, Dantrolene")
                     prompt = (
                         "Transcribe the spoken words in this audio verbatim. "
                         "CRITICAL RULE: If the audio contains only silence, static, clicks, "
                         "or background hum with no clear human speech, return the exact string "
                         "[SILENCE] and nothing else. Do NOT guess or invent words from the "
                         "vocabulary hint. "
-                        "Spelling hint (use ONLY if these words are clearly spoken): Prolene, "
-                        "Silk, Ti-Cron, DeBakey, Weitlaner, Bovie, Pledgets, Heparin, Dantrolene. "
+                        f"Spelling hint (use ONLY if these words are clearly spoken): {vocab_hint}. "
                         "Return ONLY the raw transcript text with no quotes or commentary."
                     )
                     resp = await client.aio.models.generate_content(

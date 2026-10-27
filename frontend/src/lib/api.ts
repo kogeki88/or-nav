@@ -7,7 +7,22 @@
  */
 
 import { scrubPhi } from "./scrubClient";
-import { searchOfflineTier0 } from "./offlineDb";
+import {
+  searchOfflineTier0,
+  fetchQuestionsOffline,
+  createQuestionOffline,
+  answerQuestionOffline,
+} from "./offlineDb";
+import {
+  executeStandaloneSearch,
+  verifyMoveStandalone,
+  flagWrongStandalone,
+} from "./standaloneEngine";
+import {
+  directTranscribeAudio,
+  getClientGeminiApiKey,
+  setClientGeminiApiKey,
+} from "./directGemini";
 
 // Single-port relative path by default so Next.js proxies to backend without CORS or port 8000 mobile issues
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
@@ -39,12 +54,14 @@ export interface MoveWidgetData {
   new_location: string;
   verify_count: number;
   committed: boolean;
+  current_location?: string;
+  required_count?: number;
 }
 
 export interface ChatResponse {
   scrubbed_query: string;
   phi_detected: boolean;
-  routing_tier: "TIER_1_LOCAL_CSV" | "TIER_2_GEMINI_RAG" | "MOVE_REPORTED";
+  routing_tier: "TIER_1_LOCAL_CSV" | "TIER_2_GEMINI_RAG" | "MOVE_REPORTED" | "RBAC_RESTRICTED";
   latency_ms: number;
   is_educational_baseline?: boolean;
   reply_text: string;
@@ -133,25 +150,37 @@ export interface QuestionsListResponse {
  * Fetch current Gemini 2.5 Flash API key status.
  */
 export async function fetchGeminiStatus(): Promise<GeminiStatusResponse> {
-  const res = await fetch(`${API_BASE}/api/config/gemini-status`);
-  if (!res.ok) throw new Error(`Failed to fetch Gemini status: ${res.status}`);
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/config/gemini-status`);
+    if (res.ok) return res.json();
+  } catch {}
+  const clientKey = getClientGeminiApiKey();
+  return {
+    configured: !!clientKey,
+    masked_key: clientKey ? `${clientKey.slice(0, 6)}...${clientKey.slice(-4)}` : null,
+    model: "gemini-2.5-flash (Standalone Serverless)",
+  };
 }
 
 /**
- * Save and hot-reload Gemini API key in backend/.env.
+ * Save and hot-reload Gemini API key in local storage & backend/.env if available.
  */
 export async function saveGeminiKey(apiKey: string): Promise<GeminiStatusResponse> {
-  const res = await fetch(`${API_BASE}/api/config/gemini-key`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ api_key: apiKey }),
-  });
-  if (!res.ok) {
-    const err = await res.text().catch(() => "");
-    throw new Error(`Failed to save Gemini key (${res.status}): ${err}`);
-  }
-  return res.json();
+  setClientGeminiApiKey(apiKey);
+  try {
+    const res = await fetch(`${API_BASE}/api/config/gemini-key`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: apiKey }),
+    });
+    if (res.ok) return res.json();
+  } catch {}
+  const key = apiKey.trim();
+  return {
+    configured: !!key,
+    masked_key: key ? `${key.slice(0, 6)}...${key.slice(-4)}` : null,
+    model: "gemini-2.5-flash (Standalone Serverless)",
+  };
 }
 
 /**
@@ -205,16 +234,18 @@ export async function fetchTenants(): Promise<TenantsResponse> {
 
 /**
  * Send a chat message to the backend.
- * Runs client-side PHI scrubber before sending, and falls back to Tier-0
- * local IndexedDB (`offlineDb.ts`) if the browser is offline.
+ * Runs client-side PHI scrubber before sending, and falls back to
+ * on-device standaloneEngine (IndexedDB + Direct Gemini 2.5 Flash) if server is offline.
  */
 export async function sendChatMessage(
   message: string,
   tenantId: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  userProfile?: import("./userProfile").UserProfile
 ): Promise<{ response: ChatResponse; clientPhiRedacted: boolean; clientScrubbedText: string }> {
   const { text: clientScrubbedText, redactionCount } = scrubPhi(message);
   const clientPhiRedacted = redactionCount > 0;
+  const profile = userProfile || (await import("./userProfile")).getUserProfile();
 
   try {
     const res = await fetch(`${API_BASE}/api/chat`, {
@@ -224,25 +255,27 @@ export async function sendChatMessage(
       body: JSON.stringify({
         message: clientScrubbedText,
         tenant_id: tenantId,
+        facility_name: profile.facilityName,
+        clinical_role: profile.clinicalRole,
       }),
     });
 
-    if (!res.ok) {
-      const errorBody = await res.text().catch(() => "");
-      throw new Error(`Chat request failed (${res.status}): ${errorBody}`);
+    if (res.ok) {
+      const response: ChatResponse = await res.json();
+      return { response, clientPhiRedacted, clientScrubbedText };
     }
-
-    const response: ChatResponse = await res.json();
-    return { response, clientPhiRedacted, clientScrubbedText };
   } catch (err) {
-    if (signal?.aborted) {
-      throw err;
-    }
-    // Layer 1 Offline PWA Fallback: Try Tier-0 IndexedDB lookup in <5ms
-    const t0 = performance.now();
+    if (signal?.aborted) throw err;
+  }
+
+  // Pure Zero-Server Standalone On-Device Fallback (Phase 21 & 27)
+  try {
+    const response = await executeStandaloneSearch(clientScrubbedText, tenantId, profile);
+    return { response, clientPhiRedacted, clientScrubbedText };
+  } catch {
+    // Ultimate fallback to basic Tier-0
     const offlineCard = await searchOfflineTier0(clientScrubbedText, tenantId);
     if (offlineCard) {
-      const elapsed = Math.max(1, Math.round(performance.now() - t0));
       return {
         clientPhiRedacted,
         clientScrubbedText,
@@ -250,102 +283,119 @@ export async function sendChatMessage(
           scrubbed_query: clientScrubbedText,
           phi_detected: clientPhiRedacted,
           routing_tier: "TIER_1_LOCAL_CSV",
-          latency_ms: elapsed,
-          reply_text: `${offlineCard.item} is in ${offlineCard.room}, Cabinet ${offlineCard.cabinet}, Shelf ${offlineCard.shelf}, Bin ${offlineCard.container}. (Offline Cache)`,
+          latency_ms: 1,
+          reply_text: `${offlineCard.item} is in ${offlineCard.room}, Cabinet ${offlineCard.cabinet}, Shelf ${offlineCard.shelf}, Bin ${offlineCard.container}. (Offline Standalone)`,
           coordinate_card: offlineCard,
           move_widget: null,
         },
       };
     }
-    throw err;
+    throw new Error("Unable to execute query in standalone offline mode.");
   }
 }
 
 /**
  * Confirm / verify a pending item relocation (+1).
- * Vector 3: Passes expectedLocation to guard against split-brain confirmations.
+ * Falls back to standalone on-device IndexedDB governance if server is offline.
  */
 export async function verifyMove(
   tenantId: string,
   item: string,
   expectedLocation?: string
 ): Promise<VerifyMoveResponse> {
-  const res = await fetch(`${API_BASE}/api/inventory/verify-move`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      tenant_id: tenantId,
-      item,
-      expected_location: expectedLocation,
-    }),
-  });
+  try {
+    const res = await fetch(`${API_BASE}/api/inventory/verify-move`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        item,
+        expected_location: expectedLocation,
+      }),
+    });
 
-  if (!res.ok) {
-    const errorBody = await res.text().catch(() => "");
-    throw new Error(`Verify move failed (${res.status}): ${errorBody}`);
-  }
+    if (res.ok) {
+      return res.json();
+    }
+  } catch {}
 
-  return res.json();
+  // Pure Zero-Server Standalone On-Device Relocation (Phase 21)
+  return await verifyMoveStandalone(item, expectedLocation, tenantId);
 }
 
 /**
  * Flag an item location as empty, moved, or needing re-verification.
+ * Falls back to standalone on-device IndexedDB governance if server is offline.
  */
 export async function flagItemWrong(
   tenantId: string,
   item: string,
   reason: string = "Flagged empty or moved by clinician"
 ): Promise<CoordinateCardData> {
-  const res = await fetch(`${API_BASE}/api/inventory/flag-wrong`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      tenant_id: tenantId,
-      item,
-      reason,
-    }),
-  });
-  if (!res.ok) {
-    const errorBody = await res.text().catch(() => "");
-    throw new Error(`Flag item failed (${res.status}): ${errorBody}`);
-  }
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/inventory/flag-wrong`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        item,
+        reason,
+      }),
+    });
+    if (res.ok) {
+      return res.json();
+    }
+  } catch {}
+
+  // Pure Zero-Server Standalone On-Device Flagging (Phase 21)
+  return await flagWrongStandalone(item, reason, tenantId);
 }
 
 /**
  * Fetch department unanswered & tentative questions.
+ * Falls back to local IndexedDB store if server is offline.
  */
 export async function fetchQuestions(tenantId: string): Promise<QuestionsListResponse> {
-  const res = await fetch(
-    `${API_BASE}/api/questions?tenant_id=${encodeURIComponent(tenantId)}`
-  );
-  if (!res.ok) throw new Error(`Failed to fetch questions: ${res.status}`);
-  return res.json();
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/questions?tenant_id=${encodeURIComponent(tenantId)}`
+    );
+    if (res.ok) return res.json();
+  } catch {}
+
+  // Pure Zero-Server Standalone Questions Fallback (Phase 21)
+  return await fetchQuestionsOffline(tenantId);
 }
 
 /**
  * Create a new unanswered orientee question.
+ * Falls back to local IndexedDB store if server is offline.
  */
 export async function createQuestion(
   tenantId: string,
   questionText: string,
-  askedByRole: string = "CVOR Orientee RN"
+  askedByRole: string = "Clinical Orientee RN"
 ): Promise<DepartmentQuestion> {
-  const res = await fetch(`${API_BASE}/api/questions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      tenant_id: tenantId,
-      question_text: questionText,
-      asked_by_role: askedByRole,
-    }),
-  });
-  if (!res.ok) throw new Error(`Failed to create question: ${res.status}`);
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/questions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        question_text: questionText,
+        asked_by_role: askedByRole,
+      }),
+    });
+    if (res.ok) return res.json();
+  } catch {}
+
+  // Pure Zero-Server Standalone Question Creation (Phase 21)
+  return await createQuestionOffline(tenantId, questionText, askedByRole);
 }
 
 /**
  * Submit a peer answer ('confident' | 'tentative_unsure') or promote to 'verified'.
+ * Falls back to local IndexedDB store if server is offline.
  */
 export async function answerQuestion(
   tenantId: string,
@@ -357,19 +407,23 @@ export async function answerQuestion(
     promoteToVerified?: boolean;
   }
 ): Promise<DepartmentQuestion> {
-  const res = await fetch(`${API_BASE}/api/questions/${encodeURIComponent(questionId)}/answer`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      tenant_id: tenantId,
-      answer_text: options.answerText,
-      confidence: options.confidence || "confident",
-      responder_role: options.responderRole || "CVOR Peer RN",
-      promote_to_verified: Boolean(options.promoteToVerified),
-    }),
-  });
-  if (!res.ok) throw new Error(`Failed to answer question: ${res.status}`);
-  return res.json();
+  try {
+    const res = await fetch(`${API_BASE}/api/questions/${encodeURIComponent(questionId)}/answer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        answer_text: options.answerText,
+        confidence: options.confidence || "confident",
+        responder_role: options.responderRole || "CVOR Peer RN",
+        promote_to_verified: Boolean(options.promoteToVerified),
+      }),
+    });
+    if (res.ok) return res.json();
+  } catch {}
+
+  // Pure Zero-Server Standalone Question Answering (Phase 21)
+  return await answerQuestionOffline(tenantId, questionId, options);
 }
 
 export interface VoiceQueryResponse extends Partial<ChatResponse> {
@@ -378,38 +432,55 @@ export interface VoiceQueryResponse extends Partial<ChatResponse> {
 }
 
 /**
- * Upload an in-RAM recorded audio blob (MediaRecorder or mobile capture)
- * to POST /api/v1/voice-query (powered by faster-whisper / Gemini 2.5 Flash Audio).
- * Returns `{ silence: true, safe_transcript: "" }` when no speech is detected.
+ * Upload an in-RAM recorded audio blob (MediaRecorder or mobile capture).
+ * When server is offline, runs direct on-device transcription via Gemini 2.5 Flash
+ * and executes query through standaloneEngine.
  */
 export async function sendVoiceAudioQuery(
   audioBlob: Blob | File,
   tenantId: string
 ): Promise<VoiceQueryResponse> {
-  const formData = new FormData();
-  const filename =
-    audioBlob instanceof File
-      ? audioBlob.name
-      : audioBlob.type.includes("mp4")
-      ? "ptt_clip.mp4"
-      : audioBlob.type.includes("wav")
-      ? "ptt_clip.wav"
-      : "ptt_clip.webm";
+  try {
+    const formData = new FormData();
+    const filename =
+      audioBlob instanceof File
+        ? audioBlob.name
+        : audioBlob.type.includes("mp4")
+        ? "ptt_clip.mp4"
+        : audioBlob.type.includes("wav")
+        ? "ptt_clip.wav"
+        : "ptt_clip.webm";
 
-  formData.append("file", audioBlob, filename);
-  formData.append("tenant_id", tenantId);
+    formData.append("file", audioBlob, filename);
+    formData.append("tenant_id", tenantId);
 
-  const res = await fetch(`${API_BASE}/api/v1/voice-query`, {
-    method: "POST",
-    body: formData,
-  });
+    const res = await fetch(`${API_BASE}/api/v1/voice-query`, {
+      method: "POST",
+      body: formData,
+    });
 
-  if (!res.ok) {
-    const errorBody = await res.text().catch(() => "");
-    throw new Error(`Voice audio query failed (${res.status}): ${errorBody}`);
+    if (res.ok) {
+      return res.json();
+    }
+  } catch {}
+
+  // Pure Zero-Server Direct Client Voice Processing (Phase 21 & Phase 22)
+  try {
+    const transcript = await directTranscribeAudio(audioBlob, tenantId);
+    if (!transcript) {
+      return { silence: true, safe_transcript: "" };
+    }
+
+    const chatResponse = await executeStandaloneSearch(transcript, tenantId);
+    return {
+      ...chatResponse,
+      safe_transcript: transcript,
+      silence: false,
+    };
+  } catch (err) {
+    console.warn("Direct standalone voice query failed:", err);
+    return { silence: true, safe_transcript: "" };
   }
-
-  return res.json();
 }
 
 /**
@@ -431,4 +502,13 @@ export async function ingestFile(tenantId: string, file: File): Promise<IngestRe
   }
 
   return res.json();
+}
+
+/**
+ * Fetch remote version manifest with robust fallback cascade for OTA update checking.
+ */
+export async function fetchVersionManifest(): Promise<import("./version").VersionManifest> {
+  const { fetchRemoteVersionManifest } = await import("@/hooks/useAppUpdate");
+  const res = await fetchRemoteVersionManifest();
+  return res.manifest;
 }

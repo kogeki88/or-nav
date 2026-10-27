@@ -39,7 +39,8 @@ if %ERRORLEVEL% EQU 0 (
     echo [2/2] Copying app-debug.apk to frontend\public\or-nav.apk...
     if exist "app\build\outputs\apk\debug\app-debug.apk" (
         copy /y "app\build\outputs\apk\debug\app-debug.apk" "%~dp0frontend\public\or-nav.apk" >nul
-        echo [SUCCESS] APK built and published to frontend\public\or-nav.apk!
+        copy /y "app\build\outputs\apk\debug\app-debug.apk" "%~dp0or-nav-standalone.apk" >nul
+        echo [SUCCESS] Standalone APK built and published to frontend\public\or-nav.apk and or-nav-standalone.apk!
         echo Clinicians can now download the APK directly from the QR Pairing Modal.
     ) else (
         echo [!] Gradle succeeded, but app-debug.apk was not found in output directory.

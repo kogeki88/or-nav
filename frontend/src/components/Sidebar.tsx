@@ -11,8 +11,23 @@ import {
   Sparkles,
   Check,
   Clock,
+  Layers,
+  Download,
+  X,
+  User,
+  RefreshCw,
+  Search,
+  Activity,
+  Volume2,
+  Key,
 } from "lucide-react";
 import { fetchGeminiStatus, saveGeminiKey } from "@/lib/api";
+import { DEPARTMENT_LIST, DEPARTMENTS } from "@/lib/departments";
+import { CURRENT_VERSION, CURRENT_BUILD_NUMBER, type VersionManifest } from "@/lib/version";
+import { type UserProfile } from "@/lib/userProfile";
+import { type AppSettings } from "@/lib/appSettings";
+import { type CheckUpdateResult, openApkDownload } from "@/hooks/useAppUpdate";
+import { type SyncResult } from "@/lib/syncEngine";
 
 interface SidebarProps {
   tenants: string[];
@@ -31,6 +46,16 @@ interface SidebarProps {
   onToggleVoiceMode?: () => void;
   onOpenQRPair?: () => void;
   history?: string[];
+  updateAvailable?: boolean;
+  updateInfo?: VersionManifest | null;
+  onDismissUpdate?: () => void;
+  userProfile?: UserProfile;
+  onOpenProfileModal?: () => void;
+  appSettings?: AppSettings;
+  onToggleAutoUpdate?: () => void;
+  onToggleAutoSync?: () => void;
+  onCheckForUpdates?: () => Promise<CheckUpdateResult>;
+  onManualSync?: () => Promise<SyncResult>;
 }
 
 export default function Sidebar({
@@ -48,6 +73,16 @@ export default function Sidebar({
   voiceMode = "BROWSER_WEB_SPEECH",
   onOpenQRPair,
   history = [],
+  updateAvailable = false,
+  updateInfo = null,
+  onDismissUpdate,
+  userProfile,
+  onOpenProfileModal,
+  appSettings,
+  onToggleAutoUpdate,
+  onToggleAutoSync,
+  onCheckForUpdates,
+  onManualSync,
 }: SidebarProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [geminiConfigured, setGeminiConfigured] = useState(false);
@@ -55,6 +90,114 @@ export default function Sidebar({
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [savingKey, setSavingKey] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Manual Check for Updates state
+  const [manualUpdateChecking, setManualUpdateChecking] = useState(false);
+  const [updateAvailableManifest, setUpdateAvailableManifest] = useState<VersionManifest | null>(null);
+  const [serverUrlInput, setServerUrlInput] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("ornav_server_url") || "http://192.168.1.217:8000";
+    }
+    return "http://192.168.1.217:8000";
+  });
+  const [updateStatusFeedback, setUpdateStatusFeedback] = useState<{
+    type: "success" | "update_found" | "error";
+    message: string;
+  } | null>(null);
+
+  // Manual Sync Now state
+  const [manualSyncing, setManualSyncing] = useState(false);
+  const [syncStatusFeedback, setSyncStatusFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  // Accordion Category Expand/Collapse State (Phase 26)
+  const [openCategories, setOpenCategories] = useState({
+    api: false,
+    profile: false,
+    services: false,
+    audio: false,
+    diagnostics: false,
+  });
+
+  const toggleCategory = (cat: keyof typeof openCategories) => {
+    setOpenCategories((prev) => ({
+      ...prev,
+      [cat]: !prev[cat],
+    }));
+  };
+
+  const handleManualCheckUpdates = async () => {
+    if (!onCheckForUpdates || manualUpdateChecking) return;
+    setManualUpdateChecking(true);
+    setUpdateStatusFeedback(null);
+    try {
+      const res = await onCheckForUpdates();
+      if (res.updateAvailable && res.manifest) {
+        setUpdateAvailableManifest(res.manifest);
+        setUpdateStatusFeedback({
+          type: "update_found",
+          message: `✨ ${res.manifest.version} (Build ${res.manifest.build_number}) found!`,
+        });
+      } else if (res.isLatest) {
+        setUpdateAvailableManifest(null);
+        setUpdateStatusFeedback({
+          type: "success",
+          message: `✓ App is up to date (${CURRENT_VERSION} Build ${CURRENT_BUILD_NUMBER})`,
+        });
+      } else if (res.error) {
+        setUpdateAvailableManifest(null);
+        setUpdateStatusFeedback({
+          type: "error",
+          message: `⚠️ ${res.error}`,
+        });
+      }
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error && err.message
+          ? err.message
+          : "Could not reach update server. Check your connection or use QR pairing.";
+      setUpdateAvailableManifest(null);
+      setUpdateStatusFeedback({
+        type: "error",
+        message: `⚠️ ${msg}`,
+      });
+    } finally {
+      setManualUpdateChecking(false);
+    }
+  };
+
+  const handleManualSync = async () => {
+    if (!onManualSync || manualSyncing) return;
+    setManualSyncing(true);
+    setSyncStatusFeedback(null);
+    try {
+      const res = await onManualSync();
+      if (res.success) {
+        setSyncStatusFeedback({
+          type: "success",
+          message:
+            res.flushedCount > 0
+              ? `✓ Sync complete! (${res.flushedCount} change${res.flushedCount > 1 ? "s" : ""} pushed)`
+              : "✓ All changes synced & cache is up to date",
+        });
+      } else {
+        setSyncStatusFeedback({
+          type: "error",
+          message: "⚠️ Offline (Check network connection)",
+        });
+      }
+    } catch {
+      setSyncStatusFeedback({
+        type: "error",
+        message: "⚠️ Sync failed",
+      });
+    } finally {
+      setManualSyncing(false);
+      setTimeout(() => setSyncStatusFeedback(null), 4500);
+    }
+  };
 
   useEffect(() => {
     fetchGeminiStatus()
@@ -91,13 +234,67 @@ export default function Sidebar({
           <div className="flex items-center gap-2">
             <span className="font-semibold text-zinc-100 text-sm tracking-tight">OR-Nav</span>
             <span className="px-1.5 py-0.5 rounded text-[10px] font-mono text-zinc-400 bg-zinc-800/80 border border-zinc-800">
-              v1.0
+              {CURRENT_VERSION}
             </span>
           </div>
           <span className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             <span>Ready</span>
           </span>
+        </div>
+
+        {/* Clinician Profile & Assignment Badge Pill */}
+        {userProfile && (
+          <button
+            type="button"
+            onClick={onOpenProfileModal}
+            title="Edit User Profile & Clinical Assignment"
+            data-testid="sidebar-profile-badge"
+            className="w-full mt-2.5 flex items-center justify-between p-2 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 text-left transition-colors cursor-pointer group"
+          >
+            <div className="flex items-center gap-2 truncate">
+              <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 text-[10px] font-bold">
+                {userProfile.fullName ? userProfile.fullName[0].toUpperCase() : "RN"}
+              </div>
+              <div className="truncate">
+                <div className="text-[11px] font-semibold text-zinc-200 group-hover:text-emerald-300 transition-colors truncate">
+                  {userProfile.fullName}
+                </div>
+                <div className="text-[10px] text-zinc-400 font-mono truncate">
+                  {userProfile.facilityName} · {userProfile.clinicalRole}
+                </div>
+              </div>
+            </div>
+            <User className="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-300 shrink-0" />
+          </button>
+        )}
+
+        {/* Clinical Department / Role Switcher */}
+        <div className="mt-3">
+          <label className="block text-[10px] font-mono uppercase tracking-wider text-zinc-400 mb-1 flex items-center gap-1.5">
+            <Layers className="w-3 h-3 text-zinc-400" />
+            <span>Clinical Department</span>
+          </label>
+          <div className="relative">
+            <select
+              value={selectedTenant}
+              onChange={(e) => onSelectTenant(e.target.value)}
+              data-testid="department-selector"
+              className="w-full appearance-none bg-zinc-900 hover:bg-zinc-800/80 border border-zinc-800 focus:border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs text-zinc-100 font-medium cursor-pointer transition-colors pr-7"
+            >
+              {DEPARTMENT_LIST.map((dept) => (
+                <option key={dept.id} value={dept.id} className="bg-zinc-950 text-zinc-100 py-1">
+                  {dept.name}
+                </option>
+              ))}
+              {!DEPARTMENTS[selectedTenant] && (
+                <option value={selectedTenant} className="bg-zinc-950 text-zinc-100 py-1">
+                  {selectedTenant.replace(/_/g, " ").toUpperCase()}
+                </option>
+              )}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 top-2.5 pointer-events-none" />
+          </div>
         </div>
 
         {/* Clean + New Case Button */}
@@ -108,6 +305,44 @@ export default function Sidebar({
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
           <span>New Case</span>
         </button>
+
+        {/* Over-The-Air (OTA) Update Banner */}
+        {updateAvailable && updateInfo && (
+          <div
+            data-testid="sidebar-update-banner"
+            className="mt-3 p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-200 text-xs shadow-sm relative overflow-hidden"
+          >
+            <div className="flex items-start justify-between gap-1.5">
+              <div className="flex items-center gap-1.5 font-semibold text-emerald-300">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>✨ Update {updateInfo.version} Available</span>
+              </div>
+              {onDismissUpdate && (
+                <button
+                  onClick={onDismissUpdate}
+                  className="text-emerald-400/70 hover:text-emerald-200 p-0.5 rounded transition-colors"
+                  aria-label="Dismiss update notification"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+            {updateInfo.changelog && (
+              <p className="mt-1 text-[11px] text-emerald-300/80 line-clamp-2 leading-relaxed">
+                {updateInfo.changelog}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={() => openApkDownload(updateInfo.apk_download_url)}
+              data-testid="sidebar-download-apk-button"
+              className="mt-2 flex items-center justify-center gap-1.5 w-full py-1.5 px-2 rounded-md bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold text-[11px] transition-colors shadow-sm cursor-pointer"
+            >
+              <Download className="w-3 h-3 stroke-[2.5]" />
+              <span>Tap to download new APK</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Recent History / Cases Feed */}
@@ -139,11 +374,12 @@ export default function Sidebar({
       <div className="border-t border-zinc-800/80 bg-zinc-900/40">
         <button
           onClick={() => setSettingsOpen(!settingsOpen)}
+          data-testid="sidebar-system-toggle"
           className="w-full px-3.5 py-2.5 flex items-center justify-between text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-2">
-            <Settings className="w-3.5 h-3.5 text-zinc-500" />
-            <span className="font-medium">Preferences & System</span>
+            <Settings className="w-3.5 h-3.5 text-zinc-400" />
+            <span className="font-semibold text-zinc-200">System</span>
           </div>
           <div className="flex items-center gap-2">
             <span
@@ -161,137 +397,414 @@ export default function Sidebar({
         </button>
 
         {settingsOpen && (
-          <div className="p-3.5 space-y-3 border-t border-zinc-800/80 bg-zinc-950 text-xs animate-in fade-in duration-150">
-            {/* Gemini AI Engine Configuration */}
-            <div className="space-y-1.5 pb-2.5 border-b border-zinc-800/80">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-zinc-400 flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3 text-zinc-500" />
-                  <span>Gemini AI Engine</span>
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 text-[11px] font-mono">
-                <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${
-                    geminiConfigured ? "bg-emerald-500" : "bg-amber-500"
-                  }`}
-                />
-                {geminiConfigured ? (
-                  <span className="text-zinc-300 truncate">
-                    Gemini 2.5 Flash Active ({maskedKey})
-                  </span>
-                ) : (
-                  <span className="text-zinc-400 truncate">
-                    Offline Fallback Mode (No API Key)
-                  </span>
-                )}
-              </div>
-              <form onSubmit={handleSaveKey} className="flex items-center gap-1.5 pt-1">
-                <input
-                  type="password"
-                  value={apiKeyInput}
-                  onChange={(e) => setApiKeyInput(e.target.value)}
-                  placeholder="Paste AIza... Gemini API key"
-                  className="flex-1 min-w-0 bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[11px] text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700 font-mono"
-                />
-                <button
-                  type="submit"
-                  disabled={!apiKeyInput.trim() || savingKey}
-                  className="px-2.5 py-1 rounded bg-zinc-100 hover:bg-white text-zinc-900 font-medium text-[11px] transition-colors cursor-pointer shrink-0 disabled:opacity-40 flex items-center gap-1"
-                >
-                  {saveSuccess ? <Check className="w-3 h-3 text-emerald-600" /> : null}
-                  <span>{savingKey ? "..." : saveSuccess ? "Saved" : "Save"}</span>
-                </button>
-              </form>
-            </div>
-
-            {/* Facility Tenant Dropdown */}
-            <div>
-              <label className="block text-[11px] font-medium text-zinc-400 mb-1 flex items-center gap-1.5">
-                <Building className="w-3 h-3 text-zinc-500" />
-                <span>Facility Tenant</span>
-              </label>
-              <select
-                value={selectedTenant}
-                onChange={(e) => onSelectTenant(e.target.value)}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-md px-2.5 py-1.5 text-xs text-zinc-200 focus:outline-none focus:border-zinc-700 cursor-pointer"
+          <div className="max-h-[75vh] sm:max-h-[80vh] overflow-y-auto p-3 space-y-2 border-t border-zinc-800/80 bg-zinc-950 text-xs animate-in fade-in duration-150">
+            {/* Category 1: API & Cloud Sync */}
+            <div className="rounded-lg bg-zinc-900/80 border border-zinc-800/80 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => toggleCategory("api")}
+                data-testid="category-api-toggle"
+                className="w-full flex items-center justify-between p-2.5 hover:bg-zinc-800/60 transition-colors text-left cursor-pointer"
               >
-                {tenants.map((t) => (
-                  <option key={t} value={t}>
-                    {t.replace(/_/g, " ").toUpperCase()}
-                  </option>
-                ))}
-                {tenants.length === 0 && (
-                  <option value="general_memorial_cvor">GENERAL MEMORIAL CVOR</option>
-                )}
-              </select>
-            </div>
-
-            {/* Silent-First OR Output & 15-Min Hands-Free Audio Window */}
-            <div className="space-y-1.5 pt-0.5">
-              <div className="flex items-center justify-between">
-                <span className="text-zinc-400">Silent-First TTS</span>
-                <button
-                  onClick={onToggleTts}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium transition-colors cursor-pointer ${
-                    autoTts
-                      ? "bg-zinc-200 text-zinc-900 font-bold"
-                      : "bg-zinc-800 text-zinc-400"
-                  }`}
-                >
-                  {autoTts ? "AUDIO ON" : "SILENT"}
-                </button>
-              </div>
-              {onStartHandsFree15Min && (
-                <button
-                  type="button"
-                  onClick={onStartHandsFree15Min}
-                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-[11px] transition-colors cursor-pointer"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="w-3 h-3 text-zinc-400" />
-                    <span>15-Min Hands-Free Audio</span>
-                  </span>
-                  <span className="font-mono text-[10px] text-zinc-400">
-                    {handsFreeActive ? "Active" : "Start"}
-                  </span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <Key className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="text-xs font-medium text-zinc-200">API &amp; Cloud Sync</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      geminiConfigured ? "bg-emerald-500" : "bg-amber-500"
+                    }`}
+                  />
+                  {openCategories.api ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+                  )}
+                </div>
+              </button>
+              {openCategories.api && (
+                <div className="p-2.5 pt-1.5 border-t border-zinc-800/60 space-y-2 bg-zinc-950/60">
+                  <div className="flex items-center gap-1.5 text-[11px] font-mono">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        geminiConfigured ? "bg-emerald-500" : "bg-amber-500"
+                      }`}
+                    />
+                    {geminiConfigured ? (
+                      <span className="text-zinc-300 truncate">
+                        Gemini 2.5 Flash Active ({maskedKey})
+                      </span>
+                    ) : (
+                      <span className="text-zinc-400 truncate">
+                        Offline Fallback Mode (No API Key)
+                      </span>
+                    )}
+                  </div>
+                  <form onSubmit={handleSaveKey} className="flex items-center gap-1.5 pt-0.5">
+                    <input
+                      type="password"
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      placeholder="Paste AIza... Gemini API key"
+                      className="flex-1 min-w-0 bg-zinc-900 border border-zinc-800 rounded px-2 py-1 text-[11px] text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700 font-mono"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!apiKeyInput.trim() || savingKey}
+                      className="px-2.5 py-1 rounded bg-zinc-100 hover:bg-white text-zinc-900 font-medium text-[11px] transition-colors cursor-pointer shrink-0 disabled:opacity-40 flex items-center gap-1"
+                    >
+                      {saveSuccess ? <Check className="w-3 h-3 text-emerald-600" /> : null}
+                      <span>{savingKey ? "..." : saveSuccess ? "Saved" : "Save"}</span>
+                    </button>
+                  </form>
+                </div>
               )}
             </div>
 
-            {/* Mobile QR Pair Trigger */}
-            {onOpenQRPair && (
+            {/* Category 2: Clinician Profile & Assignment */}
+            <div className="rounded-lg bg-zinc-900/80 border border-zinc-800/80 overflow-hidden">
               <button
-                onClick={onOpenQRPair}
-                className="w-full flex items-center justify-between px-2.5 py-1.5 rounded bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs transition-colors cursor-pointer"
+                type="button"
+                onClick={() => toggleCategory("profile")}
+                data-testid="category-profile-toggle"
+                className="w-full flex items-center justify-between p-2.5 hover:bg-zinc-800/60 transition-colors text-left cursor-pointer"
               >
                 <div className="flex items-center gap-2">
-                  <QrCode className="w-3.5 h-3.5 text-zinc-400" />
-                  <span>Mobile QR Pairing</span>
+                  <User className="w-3.5 h-3.5 text-sky-400" />
+                  <span className="text-xs font-medium text-zinc-200">Clinician Profile &amp; Assignment</span>
                 </div>
-                <span className="text-[10px] text-zinc-500 font-mono">Wi-Fi</span>
+                <div className="flex items-center gap-2">
+                  {openCategories.profile ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+                  )}
+                </div>
               </button>
-            )}
+              {openCategories.profile && (
+                <div className="p-2.5 pt-1.5 border-t border-zinc-800/60 bg-zinc-950/60">
+                  <button
+                    type="button"
+                    onClick={onOpenProfileModal}
+                    data-testid="sidebar-profile-button"
+                    className="w-full flex items-center justify-between p-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-200 text-xs transition-colors cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <div className="w-6 h-6 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-[10px] shrink-0">
+                        {userProfile?.fullName ? userProfile.fullName[0].toUpperCase() : "RN"}
+                      </div>
+                      <div className="text-left truncate">
+                        <div className="font-medium text-zinc-200 group-hover:text-emerald-300 transition-colors truncate">
+                          {userProfile?.fullName || "Configure Profile"}
+                        </div>
+                        <div className="text-[10px] text-zinc-400 font-mono truncate">
+                          {userProfile?.facilityName || "Hospital"} · {userProfile?.clinicalRole || "Clinical Role"}
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-zinc-400 font-mono shrink-0 pl-1 group-hover:text-zinc-200">
+                      Edit ➔
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
 
-            {/* Voice, Offline PWA & HIPAA Status */}
-            <div className="pt-2 border-t border-zinc-800/80 space-y-1 text-[11px] text-zinc-500 font-mono">
-              <div className="flex items-center justify-between">
-                <span>Offline Cache:</span>
-                <span className="text-zinc-400">{offlineSyncedCount} items (Dexie)</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Voice Engine:</span>
-                <span className="text-zinc-400">
-                  {voiceMode === "LIVEKIT_WEBRTC" ? "LiveKit WebRTC" : "Browser Web Speech"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>HIPAA Scrubber:</span>
-                <span className="text-emerald-500">Active</span>
-              </div>
+            {/* Category 3: Background Services */}
+            <div className="rounded-lg bg-zinc-900/80 border border-zinc-800/80 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => toggleCategory("services")}
+                data-testid="category-services-toggle"
+                className="w-full flex items-center justify-between p-2.5 hover:bg-zinc-800/60 transition-colors text-left cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-xs font-medium text-zinc-200">Background Services</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      appSettings?.autoSyncEnabled && appSettings?.autoUpdateEnabled
+                        ? "bg-emerald-500"
+                        : "bg-amber-500"
+                    }`}
+                  />
+                  {openCategories.services ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+                  )}
+                </div>
+              </button>
+              {openCategories.services && (
+                <div className="p-2.5 pt-1.5 border-t border-zinc-800/60 space-y-2 bg-zinc-950/60">
+                  {/* 1. Over-The-Air (OTA) Updates Control Group */}
+                  <div className="p-2 rounded-lg bg-zinc-900/90 border border-zinc-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-medium text-zinc-200">OTA Auto-Update</div>
+                        <div className="text-[10px] text-zinc-400 font-mono">
+                          Background APK check
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={onToggleAutoUpdate}
+                        data-testid="toggle-auto-update"
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-colors cursor-pointer ${
+                          appSettings?.autoUpdateEnabled
+                            ? "bg-emerald-500 text-zinc-950 font-bold"
+                            : "bg-zinc-800 text-zinc-400"
+                        }`}
+                      >
+                        {appSettings?.autoUpdateEnabled ? "ON" : "OFF"}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleManualCheckUpdates}
+                      disabled={manualUpdateChecking}
+                      data-testid="button-manual-update-check"
+                      className="w-full flex items-center justify-center gap-1.5 py-1 px-2 rounded bg-zinc-800/90 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-200 text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <Search className="w-3 h-3 text-zinc-400" />
+                      <span>
+                        {manualUpdateChecking ? "Checking server..." : "🔍 Check for Updates"}
+                      </span>
+                    </button>
+                    {updateStatusFeedback && (
+                      <div
+                        data-testid="update-feedback"
+                        className={`text-[10px] font-mono p-1 rounded text-center animate-in fade-in duration-150 ${
+                          updateStatusFeedback.type === "success"
+                            ? "text-emerald-400 bg-emerald-950/40 border border-emerald-900/60"
+                            : updateStatusFeedback.type === "update_found"
+                            ? "text-amber-300 bg-amber-950/40 border border-amber-900/60"
+                            : "text-rose-400 bg-rose-950/40 border border-rose-900/60"
+                        }`}
+                      >
+                        {updateStatusFeedback.message}
+                      </div>
+                    )}
+                    {updateAvailableManifest && (
+                      <button
+                        type="button"
+                        onClick={() => openApkDownload(updateAvailableManifest.apk_download_url)}
+                        data-testid="btn-sidebar-install-apk"
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-zinc-950 text-xs font-bold transition-colors cursor-pointer shadow-md"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>⬇️ Download & Install {updateAvailableManifest.version} Now</span>
+                      </button>
+                    )}
+                    <div className="pt-1.5 border-t border-zinc-800/60 space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-zinc-400 font-mono">
+                        <span>Server / Manifest URL</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={serverUrlInput}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setServerUrlInput(val);
+                          if (typeof window !== "undefined") {
+                            localStorage.setItem("ornav_server_url", val.trim());
+                          }
+                        }}
+                        placeholder="http://192.168.1.217:8000"
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded px-2 py-1 text-[11px] font-mono text-zinc-200 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2. Cloud Data Sync Control Group */}
+                  <div className="p-2 rounded-lg bg-zinc-900/90 border border-zinc-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs font-medium text-zinc-200">Cloud Auto-Sync</div>
+                        <div className="text-[10px] text-zinc-400 font-mono">
+                          Outbox flush on Wi-Fi
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={onToggleAutoSync}
+                        data-testid="toggle-auto-sync"
+                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-colors cursor-pointer ${
+                          appSettings?.autoSyncEnabled
+                            ? "bg-emerald-500 text-zinc-950 font-bold"
+                            : "bg-zinc-800 text-zinc-400"
+                        }`}
+                      >
+                        {appSettings?.autoSyncEnabled ? "ON" : "OFF"}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleManualSync}
+                      disabled={manualSyncing}
+                      data-testid="button-manual-sync-now"
+                      className="w-full flex items-center justify-center gap-1.5 py-1 px-2 rounded bg-zinc-800/90 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-200 text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw
+                        className={`w-3 h-3 text-zinc-400 ${
+                          manualSyncing ? "animate-spin text-emerald-400" : ""
+                        }`}
+                      />
+                      <span>{manualSyncing ? "Syncing data..." : "🔄 Sync Now"}</span>
+                    </button>
+                    {syncStatusFeedback && (
+                      <div
+                        data-testid="sync-feedback"
+                        className={`text-[10px] font-mono p-1 rounded text-center animate-in fade-in duration-150 ${
+                          syncStatusFeedback.type === "success"
+                            ? "text-emerald-400 bg-emerald-950/40 border border-emerald-900/60"
+                            : "text-zinc-400 bg-zinc-950/40"
+                        }`}
+                      >
+                        {syncStatusFeedback.message}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Category 4: Audio & Pairing */}
+            <div className="rounded-lg bg-zinc-900/80 border border-zinc-800/80 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => toggleCategory("audio")}
+                data-testid="category-audio-toggle"
+                className="w-full flex items-center justify-between p-2.5 hover:bg-zinc-800/60 transition-colors text-left cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Volume2 className="w-3.5 h-3.5 text-purple-400" />
+                  <span className="text-xs font-medium text-zinc-200">Audio &amp; Pairing</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-zinc-500">
+                    {autoTts ? "AUDIO" : "SILENT"}
+                  </span>
+                  {openCategories.audio ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+                  )}
+                </div>
+              </button>
+              {openCategories.audio && (
+                <div className="p-2.5 pt-1.5 border-t border-zinc-800/60 space-y-2 bg-zinc-950/60">
+                  {/* Silent-First TTS */}
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/80 border border-zinc-800">
+                    <span className="text-zinc-300 text-xs">Silent-First TTS</span>
+                    <button
+                      type="button"
+                      onClick={onToggleTts}
+                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium transition-colors cursor-pointer ${
+                        autoTts
+                          ? "bg-zinc-200 text-zinc-900 font-bold"
+                          : "bg-zinc-800 text-zinc-400"
+                      }`}
+                    >
+                      {autoTts ? "AUDIO ON" : "SILENT"}
+                    </button>
+                  </div>
+
+                  {/* 15-Min Hands-Free Audio Window */}
+                  {onStartHandsFree15Min && (
+                    <button
+                      type="button"
+                      onClick={onStartHandsFree15Min}
+                      className="w-full flex items-center justify-between p-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs transition-colors cursor-pointer"
+                    >
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="w-3 h-3 text-zinc-400" />
+                        <span>15-Min Hands-Free Audio</span>
+                      </span>
+                      <span className="font-mono text-[10px] text-zinc-400">
+                        {handsFreeActive ? "Active" : "Start"}
+                      </span>
+                    </button>
+                  )}
+
+                  {/* Mobile QR Pair Trigger */}
+                  {onOpenQRPair && (
+                    <button
+                      type="button"
+                      onClick={onOpenQRPair}
+                      className="w-full flex items-center justify-between p-2 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-xs transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2">
+                        <QrCode className="w-3.5 h-3.5 text-zinc-400" />
+                        <span>Mobile QR Pairing</span>
+                      </div>
+                      <span className="text-[10px] text-zinc-500 font-mono">Wi-Fi</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Category 5: Diagnostics & System Info */}
+            <div className="rounded-lg bg-zinc-900/80 border border-zinc-800/80 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => toggleCategory("diagnostics")}
+                data-testid="category-diagnostics-toggle"
+                className="w-full flex items-center justify-between p-2.5 hover:bg-zinc-800/60 transition-colors text-left cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Activity className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="text-xs font-medium text-zinc-200">Diagnostics &amp; System Info</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-zinc-500">{CURRENT_VERSION}</span>
+                  {openCategories.diagnostics ? (
+                    <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
+                  ) : (
+                    <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+                  )}
+                </div>
+              </button>
+              {openCategories.diagnostics && (
+                <div className="p-2.5 pt-1.5 border-t border-zinc-800/60 space-y-1.5 bg-zinc-950/60 text-[11px] font-mono text-zinc-400">
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">Offline Cache:</span>
+                    <span className="text-zinc-300">{offlineSyncedCount} items (Dexie)</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">Voice Engine:</span>
+                    <span className="text-zinc-300">
+                      {voiceMode === "LIVEKIT_WEBRTC" ? "LiveKit WebRTC" : "Browser Web Speech"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">HIPAA Scrubber:</span>
+                    <span className="text-emerald-400 font-medium">Active</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">Engine Mode:</span>
+                    <span className="text-zinc-300">Standalone Clinical Engine</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-zinc-500">System Build:</span>
+                    <span className="text-zinc-400">{CURRENT_VERSION} (Build {CURRENT_BUILD_NUMBER})</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
+      </div>
+
+      {/* Standalone Engine & Version Footer */}
+      <div className="p-2.5 border-t border-zinc-800/80 text-[10px] text-zinc-500 font-mono text-center flex items-center justify-center gap-1.5 shrink-0 bg-zinc-950/40">
+        <span>OR-Nav {CURRENT_VERSION}</span>
+        <span>·</span>
+        <span>Standalone Clinical Engine</span>
       </div>
     </aside>
   );

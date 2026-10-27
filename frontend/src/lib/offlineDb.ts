@@ -7,7 +7,8 @@
  */
 
 import Dexie, { type Table } from "dexie";
-import type { CoordinateCardData } from "./api";
+import type { CoordinateCardData, DepartmentQuestion } from "./api";
+import { SEED_UNANSWERED_QUESTIONS, getSeedQuestions } from "./seedData";
 
 export interface OfflineInventoryRecord extends CoordinateCardData {
   id?: string;
@@ -18,23 +19,32 @@ export interface OfflineInventoryRecord extends CoordinateCardData {
 
 export interface OutboxMutation {
   id?: number;
-  type: "verify_move" | "flag_wrong";
+  type: "verify_move" | "flag_wrong" | "create_question" | "answer_question";
   tenant_id: string;
-  item: string;
+  item?: string;
   expected_location?: string;
   reason?: string;
+  question_id?: string;
+  question_text?: string;
+  asked_by_role?: string;
+  answer_text?: string;
+  confidence?: "confident" | "tentative_unsure" | "verified";
+  responder_role?: string;
+  promote_to_verified?: boolean;
   timestamp: string;
 }
 
 class ORNavOfflineDatabase extends Dexie {
   inventoryItems!: Table<OfflineInventoryRecord, string>;
   offlineOutbox!: Table<OutboxMutation, number>;
+  unansweredQuestions!: Table<DepartmentQuestion, string>;
 
   constructor() {
     super("ORNavOfflineDB");
-    this.version(2).stores({
+    this.version(3).stores({
       inventoryItems: "id, tenant_id, item, full_code, phonetic_code",
       offlineOutbox: "++id, tenant_id, type, timestamp",
+      unansweredQuestions: "id, hospital_id, status",
     });
   }
 }
@@ -57,46 +67,103 @@ export async function queueOfflineMutation(mutation: Omit<OutboxMutation, "id">)
 }
 
 /**
- * Replay all queued offline mutations to the backend when reconnected to hospital network.
+ * Return current count of unsynced mutations queued in IndexedDB.
  */
-export async function flushOfflineOutbox(): Promise<number> {
+export async function getPendingOutboxCount(): Promise<number> {
+  if (!activeDb || typeof window === "undefined") return 0;
+  try {
+    return await activeDb.offlineOutbox.count();
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Replay all queued offline mutations to the backend when reconnected to hospital network.
+ * Supports exponential backoff and retry.
+ */
+export async function flushOfflineOutbox(apiBase: string = ""): Promise<number> {
   if (!activeDb || typeof window === "undefined" || !navigator.onLine) return 0;
   let count = 0;
   try {
     const pending = await activeDb.offlineOutbox.toArray();
     for (const mut of pending) {
-      try {
-        if (mut.type === "verify_move") {
-          const resp = await fetch("/api/inventory/verify-move", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              tenant_id: mut.tenant_id,
-              item: mut.item,
-              expected_location: mut.expected_location,
-            }),
-          });
-          if (resp.ok) {
-            if (mut.id) await activeDb.offlineOutbox.delete(mut.id);
-            count++;
+      let success = false;
+      let delayMs = 150;
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          if (mut.type === "verify_move" && mut.item) {
+            const resp = await fetch(`${apiBase}/api/inventory/verify-move`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                tenant_id: mut.tenant_id,
+                item: mut.item,
+                expected_location: mut.expected_location,
+              }),
+            });
+            if (resp.ok) {
+              success = true;
+              break;
+            }
+          } else if (mut.type === "flag_wrong" && mut.item) {
+            const resp = await fetch(`${apiBase}/api/inventory/flag-wrong`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                tenant_id: mut.tenant_id,
+                item: mut.item,
+                reason: mut.reason || "Location empty or item moved",
+              }),
+            });
+            if (resp.ok) {
+              success = true;
+              break;
+            }
+          } else if (mut.type === "create_question" && mut.question_text) {
+            const resp = await fetch(`${apiBase}/api/questions`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                tenant_id: mut.tenant_id,
+                question_text: mut.question_text,
+                asked_by_role: mut.asked_by_role || "Clinical Orientee RN",
+              }),
+            });
+            if (resp.ok) {
+              success = true;
+              break;
+            }
+          } else if (mut.type === "answer_question" && mut.question_id) {
+            const resp = await fetch(
+              `${apiBase}/api/questions/${encodeURIComponent(mut.question_id)}/answer`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  tenant_id: mut.tenant_id,
+                  answer_text: mut.answer_text,
+                  confidence: mut.confidence || "confident",
+                  responder_role: mut.responder_role || "Clinical Peer RN",
+                  promote_to_verified: mut.promote_to_verified || false,
+                }),
+              }
+            );
+            if (resp.ok) {
+              success = true;
+              break;
+            }
           }
-        } else if (mut.type === "flag_wrong") {
-          const resp = await fetch("/api/inventory/flag-wrong", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              tenant_id: mut.tenant_id,
-              item: mut.item,
-              reason: mut.reason || "Location empty or item moved",
-            }),
-          });
-          if (resp.ok) {
-            if (mut.id) await activeDb.offlineOutbox.delete(mut.id);
-            count++;
-          }
+        } catch {
+          await new Promise((r) => setTimeout(r, delayMs));
+          delayMs *= 2;
         }
-      } catch (e) {
-        console.debug("Replay of mutation failed, keeping in outbox:", e);
+      }
+
+      if (success) {
+        if (mut.id) await activeDb.offlineOutbox.delete(mut.id);
+        count++;
       }
     }
   } catch (err) {
@@ -432,4 +499,131 @@ export async function searchOfflineTier0(
   }
 
   return null;
+}
+
+/**
+ * Fetch department questions from IndexedDB, seeding from bundled data if empty.
+ */
+export async function fetchQuestionsOffline(
+  tenantId: string
+): Promise<{ tenant_id: string; open_count: number; questions: DepartmentQuestion[] }> {
+  if (typeof window === "undefined") {
+    return { tenant_id: tenantId, open_count: 0, questions: [] };
+  }
+  const db = activeDb || (await selfHealOfflineDatabase());
+  if (!db) {
+    const qList = getSeedQuestions(tenantId);
+    return {
+      tenant_id: tenantId,
+      open_count: qList.filter((q) => q.status === "open").length,
+      questions: qList,
+    };
+  }
+
+  try {
+    const count = await db.unansweredQuestions.where("hospital_id").equals(tenantId).count();
+    if (count === 0) {
+      await db.unansweredQuestions.bulkPut(getSeedQuestions(tenantId));
+    }
+    const questions = await db.unansweredQuestions.where("hospital_id").equals(tenantId).toArray();
+    return {
+      tenant_id: tenantId,
+      open_count: questions.filter((q) => q.status === "open").length,
+      questions,
+    };
+  } catch {
+    const qList = getSeedQuestions(tenantId);
+    return {
+      tenant_id: tenantId,
+      open_count: qList.filter((q) => q.status === "open").length,
+      questions: qList,
+    };
+  }
+}
+
+/**
+ * Persist newly asked question offline into IndexedDB.
+ */
+export async function createQuestionOffline(
+  tenantId: string,
+  questionText: string,
+  askedByRole: string
+): Promise<DepartmentQuestion> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  const newQ: DepartmentQuestion = {
+    id: `q_off_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    hospital_id: tenantId,
+    question_text: questionText,
+    asked_by_role: askedByRole,
+    status: "open",
+    created_at: new Date().toISOString(),
+    verified_at: null,
+    answers: [],
+  };
+
+  if (db) {
+    try {
+      await db.unansweredQuestions.put(newQ);
+    } catch (e) {
+      console.warn("Failed to save question offline:", e);
+    }
+  }
+
+  return newQ;
+}
+
+/**
+ * Persist question answer offline into IndexedDB.
+ */
+export async function answerQuestionOffline(
+  tenantId: string,
+  questionId: string,
+  options: {
+    answerText?: string;
+    confidence?: "confident" | "tentative_unsure" | "verified";
+    responderRole?: string;
+    promoteToVerified?: boolean;
+  }
+): Promise<DepartmentQuestion> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  let target: DepartmentQuestion | undefined;
+
+  if (db) {
+    try {
+      target = await db.unansweredQuestions.get(questionId);
+    } catch {}
+  }
+
+  if (!target) {
+    target = SEED_UNANSWERED_QUESTIONS.find((q) => q.id === questionId);
+  }
+
+  if (!target) {
+    throw new Error(`Question ${questionId} not found`);
+  }
+
+  const updated: DepartmentQuestion = { ...target };
+  if (options.promoteToVerified) {
+    updated.status = "verified";
+  } else if (options.answerText) {
+    updated.answers = updated.answers || [];
+    updated.answers.push({
+      id: `ans_${Date.now()}`,
+      responder_role: options.responderRole || "CVOR Peer RN",
+      answer_text: options.answerText,
+      confidence: options.confidence === "tentative_unsure" ? "tentative_unsure" : "confident",
+      created_at: new Date().toISOString(),
+    });
+    updated.status = options.confidence === "tentative_unsure" ? "answered_tentative" : "answered_confident";
+  }
+
+  if (db) {
+    try {
+      await db.unansweredQuestions.put(updated);
+    } catch (e) {
+      console.warn("Failed to update question offline:", e);
+    }
+  }
+
+  return updated;
 }

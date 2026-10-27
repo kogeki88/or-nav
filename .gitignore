@@ -40,6 +40,9 @@ frontend/android/build/
 frontend/android/app/build/
 frontend/android/.idea/
 frontend/android/local.properties
+*.apk
+frontend/public/*.apk
+
 
 # OS & Temp
 .DS_Store

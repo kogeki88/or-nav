@@ -1,0 +1,30 @@
+[
+  {
+    "id": "q-icu-001",
+    "hospital_id": "icu_critical_care",
+    "question_text": "Where are the extra CRRT fluid warmer cuffs stored when dialysis alcove is empty?",
+    "asked_by_role": "ICU Orientee RN",
+    "status": "answered_tentative",
+    "created_at": "2026-10-25T11:20:00Z",
+    "verified_at": null,
+    "answers": [
+      {
+        "id": "ans-icu-001",
+        "responder_role": "Critical Care RN (Peer)",
+        "answer_text": "ICU Central Supply Room 2, Rack 4, next to the dialysis fluid totes.",
+        "confidence": "tentative_unsure",
+        "created_at": "2026-10-25T11:42:00Z"
+      }
+    ]
+  },
+  {
+    "id": "q-icu-002",
+    "hospital_id": "icu_critical_care",
+    "question_text": "Who signs off on pediatric insulin drip double checks in Pod B?",
+    "asked_by_role": "ICU Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-25T13:05:00Z",
+    "verified_at": null,
+    "answers": []
+  }
+]

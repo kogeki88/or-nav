@@ -16,6 +16,7 @@ interface OmnibarProps {
   isHoldingPTT?: boolean;
   onStartPTT?: () => void;
   onStopPTT?: () => void;
+  placeholder?: string;
 }
 
 type MicStatus = "idle" | "requesting" | "recording" | "transcribing";
@@ -72,6 +73,7 @@ export default function Omnibar({
   isHoldingPTT = false,
   onStartPTT,
   onStopPTT,
+  placeholder: customPlaceholder,
 }: OmnibarProps) {
   const [input, setInput] = useState("");
   const [micStatus, setMicStatus] = useState<MicStatus>("idle");
@@ -437,7 +439,7 @@ export default function Omnibar({
       ? "🔴 Recording... Tap mic to send"
       : micStatus === "transcribing"
       ? "Transcribing audio clip..."
-      : flashPlaceholder || DEFAULT_PLACEHOLDER;
+      : flashPlaceholder || customPlaceholder || DEFAULT_PLACEHOLDER;
 
   const isTranscribingState = micStatus === "transcribing";
 

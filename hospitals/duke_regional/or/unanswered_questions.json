@@ -1,0 +1,30 @@
+[
+  {
+    "id": "q-or-001",
+    "hospital_id": "or_main",
+    "question_text": "Where do we keep the backup Stryker System 8 battery charging dock when Cart L is out?",
+    "asked_by_role": "OR Orientee RN",
+    "status": "answered_tentative",
+    "created_at": "2026-10-25T11:20:00Z",
+    "verified_at": null,
+    "answers": [
+      {
+        "id": "ans-or-001",
+        "responder_role": "Circulating RN (Peer)",
+        "answer_text": "Core Supply Alcove 4 has the 4-bay battery charging station on the left wall.",
+        "confidence": "tentative_unsure",
+        "created_at": "2026-10-25T11:42:00Z"
+      }
+    ]
+  },
+  {
+    "id": "q-or-002",
+    "hospital_id": "or_main",
+    "question_text": "Does Dr. Patel prefer the 5mm or 12mm optical trocar for the initial umbilical access in lap choles?",
+    "asked_by_role": "OR Scrub Tech Orientee",
+    "status": "open",
+    "created_at": "2026-10-25T13:05:00Z",
+    "verified_at": null,
+    "answers": []
+  }
+]

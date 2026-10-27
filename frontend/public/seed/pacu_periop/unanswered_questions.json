@@ -1,0 +1,30 @@
+[
+  {
+    "id": "q-pacu-001",
+    "hospital_id": "pacu_periop",
+    "question_text": "Where are the pediatric-size Bair Hugger gowns stored?",
+    "asked_by_role": "PACU Orientee RN",
+    "status": "answered_tentative",
+    "created_at": "2026-10-25T11:20:00Z",
+    "verified_at": null,
+    "answers": [
+      {
+        "id": "ans-pacu-001",
+        "responder_role": "PACU Charge RN (Peer)",
+        "answer_text": "PACU Supply Alcove 3, Shelf 2 in the blue labeled bin.",
+        "confidence": "tentative_unsure",
+        "created_at": "2026-10-25T11:42:00Z"
+      }
+    ]
+  },
+  {
+    "id": "q-pacu-002",
+    "hospital_id": "pacu_periop",
+    "question_text": "Who holds the key to the PACU emergency airway tackle box overnight?",
+    "asked_by_role": "PACU Staff RN",
+    "status": "open",
+    "created_at": "2026-10-25T13:05:00Z",
+    "verified_at": null,
+    "answers": []
+  }
+]

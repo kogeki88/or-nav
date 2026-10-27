@@ -6,6 +6,8 @@ import ChatCanvas, { MessageItem } from "@/components/ChatCanvas";
 import Omnibar from "@/components/Omnibar";
 import { QRPairModal } from "@/components/QRPairModal";
 import QuestionsDrawer from "@/components/QuestionsDrawer";
+import UserProfileModal from "@/components/UserProfileModal";
+import AutoUpdateModal from "@/components/AutoUpdateModal";
 import {
   fetchTenants,
   sendChatMessage,
@@ -19,16 +21,42 @@ import {
 import {
   syncTenantInventoryToOfflineDb,
   queueOfflineMutation,
-  flushOfflineOutbox,
 } from "@/lib/offlineDb";
+import { hydrateFromSeedIfEmpty } from "@/lib/standaloneEngine";
 import { scrubPhi } from "@/lib/scrubClient";
 import { usePushToTalk } from "@/hooks/usePushToTalk";
 import { useWakeLock } from "@/hooks/useWakeLock";
-import { Menu, X, PanelLeft, QrCode, SquarePen, MessageSquare } from "lucide-react";
+import {
+  Menu,
+  X,
+  PanelLeft,
+  QrCode,
+  SquarePen,
+  MessageSquare,
+  ChevronDown,
+} from "lucide-react";
+import {
+  getDepartment,
+  getActiveDepartmentId,
+  setActiveDepartmentId,
+} from "@/lib/departments";
+import { useAppUpdate, openApkDownload } from "@/hooks/useAppUpdate";
+import { useSyncEngine } from "@/lib/syncEngine";
+import { useUserProfile } from "@/hooks/useUserProfile";
+import { useAppSettings } from "@/hooks/useAppSettings";
+import { CURRENT_VERSION } from "@/lib/version";
+import { UserProfile } from "@/lib/userProfile";
 
 export default function Home() {
-  const [tenants, setTenants] = useState<string[]>(["general_memorial_cvor"]);
-  const [selectedTenant, setSelectedTenant] = useState<string>("general_memorial_cvor");
+  const [tenants, setTenants] = useState<string[]>([
+    "or_main",
+    "icu_critical_care",
+    "er_trauma",
+    "pacu_periop",
+  ]);
+  const [selectedTenant, setSelectedTenant] = useState<string>(() => {
+    return getActiveDepartmentId();
+  });
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [history, setHistory] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -43,9 +71,55 @@ export default function Home() {
   const [questions, setQuestions] = useState<DepartmentQuestion[]>([]);
   const [openQuestionsCount, setOpenQuestionsCount] = useState<number>(2);
 
+  // User Profile & Clinical Assignment Modal
+  const { profile, saveProfile } = useUserProfile();
+  const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
+
+  // App Settings & Background Services Toggles (Phase 26)
+  const { settings: appSettings, updateSettings } = useAppSettings();
+
+  // Over-The-Air (OTA) Updates & Automatic Background Sync Engine
+  const {
+    updateAvailable,
+    updateInfo,
+    dismissed,
+    dismissUpdate,
+    checkForUpdate,
+    currentVersion,
+    currentBuild,
+  } = useAppUpdate(appSettings.autoUpdateEnabled);
+
+  // Auto-trigger native APK installer once when auto-update is enabled
+  const autoInstalledRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (updateAvailable && updateInfo && appSettings.autoUpdateEnabled && !autoInstalledRef.current) {
+      autoInstalledRef.current = true;
+      console.log("Auto-Update is ON: Automatically initiating APK download for", updateInfo.version);
+      openApkDownload(updateInfo.apk_download_url);
+    }
+  }, [updateAvailable, updateInfo, appSettings.autoUpdateEnabled]);
+
+  const {
+    status: syncStatus,
+    statusLabel,
+    triggerSync,
+  } = useSyncEngine(selectedTenant, appSettings.autoSyncEnabled);
+
+  // Toggle callbacks for auto-update and auto-sync
+  const handleToggleAutoUpdate = useCallback(() => {
+    updateSettings({ autoUpdateEnabled: !appSettings.autoUpdateEnabled });
+  }, [appSettings.autoUpdateEnabled, updateSettings]);
+
+  const handleToggleAutoSync = useCallback(() => {
+    updateSettings({ autoSyncEnabled: !appSettings.autoSyncEnabled });
+  }, [appSettings.autoSyncEnabled, updateSettings]);
+
   // Vector 6: Session epoch & AbortController to discard in-flight responses on + New Case or tenant switch
   const sessionEpochRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Active department metadata
+  const activeDept = getDepartment(selectedTenant);
 
   // Load available tenants from backend
   useEffect(() => {
@@ -53,7 +127,18 @@ export default function Home() {
       .then((data) => {
         if (data.tenants && data.tenants.length > 0) {
           setTenants(data.tenants);
-          if (data.default) setSelectedTenant(data.default);
+          const saved =
+            typeof window !== "undefined"
+              ? localStorage.getItem("ornav_active_department")
+              : null;
+          if (
+            saved &&
+            (data.tenants.includes(saved) || saved === "general_memorial_cvor")
+          ) {
+            setSelectedTenant(saved === "general_memorial_cvor" ? "or_main" : saved);
+          } else if (data.default) {
+            setSelectedTenant(data.default);
+          }
         }
       })
       .catch((err) => {
@@ -74,8 +159,13 @@ export default function Home() {
 
   useEffect(() => {
     refreshQuestions();
-    syncTenantInventoryToOfflineDb(selectedTenant).then((count) => {
-      if (count > 0) setOfflineSyncedCount(count);
+    syncTenantInventoryToOfflineDb(selectedTenant).then(async (count) => {
+      if (count > 0) {
+        setOfflineSyncedCount(count);
+      } else {
+        const seedCount = await hydrateFromSeedIfEmpty(selectedTenant);
+        if (seedCount > 0) setOfflineSyncedCount(seedCount);
+      }
     });
   }, [selectedTenant, refreshQuestions]);
 
@@ -100,7 +190,10 @@ export default function Home() {
     if (typeof window === "undefined") return;
     try {
       if (messages.length > 0) {
-        sessionStorage.setItem(`ornav_active_case_${selectedTenant}`, JSON.stringify(messages));
+        sessionStorage.setItem(
+          `ornav_active_case_${selectedTenant}`,
+          JSON.stringify(messages)
+        );
       } else {
         sessionStorage.removeItem(`ornav_active_case_${selectedTenant}`);
       }
@@ -108,28 +201,6 @@ export default function Home() {
       console.warn("Could not persist case session to storage:", e);
     }
   }, [messages, selectedTenant]);
-
-  // Vector 5: Auto-flush offline mutation outbox when network reconnects
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onOnline = () => {
-      flushOfflineOutbox().then((flushed) => {
-        if (flushed > 0) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: `sys-sync-${Date.now()}`,
-              sender: "system",
-              text: `✓ Reconnected: Synced ${flushed} offline action(s) to hospital database.`,
-              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            },
-          ]);
-        }
-      });
-    };
-    window.addEventListener("online", onOnline);
-    return () => window.removeEventListener("online", onOnline);
-  }, []);
 
   // 15-Minute Hands-Free Audio Window timer
   const startHandsFree15Min = useCallback(() => {
@@ -199,7 +270,10 @@ export default function Home() {
         id: userMsgId,
         sender: "user",
         text: clientScrubbed,
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
         clientPhiDetected,
       };
 
@@ -207,7 +281,12 @@ export default function Home() {
       setLoading(true);
 
       try {
-        const { response } = await sendChatMessage(rawMessage, selectedTenant, ac.signal);
+        const { response } = await sendChatMessage(
+          rawMessage,
+          selectedTenant,
+          ac.signal,
+          profile
+        );
 
         // Vector 6: If + New Case or Tenant Switch occurred mid-flight, discard stale response!
         if (sessionEpochRef.current !== requestEpoch) {
@@ -219,50 +298,149 @@ export default function Home() {
             ? response.coordinate_cards
             : response.coordinate_card
             ? [response.coordinate_card]
-            : [];
+            : undefined;
 
-        const assistantMessage: MessageItem = {
-          id: `assistant-${Date.now()}`,
+        const botMessage: MessageItem = {
+          id: `bot-${Date.now()}`,
           sender: "assistant",
           text: response.reply_text,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          phiDetected: response.phi_detected || clientPhiDetected,
-          clientPhiDetected,
-          routingTier: response.routing_tier,
-          latencyMs: response.latency_ms,
-          isEducationalBaseline: response.is_educational_baseline,
-          coordinateCard: response.coordinate_card,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
           coordinateCards: cards,
+          routingTier: response.routing_tier,
+          isEducationalBaseline: response.is_educational_baseline,
           moveWidget: response.move_widget,
         };
 
-        setMessages((prev) => [...prev, assistantMessage]);
+        setMessages((prev) => [...prev, botMessage]);
 
-        // Deep Vector 5: Invalidate & Re-sync IndexedDB cache immediately when move reported
-        if (response.routing_tier === "MOVE_REPORTED") {
-          syncTenantInventoryToOfflineDb(selectedTenant).then((count) => {
-            if (count > 0) setOfflineSyncedCount(count);
-          });
-        }
-
+        // Auto-TTS if enabled
         if (response.reply_text) {
           speakText(response.reply_text);
+        }
+
+        // Auto-refresh questions if peer question feed was updated
+        if (response.routing_tier === "MOVE_REPORTED") {
+          refreshQuestions();
         }
       } catch (err: unknown) {
         if (sessionEpochRef.current !== requestEpoch) {
           return;
         }
-        if (err instanceof DOMException && err.name === "AbortError") {
-          return;
+        const errorText =
+          err instanceof Error
+            ? err.name === "AbortError"
+              ? ""
+              : err.message
+            : "Network error";
+        if (errorText) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `err-${Date.now()}`,
+              sender: "system",
+              text: `⚠️ Request failed: ${errorText}. Operating in offline standalone mode.`,
+              timestamp: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            },
+          ]);
         }
-        const errorText = err instanceof Error ? err.message : "Error communicating with OR-Nav";
-        const errorMsg: MessageItem = {
-          id: `error-${Date.now()}`,
-          sender: "system",
-          text: `⚠️ Network error: ${errorText}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        };
-        setMessages((prev) => [...prev, errorMsg]);
+      } finally {
+        if (sessionEpochRef.current === requestEpoch) {
+          setLoading(false);
+        }
+      }
+    },
+    [loading, selectedTenant, speakText, refreshQuestions]
+  );
+
+  // Direct Audio Voice Query handler
+  const handleAudioVoiceQuery = useCallback(
+    async (blob: Blob | File): Promise<boolean> => {
+      if (loading) return false;
+      setLoading(true);
+
+      const requestEpoch = sessionEpochRef.current;
+      abortControllerRef.current?.abort();
+      const ac = new AbortController();
+      abortControllerRef.current = ac;
+
+      try {
+        const res = await sendVoiceAudioQuery(blob, selectedTenant);
+        if (sessionEpochRef.current !== requestEpoch) return false;
+
+        if (res.silence) {
+          return false;
+        }
+
+        if (res.safe_transcript) {
+          setHistory((prev) =>
+            prev.includes(res.safe_transcript)
+              ? prev
+              : [...prev, res.safe_transcript]
+          );
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `user-${Date.now()}`,
+              sender: "user",
+              text: res.safe_transcript,
+              timestamp: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+            },
+          ]);
+        }
+
+        const cards =
+          res.coordinate_cards && res.coordinate_cards.length > 0
+            ? res.coordinate_cards
+            : res.coordinate_card
+            ? [res.coordinate_card]
+            : undefined;
+
+        if (res.reply_text) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `bot-${Date.now()}`,
+              sender: "assistant",
+              text: res.reply_text!,
+              timestamp: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              coordinateCards: cards,
+              routingTier: res.routing_tier,
+              isEducationalBaseline: res.is_educational_baseline,
+              moveWidget: res.move_widget,
+            },
+          ]);
+
+          speakText(res.reply_text);
+        }
+        return true;
+      } catch (err: unknown) {
+        if (sessionEpochRef.current !== requestEpoch) return false;
+        const errorText = err instanceof Error ? err.message : "Voice error";
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `err-${Date.now()}`,
+            sender: "system",
+            text: `⚠️ Voice query failed: ${errorText}`,
+            timestamp: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          },
+        ]);
+        return false;
       } finally {
         if (sessionEpochRef.current === requestEpoch) {
           setLoading(false);
@@ -272,103 +450,22 @@ export default function Home() {
     [loading, selectedTenant, speakText]
   );
 
-  // Hook up Voice Push-to-Talk -> strictly queries OR-Nav AI assistant
-  const handleVoiceTranscribed = useCallback(
-    (text: string) => {
-      handleSendMessage(text);
-    },
-    [handleSendMessage]
-  );
-
-  // Handle MediaRecorder / native audio capture -> POST /api/v1/voice-query.
-  // Returns true if a real query was routed, false on silence (nothing posted to chat).
-  const handleAudioVoiceQuery = useCallback(
-    async (audioBlob: Blob | File): Promise<boolean> => {
-      if (loading) return false;
-      setLoading(true);
-      try {
-        const response = await sendVoiceAudioQuery(audioBlob, selectedTenant);
-        if (response.silence || !response.safe_transcript || !response.reply_text) {
-          return false;
-        }
-        const queryText = response.safe_transcript;
-        setHistory((prev) => (prev.includes(queryText) ? prev : [...prev, queryText]));
-
-        const userMsg: MessageItem = {
-          id: `user-voice-${Date.now()}`,
-          sender: "user",
-          text: queryText,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          clientPhiDetected: response.phi_detected,
-        };
-
-        const assistantMsg: MessageItem = {
-          id: `assistant-voice-${Date.now()}`,
-          sender: "assistant",
-          text: response.reply_text,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          phiDetected: response.phi_detected,
-          routingTier: response.routing_tier,
-          latencyMs: response.latency_ms,
-          isEducationalBaseline: response.is_educational_baseline,
-          coordinateCard: response.coordinate_card ?? null,
-          moveWidget: response.move_widget ?? null,
-        };
-
-        setMessages((prev) => [...prev, userMsg, assistantMsg]);
-        speakText(response.reply_text);
-        return true;
-      } catch (err: unknown) {
-        const errorText = err instanceof Error ? err.message : "Voice query failed";
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `err-voice-${Date.now()}`,
-            sender: "system",
-            text: `⚠️ Voice transcription error: ${errorText}`,
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          },
-        ]);
-        return true;
-      } finally {
-        setLoading(false);
-      }
-    },
-    [loading, selectedTenant, speakText]
-  );
-
-  const handleLiveKitUiSync = useCallback((data: any) => {
-    const livekitMsgId = `assistant-livekit-${Date.now()}`;
-    const msg: MessageItem = {
-      id: livekitMsgId,
-      sender: "assistant",
-      text: data.reply_text || data.message || "",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      routingTier: data.tier || "TIER_1_LOCAL_CSV",
-      coordinateCard: data.coordinate_card || null,
-      moveWidget: data.move_widget || null,
-    };
-    setMessages((prev) => [...prev, msg]);
-  }, []);
-
+  // Push-to-Talk hooks
   const {
-    voiceMode,
     isHoldingPTT,
-    livekitConfigured,
     startPTT,
     stopPTT,
+    voiceMode,
+    livekitConfigured,
     toggleVoiceMode,
   } = usePushToTalk({
     tenantId: selectedTenant,
-    onSpeechTranscript: handleVoiceTranscribed,
-    onDataChannelSync: handleLiveKitUiSync,
   });
 
-  // Vector 7: Keep screen awake during 15-Min Hands-Free mode or while recording
-  const isHandsFreeActive = (handsFreeUntil !== null && Date.now() < handsFreeUntil) || isHoldingPTT;
-  useWakeLock(isHandsFreeActive);
+  // Keep screen awake while app is open
+  useWakeLock(true);
 
-  // Verify Move from widget (Vector 5: Offline outbox fallback)
+  // Move verification handler
   const handleVerifyPendingMove = async (item: string) => {
     try {
       const res = await verifyMove(selectedTenant, item);
@@ -377,18 +474,15 @@ export default function Home() {
         {
           id: `sys-${Date.now()}`,
           sender: "system",
-          text: `✓ Verification recorded for ${res.item} (${res.verify_count}/3). ${
-            res.committed ? "Relocation committed to master database." : ""
-          }`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          text: res.reply_text,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
         },
       ]);
-      // Invalidate & Re-sync local IndexedDB offline cache
-      syncTenantInventoryToOfflineDb(selectedTenant).then((count) => {
-        if (count > 0) setOfflineSyncedCount(count);
-      });
     } catch (err) {
-      console.warn("Move verification offline, queueing to outbox:", err);
+      console.warn("Verify move offline, queueing to outbox:", err);
       await queueOfflineMutation({
         type: "verify_move",
         tenant_id: selectedTenant,
@@ -400,30 +494,32 @@ export default function Home() {
         {
           id: `sys-offline-${Date.now()}`,
           sender: "system",
-          text: `⚡ Offline: Move confirmation for ${item} queued. Will sync when reconnected.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          text: `⚡ Offline: Verification for ${item} queued. Will sync when reconnected.`,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
         },
       ]);
     }
   };
 
-  // Explicit Flag Empty / Moved (Vector 5: Offline outbox fallback)
+  // Flag wrong location handler
   const handleFlagWrong = async (item: string) => {
     try {
-      await flagItemWrong(selectedTenant, item, "Flagged empty or relocated from CoordinateCard");
+      const res = await flagItemWrong(selectedTenant, item);
       setMessages((prev) => [
         ...prev,
         {
-          id: `sys-flag-${Date.now()}`,
+          id: `sys-${Date.now()}`,
           sender: "system",
-          text: `⚠️ Flagged ${item} for re-verification (score dropped to 0.5).`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          text: `Flagged ${item} as incorrect location. Status: ${res.status || "needs_reverification"}. Peer review notified.`,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
         },
       ]);
-      // Invalidate & Re-sync local IndexedDB offline cache
-      syncTenantInventoryToOfflineDb(selectedTenant).then((count) => {
-        if (count > 0) setOfflineSyncedCount(count);
-      });
     } catch (err) {
       console.warn("Flag wrong offline, queueing to outbox:", err);
       await queueOfflineMutation({
@@ -439,7 +535,10 @@ export default function Home() {
           id: `sys-offline-${Date.now()}`,
           sender: "system",
           text: `⚡ Offline: Flag for ${item} queued. Will sync when reconnected.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
         },
       ]);
     }
@@ -460,7 +559,10 @@ export default function Home() {
           id: `sys-${Date.now()}`,
           sender: "system",
           text: `✓ Ingested ${file.name} (${res.file_type}): ${detail}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
         },
       ]);
       syncTenantInventoryToOfflineDb(selectedTenant).then((count) => {
@@ -474,7 +576,10 @@ export default function Home() {
           id: `sys-${Date.now()}`,
           sender: "system",
           text: `⚠️ Ingestion failed: ${errorText}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
         },
       ]);
     } finally {
@@ -495,7 +600,7 @@ export default function Home() {
   };
 
   // + New Case: wipes session, aborts in-flight requests, and returns to pure empty state
-  const handleNewCase = () => {
+  const handleNewCase = useCallback(() => {
     sessionEpochRef.current += 1;
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
@@ -509,7 +614,30 @@ export default function Home() {
       } catch {}
     }
     setMessages([]);
-  };
+  }, [selectedTenant]);
+
+  // Instant Department / Clinical Role Switching
+  const handleDepartmentSwitch = useCallback(
+    (deptId: string) => {
+      const clean = deptId === "general_memorial_cvor" ? "or_main" : deptId;
+      setSelectedTenant(clean);
+      setActiveDepartmentId(clean);
+      setMobileSidebarOpen(false);
+      handleNewCase();
+    },
+    [handleNewCase]
+  );
+
+  // Save updated user profile & align active department
+  const handleSaveProfile = useCallback(
+    (newProfile: UserProfile) => {
+      saveProfile(newProfile);
+      if (newProfile.departmentId && newProfile.departmentId !== selectedTenant) {
+        handleDepartmentSwitch(newProfile.departmentId);
+      }
+    },
+    [saveProfile, selectedTenant, handleDepartmentSwitch]
+  );
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#09090b]">
@@ -519,10 +647,7 @@ export default function Home() {
           <Sidebar
             tenants={tenants}
             selectedTenant={selectedTenant}
-            onSelectTenant={(t) => {
-              setSelectedTenant(t);
-              handleNewCase();
-            }}
+            onSelectTenant={handleDepartmentSwitch}
             onNewCase={handleNewCase}
             autoTts={autoTts}
             onToggleTts={() => setAutoTts(!autoTts)}
@@ -536,6 +661,16 @@ export default function Home() {
             onToggleVoiceMode={toggleVoiceMode}
             onOpenQRPair={() => setQrModalOpen(true)}
             history={history}
+            updateAvailable={updateAvailable}
+            updateInfo={updateInfo}
+            onDismissUpdate={dismissUpdate}
+            userProfile={profile}
+            onOpenProfileModal={() => setProfileModalOpen(true)}
+            appSettings={appSettings}
+            onToggleAutoUpdate={handleToggleAutoUpdate}
+            onToggleAutoSync={handleToggleAutoSync}
+            onCheckForUpdates={checkForUpdate}
+            onManualSync={triggerSync}
           />
         </div>
       )}
@@ -553,11 +688,7 @@ export default function Home() {
             <Sidebar
               tenants={tenants}
               selectedTenant={selectedTenant}
-              onSelectTenant={(t) => {
-                setSelectedTenant(t);
-                setMobileSidebarOpen(false);
-                handleNewCase();
-              }}
+              onSelectTenant={handleDepartmentSwitch}
               onNewCase={() => {
                 handleNewCase();
                 setMobileSidebarOpen(false);
@@ -580,6 +711,19 @@ export default function Home() {
                 setQrModalOpen(true);
               }}
               history={history}
+              updateAvailable={updateAvailable}
+              updateInfo={updateInfo}
+              onDismissUpdate={dismissUpdate}
+              userProfile={profile}
+              onOpenProfileModal={() => {
+                setMobileSidebarOpen(false);
+                setProfileModalOpen(true);
+              }}
+              appSettings={appSettings}
+              onToggleAutoUpdate={handleToggleAutoUpdate}
+              onToggleAutoSync={handleToggleAutoSync}
+              onCheckForUpdates={checkForUpdate}
+              onManualSync={triggerSync}
             />
           </div>
         </div>
@@ -613,16 +757,65 @@ export default function Home() {
               <PanelLeft className="w-4 h-4" />
             </button>
 
-            <div className="flex items-baseline gap-1.5">
-              <span className="font-semibold text-zinc-100 text-sm tracking-tight">OR-Nav</span>
-              <span className="text-xs text-zinc-500 font-mono hidden sm:inline">
-                / {selectedTenant.replace(/_/g, " ")}
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-zinc-100 text-sm tracking-tight">
+                OR-Nav
               </span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono text-zinc-400 bg-zinc-800/80 border border-zinc-800">
+                {CURRENT_VERSION}
+              </span>
+
+              {/* Active Clinician Profile & Clinical Assignment Badge */}
+              <button
+                type="button"
+                onClick={() => setProfileModalOpen(true)}
+                title="Edit User Profile & Clinical Assignment"
+                data-testid="header-profile-badge"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/60 text-xs text-zinc-200 font-medium transition-colors cursor-pointer"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                <span className="truncate max-w-[130px] sm:max-w-[260px]">
+                  {profile.fullName} • {activeDept.shortName} • {profile.clinicalRole}
+                </span>
+                <ChevronDown className="w-3 h-3 text-zinc-400 shrink-0" />
+              </button>
             </div>
           </div>
 
-          {/* Right: Unanswered Dept Questions Pill + QR Pair + New Case */}
+          {/* Right: Sync Status + Unanswered Dept Questions Pill + QR Pair + New Case */}
           <div className="flex items-center gap-1.5">
+            {/* Background Sync Engine Status Pill */}
+            <button
+              type="button"
+              onClick={() => triggerSync()}
+              title="Click to trigger background sync"
+              data-testid="header-sync-pill"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono border transition-colors cursor-pointer ${
+                syncStatus === "syncing"
+                  ? "bg-amber-950/40 border-amber-800/60 text-amber-300"
+                  : syncStatus === "offline"
+                  ? "bg-zinc-900 border-zinc-800 text-zinc-400"
+                  : "bg-zinc-900/60 border-zinc-800 text-emerald-400 hover:bg-zinc-800"
+              }`}
+            >
+              <span className="truncate max-w-[120px] sm:max-w-none">
+                {statusLabel}
+              </span>
+            </button>
+
+            {/* Over-The-Air Update Pill (if available) */}
+            {updateAvailable && updateInfo && (
+              <button
+                type="button"
+                onClick={() => openApkDownload(updateInfo.apk_download_url)}
+                title={`New update ${updateInfo.version} ready — click to download APK`}
+                data-testid="header-update-pill"
+                className="hidden xs:flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-950/80 hover:bg-emerald-900/80 border border-emerald-500/50 text-emerald-300 text-[10px] font-mono font-semibold transition-colors shadow-sm cursor-pointer"
+              >
+                <span>✨ {updateInfo.version}</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => setQuestionsDrawerOpen(true)}
@@ -672,6 +865,7 @@ export default function Home() {
           isHoldingPTT={isHoldingPTT}
           onStartPTT={startPTT}
           onStopPTT={stopPTT}
+          placeholder={activeDept.placeholder}
         />
       </main>
 
@@ -686,6 +880,23 @@ export default function Home() {
 
       {/* QR Code Wi-Fi Pairing Modal */}
       <QRPairModal isOpen={qrModalOpen} onClose={() => setQrModalOpen(false)} />
+
+      {/* User Profile & Clinical Assignment Modal */}
+      <UserProfileModal
+        isOpen={profileModalOpen}
+        onClose={() => setProfileModalOpen(false)}
+        currentProfile={profile}
+        onSaveProfile={handleSaveProfile}
+      />
+
+      {/* Over-The-Air (OTA) Auto-Update Prompt Modal */}
+      <AutoUpdateModal
+        isOpen={updateAvailable && !dismissed}
+        onClose={dismissUpdate}
+        manifest={updateInfo}
+        currentVersion={currentVersion}
+        currentBuild={currentBuild}
+      />
     </div>
   );
 }

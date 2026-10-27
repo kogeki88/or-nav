@@ -1,0 +1,574 @@
+[
+  {
+    "id": "q-2e2ae931",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Where do we keep the backup cryo nerve probe?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "verified",
+    "created_at": "2026-10-27T10:13:32Z",
+    "verified_at": "2026-10-27T10:13:32Z",
+    "answers": [
+      {
+        "id": "ans-dc0fb0",
+        "responder_role": "CVOR Peer RN",
+        "answer_text": "Cryo probe is in Core Supply Pyxis D Bin 3.",
+        "confidence": "confident",
+        "created_at": "2026-10-27T10:13:32Z"
+      }
+    ]
+  },
+  {
+    "id": "q-81b23a50",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Where do we keep the backup cryo nerve probe?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "verified",
+    "created_at": "2026-10-27T10:09:46Z",
+    "verified_at": "2026-10-27T10:09:46Z",
+    "answers": [
+      {
+        "id": "ans-23e296",
+        "responder_role": "CVOR Peer RN",
+        "answer_text": "Cryo probe is in Core Supply Pyxis D Bin 3.",
+        "confidence": "confident",
+        "created_at": "2026-10-27T10:09:46Z"
+      }
+    ]
+  },
+  {
+    "id": "q-6758d381",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Where do we keep the backup cryo nerve probe?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "verified",
+    "created_at": "2026-10-27T10:08:08Z",
+    "verified_at": "2026-10-27T10:08:08Z",
+    "answers": [
+      {
+        "id": "ans-bbd594",
+        "responder_role": "CVOR Peer RN",
+        "answer_text": "Cryo probe is in Core Supply Pyxis D Bin 3.",
+        "confidence": "confident",
+        "created_at": "2026-10-27T10:08:08Z"
+      }
+    ]
+  },
+  {
+    "id": "q-5d3d06e8",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Where do we keep the backup cryo nerve probe?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "verified",
+    "created_at": "2026-10-27T00:10:24Z",
+    "verified_at": "2026-10-27T00:10:24Z",
+    "answers": [
+      {
+        "id": "ans-cd4a03",
+        "responder_role": "CVOR Peer RN",
+        "answer_text": "Cryo probe is in Core Supply Pyxis D Bin 3.",
+        "confidence": "confident",
+        "created_at": "2026-10-27T00:10:24Z"
+      }
+    ]
+  },
+  {
+    "id": "q-d8fa8eb8",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 4 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-27T00:10:17Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-d4d79e0d",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 3 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-27T00:10:17Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-a0507ac3",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 2 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-27T00:10:17Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-aaf72f29",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 1 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-27T00:10:17Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-0d57073c",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 0 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-27T00:10:17Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-7142f831",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Where do we keep the backup cryo nerve probe?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "verified",
+    "created_at": "2026-10-27T00:09:44Z",
+    "verified_at": "2026-10-27T00:09:44Z",
+    "answers": [
+      {
+        "id": "ans-f37491",
+        "responder_role": "CVOR Peer RN",
+        "answer_text": "Cryo probe is in Core Supply Pyxis D Bin 3.",
+        "confidence": "confident",
+        "created_at": "2026-10-27T00:09:44Z"
+      }
+    ]
+  },
+  {
+    "id": "q-7c3e43ed",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Where do we keep the backup cryo nerve probe?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "verified",
+    "created_at": "2026-10-27T00:08:02Z",
+    "verified_at": "2026-10-27T00:08:02Z",
+    "answers": [
+      {
+        "id": "ans-f05512",
+        "responder_role": "CVOR Peer RN",
+        "answer_text": "Cryo probe is in Core Supply Pyxis D Bin 3.",
+        "confidence": "confident",
+        "created_at": "2026-10-27T00:08:02Z"
+      }
+    ]
+  },
+  {
+    "id": "q-ad2c5651",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 4 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-27T00:07:57Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-71415832",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 3 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-27T00:07:57Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-ce12e2d8",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 2 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-27T00:07:57Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-6c3402d1",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 1 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-27T00:07:57Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-18a65cfd",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 0 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-27T00:07:57Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-81b712e5",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Where do we keep the backup cryo nerve probe?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "verified",
+    "created_at": "2026-10-27T00:07:52Z",
+    "verified_at": "2026-10-27T00:07:52Z",
+    "answers": [
+      {
+        "id": "ans-a95028",
+        "responder_role": "CVOR Peer RN",
+        "answer_text": "Cryo probe is in Core Supply Pyxis D Bin 3.",
+        "confidence": "confident",
+        "created_at": "2026-10-27T00:07:52Z"
+      }
+    ]
+  },
+  {
+    "id": "q-29d104c7",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Where do we keep the backup cryo nerve probe?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "verified",
+    "created_at": "2026-10-27T00:07:26Z",
+    "verified_at": "2026-10-27T00:07:26Z",
+    "answers": [
+      {
+        "id": "ans-1206fc",
+        "responder_role": "CVOR Peer RN",
+        "answer_text": "Cryo probe is in Core Supply Pyxis D Bin 3.",
+        "confidence": "confident",
+        "created_at": "2026-10-27T00:07:26Z"
+      }
+    ]
+  },
+  {
+    "id": "q-2ebceedc",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 4 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:55:32Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-48f57d5a",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 3 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:55:32Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-da8f563e",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 2 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:55:32Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-8448f7b6",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 1 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:55:32Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-e5b16f88",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 0 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:55:32Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-8f5dc269",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 4 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:53:15Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-b0e81847",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 3 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:53:15Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-57d826f7",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 2 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:53:15Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-71bea00a",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 1 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:53:15Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-948b9558",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 0 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:53:15Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-2bf358b9",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 4 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:03:52Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-60a6972d",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 3 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:03:52Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-716d383f",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 2 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:03:52Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-d469b29d",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 1 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:03:52Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-89001663",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 0 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:03:52Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-439497aa",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 4 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:02:07Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-c0063410",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 3 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:02:07Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-5d60b506",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 2 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:02:07Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-921c5ab5",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 1 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:02:07Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-6fa6d515",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 0 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:02:07Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-75d51cb8",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 4 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:01:45Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-880a70e7",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 3 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:01:45Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-68d77588",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 2 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:01:45Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-12553dc2",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 1 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:01:45Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-563df7c0",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 0 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:01:45Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-ea512bf6",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 4 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:00:55Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-18c06046",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 3 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:00:55Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-e825d875",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 2 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:00:55Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-9f23fedc",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 1 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:00:55Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-bf35820f",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Concurrent question 0 regarding cannula?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "open",
+    "created_at": "2026-10-26T23:00:55Z",
+    "verified_at": null,
+    "answers": []
+  },
+  {
+    "id": "q-cvor-001",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Where do we keep the backup 5-0 Prolene RB-2 sutures when Cart A Bin 3 is out during an off-shift CABG?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "answered_tentative",
+    "created_at": "2026-10-25T11:20:00Z",
+    "verified_at": null,
+    "answers": [
+      {
+        "id": "ans-001",
+        "responder_role": "Circulating RN (Peer)",
+        "answer_text": "Core Supply Cabinet D, Shelf 3, Bin B has the overflow cardiovascular suture box next to the vascular grafts.",
+        "confidence": "tentative_unsure",
+        "created_at": "2026-10-25T11:42:00Z"
+      }
+    ]
+  },
+  {
+    "id": "q-cvor-002",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Does Dr. Yamamoto want the topical ice slush basin set up on the back table for isolated AVR cases or only combined CABG/Valve?",
+    "asked_by_role": "CVOR Scrub Tech Orientee",
+    "status": "open",
+    "created_at": "2026-10-25T13:05:00Z",
+    "verified_at": null,
+    "answers": []
+  }
+]

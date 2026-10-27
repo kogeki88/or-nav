@@ -10,8 +10,9 @@ import re
 import socket
 from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.config import settings, list_tenants
@@ -119,6 +120,56 @@ async def get_gemini_status():
         "configured": masked is not None,
         "masked_key": masked,
         "model": "gemini-2.5-flash",
+    }
+
+
+@app.api_route("/api/download-apk", methods=["GET", "HEAD"])
+async def download_apk():
+    """Stream OR-Nav APK binary directly for in-app OTA installer."""
+    root = Path(__file__).resolve().parent.parent.parent
+    candidate_paths = [
+        root / "frontend" / "public" / "or-nav.apk",
+        root / "frontend" / "out" / "or-nav.apk",
+        root / "or-nav.apk",
+        root / "or-nav-standalone.apk",
+    ]
+    for apk_path in candidate_paths:
+        if apk_path.exists() and apk_path.stat().st_size > 1000:
+            return FileResponse(
+                path=str(apk_path),
+                media_type="application/vnd.android.package-archive",
+                filename="or-nav.apk",
+                headers={
+                    "Content-Disposition": 'attachment; filename="or-nav.apk"',
+                    "Cache-Control": "no-store, no-cache, must-revalidate",
+                },
+            )
+    raise HTTPException(status_code=404, detail="APK package not found on server.")
+
+
+@app.get("/api/version")
+async def get_version(response: Response):
+    """Return version manifest for OTA update checking with cache-busting headers."""
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    lan_ip = get_lan_ip()
+    v_path = Path(__file__).resolve().parent.parent.parent / "frontend" / "public" / "version.json"
+    if v_path.exists():
+        try:
+            import json
+            data = json.loads(v_path.read_text(encoding="utf-8"))
+            if lan_ip and not data.get("apk_download_url", "").startswith("https://github.com"):
+                data["apk_download_url"] = f"http://{lan_ip}:8000/api/download-apk"
+            return data
+        except Exception:
+            pass
+
+    return {
+        "version": "v0.4",
+        "build_number": 5,
+        "release_date": "2026-10-27",
+        "apk_download_url": f"http://{lan_ip or '192.168.1.217'}:8000/api/download-apk",
+        "min_supported_version": "v0.1",
+        "changelog": "v0.4 (Build 5) — Robust Android OTA updater, native in-app APK installer, and multi-tenant RBAC.",
     }
 
 

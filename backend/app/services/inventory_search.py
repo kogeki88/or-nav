@@ -107,7 +107,7 @@ _PROCEDURAL_INDICATORS = re.compile(
     r"prefer(?:s|ence|ences)?|"
     r"protocol|guideline|policy|checklist|orient(?:ation)?|"
     r"activate\s+mtp|massive\s+transfusion|"
-    r"malignant\s+hyperthermia|dantrolene|"
+    r"malignant\s+hyperthermia|dantrolene\s+(?:dose|dosing|protocol|mixing|reconstitution)|"
     r"heparin\s+(?:dose|dosing|target|act|protocol)|"
     r"act\s+target|target\s+act|"
     r"bypass\s+readiness|crash[\s-]on|"
@@ -123,7 +123,7 @@ _MOVE_PATTERN = re.compile(
     r"^(?:the\s+)?(?P<item>.+?)\s+"
     r"(?:was\s+moved|moved|relocated|is\s+now\s+at|is\s+now\s+in)\s+"
     r"(?:to\s+)?"
-    r"(?P<location>(?:(?:OR|room)\b|Core\s+Supply|Pump\s+Room).+?)\s*\.?$",
+    r"(?P<location>(?:(?:OR|room|bay|pod|trauma\s+bay|trauma|icu|er|ed|pacu)\b|Core\s+Supply|Pump\s+Room).+?)\s*\.?$",
     re.IGNORECASE,
 )
 
@@ -190,6 +190,29 @@ _SPOKEN_LETTER_WORDS = [
 ]
 
 
+def _format_room_canonical(unit: Optional[str], num: Optional[str], core: Optional[str], pump: Optional[str]) -> str:
+    if core:
+        return "Core Supply"
+    if pump:
+        return "Pump Room"
+    u = (unit or "").lower().strip()
+    if u in ("or", "room"):
+        return f"OR {num}" if num else "OR"
+    elif u in ("trauma bay", "trauma"):
+        return f"Trauma Bay {num}" if num else "Trauma"
+    elif u == "bay":
+        return f"Bay {num}" if num else "Bay"
+    elif "icu" in u:
+        return f"ICU {num}" if num else ("ICU Supply" if "supply" in u else "ICU")
+    elif u in ("er", "ed"):
+        return f"ER {num}" if num else "ER"
+    elif "pacu" in u:
+        return f"PACU {num}" if num else ("PACU Med Room" if "med" in u else "PACU")
+    elif u == "pod":
+        return f"Pod {num}" if num else "Pod"
+    return u.title()
+
+
 def normalize_location_coordinate(loc_raw: str) -> Optional[str]:
     """
     Parse and canonicalize natural voice, spoken words, or lowercase location into uppercase 4-part coordinate:
@@ -199,6 +222,9 @@ def normalize_location_coordinate(loc_raw: str) -> Optional[str]:
       'or 21 be 1 sea' -> 'OR 21 B 1 C'
       'core supply d 1 a' -> 'Core Supply D 1 A'
       'pump room h 2 a' -> 'Pump Room H 2 A'
+      'The EZ-IO needles moved to Bay 2 Cart A Shelf 1 Bin B' -> 'Bay 2 A 1 B'
+      'bay 2 a 1 b' -> 'Bay 2 A 1 B'
+      'icu a 2 b' -> 'ICU A 2 B'
     """
     text = (loc_raw or "").strip().rstrip(".")
     if not text:
@@ -212,40 +238,30 @@ def normalize_location_coordinate(loc_raw: str) -> Optional[str]:
     for pattern, letter in _SPOKEN_LETTER_WORDS:
         text = re.sub(pattern, letter, text, flags=re.IGNORECASE)
 
-    # Natural phrasing with words (e.g. room 21 cabinet b shelf 1 bin a)
+    # Natural phrasing with words (e.g. room 21 cabinet b shelf 1 bin a, Bay 2 Cart A Shelf 1 Bin B)
     nat = re.search(
-        r"(?:(?:or|room)\s*(\d+)|(core\s+supply)|(pump\s+room))\s*"
-        r"(?:cart|cabinet|cab|rack|pyxis)?\s*([a-zA-Z])\s*"
-        r"(?:shelf)?\s*(\d+)\s*"
+        r"(?:(trauma\s+bay|trauma|bay|pod|icu(?:\s+supply)?|er|ed|pacu(?:\s+med\s+room)?|or|room)(?:\s*(\d+))?|(core\s+supply)|(pump\s+room))\s*"
+        r"(?:cart|cabinet|cab|rack|pyxis|alcove)?\s*([a-zA-Z])\s*"
+        r"(?:shelf|drawer)?\s*(\d+)\s*"
         r"(?:bin|container)?\s*([a-zA-Z])",
         text,
         re.IGNORECASE,
     )
     if nat:
-        or_num, core, pump, cab, shelf, bin_letter = nat.groups()
-        if or_num:
-            room = f"OR {or_num}"
-        elif core:
-            room = "Core Supply"
-        else:
-            room = "Pump Room"
+        u, num, core, pump, cab, shelf, bin_letter = nat.groups()
+        room = _format_room_canonical(u, num, core, pump)
         return f"{room} {cab.upper()} {shelf} {bin_letter.upper()}"
 
-    # Standard format: (OR 21|Core Supply|Pump Room) B 1 A
+    # Standard format: (OR 21|Core Supply|Pump Room|Bay 2|ICU) B 1 A
     std = re.search(
-        r"(?:(OR\s*\d+|room\s*\d+)|(core\s+supply)|(pump\s+room))\s+([a-zA-Z])\s+(\d+)\s+([a-zA-Z])",
+        r"(?:(trauma\s+bay|trauma|bay|pod|icu(?:\s+supply)?|er|ed|pacu(?:\s+med\s+room)?|or|room)(?:\s*(\d+))?|(core\s+supply)|(pump\s+room))\s+"
+        r"([a-zA-Z])\s+(\d+)\s+([a-zA-Z])",
         text,
         re.IGNORECASE,
     )
     if std:
-        or_str, core, pump, cab, shelf, bin_letter = std.groups()
-        if or_str:
-            num = re.sub(r"\D", "", or_str)
-            room = f"OR {num}"
-        elif core:
-            room = "Core Supply"
-        else:
-            room = "Pump Room"
+        u, num, core, pump, cab, shelf, bin_letter = std.groups()
+        room = _format_room_canonical(u, num, core, pump)
         return f"{room} {cab.upper()} {shelf} {bin_letter.upper()}"
 
     return None
@@ -419,7 +435,7 @@ SUTURE_MATERIALS = {
     "ti-cron", "ticron", "pds", "nylon", "chromic", "gut",
 }
 
-# CVOR Surgical Needle Codes (Ethicon & Covidien)
+# Surgical Needle Codes (Ethicon & Covidien)
 NEEDLE_CODES = {
     "rb-1", "rb-2", "sh", "sh-1", "ct-1", "ct-2", "ctx", "bv-1",
     "bv-100", "c-1", "v-5", "v-7", "da", "ps-2", "ur-6", "ks",

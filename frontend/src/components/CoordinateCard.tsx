@@ -18,6 +18,7 @@ interface CoordinateCardProps {
   onFlagWrong?: (item: string) => Promise<void>;
   onSpeakText?: (text: string) => void;
   defaultExpanded?: boolean;
+  departmentId?: string;
 }
 
 function isOlderThan90Days(isoDate?: string): boolean {
@@ -34,6 +35,7 @@ export default function CoordinateCard({
   onFlagWrong,
   onSpeakText,
   defaultExpanded = false,
+  departmentId,
 }: CoordinateCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [verifying, setVerifying] = useState(false);
@@ -42,6 +44,11 @@ export default function CoordinateCard({
   const [flaggedLocally, setFlaggedLocally] = useState(false);
   const [reverifiedLocally, setReverifiedLocally] = useState(false);
   const [speakingCard, setSpeakingCard] = useState(false);
+
+  const isOR = !departmentId || departmentId === "or_main" || departmentId === "general_memorial_cvor";
+  const notesHeader = isOR ? "Surgeon & Case Notes" : "Clinical & Unit Notes";
+  const toggleLabel = isOR ? "Surgeon notes & relocation options" : "Clinical notes & relocation options";
+  const calloutLabel = card.surgeon_filter ? `${card.surgeon_filter}` : isOR ? "Surgeon Note" : "Clinical Note";
 
   const hasPendingMove = Boolean(card.pending_location && card.pending_location.trim().length > 0);
   const hasSurgeonNotes = Boolean(card.surgeon_notes && card.surgeon_notes.trim().length > 0);
@@ -195,7 +202,7 @@ export default function CoordinateCard({
           className="mb-2.5 px-3 py-2 rounded-lg bg-emerald-950/40 border border-emerald-700/50 text-xs text-emerald-200 flex items-start gap-2 shadow-sm"
         >
           <span className="font-semibold text-emerald-400 shrink-0 font-mono text-[11px] uppercase tracking-wider mt-0.5">
-            {card.surgeon_filter ? `${card.surgeon_filter}` : "Surgeon Note"}
+            {calloutLabel}
           </span>
           <span className="leading-snug">{card.highlighted_surgeon_note}</span>
         </div>
@@ -240,7 +247,7 @@ export default function CoordinateCard({
             ) : (
               <ChevronRight className="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-300" />
             )}
-            <span className="font-medium">Surgeon notes & relocation options</span>
+            <span className="font-medium">{toggleLabel}</span>
           </div>
           {hasPendingMove && !confirmedLocally && (
             <span className="w-2 h-2 rounded-full bg-amber-500" title="Relocation pending" />
@@ -252,7 +259,7 @@ export default function CoordinateCard({
             {hasSurgeonNotes && (
               <div className="rounded-lg bg-zinc-950/60 p-2.5 border border-zinc-800/80 text-zinc-300 leading-relaxed">
                 <span className="text-[11px] font-semibold text-zinc-400 block mb-0.5 uppercase tracking-wider font-mono">
-                  Surgeon Note
+                  {notesHeader}
                 </span>
                 {card.surgeon_notes}
               </div>

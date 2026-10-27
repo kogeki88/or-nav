@@ -6,6 +6,7 @@ import { CoordinateCardData, MoveWidgetData } from "@/lib/api";
 import CoordinateCard from "./CoordinateCard";
 import MoveVerifyWidget from "./MoveVerifyWidget";
 import { Shield, Sparkles, BookOpen, Volume2 } from "lucide-react";
+import { getDepartment } from "@/lib/departments";
 
 export interface MessageItem {
   id: string;
@@ -14,7 +15,7 @@ export interface MessageItem {
   timestamp: string;
   phiDetected?: boolean;
   clientPhiDetected?: boolean;
-  routingTier?: "TIER_1_LOCAL_CSV" | "TIER_2_GEMINI_RAG" | "MOVE_REPORTED";
+  routingTier?: "TIER_1_LOCAL_CSV" | "TIER_2_GEMINI_RAG" | "MOVE_REPORTED" | "RBAC_RESTRICTED";
   latencyMs?: number;
   isEducationalBaseline?: boolean;
   coordinateCard?: CoordinateCardData | null;
@@ -49,6 +50,8 @@ export default function ChatCanvas({
   onStarterChipClick,
 }: ChatCanvasProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const dept = getDepartment(tenantId);
+  const starterPrompts = dept.starterPrompts;
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -63,14 +66,14 @@ export default function ChatCanvas({
             <Sparkles className="w-5 h-5 text-zinc-400" />
           </div>
           <h2 className="text-lg sm:text-xl font-semibold text-zinc-100 tracking-tight mb-1.5">
-            What do you need for this case?
+            {dept.id === "or_main" ? "What do you need for this case?" : `What do you need in ${dept.shortName}?`}
           </h2>
           <p className="text-xs sm:text-sm text-zinc-400 mb-6 max-w-sm leading-relaxed">
-            Instant CVOR storage locations, surgeon suture preferences, and emergency protocols.
+            Instant {dept.name} storage coordinates, supply locations, and unit protocols.
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
-            {STARTER_PROMPTS.map((item, idx) => (
+            {starterPrompts.map((item, idx) => (
               <button
                 key={idx}
                 onClick={() => onStarterChipClick?.(item.prompt)}
@@ -164,6 +167,7 @@ export default function ChatCanvas({
                       <CoordinateCard
                         key={`${card.item}-${cIdx}`}
                         card={card}
+                        departmentId={tenantId}
                         onVerifyPendingMove={onVerifyPendingMove}
                         onFlagWrong={onFlagWrong}
                         onSpeakText={onSpeakSingleMessage}
@@ -212,6 +216,9 @@ export default function ChatCanvas({
                 )}
                 {msg.routingTier === "MOVE_REPORTED" && (
                   <span>Relocation logged · {msg.latencyMs ?? 0}ms</span>
+                )}
+                {msg.routingTier === "RBAC_RESTRICTED" && (
+                  <span className="text-amber-400/90 font-medium">Role-restricted · {msg.latencyMs ?? 0}ms</span>
                 )}
                 {isPhiScrubbed && (
                   <>

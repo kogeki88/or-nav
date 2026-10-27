@@ -1,0 +1,8 @@
+{
+  "version": "v0.4",
+  "build_number": 5,
+  "release_date": "2026-10-27",
+  "apk_download_url": "https://github.com/kogeki88/or-nav/releases/latest/download/or-nav.apk",
+  "min_supported_version": "v0.1",
+  "changelog": "v0.4 (Build 5) — Cloud OTA updater, GitHub Releases integration, and multi-tenant RBAC."
+}

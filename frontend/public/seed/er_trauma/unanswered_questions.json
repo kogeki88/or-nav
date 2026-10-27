@@ -1,0 +1,30 @@
+[
+  {
+    "id": "q-er-001",
+    "hospital_id": "er_trauma",
+    "question_text": "Where is the backup EZ-IO driver when Trauma Bay 1 is missing its charger?",
+    "asked_by_role": "ED Orientee RN",
+    "status": "answered_tentative",
+    "created_at": "2026-10-25T11:20:00Z",
+    "verified_at": null,
+    "answers": [
+      {
+        "id": "ans-er-001",
+        "responder_role": "Trauma Charge RN (Peer)",
+        "answer_text": "Trauma Core Supply Cart T, top drawer in the yellow padded case.",
+        "confidence": "tentative_unsure",
+        "created_at": "2026-10-25T11:42:00Z"
+      }
+    ]
+  },
+  {
+    "id": "q-er-002",
+    "hospital_id": "er_trauma",
+    "question_text": "What is the code for the blood bank satellite refrigerator in Pod 3?",
+    "asked_by_role": "ED Staff RN",
+    "status": "open",
+    "created_at": "2026-10-25T13:05:00Z",
+    "verified_at": null,
+    "answers": []
+  }
+]
