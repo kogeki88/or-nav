@@ -18,6 +18,8 @@ from pydantic import BaseModel
 from app.config import settings, list_tenants
 from app.routers.chat import router as chat_router
 from app.routers.voice import router as voice_router
+from app.peer_qna import router as peer_qna_router
+from app.auth import router as auth_router
 from app.services.rag_fallback import reset_rag_services
 from app.services.tunnel import start_tunnel_background, stop_tunnel, get_tunnel_url
 
@@ -49,6 +51,8 @@ app.add_middleware(
 
 app.include_router(chat_router)
 app.include_router(voice_router)
+app.include_router(peer_qna_router)
+app.include_router(auth_router)
 
 
 def get_lan_ip() -> str:
@@ -164,12 +168,12 @@ async def get_version(response: Response):
             pass
 
     return {
-        "version": "v0.41",
-        "build_number": 6,
+        "version": "v0.5",
+        "build_number": 7,
         "release_date": "2026-10-27",
         "apk_download_url": f"http://{lan_ip or '192.168.1.217'}:8000/api/download-apk",
         "min_supported_version": "v0.1",
-        "changelog": "v0.4 (Build 5) — Robust Android OTA updater, native in-app APK installer, and multi-tenant RBAC.",
+        "changelog": "v0.5 (Build 7): Added Login & First-Time Profile Onboarding, Fictional Hospital 3-Tier GitHub Resource Packs, Persistent Multi-Case Chat History, Peer Q&A Verification, and 95% APK Size Reduction.",
     }
 
 

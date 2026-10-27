@@ -1,8 +1,8 @@
 {
-  "version": "v0.41",
-  "build_number": 6,
+  "version": "v0.5",
+  "build_number": 7,
   "release_date": "2026-10-27",
   "apk_download_url": "https://github.com/kogeki88/or-nav/releases/latest/download/or-nav.apk",
   "min_supported_version": "v0.1",
-  "changelog": "Cloud OTA Auto-Update verified via GitHub Releases"
+  "changelog": "v0.5 (Build 7): Added Login & First-Time Profile Onboarding, Fictional Hospital 3-Tier GitHub Resource Packs, Persistent Multi-Case Chat History, Peer Q&A Verification, and 95% APK Size Reduction."
 }

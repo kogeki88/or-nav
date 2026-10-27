@@ -1,0 +1,229 @@
+[
+  {
+    "id": "pq-ac1500f6",
+    "tenantId": "or_main",
+    "questionText": "Gauntlet AAA Vascular Shunt Protocol (1793141009361)",
+    "askedBy": "Clinical Nurse",
+    "role": "Circulating RN",
+    "createdAt": "2026-10-27T22:43:29.422975+00:00",
+    "answers": [
+      {
+        "answerId": "pa-790b79d3",
+        "answeredBy": "Clinical Nurse (Circulating RN)",
+        "answerText": "Stored in Core Supply \u00b7 Cart V \u00b7 Shelf 1 \u00b7 Bin A.",
+        "verifiedBy": [
+          "Clinical Nurse (Circulating RN)"
+        ],
+        "isVerifiedConsensus": false
+      }
+    ],
+    "status": "unverified",
+    "verificationsCount": 1
+  },
+  {
+    "id": "pq-358346a1",
+    "tenantId": "or_main",
+    "questionText": "Gauntlet AAA Vascular Shunt Protocol (1793140948213)",
+    "askedBy": "Clinical Nurse",
+    "role": "Circulating RN",
+    "createdAt": "2026-10-27T22:42:28.276837+00:00",
+    "answers": [
+      {
+        "answerId": "pa-f464bfd0",
+        "answeredBy": "Clinical Nurse (Circulating RN)",
+        "answerText": "Stored in Core Supply \u00b7 Cart V \u00b7 Shelf 1 \u00b7 Bin A.",
+        "verifiedBy": [
+          "Clinical Nurse (Circulating RN)"
+        ],
+        "isVerifiedConsensus": false
+      }
+    ],
+    "status": "unverified",
+    "verificationsCount": 1
+  },
+  {
+    "id": "pq-b79cdcbc",
+    "tenantId": "or_main",
+    "questionText": "Gauntlet AAA Vascular Shunt Protocol (1793140903382)",
+    "askedBy": "Clinical Nurse",
+    "role": "Circulating RN",
+    "createdAt": "2026-10-27T22:41:43.444412+00:00",
+    "answers": [
+      {
+        "answerId": "pa-bf9eb485",
+        "answeredBy": "Clinical Nurse (Circulating RN)",
+        "answerText": "Stored in Core Supply \u00b7 Cart V \u00b7 Shelf 1 \u00b7 Bin A.",
+        "verifiedBy": [
+          "Clinical Nurse (Circulating RN)"
+        ],
+        "isVerifiedConsensus": false
+      }
+    ],
+    "status": "unverified",
+    "verificationsCount": 1
+  },
+  {
+    "id": "pq-7e427ba1",
+    "tenantId": "sacred_heart::or",
+    "questionText": "Where are the micro coronary scissors?",
+    "askedBy": "Sean Iglesia, RN (Orientee)",
+    "role": "Orientee",
+    "createdAt": "2026-10-27T22:22:04.420000+00:00",
+    "answers": [
+      {
+        "answerId": "pa-fbba5776",
+        "answeredBy": "Dr. Dorian / Senior Circulator",
+        "answerText": "Potts-Smith 45 degree scissors are in the CVOR Micro Instrument Case on Shelf 2.",
+        "verifiedBy": [
+          "Carla Espinosa, RN",
+          "Dr. Christopher Turk"
+        ],
+        "isVerifiedConsensus": true
+      }
+    ],
+    "status": "verified",
+    "verificationsCount": 2
+  },
+  {
+    "id": "pq-seed-1",
+    "tenantId": "sacred_heart::or",
+    "questionText": "Where is the emergency vascular shunt stored during ruptured abdominal aneurysm?",
+    "askedBy": "Nurse Turk (Orientee RN)",
+    "role": "Circulating RN",
+    "createdAt": "2026-10-27T14:30:00Z",
+    "answers": [
+      {
+        "answerId": "pa-seed-1a",
+        "answeredBy": "Dr. Christopher Turk (Attending Surgeon)",
+        "answerText": "Pruitt-Inahara carotid & vascular shunts are in Core Supply \u00b7 Cart V \u00b7 Shelf 1 \u00b7 Bin A next to vascular clamp set.",
+        "verifiedBy": [
+          "Carla Espinosa, RN"
+        ],
+        "isVerifiedConsensus": false
+      }
+    ],
+    "status": "unverified",
+    "verificationsCount": 1
+  },
+  {
+    "id": "pq-seed-2",
+    "tenantId": "sacred_heart::or",
+    "questionText": "What is the proper warm-up time for the Belmont rapid infuser before spiking emergency blood?",
+    "askedBy": "Sean Iglesia, RN (Orientee)",
+    "role": "Circulating RN",
+    "createdAt": "2026-10-27T12:00:00Z",
+    "answers": [
+      {
+        "answerId": "pa-seed-2a",
+        "answeredBy": "Senior Periop Coordinator",
+        "answerText": "Belmont FMS 2000 electromagnetic warmer self-tests in under 45 seconds; prime dual-spike disposable circuit with warm saline before spiking uncrossmatched PRBCs.",
+        "verifiedBy": [
+          "Dr. Dorian, MD",
+          "Carla Espinosa, RN"
+        ],
+        "isVerifiedConsensus": true
+      }
+    ],
+    "status": "verified",
+    "verificationsCount": 2
+  },
+  {
+    "id": "pq-seed-3",
+    "tenantId": "sacred_heart::or",
+    "questionText": "Are 5mm trocars stocked inside OR 21 or do we retrieve them from the Sterile Core?",
+    "askedBy": "Dr. Elliot Reid (Orientee)",
+    "role": "Scrub Tech",
+    "createdAt": "2026-10-27T16:00:00Z",
+    "answers": [],
+    "status": "unverified",
+    "verificationsCount": 0
+  },
+  {
+    "id": "pq-seed-pp-1",
+    "tenantId": "princeton_plainsboro::or",
+    "questionText": "Where are specialized pediatric rigid bronchoscopy sets located for emergency foreign body retrieval?",
+    "askedBy": "Dr. Allison Cameron (Orientee)",
+    "role": "Scrub Tech",
+    "createdAt": "2026-10-27T11:15:00Z",
+    "answers": [
+      {
+        "answerId": "pa-pp-1a",
+        "answeredBy": "Dr. Robert Chase (Attending Surgeon)",
+        "answerText": "Pediatric rigid bronchoscope tray and Storz optical forceps are stored in Anesthesia Workroom A-12, locked cabinet drawer 3.",
+        "verifiedBy": [
+          "Dr. Eric Foreman, MD",
+          "Dr. Lisa Cuddy, MD"
+        ],
+        "isVerifiedConsensus": true
+      }
+    ],
+    "status": "verified",
+    "verificationsCount": 2
+  },
+  {
+    "id": "pq-seed-pp-2",
+    "tenantId": "princeton_plainsboro::or",
+    "questionText": "What is the anticoagulation reversal protocol for emergency mechanical thrombectomy in OR 4?",
+    "askedBy": "Dr. Remy Hadley (Orientee RN)",
+    "role": "Circulating RN",
+    "createdAt": "2026-10-27T13:45:00Z",
+    "answers": [
+      {
+        "answerId": "pa-pp-2a",
+        "answeredBy": "Dr. James Wilson (Chief of Oncology)",
+        "answerText": "Protamine sulfate 1 mg per 100 units heparin administered slow IV over 10 minutes; verify ACT < 180 before femoral closure.",
+        "verifiedBy": [
+          "Dr. Gregory House, MD",
+          "Dr. Robert Chase, MD"
+        ],
+        "isVerifiedConsensus": true
+      }
+    ],
+    "status": "verified",
+    "verificationsCount": 2
+  },
+  {
+    "id": "pq-seed-cg-1",
+    "tenantId": "county_general::or",
+    "questionText": "Where are the Level 1 Rapid Infuser heat exchanger cartridges kept during trauma resuscitations?",
+    "askedBy": "Dr. John Carter (Surgical Resident)",
+    "role": "Circulating RN",
+    "createdAt": "2026-10-27T15:20:00Z",
+    "answers": [
+      {
+        "answerId": "pa-cg-1a",
+        "answeredBy": "Dr. Peter Benton (Trauma Attending)",
+        "answerText": "Level 1 H-1200 disposable high-flow tubing sets are hanging on the trauma crash cart in Trauma OR 1 and Trauma OR 2.",
+        "verifiedBy": [
+          "Carol Hathaway, RN",
+          "Dr. Mark Greene, MD"
+        ],
+        "isVerifiedConsensus": true
+      }
+    ],
+    "status": "verified",
+    "verificationsCount": 2
+  },
+  {
+    "id": "pq-seed-cg-2",
+    "tenantId": "county_general::or",
+    "questionText": "What is the emergency protocol for uncrossmatched blood release from the satellite blood bank?",
+    "askedBy": "Chuny Marquez, RN (Orientee)",
+    "role": "Circulating RN",
+    "createdAt": "2026-10-27T16:05:00Z",
+    "answers": [
+      {
+        "answerId": "pa-cg-2a",
+        "answeredBy": "Carol Hathaway, RN (Charge Nurse)",
+        "answerText": "Emergency 4-unit uncrossmatched O-negative PRBC cooler is kept in Satellite Blood Refrigerator B-2; 2-nurse barcode scan verification required.",
+        "verifiedBy": [
+          "Dr. Kerry Weaver, MD",
+          "Dr. John Carter, MD"
+        ],
+        "isVerifiedConsensus": true
+      }
+    ],
+    "status": "verified",
+    "verificationsCount": 2
+  }
+]

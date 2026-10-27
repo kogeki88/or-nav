@@ -9,6 +9,7 @@
 import Dexie, { type Table } from "dexie";
 import type { CoordinateCardData, DepartmentQuestion } from "./api";
 import { SEED_UNANSWERED_QUESTIONS, getSeedQuestions } from "./seedData";
+import type { MessageItem } from "@/components/ChatCanvas";
 
 export interface OfflineInventoryRecord extends CoordinateCardData {
   id?: string;
@@ -48,11 +49,41 @@ export interface InstalledResourcePack {
   content: string;         // raw CSV/MD/JSON content cached on-device
 }
 
+export interface ChatSession {
+  sessionId: string;
+  tenantId: string;
+  title: string;
+  updatedAt: string;
+  messages: MessageItem[];
+}
+
+export interface PeerAnswer {
+  answerId: string;
+  answeredBy: string;     // e.g. "Dr. Dorian / Senior Circulator"
+  answerText: string;
+  verifiedBy: string[];   // list of clinician names who tapped verify
+  isVerifiedConsensus: boolean;
+}
+
+export interface PeerQuestion {
+  id: string;
+  tenantId: string;       // e.g. "sacred_heart::or"
+  questionText: string;
+  askedBy: string;        // e.g. "Sean Iglesia, RN (Orientee)"
+  role: string;
+  createdAt: string;
+  answers: PeerAnswer[];
+  status: "unverified" | "verified";
+  verificationsCount: number;
+}
+
 class ORNavOfflineDatabase extends Dexie {
   inventoryItems!: Table<OfflineInventoryRecord, string>;
   offlineOutbox!: Table<OutboxMutation, number>;
   unansweredQuestions!: Table<DepartmentQuestion, string>;
   installedPacks!: Table<InstalledResourcePack, string>;
+  chatSessions!: Table<ChatSession, string>;
+  peerQuestions!: Table<PeerQuestion, string>;
 
   constructor() {
     super("ORNavOfflineDB");
@@ -66,6 +97,21 @@ class ORNavOfflineDatabase extends Dexie {
       offlineOutbox: "++id, tenant_id, type, timestamp",
       unansweredQuestions: "id, hospital_id, status",
       installedPacks: "packId, facilityId, departmentId, roleId, category, versionHash, installedAt",
+    });
+    this.version(5).stores({
+      inventoryItems: "id, tenant_id, item, full_code, phonetic_code",
+      offlineOutbox: "++id, tenant_id, type, timestamp",
+      unansweredQuestions: "id, hospital_id, status",
+      installedPacks: "packId, facilityId, departmentId, roleId, category, versionHash, installedAt",
+      chatSessions: "sessionId, tenantId, title, updatedAt",
+    });
+    this.version(6).stores({
+      inventoryItems: "id, tenant_id, item, full_code, phonetic_code",
+      offlineOutbox: "++id, tenant_id, type, timestamp",
+      unansweredQuestions: "id, hospital_id, status",
+      installedPacks: "packId, facilityId, departmentId, roleId, category, versionHash, installedAt",
+      chatSessions: "sessionId, tenantId, title, updatedAt",
+      peerQuestions: "id, tenantId, status, createdAt",
     });
   }
 }
@@ -212,6 +258,210 @@ export async function selfHealOfflineDatabase(): Promise<ORNavOfflineDatabase | 
   } catch (err) {
     console.warn("Self-healing Dexie reset failed:", err);
     return null;
+  }
+}
+
+/* =====================================================================
+ * Multi-Session Case History & Persistence (IndexedDB + localStorage)
+ * ===================================================================== */
+
+const SESSIONS_STORAGE_KEY_PREFIX = "ornav_chat_sessions_index_";
+
+function getLocalSessionsKey(tenantId: string): string {
+  return `${SESSIONS_STORAGE_KEY_PREFIX}${tenantId}`;
+}
+
+function getLocalSessions(tenantId: string): ChatSession[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(getLocalSessionsKey(tenantId));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setLocalSessions(tenantId: string, sessions: ChatSession[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(getLocalSessionsKey(tenantId), JSON.stringify(sessions));
+  } catch (e) {
+    console.warn("Failed to write sessions to localStorage:", e);
+  }
+}
+
+/**
+ * Save or update a chat session in both IndexedDB and localStorage fallback.
+ */
+export async function saveChatSession(session: ChatSession): Promise<void> {
+  // 1. Synchronous localStorage snapshot
+  if (typeof window !== "undefined") {
+    try {
+      const existing = getLocalSessions(session.tenantId);
+      const filtered = existing.filter((s) => s.sessionId !== session.sessionId);
+      filtered.unshift(session);
+      // Keep up to 50 sessions per tenant in local storage snapshot
+      setLocalSessions(session.tenantId, filtered.slice(0, 50));
+    } catch (e) {
+      console.warn("Error updating local sessions in localStorage:", e);
+    }
+  }
+
+  // 2. Put into Dexie / IndexedDB
+  const db = activeDb || (await selfHealOfflineDatabase());
+  if (db) {
+    try {
+      await db.chatSessions.put(session);
+    } catch (e) {
+      console.warn("Failed to save chat session to IndexedDB:", e);
+    }
+  }
+}
+
+/**
+ * Get a specific chat session by sessionId from IndexedDB or localStorage.
+ */
+export async function getChatSession(sessionId: string): Promise<ChatSession | undefined> {
+  const db = activeDb;
+  if (db) {
+    try {
+      const match = await db.chatSessions.get(sessionId);
+      if (match) return match;
+    } catch (e) {
+      console.warn("IndexedDB getChatSession failed, falling back to localStorage:", e);
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(SESSIONS_STORAGE_KEY_PREFIX)) {
+          const tenantId = key.replace(SESSIONS_STORAGE_KEY_PREFIX, "");
+          const sessions = getLocalSessions(tenantId);
+          const found = sessions.find((s) => s.sessionId === sessionId);
+          if (found) return found;
+        }
+      }
+    } catch {}
+  }
+  return undefined;
+}
+
+/**
+ * List all chat sessions (optionally filtered by tenantId), sorted newest first.
+ */
+export async function listChatSessions(tenantId?: string): Promise<ChatSession[]> {
+  const db = activeDb;
+  let results: ChatSession[] = [];
+
+  if (db) {
+    try {
+      if (tenantId) {
+        results = await db.chatSessions.where("tenantId").equals(tenantId).toArray();
+      } else {
+        results = await db.chatSessions.toArray();
+      }
+      if (results && results.length > 0) {
+        results.sort(
+          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+        return results;
+      }
+    } catch (e) {
+      console.warn("IndexedDB listChatSessions failed, falling back to localStorage:", e);
+    }
+  }
+
+  // Fallback to localStorage
+  if (typeof window !== "undefined") {
+    try {
+      if (tenantId) {
+        results = getLocalSessions(tenantId);
+      } else {
+        const all: ChatSession[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(SESSIONS_STORAGE_KEY_PREFIX)) {
+            const tId = key.replace(SESSIONS_STORAGE_KEY_PREFIX, "");
+            all.push(...getLocalSessions(tId));
+          }
+        }
+        results = all;
+      }
+      results.sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+      );
+    } catch {}
+  }
+
+  return results;
+}
+
+/**
+ * Delete a specific chat session by sessionId from IndexedDB and localStorage.
+ */
+export async function deleteChatSession(sessionId: string): Promise<void> {
+  const db = activeDb;
+  if (db) {
+    try {
+      await db.chatSessions.delete(sessionId);
+    } catch (e) {
+      console.warn("IndexedDB deleteChatSession failed:", e);
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(SESSIONS_STORAGE_KEY_PREFIX)) {
+          const tenantId = key.replace(SESSIONS_STORAGE_KEY_PREFIX, "");
+          const sessions = getLocalSessions(tenantId);
+          const filtered = sessions.filter((s) => s.sessionId !== sessionId);
+          if (filtered.length !== sessions.length) {
+            setLocalSessions(tenantId, filtered);
+          }
+        }
+      }
+    } catch {}
+  }
+}
+
+/**
+ * Clear all chat sessions (optionally for a specific tenant) from IndexedDB and localStorage.
+ */
+export async function clearChatSessions(tenantId?: string): Promise<void> {
+  const db = activeDb;
+  if (db) {
+    try {
+      if (tenantId) {
+        await db.chatSessions.where("tenantId").equals(tenantId).delete();
+      } else {
+        await db.chatSessions.clear();
+      }
+    } catch (e) {
+      console.warn("IndexedDB clearChatSessions failed:", e);
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      if (tenantId) {
+        localStorage.removeItem(getLocalSessionsKey(tenantId));
+      } else {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(SESSIONS_STORAGE_KEY_PREFIX)) {
+            keysToRemove.push(key);
+          }
+        }
+        for (const k of keysToRemove) localStorage.removeItem(k);
+      }
+    } catch {}
   }
 }
 
@@ -647,4 +897,180 @@ export async function answerQuestionOffline(
   }
 
   return updated;
+}
+
+export const SEED_PEER_QUESTIONS: PeerQuestion[] = [
+  // Sacred Heart Hospital (OR)
+  {
+    id: "pq-seed-sh-1",
+    tenantId: "sacred_heart::or",
+    questionText: "Where is the emergency vascular shunt stored during ruptured abdominal aneurysm?",
+    askedBy: "Nurse Turk (Orientee RN)",
+    role: "Circulating RN",
+    createdAt: "2026-10-27T14:30:00Z",
+    answers: [
+      {
+        answerId: "pa-sh-1a",
+        answeredBy: "Dr. Christopher Turk (Attending Surgeon)",
+        answerText: "Pruitt-Inahara carotid & vascular shunts are in Core Supply · Cart V · Shelf 1 · Bin A next to vascular clamp set.",
+        verifiedBy: ["Carla Espinosa, RN", "Dr. John Dorian, MD"],
+        isVerifiedConsensus: true,
+      },
+    ],
+    status: "verified",
+    verificationsCount: 2,
+  },
+  {
+    id: "pq-seed-sh-2",
+    tenantId: "sacred_heart::or",
+    questionText: "What is the proper warm-up time for the Belmont rapid infuser before spiking emergency blood?",
+    askedBy: "Sean Iglesia, RN (Orientee)",
+    role: "Circulating RN",
+    createdAt: "2026-10-27T12:00:00Z",
+    answers: [
+      {
+        answerId: "pa-sh-2a",
+        answeredBy: "Senior Periop Coordinator",
+        answerText: "Belmont FMS 2000 electromagnetic warmer self-tests in under 45 seconds; prime dual-spike disposable circuit with warm saline before spiking uncrossmatched PRBCs.",
+        verifiedBy: ["Dr. Dorian, MD", "Carla Espinosa, RN"],
+        isVerifiedConsensus: true,
+      },
+    ],
+    status: "verified",
+    verificationsCount: 2,
+  },
+
+  // Princeton-Plainsboro Teaching Hospital (OR)
+  {
+    id: "pq-seed-pp-1",
+    tenantId: "princeton_plainsboro::or",
+    questionText: "Where are specialized pediatric rigid bronchoscopy sets located for emergency foreign body retrieval?",
+    askedBy: "Dr. Allison Cameron (Orientee)",
+    role: "Scrub Tech",
+    createdAt: "2026-10-27T11:15:00Z",
+    answers: [
+      {
+        answerId: "pa-pp-1a",
+        answeredBy: "Dr. Robert Chase (Attending Surgeon)",
+        answerText: "Pediatric rigid bronchoscope tray and Storz optical forceps are stored in Anesthesia Workroom A-12, locked cabinet drawer 3.",
+        verifiedBy: ["Dr. Eric Foreman, MD", "Dr. Lisa Cuddy, MD"],
+        isVerifiedConsensus: true,
+      },
+    ],
+    status: "verified",
+    verificationsCount: 2,
+  },
+  {
+    id: "pq-seed-pp-2",
+    tenantId: "princeton_plainsboro::or",
+    questionText: "What is the anticoagulation reversal protocol for emergency mechanical thrombectomy in OR 4?",
+    askedBy: "Dr. Remy Hadley (Orientee RN)",
+    role: "Circulating RN",
+    createdAt: "2026-10-27T13:45:00Z",
+    answers: [
+      {
+        answerId: "pa-pp-2a",
+        answeredBy: "Dr. James Wilson (Chief of Oncology)",
+        answerText: "Protamine sulfate 1 mg per 100 units heparin administered slow IV over 10 minutes; verify ACT < 180 before femoral closure.",
+        verifiedBy: ["Dr. Gregory House, MD", "Dr. Robert Chase, MD"],
+        isVerifiedConsensus: true,
+      },
+    ],
+    status: "verified",
+    verificationsCount: 2,
+  },
+
+  // County General Hospital (OR)
+  {
+    id: "pq-seed-cg-1",
+    tenantId: "county_general::or",
+    questionText: "Where are the Level 1 Rapid Infuser heat exchanger cartridges kept during trauma resuscitations?",
+    askedBy: "Dr. John Carter (Surgical Resident)",
+    role: "Circulating RN",
+    createdAt: "2026-10-27T15:20:00Z",
+    answers: [
+      {
+        answerId: "pa-cg-1a",
+        answeredBy: "Dr. Peter Benton (Trauma Attending)",
+        answerText: "Level 1 H-1200 disposable high-flow tubing sets are hanging on the trauma crash cart in Trauma OR 1 and Trauma OR 2.",
+        verifiedBy: ["Carol Hathaway, RN", "Dr. Mark Greene, MD"],
+        isVerifiedConsensus: true,
+      },
+    ],
+    status: "verified",
+    verificationsCount: 2,
+  },
+  {
+    id: "pq-seed-cg-2",
+    tenantId: "county_general::or",
+    questionText: "What is the emergency protocol for uncrossmatched blood release from the satellite blood bank?",
+    askedBy: "Chuny Marquez, RN (Orientee)",
+    role: "Circulating RN",
+    createdAt: "2026-10-27T16:05:00Z",
+    answers: [
+      {
+        answerId: "pa-cg-2a",
+        answeredBy: "Carol Hathaway, RN (Charge Nurse)",
+        answerText: "Emergency 4-unit uncrossmatched O-negative PRBC cooler is kept in Satellite Blood Refrigerator B-2; 2-nurse barcode scan verification required.",
+        verifiedBy: ["Dr. Kerry Weaver, MD", "Dr. John Carter, MD"],
+        isVerifiedConsensus: true,
+      },
+    ],
+    status: "verified",
+    verificationsCount: 2,
+  },
+];
+
+/**
+ * Retrieve peer questions from local IndexedDB.
+ */
+export async function getOfflinePeerQuestions(tenantId?: string): Promise<PeerQuestion[]> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  let all: PeerQuestion[] = [];
+  if (db) {
+    try {
+      all = await db.peerQuestions.toArray();
+      if (!all || all.length === 0) {
+        await db.peerQuestions.bulkPut(SEED_PEER_QUESTIONS);
+        all = [...SEED_PEER_QUESTIONS];
+      }
+    } catch (err) {
+      console.warn("Failed to get offline peer questions from IDB, using seed:", err);
+      all = [...SEED_PEER_QUESTIONS];
+    }
+  } else {
+    all = [...SEED_PEER_QUESTIONS];
+  }
+
+  if (!tenantId) return all;
+  const filtered = all.filter(
+    (q) => q.tenantId === tenantId || q.tenantId.includes(tenantId) || tenantId.includes(q.tenantId.split("::")[0])
+  );
+  return filtered.length > 0 ? filtered : all.slice(0, 3);
+}
+
+/**
+ * Save or update a peer question in local IndexedDB.
+ */
+export async function saveOfflinePeerQuestion(question: PeerQuestion): Promise<void> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  if (!db) return;
+  try {
+    await db.peerQuestions.put(question);
+  } catch (err) {
+    console.warn("Failed to save offline peer question:", err);
+  }
+}
+
+/**
+ * Bulk save peer questions into local IndexedDB.
+ */
+export async function saveOfflinePeerQuestions(questions: PeerQuestion[]): Promise<void> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  if (!db || !questions.length) return;
+  try {
+    await db.peerQuestions.bulkPut(questions);
+  } catch (err) {
+    console.warn("Failed to bulk save offline peer questions:", err);
+  }
 }

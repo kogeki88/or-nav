@@ -9,6 +9,7 @@ import {
   ROLES_BY_DEPARTMENT,
 } from "@/lib/userProfile";
 import { ensureProfilePacksInstalled } from "@/lib/resourceManager";
+import { updateUserAuthProfile } from "@/lib/auth";
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ interface UserProfileModalProps {
   currentProfile: UserProfile;
   onSaveProfile: (updated: UserProfile) => void;
   onOpenResourceManager?: () => void;
+  onboardingMode?: boolean;
+  onSignOut?: () => void;
 }
 
 export default function UserProfileModal({
@@ -24,6 +27,8 @@ export default function UserProfileModal({
   currentProfile,
   onSaveProfile,
   onOpenResourceManager,
+  onboardingMode = false,
+  onSignOut,
 }: UserProfileModalProps) {
   const [formData, setFormData] = useState<UserProfile>(currentProfile);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -59,6 +64,7 @@ export default function UserProfileModal({
     e.preventDefault();
     onSaveProfile(formData);
     setSavedSuccess(true);
+    updateUserAuthProfile(formData).catch(console.warn);
     // Background provision required 3-tier packs from GitHub
     ensureProfilePacksInstalled(formData.facilityId, formData.departmentId, formData.clinicalRole).catch(console.warn);
     setTimeout(() => {
@@ -77,17 +83,26 @@ export default function UserProfileModal({
       <div className="relative w-full max-w-sm bg-[#121215] border border-zinc-800 rounded-xl shadow-2xl text-zinc-100 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/80 bg-zinc-950/60">
-          <h2 id="profile-modal-title" className="text-sm font-semibold tracking-tight text-zinc-100">
-            Profile
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="p-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <h2 id="profile-modal-title" className="text-sm font-semibold tracking-tight text-zinc-100">
+              {onboardingMode ? "Profile Setup" : "Profile"}
+            </h2>
+            {onboardingMode && (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                First-Time Setup
+              </span>
+            )}
+          </div>
+          {!onboardingMode && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="p-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         {/* Clean, Minimal Form */}
@@ -114,7 +129,7 @@ export default function UserProfileModal({
               Facility
             </label>
             <select
-              value={formData.facilityId || "general_memorial"}
+              value={formData.facilityId || "sacred_heart"}
               onChange={(e) => handleFacilityChange(e.target.value)}
               data-testid="select-facility"
               className="w-full bg-zinc-900 border border-zinc-800 focus:border-emerald-500/60 rounded-lg px-2.5 py-1.5 text-zinc-100 font-medium cursor-pointer transition-colors outline-none"
@@ -181,19 +196,32 @@ export default function UserProfileModal({
           )}
 
           {/* Footer Actions */}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-medium text-xs transition-colors cursor-pointer"
-            >
-              Cancel
-            </button>
+          <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-800/80">
+            {onboardingMode && onSignOut ? (
+              <button
+                type="button"
+                onClick={onSignOut}
+                data-testid="profile-onboarding-signout-btn"
+                className="px-2.5 py-1.5 rounded-lg text-zinc-500 hover:text-rose-400 text-xs transition-colors cursor-pointer"
+              >
+                Sign Out
+              </button>
+            ) : !onboardingMode ? (
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-medium text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            ) : (
+              <div />
+            )}
             <button
               type="submit"
               disabled={savedSuccess}
               data-testid="button-save-profile"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-zinc-950 font-semibold text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-zinc-950 font-semibold text-xs transition-colors shadow-sm cursor-pointer disabled:opacity-50 ml-auto"
             >
               {savedSuccess ? (
                 <>
@@ -201,7 +229,7 @@ export default function UserProfileModal({
                   <span>Saved!</span>
                 </>
               ) : (
-                <span>Save</span>
+                <span>{onboardingMode ? "Complete Setup" : "Save"}</span>
               )}
             </button>
           </div>

@@ -12,8 +12,8 @@ export interface VersionManifest {
   changelog: string;
 }
 
-export const CURRENT_VERSION = "v0.41";
-export const CURRENT_BUILD_NUMBER = 6;
+export const CURRENT_VERSION = "v0.5";
+export const CURRENT_BUILD_NUMBER = 7;
 export const CURRENT_RELEASE_DATE = "2026-10-27";
 
 export const GITHUB_REPO_OWNER = "kogeki88";
@@ -29,7 +29,7 @@ export const LOCAL_VERSION_MANIFEST: VersionManifest = {
   apk_download_url: CLOUD_APK_DOWNLOAD_URL,
   min_supported_version: "v0.1",
   changelog:
-    "v0.4 (Build 5) — Cloud OTA updater, GitHub Releases integration, and multi-tenant RBAC.",
+    "v0.5 (Build 7): Added Login & First-Time Profile Onboarding, Fictional Hospital 3-Tier GitHub Resource Packs, Persistent Multi-Case Chat History, Peer Q&A Verification, and 95% APK Size Reduction.",
 };
 
 /**

@@ -1,0 +1,63 @@
+[
+  {
+    "id": "pacu_aldrete_recovery",
+    "procedure": "Phase 1 Post-Anesthesia Emergence & Aldrete Scoring",
+    "specialty": "Post-Anesthesia Care (PACU)",
+    "clinician": "PACU Primary Recovery RN",
+    "unit": "PACU Bay 1-16",
+    "position": "Semi-Fowler's 30\u00b0 with lateral recovery head tilt",
+    "supplies": [
+      "High-Flow Nasal Cannula / Non-Rebreather Mask",
+      "Nellcor OxiMax SpO2 Continuous Monitoring",
+      "Bair Hugger Model 775 Forced Air Patient Warmer",
+      "Yankauer Suction Wand attached to headwall canister"
+    ],
+    "notes": "Assess Aldrete score every 15 minutes (Activity, Respiration, Circulation, Consciousness, O2 Saturation). Patient requires score >= 9/10 with stable vitals for Phase 1 discharge."
+  },
+  {
+    "id": "pacu_laryngospasm_rescue",
+    "procedure": "Emergence Laryngospasm & Airway Rescue Protocol",
+    "specialty": "Anesthesia Emergency",
+    "clinician": "PACU RN & Anesthesia Attending",
+    "unit": "PACU Bedside",
+    "position": "Jaw-thrust maneuver with Larson's Notch pressure",
+    "supplies": [
+      "Ambu Bag-Valve-Mask with PEEP Valve set to 10 cmH2O",
+      "Succinylcholine (Anectine) 20 mg/mL (Dose: 0.1\u20130.5 mg/kg IV push)",
+      "Atropine Sulfate 0.4 mg/mL (Dose: 0.4 mg IV for bradycardia)",
+      "100% Oxygen via tight mask seal"
+    ],
+    "notes": "Apply firm bilateral digital pressure upward and inward at Larson's Notch (behind earlobe at mastoid process). If spasm persists > 30 seconds, administer low-dose succinylcholine 20 mg IV."
+  },
+  {
+    "id": "pacu_pca_pump_setup",
+    "procedure": "Alaris PCA Pump Setup & Opioid Titration Protocol",
+    "specialty": "Pain Management / Perioperative",
+    "clinician": "PACU RN",
+    "unit": "PACU Bedside",
+    "position": "Bedside patient-controlled analgesia",
+    "supplies": [
+      "BD Alaris PCA Module 8120 with Tamper-Resistant Key",
+      "Hydromorphone (Dilaudid) 0.2 mg/mL in 30 mL prefilled syringe",
+      "Microbore PCA Extension Set with Anti-Siphon One-Way Valve",
+      "Naloxone (Narcan) 0.4 mg/mL ampule at bedside for opioid reversal"
+    ],
+    "notes": "Standard adult settings: Bolus 0.2 mg, Lockout interval 8 minutes, 4-hour limit 3.0 mg. Continuous basal rate is ZERO for opioid-naive patients. Independent two-nurse programming verification mandatory."
+  },
+  {
+    "id": "pacu_ponv_shivering_rescue",
+    "procedure": "Post-Op Nausea & Shivering Rescue Protocol",
+    "specialty": "Post-Anesthesia Care",
+    "clinician": "PACU Recovery RN",
+    "unit": "PACU Bedside",
+    "position": "Head elevated 30\u00b0, emesis basin at bedside",
+    "supplies": [
+      "Ondansetron (Zofran) 4 mg IV push over 2 minutes",
+      "Dexamethasone (Decadron) 4 mg IV (if not given intraoperatively)",
+      "Metoclopramide (Reglan) 10 mg IV push",
+      "Meperidine (Demerol) 25 mg/mL (Dose: 12.5\u201325 mg IV for shivering)",
+      "Bair Hugger Warm Air Upper / Lower Blanket"
+    ],
+    "notes": "Post-anesthesia shivering increases metabolic oxygen consumption by 300%. Administer Meperidine 12.5-25 mg IV push; apply forced warm air blanket until core temperature >= 36.5\u00b0C."
+  }
+]

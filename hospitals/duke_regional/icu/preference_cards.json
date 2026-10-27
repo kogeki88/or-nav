@@ -1,0 +1,67 @@
+[
+  {
+    "id": "icu_crrt_setup",
+    "procedure": "Continuous Renal Replacement Therapy (CRRT) Setup",
+    "specialty": "Critical Care Medicine",
+    "clinician": "Critical Care Clinical Specialist RN",
+    "unit": "Medical / Surgical ICU",
+    "position": "Bedside supine or semi-Fowler's",
+    "supplies": [
+      "Baxter Prismaflex Machine",
+      "Prismaflex ST150 Hemofilter Set",
+      "Prismasol BGK 4/2.5 Dialysate Solution (5L Bags x 2)",
+      "ACD-A Citrate Anticoagulant Solution 1000 mL",
+      "10% Calcium Chloride Infusion 500 mL"
+    ],
+    "notes": "Prime circuit with 2L Normal Saline containing 5000 units Heparin (or pure saline if HIT suspected). Monitor post-filter ionized calcium target 0.25-0.35 mmol/L and systemic ionized calcium 1.1-1.3 mmol/L."
+  },
+  {
+    "id": "icu_art_line",
+    "procedure": "Radial Arterial Line Insertion Tray Setup",
+    "specialty": "Critical Care / Anesthesia",
+    "clinician": "Intensivist / Critical Care Fellow",
+    "unit": "Bedside ICU",
+    "position": "Wrist dorsiflexed on armboard with roll beneath wrist joint",
+    "supplies": [
+      "Arrow 20Ga 1.75in Radial Artery Catheterization Kit",
+      "Edwards TruWave Disposable Pressure Transducer",
+      "500 mL Normal Saline Flush Bag with Pressure Bag (pressurized to 300 mmHg)",
+      "ChloraPrep 3 mL Applicator",
+      "Tegaderm IV Advanced Dressing with CHG Gel Pad"
+    ],
+    "notes": "Perform Allen's test before puncture. Level transducer to phlebostatic axis (4th intercostal space, mid-axillary line) and perform square-wave flush test."
+  },
+  {
+    "id": "icu_cvc_kit",
+    "procedure": "Triple Lumen Central Venous Catheter (CVC) Insertion",
+    "specialty": "Critical Care / Vascular Access",
+    "clinician": "Attending Intensivist",
+    "unit": "Bedside ICU",
+    "position": "Trendelenburg (15\u00b0) for internal jugular or subclavian vein engorgement",
+    "supplies": [
+      "Arrow Triple Lumen CVC 7Fr 20cm Kit (Blue FlexTip)",
+      "SonoSite Ultrasound with Vascular Linear Probe in sterile sheath",
+      "Full Body Sterile Drape",
+      "1% Lidocaine plain 5 mL vial",
+      "Biopatch Protective Disk with CHG (blue side up)",
+      "3-0 Silk suture on straight needle for wing fixation"
+    ],
+    "notes": "Sterile full-barrier PPE required: cap, mask, sterile gown, sterile gloves. Flush and clamp all 3 lumens prior to insertion. Post-procedure ultrasound or chest X-ray confirms catheter tip at cavoatrial junction."
+  },
+  {
+    "id": "icu_icp_monitor",
+    "procedure": "Intracranial Pressure (ICP) Monitor Insertion",
+    "specialty": "Neurocritical Care",
+    "clinician": "Neurosurgery Fellow / Neurointensivist",
+    "unit": "Neuro ICU Bedside",
+    "position": "Head elevated 30\u00b0, head midline in neutral position",
+    "supplies": [
+      "Codman ICP Microsensor Express Catheter Kit",
+      "Codman ICP Express Monitor Console",
+      "Twist Drill Cranial Access Kit with Hand Drill and Stops",
+      "ChloraPrep 26 mL applicator",
+      "Sterile cranial drape with aperture"
+    ],
+    "notes": "Target ICP < 20 mmHg. Maintain Cerebral Perfusion Pressure (CPP = MAP - ICP) between 60\u201370 mmHg. Zero sensor to atmospheric air BEFORE insertion into brain parenchyma."
+  }
+]

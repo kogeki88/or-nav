@@ -48,6 +48,7 @@ frontend/public/*.apk
 .DS_Store
 Thumbs.db
 *.bak
+*.v1bak
 *.tmp
 *.tmp.*
 *.swp

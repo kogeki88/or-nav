@@ -1,46 +1,164 @@
 [
   {
-    "id": "duke_ralp",
-    "procedure": "Robotic-Assisted Laparoscopic Prostatectomy (RALP)",
-    "specialty": "Urology / Robotic Surgery",
-    "surgeon": "Dr. Bradley Harrison, MD",
-    "room": "OR 4",
-    "position": "Steep Trendelenburg 28\u00b0, Lithotomy in Allen Yellowfin Stirrups",
-    "prep": "ChloraPrep from nipples to mid-thighs, perineum prepped with Betadine",
+    "id": "lap_chole",
+    "procedure": "Laparoscopic Cholecystectomy",
+    "specialty": "General Surgery",
+    "surgeon": "Dr. Elena Rodriguez, MD",
+    "room": "OR 12",
+    "position": "Supine, Reverse Trendelenburg 15\u00b0, Left Tilt 10\u00b0",
+    "prep": "ChloraPrep (2% CHG / 70% IPA) - abdomen from xiphoid to pubis, bilaterally to midaxillary lines. Timed 3-minute dry.",
     "instrumentation": [
-      "da Vinci Xi Robotic Patient Cart",
-      "Xi EndoWrist ProGrasp Forceps",
-      "Xi Monopolar Curved Scissors",
-      "Xi Fenestrated Bipolar"
+      "Lap Chole Set 1",
+      "Karl Storz 10mm 30\u00b0 Laparoscope",
+      "LigaSure Maryland 5mm Sealer / Divider",
+      "Endo Catch 10mm Specimen Bag",
+      "Ethicon 5mm Medium-Large Clip Applier"
     ],
     "sutures": [
-      "3-0 V-Loc barbed suture on V-20 needle for urethrovesical anastomosis",
-      "2-0 Vicryl CT-1 for dorsal venous complex",
+      "0 Polysorb UR-6 on fascial closure",
+      "4-0 Monocryl PS-2 for subcuticular skin closure",
+      "Endoloop 0 Vicryl (on standby for cystic duct)"
+    ],
+    "implants": "None",
+    "notes": "Prefers Hassan open cut-down for umbilical port. Defogger must be heated. Veress needle not used. Keep dry lap ready for gallbladder extraction."
+  },
+  {
+    "id": "tka",
+    "procedure": "Total Knee Arthroplasty (TKA)",
+    "specialty": "Orthopedic Surgery",
+    "surgeon": "Dr. Marcus Chen, MD",
+    "room": "OR 18",
+    "position": "Supine with lateral leg positioner, thigh tourniquet, foot of bed dropped",
+    "prep": "DuraPrep 2-layer, foot isolated with sterile impervious stockinette and Coban wrap",
+    "instrumentation": [
+      "Stryker System 8 Power Tool Set",
+      "Zimmer Persona Knee Tray 1 & 2",
+      "Pulsatile Lavage with 3L Normal Saline",
+      "Bone Cement Gun & Spatula"
+    ],
+    "sutures": [
+      "#1 Stratafix Spiral PDS for arthrotomy capsule",
+      "2-0 Monocryl SH for subcutaneous tissue",
+      "Ethicon Proximate 35W Skin Stapler"
+    ],
+    "implants": "Zimmer Persona Modular Cruciate Retaining (CR) Component",
+    "notes": "Tourniquet inflated to 250 mmHg prior to skin incision. Vancomycin cement mixed at 14 minutes. Tranexamic acid (TXA) 1g IV given at start and deflation."
+  },
+  {
+    "id": "cabg",
+    "procedure": "Coronary Artery Bypass Graft (CABG x3)",
+    "specialty": "Cardiovascular OR (CVOR)",
+    "surgeon": "Dr. Arthur Vance, MD",
+    "room": "OR 21",
+    "position": "Supine with chest roll, bilateral legs externally rotated (frog-leg) with knee rolls",
+    "prep": "ChloraPrep chin-to-ankles circumferentially. 3-minute dry time strictly timed.",
+    "instrumentation": [
+      "Cardiovascular Major Sternotomy Set",
+      "Vascular Peripheral Micro Instruments",
+      "Castroviejo Micro Needle Holders",
+      "DeBakey 1.5mm & 2.0mm Pickups",
+      "Internal Defibrillator Paddles (Charge to 20J)"
+    ],
+    "sutures": [
+      "7-0 Prolene BV-1 for distal coronary anastomoses",
+      "6-0 Prolene C-1 for proximal aortic anastomoses",
+      "#5 Ethibond sternal closure wires (x6 or x8)",
+      "3-0 Silk ties on DeBakey for venous branch ligations"
+    ],
+    "implants": "Hemashield 8mm vascular graft on standby",
+    "notes": "Heparin 300 units/kg prior to cannulation; Target ACT > 480 sec. Cool chest with sterile saline slush. Have Protamine ready for pump separation."
+  },
+  {
+    "id": "robotic_prostatectomy",
+    "procedure": "Robotic-Assisted Laparoscopic Prostatectomy (RALP)",
+    "specialty": "Urology / Robotic Surgery",
+    "surgeon": "Dr. Sanjay Gupta, MD",
+    "room": "OR 16 (Robotic Suite)",
+    "position": "Steep Trendelenburg (28\u00b0), Lithotomy with Allen Yellofin stirrups, arms tucked securely with foam pads",
+    "prep": "ChloraPrep abdomen from nipples to mid-thighs, including genitalia. 3-minute dry.",
+    "instrumentation": [
+      "Da Vinci Xi Robotic System",
+      "8mm Monopolar Curved Scissors",
+      "8mm Fenestrated Bipolar Forceps",
+      "8mm ProGrasp Forceps",
+      "8mm Large Needle Driver",
+      "AirSeal Insufflation System (target 12 mmHg)"
+    ],
+    "sutures": [
+      "3-0 V-Loc 180 barbed suture for vesicourethral anastomosis",
+      "2-0 Vicryl CT-1 for dorsal venous complex ligation",
       "4-0 Monocryl for port sites"
     ],
     "implants": "None",
-    "notes": "Ensure patient is securely strapped with Da Vinci Pink Pad table mat to prevent sliding in steep Trendelenburg. Anesthesia must monitor peak inspiratory pressures."
+    "notes": "Verify zero pressure on brachial plexus before docking. Confirm bladder integrity with 200 mL sterile saline instillation via 3-way Foley."
   },
   {
-    "id": "duke_microdiscectomy",
-    "procedure": "Lumbar Microdiscectomy L4-L5",
+    "id": "lumbar_microdiscectomy",
+    "procedure": "Lumbar Microdiscectomy (L4-L5)",
     "specialty": "Neurosurgery / Spine",
-    "surgeon": "Dr. Vanessa Sterling, MD",
-    "room": "OR 8",
-    "position": "Prone on Wilson Frame, abdomen hanging free to reduce epidural venous engorgement",
-    "prep": "ChloraPrep spine area from T10 to sacrum",
+    "surgeon": "Dr. Sarah Jenkins, MD",
+    "room": "OR 14",
+    "position": "Prone on Wilson frame or Jackson table, abdomen completely hanging free to minimize epidural venous pressure",
+    "prep": "Betadine scrub & paint (or ChloraPrep) - lower thoracic to sacrum",
     "instrumentation": [
-      "Zeiss OPMI Pentero Microscope",
-      "Caspar Lumbar Retractor Set",
-      "Kerrison Rongeurs 2mm/3mm/4mm",
-      "Pituitary Rongeurs"
+      "Spine Microdiscectomy Tray",
+      "Zeiss OPMI Surgical Microscope",
+      "McCulloch Retractor System with Micro Blades",
+      "Kerrison Rongeurs 2mm, 3mm, 4mm (Up-biting & Down-biting)",
+      "Woodson Dural Separator"
     ],
     "sutures": [
-      "0 Vicryl CT-1 for fascia",
-      "2-0 Vicryl CT-2 for deep subcutaneous",
-      "Dermabond Prineo for skin"
+      "0 Vicryl CT-1 for lumbodorsal fascia",
+      "2-0 Vicryl SH for subcutaneous layer",
+      "4-0 Monocryl PS-2 for subcuticular skin closure"
     ],
     "implants": "None",
-    "notes": "Microscope draped sterile before incision. Keep Bipolar micro-forceps tip cleaned with wet telfa sponge. Bone wax and Gelfoam patties counted."
+    "notes": "Have Surgicel and thrombin-soaked Gelfoam patties ready for epidural bleeding. Microscope brought in from patient right side."
+  },
+  {
+    "id": "trauma_ex_lap",
+    "procedure": "Trauma Exploratory Laparotomy",
+    "specialty": "Trauma / Acute Care Surgery",
+    "surgeon": "Dr. Karen O'Connor, MD",
+    "room": "OR 1 (Trauma Dedicated)",
+    "position": "Supine with arms out on armboards at 90\u00b0 for rapid bilateral vascular access",
+    "prep": "Rapid ChloraPrep or Betadine paint - chin to mid-thighs bilaterally",
+    "instrumentation": [
+      "Trauma Laparotomy Major Tray",
+      "Balfour Retractor with deep blades",
+      "Bookwalter Abdominal Retractor",
+      "Poole Suction Tips (x2 connected to dual canisters)",
+      "Satinsky & DeBakey Vascular Clamps"
+    ],
+    "sutures": [
+      "#1 PDS Loop on CTX needle for mass abdominal closure",
+      "2-0 Silk ties on passers",
+      "3-0 Silk on SH for bowel oversewing",
+      "Skin stapler (x2)"
+    ],
+    "implants": "Bogota bag / ABThera Open Abdomen VAC dressing ready on standby",
+    "notes": "Warm room to 78\u00b0F. Level 1 rapid infuser primed. Count softs by 10s. Four quadrants packed with laparotomy sponges immediately upon entry."
+  },
+  {
+    "id": "evar",
+    "procedure": "Endovascular Aneurysm Repair (EVAR)",
+    "specialty": "Vascular Surgery",
+    "surgeon": "Dr. Tariq Al-Mansoor, MD",
+    "room": "Hybrid OR 2",
+    "position": "Supine on radiolucent carbon fiber fluoroscopy table",
+    "prep": "ChloraPrep bilateral groins and entire abdomen to knees",
+    "instrumentation": [
+      "EVAR Endovascular Cut-Down / Percutaneous Tray",
+      "GE Discovery IGS Hybrid Angiography System",
+      "0.035in Lunderquist Extra-Stiff Wire",
+      "Perclose ProGlide Suture-Mediated Closure Devices (x4)",
+      "Gore C3 Excluder or Medtronic Endurant Stent Graft System"
+    ],
+    "sutures": [
+      "4-0 Prolene RB-1 for femoral transverse arteriotomy",
+      "3-0 Monocryl for groin cutdowns"
+    ],
+    "implants": "Bifurcated Aortic Endograft + Contralateral Iliac Limb",
+    "notes": "Systemic heparinization 100 units/kg prior to sheath insertion. Target ACT > 250 sec. Power injector filled with Isovue-370 contrast."
   }
 ]

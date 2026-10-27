@@ -345,20 +345,24 @@ export function getRequiredPacksForProfile(
   clinicalRole: string
 ): PackManifestEntry[] {
   const roleKey = mapRoleToKey(clinicalRole);
+  const normDept = (departmentId || "").split("_")[0] || "or";
 
   const handbook = manifest.packs.find(
     (p) => p.category === "hospital" && p.facilityId === facilityId
   );
 
   const deptPacks = manifest.packs.filter(
-    (p) => p.category === "department" && p.facilityId === facilityId && p.departmentId === departmentId
+    (p) =>
+      p.category === "department" &&
+      p.facilityId === facilityId &&
+      (p.departmentId === departmentId || p.departmentId === normDept)
   );
 
   const rolePack = manifest.packs.find(
     (p) =>
       p.category === "role" &&
       p.facilityId === facilityId &&
-      p.departmentId === departmentId &&
+      (p.departmentId === departmentId || p.departmentId === normDept) &&
       p.roleId === roleKey
   );
 

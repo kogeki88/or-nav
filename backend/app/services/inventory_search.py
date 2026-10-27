@@ -106,9 +106,11 @@ _PROCEDURAL_INDICATORS = re.compile(
     r"(?:dr\.?|doctor)\s+[a-z]+(?:'s)?\s+(?:prefer|preference|protocol|like|use|want)|"
     r"prefer(?:s|ence|ences)?|"
     r"protocol|guideline|policy|checklist|orient(?:ation)?|"
+    r"mayo\s+stand|tray\s+(?:breakdown|setup)|instrument\s+setup|suture\s+loading|"
     r"activate\s+mtp|massive\s+transfusion|"
     r"malignant\s+hyperthermia|dantrolene\s+(?:dose|dosing|protocol|mixing|reconstitution)|"
     r"heparin\s+(?:dose|dosing|target|act|protocol)|"
+    r"protamine\s+(?:dose|dosing|protocol|ratio|reversal)|"
     r"act\s+target|target\s+act|"
     r"bypass\s+readiness|crash[\s-]on|"
     r"pneumatic\s+tube|tube\s+(?:.*?\s+)?station|tube\s+blood|tube\s+specimen|can\s+i\s+tube|blood\s+gas|"
@@ -1011,7 +1013,7 @@ class InventoryService:
                 for pa in row["_phon_aliases"]:
                     row_phon_set.update(pa.split())
 
-                if query_phon_tokens and all(tok in row_phon_set for tok in query_phon_tokens):
+                if query_phon_tokens and any(len(tok) >= 3 for tok in query_phon_tokens) and all(tok in row_phon_set for tok in query_phon_tokens):
                     return row, "STAGE_B_PHONETIC"
 
         # --- STAGE C: RapidFuzz Token Set / WRatio >= 82 ---

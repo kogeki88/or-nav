@@ -29,7 +29,7 @@ def test_api_version_endpoint():
     assert response.status_code == 200
     data = response.json()
 
-    assert data["version"] in ["v0.1", "v0.2", "v0.3", "v0.31", "v0.4", "v0.41"]
+    assert data["version"] in ["v0.1", "v0.2", "v0.3", "v0.31", "v0.4", "v0.41", "v0.5"]
     assert data["build_number"] >= 1
     assert "release_date" in data
     assert "apk_download_url" in data
@@ -45,7 +45,7 @@ def test_public_version_json_file():
     assert version_file.exists(), f"Missing version.json at {version_file}"
 
     data = json.loads(version_file.read_text(encoding="utf-8"))
-    assert data["version"] in ["v0.1", "v0.2", "v0.3", "v0.31", "v0.4", "v0.41"]
+    assert data["version"] in ["v0.1", "v0.2", "v0.3", "v0.31", "v0.4", "v0.41", "v0.5"]
     assert data["build_number"] >= 1
     assert "apk_download_url" in data
     assert "changelog" in data

@@ -9,6 +9,14 @@ import QuestionsDrawer from "@/components/QuestionsDrawer";
 import UserProfileModal from "@/components/UserProfileModal";
 import AutoUpdateModal from "@/components/AutoUpdateModal";
 import ResourceManagerModal from "@/components/ResourceManagerModal";
+import PeerQnAPanel from "@/components/PeerQnAPanel";
+import AuthScreen from "@/components/AuthScreen";
+import {
+  getCurrentSession,
+  clearActiveSession,
+  AUTH_EVENT,
+  type AuthSession,
+} from "@/lib/auth";
 import {
   fetchTenants,
   sendChatMessage,
@@ -22,6 +30,12 @@ import {
 import {
   syncTenantInventoryToOfflineDb,
   queueOfflineMutation,
+  saveChatSession,
+  getChatSession,
+  listChatSessions,
+  deleteChatSession,
+  clearChatSessions,
+  type ChatSession,
 } from "@/lib/offlineDb";
 import { hydrateFromSeedIfEmpty } from "@/lib/standaloneEngine";
 import { scrubPhi } from "@/lib/scrubClient";
@@ -59,6 +73,18 @@ export default function Home() {
     return getActiveDepartmentId();
   });
   const [messages, setMessages] = useState<MessageItem[]>([]);
+  // Phase 29.1: Multi-Session Persistence & Hydration Guard
+  const isHydratedRef = useRef<boolean>(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      return (
+        localStorage.getItem(`ornav_active_session_id_${getActiveDepartmentId()}`) ||
+        `session_${Date.now()}`
+      );
+    }
+    return `session_${Date.now()}`;
+  });
+  const [pastSessions, setPastSessions] = useState<ChatSession[]>([]);
   const [history, setHistory] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   // Silent-First OR Output by default
@@ -76,6 +102,64 @@ export default function Home() {
   const { profile, saveProfile } = useUserProfile();
   const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
   const [resourceModalOpen, setResourceModalOpen] = useState<boolean>(false);
+  const [peerQnAOpen, setPeerQnAOpen] = useState<boolean>(false);
+  const [peerQnAPrefill, setPeerQnAPrefill] = useState<string>("");
+
+  // Authentication & Session State (Phase 33)
+  const [authSession, setAuthSession] = useState<AuthSession | null>(null);
+  const [authChecked, setAuthChecked] = useState<boolean>(false);
+  const [isOnboardingMode, setIsOnboardingMode] = useState<boolean>(false);
+
+  useEffect(() => {
+    const s = getCurrentSession();
+    setAuthSession(s);
+    setAuthChecked(true);
+
+    const onAuthChanged = (e: any) => {
+      setAuthSession(e.detail || null);
+    };
+    window.addEventListener(AUTH_EVENT, onAuthChanged);
+    return () => window.removeEventListener(AUTH_EVENT, onAuthChanged);
+  }, []);
+
+  const handleAuthSuccess = useCallback(
+    (session: AuthSession) => {
+      setAuthSession(session);
+      const name = session.profile?.fullName || session.fullName || profile.fullName;
+      if (session.profile) {
+        saveProfile({ ...session.profile, fullName: name });
+        if (session.profile.departmentId && session.profile.departmentId !== selectedTenant) {
+          const clean =
+            session.profile.departmentId === "general_memorial_cvor"
+              ? "or_main"
+              : session.profile.departmentId;
+          setSelectedTenant(clean);
+          setActiveDepartmentId(clean);
+        }
+      } else if (session.fullName) {
+        saveProfile({ ...profile, fullName: session.fullName });
+      }
+
+      if (!session.onboardingCompleted) {
+        console.log("First-time login: launching Profile Onboarding...");
+        setIsOnboardingMode(true);
+        setProfileModalOpen(true);
+      } else {
+        console.log("Returning user: onboarding already completed.");
+        setIsOnboardingMode(false);
+        setProfileModalOpen(false);
+      }
+    },
+    [profile, saveProfile, selectedTenant]
+  );
+
+  const handleSignOut = useCallback(() => {
+    clearActiveSession();
+    setAuthSession(null);
+    setIsOnboardingMode(false);
+    setProfileModalOpen(false);
+    setMobileSidebarOpen(false);
+  }, []);
 
   // App Settings & Background Services Toggles (Phase 26)
   const { settings: appSettings, updateSettings } = useAppSettings();
@@ -171,38 +255,118 @@ export default function Home() {
     });
   }, [selectedTenant, refreshQuestions]);
 
-  // Vector 6: Restore active case messages from sessionStorage on load / tenant switch
+  // Phase 29.1: Restore active case messages & session history on load / department switch
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const saved = sessionStorage.getItem(`ornav_active_case_${selectedTenant}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed);
+    isHydratedRef.current = false;
+    let cancelled = false;
+
+    const hydrateActiveSession = async () => {
+      try {
+        // Load past sessions for the active department
+        const sessions = await listChatSessions(selectedTenant);
+        if (!cancelled) {
+          setPastSessions(sessions);
+        }
+
+        // Get saved active session id or generate a fresh one
+        const savedSessionId = localStorage.getItem(`ornav_active_session_id_${selectedTenant}`);
+        const activeId = savedSessionId || `session_${Date.now()}`;
+        if (!cancelled) {
+          setCurrentSessionId(activeId);
+        }
+
+        // Fast restore from localStorage active snapshot
+        const rawLocal = localStorage.getItem(`ornav_active_case_${selectedTenant}`);
+        if (rawLocal) {
+          try {
+            const parsed = JSON.parse(rawLocal);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              if (!cancelled) {
+                setMessages(parsed);
+                isHydratedRef.current = true;
+              }
+              return;
+            }
+          } catch {}
+        }
+
+        // Fallback restore: check IndexedDB for this saved session
+        if (savedSessionId) {
+          const idbSession = await getChatSession(savedSessionId);
+          if (!cancelled && idbSession && idbSession.messages && idbSession.messages.length > 0) {
+            setMessages(idbSession.messages);
+            localStorage.setItem(
+              `ornav_active_case_${selectedTenant}`,
+              JSON.stringify(idbSession.messages)
+            );
+            isHydratedRef.current = true;
+            return;
+          }
+        }
+
+        // Clean slate if nothing saved
+        if (!cancelled) {
+          setMessages([]);
+        }
+      } catch (e) {
+        console.warn("Could not restore case session from storage:", e);
+      } finally {
+        if (!cancelled) {
+          isHydratedRef.current = true;
         }
       }
-    } catch (e) {
-      console.warn("Could not restore case session from storage:", e);
-    }
+    };
+
+    hydrateActiveSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedTenant]);
 
-  // Vector 6: Persist active case messages into sessionStorage
+  // Phase 29.1: Persist active case messages into localStorage & IndexedDB
   useEffect(() => {
+    // CRITICAL: Prevent initial mount render from wiping storage before hydration completes!
+    if (!isHydratedRef.current) return;
     if (typeof window === "undefined") return;
+
     try {
       if (messages.length > 0) {
-        sessionStorage.setItem(
+        localStorage.setItem(
           `ornav_active_case_${selectedTenant}`,
           JSON.stringify(messages)
         );
+        localStorage.setItem(
+          `ornav_active_session_id_${selectedTenant}`,
+          currentSessionId
+        );
+
+        // Derive title from first user query
+        const firstUser = messages.find((m) => m.sender === "user");
+        const title = firstUser
+          ? firstUser.text.slice(0, 42).replace(/[\r\n]+/g, " ") + (firstUser.text.length > 42 ? "…" : "")
+          : "Case Session";
+
+        const sessionPayload: ChatSession = {
+          sessionId: currentSessionId,
+          tenantId: selectedTenant,
+          title,
+          updatedAt: new Date().toISOString(),
+          messages,
+        };
+
+        // Mirror to IndexedDB and update pastSessions
+        saveChatSession(sessionPayload).then(() => {
+          listChatSessions(selectedTenant).then((list) => setPastSessions(list));
+        });
       } else {
-        sessionStorage.removeItem(`ornav_active_case_${selectedTenant}`);
+        localStorage.removeItem(`ornav_active_case_${selectedTenant}`);
       }
     } catch (e) {
       console.warn("Could not persist case session to storage:", e);
     }
-  }, [messages, selectedTenant]);
+  }, [messages, selectedTenant, currentSessionId]);
 
   // 15-Minute Hands-Free Audio Window timer
   const startHandsFree15Min = useCallback(() => {
@@ -601,22 +765,115 @@ export default function Home() {
     }
   };
 
-  // + New Case: wipes session, aborts in-flight requests, and returns to pure empty state
-  const handleNewCase = useCallback(() => {
+  // + New Case: auto-archives current session, wipes canvas, and assigns fresh sessionId
+  const handleNewCase = useCallback(async () => {
     sessionEpochRef.current += 1;
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
     setLoading(false);
+
+    // Auto-archive active session before wiping canvas
+    if (messages.length > 0) {
+      const firstUser = messages.find((m) => m.sender === "user");
+      const title = firstUser
+        ? firstUser.text.slice(0, 42).replace(/[\r\n]+/g, " ") + (firstUser.text.length > 42 ? "…" : "")
+        : "Case Session";
+
+      const sessionPayload: ChatSession = {
+        sessionId: currentSessionId,
+        tenantId: selectedTenant,
+        title,
+        updatedAt: new Date().toISOString(),
+        messages,
+      };
+      await saveChatSession(sessionPayload);
+      const updatedList = await listChatSessions(selectedTenant);
+      setPastSessions(updatedList);
+    }
+
+    const nextSessionId = `session_${Date.now()}`;
+    setCurrentSessionId(nextSessionId);
+
     if (typeof window !== "undefined") {
       try {
-        sessionStorage.removeItem(`ornav_active_case_${selectedTenant}`);
+        localStorage.removeItem(`ornav_active_case_${selectedTenant}`);
+        localStorage.setItem(`ornav_active_session_id_${selectedTenant}`, nextSessionId);
         if ("speechSynthesis" in window) {
           window.speechSynthesis.cancel();
         }
       } catch {}
     }
     setMessages([]);
-  }, [selectedTenant]);
+  }, [selectedTenant, messages, currentSessionId]);
+
+  // Phase 29.1: Multi-Session Case History switching & management
+  const handleSelectPastSession = useCallback(
+    async (sessionId: string) => {
+      if (sessionId === currentSessionId) return;
+
+      // 1. Auto-save current active session before switching
+      if (messages.length > 0) {
+        const firstUser = messages.find((m) => m.sender === "user");
+        const title = firstUser
+          ? firstUser.text.slice(0, 42).replace(/[\r\n]+/g, " ") + (firstUser.text.length > 42 ? "…" : "")
+          : "Case Session";
+
+        await saveChatSession({
+          sessionId: currentSessionId,
+          tenantId: selectedTenant,
+          title,
+          updatedAt: new Date().toISOString(),
+          messages,
+        });
+      }
+
+      // 2. Fetch the target past session
+      const target = await getChatSession(sessionId);
+      if (target) {
+        isHydratedRef.current = false;
+        setCurrentSessionId(target.sessionId);
+        setMessages(target.messages || []);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            `ornav_active_case_${selectedTenant}`,
+            JSON.stringify(target.messages || [])
+          );
+          localStorage.setItem(
+            `ornav_active_session_id_${selectedTenant}`,
+            target.sessionId
+          );
+        }
+        const updatedList = await listChatSessions(selectedTenant);
+        setPastSessions(updatedList);
+        setTimeout(() => {
+          isHydratedRef.current = true;
+        }, 50);
+      }
+    },
+    [currentSessionId, messages, selectedTenant]
+  );
+
+  const handleDeletePastSession = useCallback(
+    async (sessionId: string) => {
+      await deleteChatSession(sessionId);
+      if (sessionId === currentSessionId) {
+        handleNewCase();
+      } else {
+        const updatedList = await listChatSessions(selectedTenant);
+        setPastSessions(updatedList);
+      }
+    },
+    [currentSessionId, handleNewCase, selectedTenant]
+  );
+
+  const handleClearAllPastSessions = useCallback(
+    async () => {
+      await clearChatSessions(selectedTenant);
+      setPastSessions([]);
+      handleNewCase();
+    },
+    [selectedTenant, handleNewCase]
+  );
 
   // Instant Department / Clinical Role Switching
   const handleDepartmentSwitch = useCallback(
@@ -640,6 +897,10 @@ export default function Home() {
     },
     [saveProfile, selectedTenant, handleDepartmentSwitch]
   );
+
+  if (authChecked && !authSession) {
+    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
+  }
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#09090b]">
@@ -669,11 +930,21 @@ export default function Home() {
             userProfile={profile}
             onOpenProfileModal={() => setProfileModalOpen(true)}
             onOpenResourceManager={() => setResourceModalOpen(true)}
+            onOpenPeerQnA={() => {
+              setPeerQnAPrefill("");
+              setPeerQnAOpen(true);
+            }}
             appSettings={appSettings}
             onToggleAutoUpdate={handleToggleAutoUpdate}
             onToggleAutoSync={handleToggleAutoSync}
             onCheckForUpdates={checkForUpdate}
             onManualSync={triggerSync}
+            pastSessions={pastSessions}
+            currentSessionId={currentSessionId}
+            onSelectSession={handleSelectPastSession}
+            onDeleteSession={handleDeletePastSession}
+            onClearAllSessions={handleClearAllPastSessions}
+            onSignOut={handleSignOut}
           />
         </div>
       )}
@@ -726,11 +997,25 @@ export default function Home() {
                 setMobileSidebarOpen(false);
                 setResourceModalOpen(true);
               }}
+              onOpenPeerQnA={() => {
+                setMobileSidebarOpen(false);
+                setPeerQnAPrefill("");
+                setPeerQnAOpen(true);
+              }}
               appSettings={appSettings}
               onToggleAutoUpdate={handleToggleAutoUpdate}
               onToggleAutoSync={handleToggleAutoSync}
               onCheckForUpdates={checkForUpdate}
               onManualSync={triggerSync}
+              pastSessions={pastSessions}
+              currentSessionId={currentSessionId}
+              onSelectSession={(sessionId) => {
+                handleSelectPastSession(sessionId);
+                setMobileSidebarOpen(false);
+              }}
+              onDeleteSession={handleDeletePastSession}
+              onClearAllSessions={handleClearAllPastSessions}
+              onSignOut={handleSignOut}
             />
           </div>
         </div>
@@ -860,6 +1145,10 @@ export default function Home() {
           onFlagWrong={handleFlagWrong}
           onSpeakSingleMessage={speakSingleMessage}
           onStarterChipClick={handleSendMessage}
+          onAskDepartmentPeers={(qContext) => {
+            setPeerQnAPrefill(qContext || "");
+            setPeerQnAOpen(true);
+          }}
         />
 
         {/* Unified Bottom Omnibar with PTT & Voice Mode */}
@@ -893,11 +1182,24 @@ export default function Home() {
         isOpen={profileModalOpen}
         onClose={() => setProfileModalOpen(false)}
         currentProfile={profile}
-        onSaveProfile={handleSaveProfile}
+        onSaveProfile={(updated) => {
+          handleSaveProfile(updated);
+          setIsOnboardingMode(false);
+          setProfileModalOpen(false);
+          if (authSession) {
+            setAuthSession({
+              ...authSession,
+              onboardingCompleted: true,
+              profile: updated,
+            });
+          }
+        }}
         onOpenResourceManager={() => {
           setProfileModalOpen(false);
           setResourceModalOpen(true);
         }}
+        onboardingMode={isOnboardingMode}
+        onSignOut={handleSignOut}
       />
 
       {/* On-Demand Hospital Knowledge Packs & Resource Manager Modal */}
@@ -914,6 +1216,15 @@ export default function Home() {
         manifest={updateInfo}
         currentVersion={currentVersion}
         currentBuild={currentBuild}
+      />
+
+      {/* Orientee Question & Multi-Peer Verification Ping Modal (Phase 31) */}
+      <PeerQnAPanel
+        isOpen={peerQnAOpen}
+        onClose={() => setPeerQnAOpen(false)}
+        tenantId={selectedTenant}
+        userProfile={profile}
+        prefillQuestion={peerQnAPrefill}
       />
     </div>
   );

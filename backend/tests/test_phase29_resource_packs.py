@@ -42,14 +42,14 @@ def test_phase29_apk_bloat_purged():
 
 
 def test_phase29_3tier_pack_structure():
-    """Verify 3-tier hierarchy across general_memorial, duke_regional, and metro_medical."""
+    """Verify 3-tier hierarchy across sacred_heart, princeton_plainsboro, and county_general."""
     manifest_file = HOSPITALS_DIR / "manifest.json"
     assert manifest_file.exists(), "hospitals/manifest.json must exist"
     data = json.loads(manifest_file.read_text(encoding="utf-8"))
     assert data["packsCount"] >= 15
     assert len(data["packs"]) >= 15
 
-    for fac_id in ["general_memorial", "duke_regional", "metro_medical"]:
+    for fac_id in ["sacred_heart", "princeton_plainsboro", "county_general"]:
         fac_dir = HOSPITALS_DIR / fac_id
         # Tier 1: Facility Handbook
         assert (fac_dir / "facility_handbook.md").exists(), f"Missing facility_handbook.md in {fac_id}"
@@ -72,10 +72,10 @@ def test_phase29_api_packs_endpoints():
     assert "packs" in manifest
 
     # Test downloading a pack file
-    test_path = "hospitals/general_memorial/facility_handbook.md"
+    test_path = "hospitals/sacred_heart/facility_handbook.md"
     file_res = client.get(f"/api/packs/file?path={test_path}")
     assert file_res.status_code == 200
-    assert "General Memorial" in file_res.text
+    assert "Sacred Heart" in file_res.text
     assert "Code Blue" in file_res.text
 
     # Test path traversal security
@@ -85,7 +85,7 @@ def test_phase29_api_packs_endpoints():
 
 def test_phase29_role_scoped_case_lookups():
     """Verify Circulating RN loads positioning/safety, while Scrub Tech loads suture/setup notes."""
-    config = get_tenant("general_memorial_or")
+    config = get_tenant("sacred_heart_or")
     rag = RAGService(config)
 
     # Query as Scrub Tech

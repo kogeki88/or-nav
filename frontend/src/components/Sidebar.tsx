@@ -22,6 +22,9 @@ import {
   Key,
   Package,
   HardDrive,
+  Trash2,
+  MessageSquare,
+  Users,
 } from "lucide-react";
 import { fetchGeminiStatus, saveGeminiKey } from "@/lib/api";
 import { DEPARTMENT_LIST, DEPARTMENTS } from "@/lib/departments";
@@ -30,6 +33,26 @@ import { type UserProfile } from "@/lib/userProfile";
 import { type AppSettings } from "@/lib/appSettings";
 import { type CheckUpdateResult, openApkDownload } from "@/hooks/useAppUpdate";
 import { type SyncResult } from "@/lib/syncEngine";
+import { type ChatSession } from "@/lib/offlineDb";
+
+function formatSessionTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return "Yesterday";
+    return d.toLocaleDateString([], { month: "short", day: "numeric" });
+  } catch {
+    return "";
+  }
+}
 
 interface SidebarProps {
   tenants: string[];
@@ -59,6 +82,13 @@ interface SidebarProps {
   onCheckForUpdates?: () => Promise<CheckUpdateResult>;
   onManualSync?: () => Promise<SyncResult>;
   onOpenResourceManager?: () => void;
+  onOpenPeerQnA?: () => void;
+  pastSessions?: ChatSession[];
+  currentSessionId?: string;
+  onSelectSession?: (sessionId: string) => void;
+  onDeleteSession?: (sessionId: string) => void;
+  onClearAllSessions?: () => void;
+  onSignOut?: () => void;
 }
 
 export default function Sidebar({
@@ -87,7 +117,16 @@ export default function Sidebar({
   onCheckForUpdates,
   onManualSync,
   onOpenResourceManager,
+  onOpenPeerQnA,
+  pastSessions = [],
+  currentSessionId,
+  onSelectSession,
+  onDeleteSession,
+  onClearAllSessions,
+  onSignOut,
 }: SidebarProps) {
+  const [recentCasesOpen, setRecentCasesOpen] = useState(true);
+  const [recentQueriesOpen, setRecentQueriesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [geminiConfigured, setGeminiConfigured] = useState(false);
   const [maskedKey, setMaskedKey] = useState<string | null>(null);
@@ -305,10 +344,27 @@ export default function Sidebar({
         {/* Clean + New Case Button */}
         <button
           onClick={onNewCase}
+          data-testid="sidebar-new-case-btn"
           className="w-full mt-3 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-100 hover:bg-white active:bg-zinc-200 text-zinc-950 font-medium text-xs transition-colors shadow-sm cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
           <span>New Case</span>
+        </button>
+
+        {/* Peer Q&A · Orientee Verification Ping Button */}
+        <button
+          type="button"
+          onClick={onOpenPeerQnA}
+          data-testid="sidebar-peer-qna-btn"
+          className="w-full mt-2 flex items-center justify-between px-3 py-2 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/25 border border-amber-500/30 text-amber-300 font-medium text-xs transition-colors shadow-sm cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            <Users className="w-3.5 h-3.5 text-amber-400" />
+            <span>Peer Q&amp;A Ping</span>
+          </div>
+          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200">
+            Multi-Peer
+          </span>
         </button>
 
         {/* Over-The-Air (OTA) Update Banner */}
@@ -350,29 +406,157 @@ export default function Sidebar({
         )}
       </div>
 
-      {/* Recent History / Cases Feed */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-1">
-        <div className="text-[11px] font-medium text-zinc-500 uppercase tracking-wider px-2 py-1">
-          Recent Queries
+      {/* Middle Section: Collapsible Recent Cases & Recent Queries */}
+      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {/* Collapsible Recent Cases Section */}
+        <div className="rounded-lg bg-zinc-900/60 border border-zinc-800/80 overflow-hidden">
+          <div className="flex items-center justify-between p-2.5 bg-zinc-900/90 hover:bg-zinc-850 transition-colors">
+            <button
+              type="button"
+              onClick={() => setRecentCasesOpen(!recentCasesOpen)}
+              data-testid="recent-cases-toggle"
+              className="flex items-center gap-2 flex-1 text-left cursor-pointer"
+            >
+              <Clock className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-xs font-semibold text-zinc-200">Recent Cases</span>
+              {pastSessions && pastSessions.length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-zinc-800 text-zinc-400 border border-zinc-700/60">
+                  {pastSessions.length}
+                </span>
+              )}
+            </button>
+            <div className="flex items-center gap-1.5">
+              {pastSessions && pastSessions.length > 0 && onClearAllSessions && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm("Clear all past cases for this department?")) {
+                      onClearAllSessions();
+                    }
+                  }}
+                  title="Clear all past cases"
+                  data-testid="clear-all-cases-button"
+                  className="px-1.5 py-0.5 rounded text-[10px] font-medium text-zinc-500 hover:text-rose-400 hover:bg-rose-950/40 transition-colors cursor-pointer"
+                >
+                  Clear All
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setRecentCasesOpen(!recentCasesOpen)}
+                className="text-zinc-500 hover:text-zinc-300 p-0.5 transition-colors cursor-pointer"
+              >
+                {recentCasesOpen ? (
+                  <ChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {recentCasesOpen && (
+            <div className="p-2 space-y-1 max-h-56 overflow-y-auto border-t border-zinc-800/60">
+              {pastSessions && pastSessions.length > 0 ? (
+                pastSessions.map((session) => {
+                  const isActive = session.sessionId === currentSessionId;
+                  return (
+                    <div
+                      key={session.sessionId}
+                      data-testid={`recent-case-item-${session.sessionId}`}
+                      onClick={() => onSelectSession?.(session.sessionId)}
+                      className={`group flex items-center justify-between p-2 rounded-md text-left transition-colors cursor-pointer border ${
+                        isActive
+                          ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-200"
+                          : "bg-zinc-950/40 hover:bg-zinc-800/70 border-transparent hover:border-zinc-800 text-zinc-300"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2 min-w-0 flex-1">
+                        <MessageSquare
+                          className={`w-3.5 h-3.5 mt-0.5 shrink-0 ${
+                            isActive ? "text-emerald-400" : "text-zinc-500 group-hover:text-zinc-400"
+                          }`}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-medium truncate" title={session.title}>
+                            {session.title || "Case Session"}
+                          </div>
+                          <div className="text-[10px] text-zinc-500 flex items-center gap-1.5 mt-0.5">
+                            <span>{formatSessionTime(session.updatedAt)}</span>
+                            <span>•</span>
+                            <span>{session.messages?.length || 0} msgs</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {onDeleteSession && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteSession(session.sessionId);
+                          }}
+                          title="Delete case"
+                          data-testid={`delete-case-${session.sessionId}`}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 hover:bg-rose-950/30 rounded transition-all cursor-pointer ml-1 shrink-0"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="px-2 py-4 text-center text-[11px] text-zinc-500 italic">
+                  No saved cases yet
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {history && history.length > 0 ? (
-          history.slice(-15).reverse().map((item, idx) => (
-            <button
-              key={idx}
-              onClick={() => onSelectStarterPrompt?.(item)}
-              disabled={loading}
-              className="w-full text-left px-2.5 py-1.5 rounded-md hover:bg-zinc-800/80 text-xs text-zinc-300 hover:text-zinc-100 truncate transition-colors cursor-pointer"
-              title={item}
-            >
-              {item}
-            </button>
-          ))
-        ) : (
-          <div className="px-2 py-6 text-xs text-zinc-600 italic">
-            No queries in current session
-          </div>
-        )}
+        {/* Collapsible Recent Queries / Prompts */}
+        <div className="rounded-lg bg-zinc-900/40 border border-zinc-800/60 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => setRecentQueriesOpen(!recentQueriesOpen)}
+            className="w-full flex items-center justify-between p-2 text-left hover:bg-zinc-850/50 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-3 h-3 text-zinc-400" />
+              <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
+                Recent Queries
+              </span>
+            </div>
+            {recentQueriesOpen ? (
+              <ChevronUp className="w-3 h-3 text-zinc-500" />
+            ) : (
+              <ChevronDown className="w-3 h-3 text-zinc-500" />
+            )}
+          </button>
+          {recentQueriesOpen && (
+            <div className="p-1.5 space-y-0.5 border-t border-zinc-800/50 max-h-40 overflow-y-auto">
+              {history && history.length > 0 ? (
+                history.slice(-10).reverse().map((item, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => onSelectStarterPrompt?.(item)}
+                    disabled={loading}
+                    className="w-full text-left px-2 py-1 rounded hover:bg-zinc-800/80 text-[11px] text-zinc-400 hover:text-zinc-200 truncate transition-colors cursor-pointer"
+                    title={item}
+                  >
+                    {item}
+                  </button>
+                ))
+              ) : (
+                <div className="px-2 py-2 text-center text-[11px] text-zinc-600 italic">
+                  No recent queries
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Collapsible Bottom Settings Drawer / Accordion */}
@@ -840,6 +1024,20 @@ export default function Sidebar({
           </div>
         )}
       </div>
+
+      {/* Sign Out Action Button */}
+      {onSignOut && (
+        <div className="p-2 border-t border-zinc-800/80 bg-zinc-950/60">
+          <button
+            type="button"
+            onClick={onSignOut}
+            data-testid="sidebar-signout-btn"
+            className="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 border border-zinc-800/80 text-xs font-medium transition-colors cursor-pointer"
+          >
+            <span>🚪 Sign Out</span>
+          </button>
+        </div>
+      )}
 
       {/* Standalone Engine & Version Footer */}
       <div className="p-2.5 border-t border-zinc-800/80 text-[10px] text-zinc-500 font-mono text-center flex items-center justify-center gap-1.5 shrink-0 bg-zinc-950/40">

@@ -1,0 +1,66 @@
+[
+  {
+    "id": "er_rsi_kit",
+    "procedure": "Rapid Sequence Intubation (RSI) Protocol",
+    "specialty": "Emergency Medicine / Trauma Resuscitation",
+    "clinician": "Trauma Team Leader / Emergency Physician",
+    "unit": "Trauma Bay 1 / 2",
+    "position": "Sniffing position (ear-to-sternal notch aligned)",
+    "supplies": [
+      "Video Laryngoscope (GlideScope or McGRATH MAC) with Blade 3 and 4",
+      "Endotracheal Tubes 7.5mm and 8.0mm cuffed with pre-lubricated stylets",
+      "Bougie Tracheal Tube Introducer 15Fr",
+      "Colorimetric End-Tidal CO2 Detector (Easy Cap II)",
+      "Etomidate 20 mg/10 mL (Dose: 0.3 mg/kg IV push)",
+      "Rocuronium 100 mg/10 mL (Dose: 1.2 mg/kg IV push for rapid paralysis)"
+    ],
+    "notes": "Pre-oxygenate with high-flow non-rebreather mask for 3 minutes. Have suction under mattress running. Confirm tube depth at teeth (typically 21\u201323 cm) and verify bilateral breath sounds."
+  },
+  {
+    "id": "er_chest_tube",
+    "procedure": "Emergency Tube Thoracostomy (Chest Tube)",
+    "specialty": "Trauma Surgery / Emergency Medicine",
+    "clinician": "Trauma Attending / Senior Resident",
+    "unit": "Trauma Bay",
+    "position": "Supine with ipsilateral arm abducted over head",
+    "supplies": [
+      "Chest Tube Insertion Tray (Scalpel #10, Curved Kelly, Mayo Scissors)",
+      "36Fr Argyle Thoracic Drainage Catheter (Large bore for hemothorax)",
+      "Atrium Oasis Dry Suction Chest Drain Unit",
+      "0 Silk Suture on CT-1 Needle for horizontal mattress stay stitch",
+      "Vaseline Petrolatum Gauze 3x9in",
+      "Heavy 2in cloth tape"
+    ],
+    "notes": "Insertion site: 4th or 5th intercostal space, anterior to mid-axillary line (Safe Triangle). Blunt dissect over top of rib to avoid neurovascular bundle. Connect to -20 cmH2O wall suction."
+  },
+  {
+    "id": "er_mtp_cooler",
+    "procedure": "Massive Transfusion Protocol (MTP) Cooler Protocol",
+    "specialty": "Trauma Resuscitation",
+    "clinician": "Trauma Lead RN & Resuscitationist",
+    "unit": "Trauma Bay 1",
+    "position": "Immediate bedside rapid transfusion",
+    "supplies": [
+      "Belmont FMS 2000 Rapid Infuser (Flow rate up to 500 mL/min, 37.5\u00b0C)",
+      "Belmont Fast-Flow Dual Spike Disposable Circuit",
+      "MTP Cooler Pack 1 (4 O-Neg PRBCs, 4 FFP, 1 Platelet)",
+      "Calcium Chloride 1g/10 mL IV push (give after 4th unit blood)",
+      "Tranexamic Acid (TXA) 1g in 100 mL NS infused over 10 minutes"
+    ],
+    "notes": "Verify 2-nurse witness ID on every unit. Never infuse through standard peripheral IV catheter; use 16Ga, 14Ga, or Cordis introducer. Target SBP 90-100 mmHg (permissive hypotension until surgical hemostasis)."
+  },
+  {
+    "id": "er_pelvic_binder",
+    "procedure": "Pelvic Binder Application for Unstable Pelvic Fracture",
+    "specialty": "Trauma Orthopedics / Emergency Resuscitation",
+    "clinician": "Trauma Resuscitation Nurse",
+    "unit": "Trauma Bay",
+    "position": "Supine, lower extremities internally rotated and bound at knees/ankles",
+    "supplies": [
+      "SAM Pelvic Sling II (Standard Size: 32\u201350 in)",
+      "T-POD Rapid Pelvic Stabilizer",
+      "Wide elastic bandage / sheet for foot binding"
+    ],
+    "notes": "Placement anatomical landmark: Center binder over the GREATER TROCHANTERS of the femurs (NOT the iliac crests). Pull orange strap until buckle audibly clicks (applies 33 lbs of circumferential compression)."
+  }
+]

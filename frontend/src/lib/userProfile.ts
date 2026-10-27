@@ -11,9 +11,9 @@ export interface FacilityOption {
 }
 
 export const REGISTERED_FACILITIES: FacilityOption[] = [
-  { id: "general_memorial", name: "General Memorial Hospital" },
-  { id: "duke_regional", name: "Duke Regional Hospital" },
-  { id: "metro_medical", name: "Metro Medical Center" },
+  { id: "sacred_heart", name: "Sacred Heart Hospital" },
+  { id: "princeton_plainsboro", name: "Princeton-Plainsboro Teaching Hospital" },
+  { id: "county_general", name: "County General Hospital" },
 ];
 
 export interface DepartmentOption {
@@ -37,16 +37,16 @@ export const ROLES_BY_DEPARTMENT: Record<string, string[]> = {
 
 export interface UserProfile {
   fullName: string;      // e.g. "Sean Iglesia, RN"
-  facilityId: string;    // "general_memorial" | "duke_regional" | "metro_medical"
-  facilityName: string;  // e.g. "General Memorial Hospital"
+  facilityId: string;    // "sacred_heart" | "princeton_plainsboro" | "county_general"
+  facilityName: string;  // e.g. "Sacred Heart Hospital"
   departmentId: string;  // "or_main" | "icu_critical_care" | "er_trauma" | "pacu_periop"
   clinicalRole: string;  // e.g. "Circulating RN", "Scrub Tech", "CRNA"
 }
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
   fullName: "Clinical Nurse",
-  facilityId: "general_memorial",
-  facilityName: "General Memorial Hospital",
+  facilityId: "sacred_heart",
+  facilityName: "Sacred Heart Hospital",
   departmentId: DEFAULT_DEPARTMENT_ID,
   clinicalRole: "Circulating RN",
 };

@@ -1,0 +1,88 @@
+[
+  {
+    "userId": "usr-demo-001",
+    "email": "sean@sacredheart.org",
+    "fullName": "Sean Iglesia, RN",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "onboardingCompleted": true,
+    "profile": {
+      "facilityId": "sacred_heart",
+      "facilityName": "Sacred Heart Hospital",
+      "departmentId": "or_main",
+      "clinicalRole": "Circulating RN"
+    },
+    "createdAt": "2026-10-27T00:00:00Z"
+  },
+  {
+    "userId": "usr-44c2d45b",
+    "email": "dr.dorian.1793142054601@sacredheart.org",
+    "fullName": "Dr. John Dorian, MD",
+    "passwordHash": "571e1583c49ebd0400480bdaffac7afb83c7360f2555e1b19e9e58daed22b7e7",
+    "onboardingCompleted": true,
+    "profile": {
+      "facilityId": "princeton_plainsboro",
+      "facilityName": "Princeton-Plainsboro Teaching Hospital",
+      "departmentId": "icu_critical_care",
+      "clinicalRole": "ICU RN"
+    },
+    "createdAt": "2026-10-27T23:00:54.726362+00:00"
+  },
+  {
+    "userId": "usr-bbc7fd84",
+    "email": "dr.dorian.1793142117358@sacredheart.org",
+    "fullName": "Dr. John Dorian, MD",
+    "passwordHash": "8526337d0681ff1a347e58737dd3680b69206c510c8383c7d8d71bed6a026176",
+    "onboardingCompleted": true,
+    "profile": {
+      "facilityId": "princeton_plainsboro",
+      "facilityName": "Princeton-Plainsboro Teaching Hospital",
+      "departmentId": "icu_critical_care",
+      "clinicalRole": "ICU RN"
+    },
+    "createdAt": "2026-10-27T23:01:57.498014+00:00"
+  },
+  {
+    "userId": "usr-d79d3f2f",
+    "email": "dr.dorian.1793142154462@sacredheart.org",
+    "fullName": "Dr. John Dorian, MD",
+    "passwordHash": "8526337d0681ff1a347e58737dd3680b69206c510c8383c7d8d71bed6a026176",
+    "onboardingCompleted": true,
+    "profile": {
+      "facilityId": "princeton_plainsboro",
+      "facilityName": "Princeton-Plainsboro Teaching Hospital",
+      "departmentId": "icu_critical_care",
+      "clinicalRole": "ICU RN"
+    },
+    "createdAt": "2026-10-27T23:02:34.618183+00:00"
+  },
+  {
+    "userId": "usr-4aa04c76",
+    "email": "dr.dorian.1793142387693@sacredheart.org",
+    "fullName": "Dr. John Dorian, MD",
+    "passwordHash": "8526337d0681ff1a347e58737dd3680b69206c510c8383c7d8d71bed6a026176",
+    "onboardingCompleted": true,
+    "profile": {
+      "fullName": "Dr. John Dorian, MD",
+      "facilityId": "princeton_plainsboro",
+      "facilityName": "Princeton-Plainsboro Teaching Hospital",
+      "departmentId": "icu_critical_care",
+      "clinicalRole": "ICU RN"
+    },
+    "createdAt": "2026-10-27T23:06:27.825973+00:00"
+  },
+  {
+    "userId": "usr-9cb60a29",
+    "email": "dr.dorian.1793142455474@sacredheart.org",
+    "fullName": "Dr. John Dorian, MD",
+    "passwordHash": "8526337d0681ff1a347e58737dd3680b69206c510c8383c7d8d71bed6a026176",
+    "onboardingCompleted": true,
+    "profile": {
+      "fullName": "Dr. John Dorian, MD",
+      "facilityId": "princeton_plainsboro",
+      "facilityName": "Princeton-Plainsboro Teaching Hospital",
+      "departmentId": "icu_critical_care",
+      "clinicalRole": "ICU RN"
+    },
+    "createdAt": "2026-10-27T23:07:35.625823+00:00"
+  }
+]

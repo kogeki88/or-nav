@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CoordinateCardData, MoveWidgetData } from "@/lib/api";
 import CoordinateCard from "./CoordinateCard";
 import MoveVerifyWidget from "./MoveVerifyWidget";
-import { Shield, Sparkles, BookOpen, Volume2 } from "lucide-react";
+import { Shield, Sparkles, BookOpen, Volume2, Users } from "lucide-react";
 import { getDepartment } from "@/lib/departments";
 
 export interface MessageItem {
@@ -31,6 +31,7 @@ interface ChatCanvasProps {
   onFlagWrong?: (item: string) => Promise<void>;
   onSpeakSingleMessage?: (text: string) => void;
   onStarterChipClick?: (prompt: string) => void;
+  onAskDepartmentPeers?: (questionContext?: string) => void;
 }
 
 const STARTER_PROMPTS = [
@@ -48,6 +49,7 @@ export default function ChatCanvas({
   onFlagWrong,
   onSpeakSingleMessage,
   onStarterChipClick,
+  onAskDepartmentPeers,
 }: ChatCanvasProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const dept = getDepartment(tenantId);
@@ -82,6 +84,17 @@ export default function ChatCanvas({
                 {item.label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => onAskDepartmentPeers?.()}
+              className="col-span-1 sm:col-span-2 text-left px-3.5 py-2.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/25 border border-amber-500/30 text-xs text-amber-300 transition-colors cursor-pointer flex items-center justify-between"
+            >
+              <span className="flex items-center gap-2 font-medium">
+                <Users className="w-3.5 h-3.5 text-amber-400" />
+                <span>Orientee doubt? Ask department peers</span>
+              </span>
+              <span className="text-[10px] font-mono bg-amber-500/20 px-2 py-0.5 rounded-full text-amber-200">Peer Ping</span>
+            </button>
           </div>
         </div>
       )}
@@ -149,9 +162,26 @@ export default function ChatCanvas({
                     : [];
 
                 if (cards.length === 0) {
+                  const needsPeerHelp =
+                    msg.text &&
+                    (msg.text.includes("Could not find") ||
+                      msg.text.includes("⚠️") ||
+                      msg.text.includes("not find") ||
+                      msg.isEducationalBaseline ||
+                      msg.text.includes("unanswered"));
                   return (
-                    <div className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed py-1">
-                      {msg.text}
+                    <div className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed py-1 space-y-2">
+                      <div>{msg.text}</div>
+                      {needsPeerHelp && onAskDepartmentPeers && (
+                        <button
+                          type="button"
+                          onClick={() => onAskDepartmentPeers(msg.text)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-all cursor-pointer shadow-sm active:scale-95"
+                        >
+                          <Users className="w-3.5 h-3.5 text-amber-400" />
+                          <span>🚨 Ask Department Peers</span>
+                        </button>
+                      )}
                     </div>
                   );
                 }
@@ -175,8 +205,18 @@ export default function ChatCanvas({
                     ))}
                     {/* Vector 3: Partial Compound Missing Item Alert */}
                     {msg.text && (msg.text.includes("Could not find") || msg.text.includes("⚠️")) && (
-                      <div className="text-xs text-amber-300 bg-amber-950/40 border border-amber-800/40 px-3 py-2 rounded-lg flex items-center gap-2 mt-1">
+                      <div className="text-xs text-amber-300 bg-amber-950/40 border border-amber-800/40 px-3 py-2 rounded-lg flex items-center justify-between gap-2 mt-1">
                         <span>⚠️ {msg.text.split("\n").filter(l => l.includes("Could not find") || l.includes("⚠️")).join(" ")}</span>
+                        {onAskDepartmentPeers && (
+                          <button
+                            type="button"
+                            onClick={() => onAskDepartmentPeers(msg.text)}
+                            className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 cursor-pointer"
+                          >
+                            <Users className="w-3 h-3" />
+                            <span>Ask Peers</span>
+                          </button>
+                        )}
                       </div>
                     )}
                     {/* Crack B: Hybrid Compound Clinical Protocol Guidance */}
