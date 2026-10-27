@@ -135,13 +135,15 @@ public class ApkUpdaterPlugin extends Plugin {
                 installIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 installIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
+                final long finalBytes = totalBytes;
+
                 activity.runOnUiThread(() -> {
                     try {
                         context.startActivity(installIntent);
                         JSObject res = new JSObject();
                         res.put("success", true);
                         res.put("path", apkFile.getAbsolutePath());
-                        res.put("bytes", totalBytes);
+                        res.put("bytes", finalBytes);
                         call.resolve(res);
                     } catch (Exception launchErr) {
                         Log.e(TAG, "Failed to launch package installer intent", launchErr);

@@ -164,8 +164,8 @@ async def get_version(response: Response):
             pass
 
     return {
-        "version": "v0.4",
-        "build_number": 5,
+        "version": "v0.41",
+        "build_number": 6,
         "release_date": "2026-10-27",
         "apk_download_url": f"http://{lan_ip or '192.168.1.217'}:8000/api/download-apk",
         "min_supported_version": "v0.1",
@@ -208,3 +208,4 @@ async def set_gemini_key(body: GeminiKeyRequest):
         "masked_key": masked,
         "model": "gemini-2.5-flash",
     }
+

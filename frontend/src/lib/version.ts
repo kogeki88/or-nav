@@ -12,8 +12,8 @@ export interface VersionManifest {
   changelog: string;
 }
 
-export const CURRENT_VERSION = "v0.4";
-export const CURRENT_BUILD_NUMBER = 5;
+export const CURRENT_VERSION = "v0.41";
+export const CURRENT_BUILD_NUMBER = 6;
 export const CURRENT_RELEASE_DATE = "2026-10-27";
 
 export const GITHUB_REPO_OWNER = "kogeki88";
@@ -65,3 +65,4 @@ export function isNewerVersion(
   if (rMinor !== lMinor) return rMinor > lMinor;
   return rPatch > lPatch;
 }
+
