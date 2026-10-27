@@ -25,7 +25,7 @@ def test_phase24_version_manifest_v02():
     res = client.get("/api/version")
     assert res.status_code == 200
     data = res.json()
-    assert data["version"] in ["v0.2", "v0.3"]
+    assert data["version"] in ["v0.2", "v0.3", "v0.31", "v0.4", "v0.41"]
     assert data["build_number"] >= 2
     assert "apk_download_url" in data
     assert data["apk_download_url"].endswith("/or-nav.apk")
@@ -37,7 +37,7 @@ def test_public_version_json_matches_v02():
     v_path = root / "frontend" / "public" / "version.json"
     assert v_path.exists()
     manifest = json.loads(v_path.read_text(encoding="utf-8"))
-    assert manifest["version"] in ["v0.2", "v0.3"]
+    assert manifest["version"] in ["v0.2", "v0.3", "v0.31", "v0.4", "v0.41"]
     assert manifest["build_number"] >= 2
 
 

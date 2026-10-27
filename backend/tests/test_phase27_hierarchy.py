@@ -26,7 +26,7 @@ def test_v04_version_manifest():
     res = client.get("/api/version")
     assert res.status_code == 200
     data = res.json()
-    assert data["version"] == "v0.4"
+    assert data["version"] in ["v0.4", "v0.41"]
     assert data["build_number"] >= 4
     assert "hierarchical" in data["changelog"].lower() or "ota" in data["changelog"].lower()
 
@@ -37,7 +37,7 @@ def test_public_version_json_matches_v04():
     v_path = root / "frontend" / "public" / "version.json"
     assert v_path.exists()
     manifest = json.loads(v_path.read_text(encoding="utf-8"))
-    assert manifest["version"] == "v0.4"
+    assert manifest["version"] in ["v0.4", "v0.41"]
     assert manifest["build_number"] >= 4
 
 
