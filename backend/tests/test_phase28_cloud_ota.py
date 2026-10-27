@@ -54,9 +54,11 @@ def test_phase28_version_ts_constants():
 
 
 def test_phase28_base_apk_exists():
-    """Verify base v0.4 APK exists for local installation before OTA update test."""
-    base_apk = ROOT_DIR / "frontend" / "public" / "or-nav-v0.4-base.apk"
-    assert base_apk.exists(), "or-nav-v0.4-base.apk must exist for user installation"
+    """Verify base or root APK exists for local installation before OTA update test."""
+    base_apk = ROOT_DIR / "or-nav.apk"
+    if not base_apk.exists():
+        base_apk = ROOT_DIR / "or-nav-v0.4-base.apk"
+    assert base_apk.exists(), "Root or-nav.apk must exist for user installation"
     assert base_apk.stat().st_size > 10_000_000, "Base APK must be complete binary"
 
 

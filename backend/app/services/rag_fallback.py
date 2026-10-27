@@ -335,6 +335,49 @@ class RAGService:
         clean_text = raw_text.replace("[GLOBAL_BASELINE]", "").strip()
         return clean_text, is_baseline
 
+    def _get_hospital_pack_resources(self, clinical_role: Optional[str] = None) -> dict[str, Any]:
+        """Load 3-tier hospital knowledge: handbook, preference cards, and role guide."""
+        dept_dir = self.tenant.inventory_path.parent
+        fac_dir = dept_dir.parent
+        res: dict[str, Any] = {
+            "handbook": "",
+            "cards": [],
+            "role_guide": "",
+        }
+
+        # 1. Facility Handbook (Tier 1)
+        hb_path = fac_dir / "facility_handbook.md"
+        if hb_path.exists():
+            res["handbook"] = hb_path.read_text(encoding="utf-8")
+
+        # 2. Preference Cards (Tier 2)
+        cards_path = dept_dir / "preference_cards.json"
+        if cards_path.exists():
+            try:
+                import json
+                res["cards"] = json.loads(cards_path.read_text(encoding="utf-8"))
+            except Exception:
+                pass
+
+        # 3. Role Guide (Tier 3)
+        role_key = "circulator"
+        if clinical_role:
+            r = clinical_role.lower()
+            if "scrub" in r or "cst" in r or "tech" in r:
+                role_key = "scrub"
+            elif "crna" in r or "anesthes" in r:
+                role_key = "crna"
+            elif "icu" in r:
+                role_key = "icu_rn"
+            elif "er" in r or "trauma" in r:
+                role_key = "er_rn"
+
+        role_path = dept_dir / "roles" / f"{role_key}.md"
+        if role_path.exists():
+            res["role_guide"] = role_path.read_text(encoding="utf-8")
+
+        return res
+
     # -------------------------------------------------------------------
     # Offline fallback (keyword search over orientation.md + baseline.md)
     # -------------------------------------------------------------------
@@ -344,6 +387,56 @@ class RAGService:
         Synthesize a response from orientation.md, inventory.csv, or
         GLOBAL_BASELINE/baseline.md using keyword matching.
         """
+        query_lower = query.lower()
+        query_words = set(re.findall(r"\b[a-z]{3,}\b", query_lower)) - {
+            "what", "where", "when", "how", "the", "for", "and", "are", "does", "with"
+        }
+
+        # Tier 2 & 3 Knowledge Packs check
+        pack_res = self._get_hospital_pack_resources(clinical_role)
+
+        # 1. Match Preference Cards (Tier 2)
+        for card in pack_res.get("cards", []):
+            proc = card.get("procedure", "").lower()
+            surg = card.get("surgeon", "").lower()
+            if ("chole" in query_lower and "chole" in proc) or ("knee" in query_lower and "knee" in proc) or ("cabg" in query_lower and "cabg" in proc) or any(w in query_lower for w in surg.split()):
+                if is_scrub_role(clinical_role):
+                    sutures = ", ".join(card.get("sutures", []))
+                    insts = ", ".join(card.get("instrumentation", []))
+                    return (
+                        f"Preference Card: {card.get('procedure')} ({card.get('surgeon')})\n\n"
+                        f"• Suture Preferences: {sutures}\n"
+                        f"• Instrumentation: {insts}\n"
+                        f"• Scrub Notes: {card.get('notes')}",
+                        False,
+                    )
+                else:
+                    return (
+                        f"Preference Card: {card.get('procedure')} ({card.get('surgeon')})\n\n"
+                        f"• Room & Positioning: {card.get('room')} | {card.get('position')}\n"
+                        f"• Skin Prep: {card.get('prep')}\n"
+                        f"• Safety & Circulator Considerations: {card.get('notes')}",
+                        False,
+                    )
+
+        # 2. Match Facility Handbook (Tier 1)
+        hb = pack_res.get("handbook", "")
+        if hb and any(w in query_lower for w in ["blood", "bank", "code", "blue", "emergency", "fire", "amber", "exposure", "needle"]):
+            hb_sections = re.split(r"(?=^## )", hb, flags=re.MULTILINE)
+            for sec in hb_sections:
+                sec_words = set(re.findall(r"\b[a-z]{3,}\b", sec.lower()))
+                if len(query_words & sec_words) >= 2:
+                    return (f"Facility Policy & Handbook:\n\n{sec.strip()}", False)
+
+        # 3. Match Role Guide (Tier 3)
+        rg = pack_res.get("role_guide", "")
+        if rg:
+            rg_sections = re.split(r"(?=^## )", rg, flags=re.MULTILINE)
+            for sec in rg_sections:
+                sec_words = set(re.findall(r"\b[a-z]{3,}\b", sec.lower()))
+                if len(query_words & sec_words) >= 2:
+                    return (f"Role Guide ({clinical_role or 'Clinical Specialist'}):\n\n{sec.strip()}", False)
+
         orientation_text = filter_orientation_by_role(self._orientation_text, clinical_role)
         if not orientation_text and not self._inventory_text and not self._baseline_text:
             return (
@@ -351,11 +444,6 @@ class RAGService:
                 "Set GEMINI_API_KEY in .env for full RAG capability.",
                 False,
             )
-
-        query_lower = query.lower()
-        query_words = set(re.findall(r"\b[a-z]{3,}\b", query_lower)) - {
-            "what", "where", "when", "how", "the", "for", "and", "are", "does", "with"
-        }
 
         # Score local facility orientation sections
         sections = re.split(r"(?=^## )", orientation_text, flags=re.MULTILINE)

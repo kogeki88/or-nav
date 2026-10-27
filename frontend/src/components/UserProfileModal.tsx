@@ -1,19 +1,21 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Check } from "lucide-react";
+import { X, Check, HardDrive } from "lucide-react";
 import {
   UserProfile,
   REGISTERED_FACILITIES,
   REGISTERED_DEPARTMENTS,
   ROLES_BY_DEPARTMENT,
 } from "@/lib/userProfile";
+import { ensureProfilePacksInstalled } from "@/lib/resourceManager";
 
 interface UserProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentProfile: UserProfile;
   onSaveProfile: (updated: UserProfile) => void;
+  onOpenResourceManager?: () => void;
 }
 
 export default function UserProfileModal({
@@ -21,6 +23,7 @@ export default function UserProfileModal({
   onClose,
   currentProfile,
   onSaveProfile,
+  onOpenResourceManager,
 }: UserProfileModalProps) {
   const [formData, setFormData] = useState<UserProfile>(currentProfile);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -56,6 +59,8 @@ export default function UserProfileModal({
     e.preventDefault();
     onSaveProfile(formData);
     setSavedSuccess(true);
+    // Background provision required 3-tier packs from GitHub
+    ensureProfilePacksInstalled(formData.facilityId, formData.departmentId, formData.clinicalRole).catch(console.warn);
     setTimeout(() => {
       setSavedSuccess(false);
       onClose();
@@ -159,6 +164,21 @@ export default function UserProfileModal({
               ))}
             </select>
           </div>
+
+          {/* Knowledge Packs Access */}
+          {onOpenResourceManager && (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={onOpenResourceManager}
+                data-testid="btn-open-resources-from-profile"
+                className="w-full flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 text-[11px] font-medium transition-colors cursor-pointer"
+              >
+                <HardDrive className="w-3.5 h-3.5 text-emerald-400" />
+                <span>📦 View Installed Knowledge Packs</span>
+              </button>
+            </div>
+          )}
 
           {/* Footer Actions */}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-zinc-800/80">

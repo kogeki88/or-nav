@@ -88,6 +88,13 @@ Write-Host "  [OK] Updated $mainPyPath" -ForegroundColor Green
 # 3. Next.js Static Export & Capacitor Sync
 if (-not $SkipBuild) {
     Write-Host "`n[2/5] Building Next.js static export & syncing Capacitor..." -ForegroundColor Yellow
+    
+    # Purge recursive APK bloat before build/sync so assets/public remains tiny (<2 MB)
+    Write-Host "  Purging legacy APK binaries from web and asset folders..." -ForegroundColor Yellow
+    Remove-Item "$rootDir\frontend\public\*.apk" -Force -ErrorAction SilentlyContinue
+    Remove-Item "$rootDir\frontend\out\*.apk" -Force -ErrorAction SilentlyContinue
+    Remove-Item "$rootDir\frontend\android\app\src\main\assets\public\*.apk" -Force -ErrorAction SilentlyContinue
+
     Set-Location "$rootDir\frontend"
     npm run build
     npx cap sync android
@@ -110,9 +117,8 @@ if (-not $SkipBuild) {
         throw "Build failed: $compiledApk not found!"
     }
 
-    Write-Host "`n[4/5] Copying compiled APK..." -ForegroundColor Yellow
+    Write-Host "`n[4/5] Copying compiled APK to root or-nav.apk..." -ForegroundColor Yellow
     Copy-Item $compiledApk "$rootDir\or-nav.apk" -Force
-    Copy-Item $compiledApk "$rootDir\frontend\public\or-nav.apk" -Force
     $apkItem = Get-Item "$rootDir\or-nav.apk"
     $sizeMb = [math]::Round($apkItem.Length / 1MB, 2)
     Write-Host "  [OK] APK Ready: $sizeMb MB ($($apkItem.Length) bytes)" -ForegroundColor Green

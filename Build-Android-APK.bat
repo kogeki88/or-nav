@@ -30,18 +30,23 @@ if not defined ANDROID_HOME (
 )
 
 echo [OK] Java and Android SDK detected.
+echo [*] Purging recursive APK bloat from web and asset directories...
+if exist "%~dp0frontend\public\*.apk" del /f /q "%~dp0frontend\public\*.apk" >nul 2>nul
+if exist "%~dp0frontend\out\*.apk" del /f /q "%~dp0frontend\out\*.apk" >nul 2>nul
+if exist "%~dp0frontend\android\app\src\main\assets\public\*.apk" del /f /q "%~dp0frontend\android\app\src\main\assets\public\*.apk" >nul 2>nul
+
 echo [1/2] Compiling debug APK via Gradle...
 cd /d "%~dp0frontend\android"
 call gradlew.bat assembleDebug
 
 if %ERRORLEVEL% EQU 0 (
     echo.
-    echo [2/2] Copying app-debug.apk to frontend\public\or-nav.apk...
+    echo [2/2] Copying app-debug.apk to root or-nav.apk...
     if exist "app\build\outputs\apk\debug\app-debug.apk" (
-        copy /y "app\build\outputs\apk\debug\app-debug.apk" "%~dp0frontend\public\or-nav.apk" >nul
+        copy /y "app\build\outputs\apk\debug\app-debug.apk" "%~dp0or-nav.apk" >nul
         copy /y "app\build\outputs\apk\debug\app-debug.apk" "%~dp0or-nav-standalone.apk" >nul
-        echo [SUCCESS] Standalone APK built and published to frontend\public\or-nav.apk and or-nav-standalone.apk!
-        echo Clinicians can now download the APK directly from the QR Pairing Modal.
+        echo [SUCCESS] Standalone APK built and published to root or-nav.apk and or-nav-standalone.apk!
+        echo Clinicians can now download the APK via GET /api/download-apk.
     ) else (
         echo [!] Gradle succeeded, but app-debug.apk was not found in output directory.
     )

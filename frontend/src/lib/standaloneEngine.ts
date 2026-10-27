@@ -1324,6 +1324,127 @@ export async function executeStandaloneSearch(
     };
   }
 
+  // 4.5. On-Device Installed Knowledge Packs (Preference Cards, Facility Handbook, Role Guides)
+  if (offlineDb) {
+    try {
+      const installed = await offlineDb.installedPacks.toArray();
+      const qLower = processedText.toLowerCase();
+      const isScrub =
+        (profile.clinicalRole || "").toLowerCase().includes("scrub") ||
+        (profile.clinicalRole || "").toLowerCase().includes("tech") ||
+        (profile.clinicalRole || "").toLowerCase().includes("cst");
+
+      // 1. Preference Cards match
+      const cardsPack = installed.find(
+        (p) => p.filePath.endsWith("preference_cards.json") && p.facilityId === profile.facilityId
+      );
+      if (cardsPack && cardsPack.content) {
+        try {
+          const cards = JSON.parse(cardsPack.content);
+          for (const card of cards) {
+            const proc = (card.procedure || "").toLowerCase();
+            const surg = (card.surgeon || "").toLowerCase();
+            if (
+              (qLower.includes("chole") && proc.includes("chole")) ||
+              (qLower.includes("knee") && proc.includes("knee")) ||
+              (qLower.includes("cabg") && proc.includes("cabg")) ||
+              (qLower.includes("ralp") && proc.includes("prostate")) ||
+              (qLower.includes("discectomy") && proc.includes("discectomy")) ||
+              (qLower.includes("laparotomy") && proc.includes("laparotomy")) ||
+              (surg.split(" ").some((w: string) => w.length > 3 && qLower.includes(w)))
+            ) {
+              const elapsed = Math.max(1, Math.round(performance.now() - t0));
+              let reply = "";
+              if (isScrub) {
+                reply = `📋 Preference Card: ${card.procedure} (${card.surgeon})\n\n` +
+                  `• Suture Preferences: ${(card.sutures || []).join(", ")}\n` +
+                  `• Instrumentation: ${(card.instrumentation || []).join(", ")}\n` +
+                  `• Scrub Setup Notes: ${card.notes || "None"}`;
+              } else {
+                reply = `📋 Preference Card: ${card.procedure} (${card.surgeon})\n\n` +
+                  `• Room & Positioning: ${card.room || "Main OR"} | ${card.position || "Supine"}\n` +
+                  `• Skin Prep: ${card.prep || "Standard"}\n` +
+                  `• Circulator Safety Considerations: ${card.notes || "Standard"}`;
+              }
+              return {
+                reply_text: reply,
+                routing_tier: "TIER_1_LOCAL_CSV",
+                scrubbed_query: processedText,
+                phi_detected: false,
+                latency_ms: elapsed,
+                coordinate_card: null,
+                move_widget: null,
+              };
+            }
+          }
+        } catch {}
+      }
+
+      // 2. Role Guide match
+      const rolePack = installed.find((p) => p.category === "role" && p.facilityId === profile.facilityId);
+      if (rolePack && rolePack.content) {
+        const sections = rolePack.content.split(/(?=^## )/m);
+        for (const sec of sections) {
+          const secLower = sec.toLowerCase();
+          if (
+            (qLower.includes("mayo") && secLower.includes("mayo")) ||
+            (qLower.includes("suture") && secLower.includes("suture")) ||
+            (qLower.includes("position") && secLower.includes("position")) ||
+            (qLower.includes("prep") && secLower.includes("prep")) ||
+            (qLower.includes("drape") && secLower.includes("drap")) ||
+            (qLower.includes("robot") && secLower.includes("robot"))
+          ) {
+            const elapsed = Math.max(1, Math.round(performance.now() - t0));
+            return {
+              reply_text: `📖 Role Guide (${profile.clinicalRole || "Clinical Specialist"}):\n\n${sec.trim()}`,
+              routing_tier: "TIER_1_LOCAL_CSV",
+              scrubbed_query: processedText,
+              phi_detected: false,
+              latency_ms: elapsed,
+              coordinate_card: null,
+              move_widget: null,
+            };
+          }
+        }
+      }
+
+      // 3. Facility Handbook match
+      const handbookPack = installed.find((p) => p.category === "hospital" && p.facilityId === profile.facilityId);
+      if (handbookPack && handbookPack.content) {
+        if (
+          qLower.includes("blood bank") ||
+          qLower.includes("code blue") ||
+          qLower.includes("emergency") ||
+          qLower.includes("exposure") ||
+          qLower.includes("needle")
+        ) {
+          const sections = handbookPack.content.split(/(?=^## )/m);
+          for (const sec of sections) {
+            const secLower = sec.toLowerCase();
+            if (
+              (qLower.includes("blood") && secLower.includes("blood")) ||
+              (qLower.includes("code") && secLower.includes("code")) ||
+              (qLower.includes("exposure") && secLower.includes("exposure"))
+            ) {
+              const elapsed = Math.max(1, Math.round(performance.now() - t0));
+              return {
+                reply_text: `🏥 Facility Handbook Policy:\n\n${sec.trim()}`,
+                routing_tier: "TIER_1_LOCAL_CSV",
+                scrubbed_query: processedText,
+                phi_detected: false,
+                latency_ms: elapsed,
+                coordinate_card: null,
+                move_widget: null,
+              };
+            }
+          }
+        }
+      }
+    } catch (packErr) {
+      console.warn("Pack lookup error:", packErr);
+    }
+  }
+
   // 5. Tier-2 Clinical Protocol Fallback (RBAC check -> Direct Gemini RAG or Baseline)
   const rbacCheck = evaluateRbacQuery(processedText, profile.clinicalRole);
   if (!rbacCheck.allowed) {

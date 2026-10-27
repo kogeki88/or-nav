@@ -20,6 +20,8 @@ import {
   Activity,
   Volume2,
   Key,
+  Package,
+  HardDrive,
 } from "lucide-react";
 import { fetchGeminiStatus, saveGeminiKey } from "@/lib/api";
 import { DEPARTMENT_LIST, DEPARTMENTS } from "@/lib/departments";
@@ -56,6 +58,7 @@ interface SidebarProps {
   onToggleAutoSync?: () => void;
   onCheckForUpdates?: () => Promise<CheckUpdateResult>;
   onManualSync?: () => Promise<SyncResult>;
+  onOpenResourceManager?: () => void;
 }
 
 export default function Sidebar({
@@ -83,6 +86,7 @@ export default function Sidebar({
   onToggleAutoSync,
   onCheckForUpdates,
   onManualSync,
+  onOpenResourceManager,
 }: SidebarProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [geminiConfigured, setGeminiConfigured] = useState(false);
@@ -117,6 +121,7 @@ export default function Sidebar({
     api: false,
     profile: false,
     services: false,
+    resources: true,
     audio: false,
     diagnostics: false,
   });
@@ -668,6 +673,42 @@ export default function Sidebar({
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+            </div>
+
+            {/* Category: 📦 Knowledge Packs & Resources */}
+            <div className="rounded-lg bg-zinc-900/80 border border-zinc-800/80 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => toggleCategory("resources")}
+                data-testid="category-resources-toggle"
+                className="w-full flex items-center justify-between p-2.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-800/50 transition-colors cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <HardDrive className="w-4 h-4 text-emerald-400" />
+                  <span>Installed Resources</span>
+                </div>
+                {openCategories.resources ? (
+                  <ChevronUp className="w-3.5 h-3.5 text-zinc-400" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
+                )}
+              </button>
+              {openCategories.resources && (
+                <div className="p-2.5 pt-0 space-y-2 border-t border-zinc-800/40">
+                  <div className="text-[11px] text-zinc-400 leading-relaxed">
+                    On-demand facility handbooks, procedure preference cards, and role guides downloaded from GitHub.
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onOpenResourceManager}
+                    data-testid="button-open-resource-manager"
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <Package className="w-3.5 h-3.5" />
+                    <span>📦 Manage Installed Resources</span>
+                  </button>
                 </div>
               )}
             </div>

@@ -34,10 +34,25 @@ export interface OutboxMutation {
   timestamp: string;
 }
 
+export interface InstalledResourcePack {
+  packId: string;          // e.g. "general_memorial::handbook", "general_memorial::or::inventory", "general_memorial::or::role_scrub"
+  facilityId: string;
+  departmentId?: string;   // null for hospital-wide handbook
+  roleId?: string;         // null for dept-wide inventory/preference cards
+  title: string;           // e.g. "General Memorial — Employee Handbook", "OR — Master Inventory & Carts", "OR — Scrub Tech Case Preferences"
+  category: "hospital" | "department" | "role";
+  filePath: string;        // relative path in repo
+  sizeBytes: number;
+  versionHash: string;
+  installedAt: string;
+  content: string;         // raw CSV/MD/JSON content cached on-device
+}
+
 class ORNavOfflineDatabase extends Dexie {
   inventoryItems!: Table<OfflineInventoryRecord, string>;
   offlineOutbox!: Table<OutboxMutation, number>;
   unansweredQuestions!: Table<DepartmentQuestion, string>;
+  installedPacks!: Table<InstalledResourcePack, string>;
 
   constructor() {
     super("ORNavOfflineDB");
@@ -45,6 +60,12 @@ class ORNavOfflineDatabase extends Dexie {
       inventoryItems: "id, tenant_id, item, full_code, phonetic_code",
       offlineOutbox: "++id, tenant_id, type, timestamp",
       unansweredQuestions: "id, hospital_id, status",
+    });
+    this.version(4).stores({
+      inventoryItems: "id, tenant_id, item, full_code, phonetic_code",
+      offlineOutbox: "++id, tenant_id, type, timestamp",
+      unansweredQuestions: "id, hospital_id, status",
+      installedPacks: "packId, facilityId, departmentId, roleId, category, versionHash, installedAt",
     });
   }
 }

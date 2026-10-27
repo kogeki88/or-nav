@@ -128,10 +128,10 @@ async def download_apk():
     """Stream OR-Nav APK binary directly for in-app OTA installer."""
     root = Path(__file__).resolve().parent.parent.parent
     candidate_paths = [
-        root / "frontend" / "public" / "or-nav.apk",
-        root / "frontend" / "out" / "or-nav.apk",
         root / "or-nav.apk",
         root / "or-nav-standalone.apk",
+        root / "frontend" / "public" / "or-nav.apk",
+        root / "frontend" / "out" / "or-nav.apk",
     ]
     for apk_path in candidate_paths:
         if apk_path.exists() and apk_path.stat().st_size > 1000:
@@ -171,6 +171,39 @@ async def get_version(response: Response):
         "min_supported_version": "v0.1",
         "changelog": "v0.4 (Build 5) — Robust Android OTA updater, native in-app APK installer, and multi-tenant RBAC.",
     }
+
+
+@app.get("/api/packs/manifest")
+async def get_packs_manifest(response: Response):
+    """Return hospital knowledge packs master manifest with cache-busting headers."""
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    root = Path(__file__).resolve().parent.parent.parent
+    m_path = root / "hospitals" / "manifest.json"
+    if m_path.exists():
+        import json
+        return json.loads(m_path.read_text(encoding="utf-8"))
+    raise HTTPException(status_code=404, detail="Packs manifest not found.")
+
+
+@app.get("/api/packs/file")
+async def get_pack_file(path: str, response: Response):
+    """Return raw file content for an on-demand hospital resource pack."""
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    clean = path.replace("\\", "/").lstrip("/")
+    if ".." in clean:
+        raise HTTPException(status_code=400, detail="Invalid path traversal.")
+    root = Path(__file__).resolve().parent.parent.parent
+    target = root / clean
+    if target.exists() and target.is_file():
+        content_type = "text/plain; charset=utf-8"
+        if target.suffix == ".json":
+            content_type = "application/json; charset=utf-8"
+        elif target.suffix == ".csv":
+            content_type = "text/csv; charset=utf-8"
+        elif target.suffix == ".md":
+            content_type = "text/markdown; charset=utf-8"
+        return Response(content=target.read_text(encoding="utf-8"), media_type=content_type)
+    raise HTTPException(status_code=404, detail=f"Pack file {clean} not found.")
 
 
 @app.post("/api/config/gemini-key")

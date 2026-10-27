@@ -8,6 +8,7 @@ import { QRPairModal } from "@/components/QRPairModal";
 import QuestionsDrawer from "@/components/QuestionsDrawer";
 import UserProfileModal from "@/components/UserProfileModal";
 import AutoUpdateModal from "@/components/AutoUpdateModal";
+import ResourceManagerModal from "@/components/ResourceManagerModal";
 import {
   fetchTenants,
   sendChatMessage,
@@ -74,6 +75,7 @@ export default function Home() {
   // User Profile & Clinical Assignment Modal
   const { profile, saveProfile } = useUserProfile();
   const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
+  const [resourceModalOpen, setResourceModalOpen] = useState<boolean>(false);
 
   // App Settings & Background Services Toggles (Phase 26)
   const { settings: appSettings, updateSettings } = useAppSettings();
@@ -666,6 +668,7 @@ export default function Home() {
             onDismissUpdate={dismissUpdate}
             userProfile={profile}
             onOpenProfileModal={() => setProfileModalOpen(true)}
+            onOpenResourceManager={() => setResourceModalOpen(true)}
             appSettings={appSettings}
             onToggleAutoUpdate={handleToggleAutoUpdate}
             onToggleAutoSync={handleToggleAutoSync}
@@ -718,6 +721,10 @@ export default function Home() {
               onOpenProfileModal={() => {
                 setMobileSidebarOpen(false);
                 setProfileModalOpen(true);
+              }}
+              onOpenResourceManager={() => {
+                setMobileSidebarOpen(false);
+                setResourceModalOpen(true);
               }}
               appSettings={appSettings}
               onToggleAutoUpdate={handleToggleAutoUpdate}
@@ -887,6 +894,17 @@ export default function Home() {
         onClose={() => setProfileModalOpen(false)}
         currentProfile={profile}
         onSaveProfile={handleSaveProfile}
+        onOpenResourceManager={() => {
+          setProfileModalOpen(false);
+          setResourceModalOpen(true);
+        }}
+      />
+
+      {/* On-Demand Hospital Knowledge Packs & Resource Manager Modal */}
+      <ResourceManagerModal
+        isOpen={resourceModalOpen}
+        onClose={() => setResourceModalOpen(false)}
+        activeProfile={profile}
       />
 
       {/* Over-The-Air (OTA) Auto-Update Prompt Modal */}
