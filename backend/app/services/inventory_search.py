@@ -30,6 +30,7 @@ from app.services.surgical_ontology import (
     is_generic_class_only,
     normalize_or_lingo,
     extract_eponyms,
+    strip_spoken_disfluencies,
 )
 from app.services.lexicon_learning import (
     get_facility_id_from_tenant,
@@ -95,6 +96,10 @@ _STOP_WORDS = {
     "get", "me", "do", "we", "have", "keep", "stored", "stocked",
     "show", "location", "of", "for", "in", "from", "please", "can",
     "you", "tell", "whats", "what",
+    # Spoken vocal fillers and disfluencies (Phase 40)
+    "um", "umm", "ummm", "uh", "uhh", "uhhh", "er", "erm", "ah", "ahh",
+    "hmm", "hm", "like", "wait", "basically", "actually", "literally",
+    "okay", "ok", "well", "so",
 }
 
 # Conversational prefixes to strip before matching against item names/aliases.
@@ -232,6 +237,7 @@ def normalize_location_coordinate(loc_raw: str) -> Optional[str]:
     """
     Parse and canonicalize natural voice, spoken words, or lowercase location into uppercase 4-part coordinate:
       'or 21 b 1 a' -> 'OR 21 B 1 A'
+      'or21c1f' -> 'OR 21 C 1 F'
       'the 3-0 silk moved to or twenty one bee two see' -> 'OR 21 B 2 C'
       'room twenty one cab dee shelf three bin eh' -> 'OR 21 D 3 A'
       'or 21 be 1 sea' -> 'OR 21 B 1 C'
@@ -244,6 +250,15 @@ def normalize_location_coordinate(loc_raw: str) -> Optional[str]:
     text = (loc_raw or "").strip().rstrip(".")
     if not text:
         return None
+
+    # First attempt packed/spaced coordinate unpacker from intent_parser
+    try:
+        from app.intent_parser import extract_and_normalize_coordinate
+        extracted, _ = extract_and_normalize_coordinate(text)
+        if extracted:
+            return extracted
+    except Exception:
+        pass
 
     # Pre-normalize spoken numbers (e.g. "twenty one" -> "21", "two" -> "2")
     for word, digit in _SPOKEN_NUMBER_WORDS:
@@ -899,12 +914,14 @@ class InventoryService:
         Strip conversational filler, punctuation, and PHI redaction stubs
         to isolate the target item name.
         """
-        text = re.sub(r"\[REDACTED_PHI\]", " ", query, flags=re.IGNORECASE)
+        text = strip_spoken_disfluencies(query)
+        text = re.sub(r"\[REDACTED_PHI\]", " ", text, flags=re.IGNORECASE)
         text = re.sub(r"\b(?:from|in)\s+(?:or|room)\s*\d+\b", " ", text, flags=re.IGNORECASE)
         text = re.sub(r"[?!.,;:\"'()]+", " ", text)
         text = re.sub(r"\s+", " ", text).strip()
 
         text = _QUERY_PREFIXES.sub("", text).strip()
+        text = strip_spoken_disfluencies(text)
         text = re.sub(
             r"^.*?\b(?:where\s+(?:is|are)|find|locate|needs?|looking\s+for)\s+(?:the\s+|a\s+|an\s+)?",
             "",
@@ -1112,7 +1129,8 @@ class InventoryService:
                     if r["item"].strip().lower() == canon_norm or r["normalized_name"] == canon_norm:
                         matched_row = r
                         stage = "STAGE_A_LEXICON_ALIAS"
-                        matched_row["_user_preferred_term"] = alias_entry.get("displayPreferredName") or title_case_term(alias_entry["spokenTerm"])
+                        cleaned_q = self._clean_query(query)
+                        matched_row["_user_preferred_term"] = title_case_term(cleaned_q) if cleaned_q else (alias_entry.get("displayPreferredName") or title_case_term(alias_entry["spokenTerm"]))
                         matched_row["_facility_aliases"] = get_all_aliases_for_item(facility_id, r["item"])
                         matched_row["_facility_name"] = facility_id.replace("_", " ").title()
                         learn_alias(
@@ -1415,6 +1433,7 @@ class InventoryService:
         category: str = "Supplies",
         surgeon_notes: str = "",
         status: str = "verified",
+        aliases: str = "",
     ) -> dict:
         """
         Add a new inventory item or update an existing item's location atomically.
@@ -1456,7 +1475,7 @@ class InventoryService:
             "shelf": shelf,
             "container": container,
             "human_alias": f"{room} · Cart {cab} · Shelf {shelf} · Bin {container}",
-            "aliases": "",
+            "aliases": aliases,
             "pending_location": "",
             "verify_count": 0,
             "surgeon_notes": surgeon_notes,
@@ -1472,6 +1491,12 @@ class InventoryService:
                     existing_idx = idx
                     break
             if existing_idx is not None:
+                if aliases:
+                    existing_aliases = self._rows[existing_idx].get("aliases", "")
+                    combined_aliases = f"{existing_aliases}|{aliases}".strip("|") if existing_aliases else aliases
+                    enriched["aliases"] = combined_aliases
+                if surgeon_notes:
+                    enriched["surgeon_notes"] = surgeon_notes
                 self._rows[existing_idx] = enriched
             else:
                 self._rows.append(enriched)

@@ -172,12 +172,12 @@ async def get_version(response: Response):
             pass
 
     return {
-        "version": "v0.56",
-        "build_number": 13,
+        "version": "v0.57",
+        "build_number": 14,
         "release_date": "2026-10-28",
         "apk_download_url": f"http://{lan_ip or '192.168.1.217'}:8000/api/download-apk",
         "min_supported_version": "v0.1",
-        "changelog": "v0.55 (Build 12): Surgical Ontology Engine, Strict Eponym Guard (Zero Generic False Positives), Audio Transcriber Prompting & 120+ Master OR Catalog.",
+        "changelog": "v0.57 (Build 14): Multi-Clause Discourse Decomposer, Spoken Disfluency Filter & Packed Coordinate Parser.",
     }
 
 

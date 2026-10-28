@@ -258,18 +258,25 @@ export function resolveSpokenAliasClient(facilityId: string, query: string): Lea
   const normQ = query.trim().toLowerCase();
   const entries = loadFacilityLexicon(facilityId);
 
-  // Exact match
+  // Exact or stem match
   for (const entry of entries) {
-    if (entry.spokenTerm.toLowerCase() === normQ || entry.displayPreferredName.toLowerCase() === normQ) {
-      return entry;
-    }
+    const term = entry.spokenTerm.toLowerCase();
+    const disp = entry.displayPreferredName.toLowerCase();
+    if (term === normQ || disp === normQ) return entry;
+    if (term.replace(/s$/, "") === normQ.replace(/s$/, "") && term.length >= 3) return entry;
   }
 
   // Word-bounded subphrase match
   for (const entry of entries) {
     const term = entry.spokenTerm.toLowerCase();
-    if (term.length >= 3 && new RegExp(`\\b${term.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "i").test(normQ)) {
-      return entry;
+    if (term.length >= 3) {
+      if (new RegExp(`\\b${term.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "i").test(normQ)) {
+        return entry;
+      }
+      const stem = term.replace(/s$/, "");
+      if (stem.length >= 3 && new RegExp(`\\b${stem.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?:s)?\\b`, "i").test(normQ)) {
+        return entry;
+      }
     }
   }
 

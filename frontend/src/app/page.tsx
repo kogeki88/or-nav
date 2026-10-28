@@ -1263,16 +1263,28 @@ export default function Home() {
           onSpeakSingleMessage={speakSingleMessage}
           onStarterChipClick={handleSendMessage}
           onConfirmImplicitLearn={handleConfirmImplicitLearn}
-          onSaveQuickAddItem={async (item, loc, cat) => {
+          onSaveQuickAddItem={async (item, loc, cat, notes) => {
             try {
-              const card = await addInventoryItemApi(item, loc, selectedTenant, cat || "Supplies");
+              const card = await addInventoryItemApi(item, loc, selectedTenant, cat || "Supplies", notes || "");
               awardClinicalXP("inventory_fix", `Added "${card.item}" to Inventory (+5 XP)`);
+
+              let confirmText = `✓ Added "${card.item}" to ${card.full_code}.`;
+              if (notes) {
+                const mAl = notes.match(/(?:also\s+called|aka|alias)[:\s]+([^;\.]+)/i);
+                if (mAl) {
+                  const al = mAl[1].trim();
+                  if (al) {
+                    confirmText += `\n\n🧠 Also learned facility alias: "${titleCaseTerm(al)}" ↔ ${card.item}.`;
+                  }
+                }
+              }
+
               setMessages((prev) => [
                 ...prev,
                 {
                   id: `sys-${Date.now()}`,
                   sender: "assistant",
-                  text: `✓ Added "${card.item}" to ${card.full_code}.`,
+                  text: confirmText,
                   timestamp: new Date().toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",

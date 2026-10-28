@@ -14,6 +14,11 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 from app.services.lexicon_learning import detect_teaching_intent
+from app.services.surgical_ontology import (
+    strip_spoken_disfluencies,
+    normalize_acoustic_speech,
+    normalize_or_lingo,
+)
 
 
 class ClinicalIntent(str, Enum):
@@ -35,6 +40,8 @@ class ClinicalEntities(BaseModel):
     action: Optional[str] = None  # "add", "move", "flag", "teach_alias"
     surgeon: Optional[str] = None
     procedure: Optional[str] = None
+    learned_aliases: list[str] = Field(default_factory=list)
+    notes: Optional[str] = None
 
 
 class ParsedIntent(BaseModel):
@@ -100,21 +107,88 @@ PEER_BROADCAST_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-# Mutation (Add/Move/Flag) trigger patterns
-MUTATE_ADD_PATTERN = re.compile(
-    r"^(?:please\s+|can\s+you\s+)?(?:add|insert|register|new\s+item)\s+"
-    r"(?P<item>.+?)"
-    r"(?:\s+(?:to|into|in|at)\s+(?P<location>(?:(?:OR|room|bay|pod|trauma\s+bay|trauma|icu|er|ed|pacu|core|shelf|rack|cabinet|cart|bin)\b.+))|\s+(?:to\s+(?:the\s+)?(?:list|inventory|system|database|stock|catalog))|$)",
+# Mutation (Add/Move/Flag) trigger patterns and coordinate parsing (Phase 40)
+PACKED_COORD_REGEX = re.compile(
+    r"(?:\b(?:to|into|in|at|on|inside|under|location:?|loc:?)\s+)?"
+    r"\b(?P<prefix>or|icu|er|ed|pacu|cvor|core|rm|room|bay|cart|pump|pod)[\s-]*"
+    r"(?P<unit>\d{1,2})\s*"
+    r"(?P<cab>[a-zA-Z])\s*"
+    r"(?P<shelf>\d{1,2})"
+    r"(?:\s*(?P<bin>[a-zA-Z]))?\b",
     re.IGNORECASE,
 )
 
-MUTATE_MOVE_PATTERN = re.compile(
-    r"^(?:the\s+)?(?P<item>.+?)\s+"
-    r"(?:was\s+moved|moved|relocated|is\s+now\s+at|is\s+now\s+in|transfer\s+to|move\s+to)\s+"
-    r"(?:to\s+)?"
-    r"(?P<location>(?:(?:OR|room|bay|pod|trauma\s+bay|trauma|icu|er|ed|pacu)\b|Core\s+Supply|Pump\s+Room|Rack\s+\d+|Shelf\s+[a-z0-9]|Cart\s+[a-z0-9]|Bin\s+[a-z0-9]).+?)\s*\.?$",
+SPACED_COORD_REGEX = re.compile(
+    r"(?:\b(?:to|into|in|at|on|inside|under|location:?|loc:?)\s+)?"
+    r"\b(?P<coord>(?:OR|room|bay|pod|trauma\s+bay|trauma|icu|er|ed|pacu|cvor|core(?:\s+supply)?|pump(?:\s+room)?|rack|shelf|cabinet|cart|bin)"
+    r"\b[\s\w·\-\/]+?)(?=[,.;]|$|\band\b)",
     re.IGNORECASE,
 )
+
+ALIAS_CLAUSE_REGEX = re.compile(
+    r"(?:[,;.\(\)]|\band\b)?\s*"
+    r"(?:they(?:'re|\'re|re|\s+are)|it(?:'s|\'s|s|\s+is)|we|people)?\s*"
+    r"(?:also\s+)?"
+    r"(?:call(?:ed|s| it| them)?|known as|alias(?:ed)?(?: as)?|aka|or called)\s+"
+    r"['\"]?([a-zA-Z0-9\s\-/]+?)['\"]?"
+    r"(?=[,.;\)]|$|\band\b)",
+    re.IGNORECASE,
+)
+
+NOTE_CLAUSE_REGEX = re.compile(
+    r"(?:[,;.\(\)]|\band\b)?\s*"
+    r"(?:notes?(?::|\s+that|\s+is|\s+are)?)\s+"
+    r"['\"]?([a-zA-Z0-9\s\-/'\"#]+?)['\"]?"
+    r"(?=[.;\)]|$)",
+    re.IGNORECASE,
+)
+
+
+def extract_and_normalize_coordinate(text: str) -> tuple[Optional[str], str]:
+    """
+    Detect and unpack packed or natural clinical coordinates from text,
+    and excise the coordinate span (and any preceding preposition) from the remaining text.
+    Returns (normalized_coordinate, cleaned_text).
+    e.g. 'add malleable retractor to or21c1f' -> ('OR 21 C 1 F', 'add malleable retractor')
+    """
+    if not text:
+        return None, ""
+
+    # 1. Packed coordinate (e.g. or21c1f, icu2b1, pump2a1, core1b2c)
+    m = PACKED_COORD_REGEX.search(text)
+    if m:
+        p = m.group("prefix").upper()
+        if p == "RM":
+            p = "ROOM"
+        elif p == "PUMP":
+            p = "Pump Room"
+        elif p == "CORE":
+            p = "Core Supply"
+        u = m.group("unit")
+        c = m.group("cab").upper()
+        s = m.group("shelf")
+        bin_val = m.group("bin")
+        b = f" {bin_val.upper()}" if bin_val else ""
+        norm_coord = f"{p} {u} {c} {s}{b}".replace("  ", " ").strip()
+        cleaned = text[:m.start()] + text[m.end():]
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        cleaned = re.sub(r"^[,\s]+|[,\s]+$", "", cleaned)
+        return norm_coord, cleaned
+
+    # 2. Spaced / Natural coordinate
+    m2 = SPACED_COORD_REGEX.search(text)
+    if m2:
+        coord_raw = m2.group("coord").strip()
+        # Clean coordinates using uppercase normalization if standard
+        from app.services.inventory_search import normalize_location_coordinate
+        norm_coord = normalize_location_coordinate(coord_raw) or coord_raw.upper()
+        cleaned = text[:m2.start()] + text[m2.end():]
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        cleaned = re.sub(r"^[,\s]+|[,\s]+$", "", cleaned)
+        return norm_coord, cleaned
+
+    return None, text
+
 
 MUTATE_FLAG_PATTERN = re.compile(
     r"\b(?:flag|report\s+missing|report\s+empty|location\s+wrong|not\s+in\s+bin)\b",
@@ -153,13 +227,14 @@ COMMON_SUTURE_FAMILIES = ["vicryl", "prolene", "silk", "ti-cron", "monocryl", "e
 def normalize_clinical_speech(text: str) -> tuple[str, Optional[str]]:
     """
     Apply clinical voice speech biasing:
+    - Strips vocal disfluencies (e.g. "umm", "uhh", "er", "you know")
     - Suture gauge representations (e.g. "four oh" -> "4-0")
     - Phonetic typo corrections (e.g. "viker" -> "vicryl")
     - Inverted gauge phrasing (e.g. "prolene 3-0" -> "3-0 prolene")
     Returns (normalized_text, transcript_correction_pill_text_if_changed).
     """
     original = text.strip()
-    norm = original
+    norm = strip_spoken_disfluencies(original)
 
     # 1. Gauge map (e.g. "four oh" -> "4-0", "thirty" -> "3-0")
     for pat, gauge in SUTURE_GAUGE_MAP:
@@ -228,39 +303,90 @@ def parse_clinical_intent(query: str, clinical_role: Optional[str] = None) -> Pa
             spoken_transcript_correction=correction,
         )
 
-    # 2. Check MUTATE_INVENTORY intent (Add / Move / Flag)
-    add_match = MUTATE_ADD_PATTERN.match(cleaned)
-    if add_match:
-        raw_item = add_match.group("item").strip()
-        raw_loc = add_match.group("location")
-        loc = raw_loc.strip() if raw_loc else None
-        # Clean item of common prefixes
-        item_clean = re.sub(r"^(?:an?\s+|the\s+)", "", raw_item, flags=re.IGNORECASE).strip()
+    # 2. Check MUTATE_INVENTORY intent (Add / Move / Flag) via Multi-Clause Decomposer
+    is_add_intent = bool(re.search(r"\b(?:add|insert|register|new\s+item)\b", cleaned, re.IGNORECASE))
+    is_move_intent = bool(re.search(r"\b(?:was\s+moved|moved|relocated|is\s+now\s+at|is\s+now\s+in|transfer\s+to|move\s+to)\b", cleaned, re.IGNORECASE))
+
+    if is_add_intent:
+        working = cleaned
+        learned_aliases: list[str] = []
+        notes: Optional[str] = None
+
+        # Decompose secondary alias clause
+        m_al = ALIAS_CLAUSE_REGEX.search(working)
+        if m_al:
+            learned_aliases.append(m_al.group(1).strip())
+            working = working[:m_al.start()] + working[m_al.end():]
+            working = re.sub(r"\s+", " ", working).strip()
+
+        # Decompose secondary note clause
+        m_nt = NOTE_CLAUSE_REGEX.search(working)
+        if m_nt:
+            notes = m_nt.group(1).strip()
+            working = working[:m_nt.start()] + working[m_nt.end():]
+            working = re.sub(r"\s+", " ", working).strip()
+
+        # Extract & excise coordinate
+        loc, working = extract_and_normalize_coordinate(working)
+
+        # Extract target item
+        item_clean = re.sub(r"^(?:please\s+|can\s+you\s+)?(?:add|insert|register|new\s+item)\s+", "", working, flags=re.IGNORECASE).strip()
+        item_clean = re.sub(r"^(?:an?\s+|the\s+)", "", item_clean, flags=re.IGNORECASE).strip()
+        item_clean = re.sub(r"\s+(?:to\s+(?:the\s+)?(?:list|inventory|system|database|stock|catalog))$", "", item_clean, flags=re.IGNORECASE).strip()
+        item_clean = re.sub(r"[,;.\(\)\s]+$", "", item_clean).strip()
+
         return ParsedIntent(
             intent=ClinicalIntent.MUTATE_INVENTORY,
-            confidence=0.95,
+            confidence=0.96,
             entities=ClinicalEntities(
                 item=item_clean,
                 action="add",
                 location=loc,
+                learned_aliases=learned_aliases,
+                notes=notes,
             ),
             raw_query=query,
             normalized_query=normalized_query,
             spoken_transcript_correction=correction,
         )
 
-    move_match = MUTATE_MOVE_PATTERN.match(cleaned)
-    if move_match and not cleaned.endswith("?"):
-        raw_item = move_match.group("item").strip()
-        raw_loc = move_match.group("location").strip()
-        item_clean = re.sub(r"^(?:an?\s+|the\s+)", "", raw_item, flags=re.IGNORECASE).strip()
+    if is_move_intent and not cleaned.endswith("?"):
+        working = cleaned
+        learned_aliases: list[str] = []
+        notes: Optional[str] = None
+
+        # Decompose secondary alias clause
+        m_al = ALIAS_CLAUSE_REGEX.search(working)
+        if m_al:
+            learned_aliases.append(m_al.group(1).strip())
+            working = working[:m_al.start()] + working[m_al.end():]
+            working = re.sub(r"\s+", " ", working).strip()
+
+        # Decompose secondary note clause
+        m_nt = NOTE_CLAUSE_REGEX.search(working)
+        if m_nt:
+            notes = m_nt.group(1).strip()
+            working = working[:m_nt.start()] + working[m_nt.end():]
+            working = re.sub(r"\s+", " ", working).strip()
+
+        # Extract & excise coordinate
+        loc, working = extract_and_normalize_coordinate(working)
+
+        # Extract target item
+        item_clean = re.sub(r"\b(?:was\s+moved|moved|relocated|is\s+now\s+at|is\s+now\s+in|transfer\s+to|move\s+to)\b.*$", "", working, flags=re.IGNORECASE).strip()
+        item_clean = re.sub(r"^(?:please\s+|can\s+you\s+)?(?:move|transfer)\s+", "", item_clean, flags=re.IGNORECASE).strip()
+        item_clean = re.sub(r"^(?:an?\s+|the\s+)", "", item_clean, flags=re.IGNORECASE).strip()
+        item_clean = re.sub(r"[,;.\(\)\s]+$", "", item_clean).strip()
+
         return ParsedIntent(
             intent=ClinicalIntent.MUTATE_INVENTORY,
             confidence=0.96,
             entities=ClinicalEntities(
                 item=item_clean,
                 action="move",
-                location=raw_loc,
+                location=loc,
+                learned_aliases=learned_aliases,
+                notes=notes,
             ),
             raw_query=query,
             normalized_query=normalized_query,

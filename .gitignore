@@ -45,6 +45,9 @@ frontend/public/*.apk
 
 
 # OS & Temp
+.agent/
+.agents/
+backend/scratch/
 .DS_Store
 Thumbs.db
 *.bak

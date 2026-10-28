@@ -22,8 +22,8 @@ import {
   getSeedQuestions,
 } from "./seedData";
 import { directGeminiRAG, isGeminiDirectAvailable } from "./directGemini";
-import { parseClinicalIntent, ClinicalIntent } from "./semanticParser";
-import { isEponymConflict, isGenericClassOnly, normalizeOrLingo } from "./surgicalOntology";
+import { parseClinicalIntent, ClinicalIntent, extractAndNormalizeCoordinateClient } from "./semanticParser";
+import { isEponymConflict, isGenericClassOnly, normalizeOrLingo, stripSpokenDisfluencies } from "./surgicalOntology";
 import {
   getFacilityIdFromTenant,
   resolveSpokenAliasClient,
@@ -101,7 +101,10 @@ const STOP_WORDS = new Set([
   "where", "is", "are", "the", "a", "an", "find", "locate", "need",
   "get", "me", "do", "we", "have", "keep", "stored", "stocked",
   "show", "location", "of", "for", "in", "from", "please", "can",
-  "you", "tell", "whats", "what",
+  "you", "tell", "whats", "what", "give", "bring", "grab", "hand",
+  "um", "umm", "ummm", "uh", "uhh", "uhhh", "er", "erm", "ah", "ahh",
+  "hmm", "hm", "like", "you know", "i mean", "wait", "let's see", "lets see",
+  "so", "well", "basically", "actually", "literally", "okay", "ok",
 ]);
 
 const QUERY_PREFIXES = /^(?:where\s+(?:is|are|can\s+i\s+find|do\s+we\s+keep)\s+(?:the\s+|a\s+|an\s+)?|(?:can\s+you\s+)?(?:find|locate|get|grab|show)\s+(?:me\s+)?(?:the\s+|a\s+|an\s+)?|(?:i\s+)?(?:need|want|looking\s+for)\s+(?:the\s+|a\s+|an\s+)?|do\s+we\s+have\s+(?:any\s+|a\s+|an\s+)?|what\s+is\s+the\s+location\s+of\s+(?:the\s+)?|location\s+(?:of|for)\s+(?:the\s+)?)+/i;
@@ -272,6 +275,12 @@ function formatRoomCanonical(
 export function normalizeLocationCoordinate(locRaw: string): string | null {
   let text = (locRaw || "").trim().replace(/\.+$/, "");
   if (!text) return null;
+
+  // First try packed or spaced coordinate extraction
+  const unpacked = extractAndNormalizeCoordinateClient(text);
+  if (unpacked) {
+    return unpacked.location;
+  }
 
   for (const [pattern, digit] of SPOKEN_NUMBER_WORDS) {
     text = text.replace(pattern, digit);
@@ -710,7 +719,7 @@ export function doubleMetaphone(word: string): [string, string] {
 }
 
 export function normalizeAndHash(query: string): [string, string] {
-  let text = (query || "").toLowerCase().trim();
+  let text = stripSpokenDisfluencies((query || "").toLowerCase().trim());
   text = text.replace(/\[redacted_phi\]/gi, " ");
   text = text.replace(/[?!.,;:"'()[\]]+/g, " ");
   text = text.replace(/\s+/g, " ").trim();
@@ -1178,7 +1187,8 @@ export async function addInventoryItemStandalone(
   location: string,
   tenantId: string = DEFAULT_TENANT,
   category: string = "Supplies",
-  surgeonNotes: string = ""
+  surgeonNotes: string = "",
+  aliases: string = ""
 ): Promise<CoordinateCardData> {
   const db = offlineDb || (await selfHealOfflineDatabase());
   const canonicalLoc = normalizeLocationCoordinate(location) || location.trim();
@@ -1229,16 +1239,23 @@ export async function addInventoryItemStandalone(
       .first();
 
     if (existing) {
+      const combinedAliases = aliases
+        ? existing.aliases
+          ? `${existing.aliases}|${aliases}`
+          : aliases
+        : existing.aliases || "";
       await db.inventoryItems.update(existing.id!, {
         ...card,
         tenant_id: tenantId,
+        aliases: combinedAliases,
+        surgeon_notes: surgeonNotes || existing.surgeon_notes || "",
       });
     } else {
       await db.inventoryItems.add({
         ...card,
         id: `${tenantId}::${item.trim().toLowerCase()}`,
         tenant_id: tenantId,
-        aliases: "",
+        aliases: aliases || "",
         normalized_name: item.trim().toLowerCase(),
       });
     }
@@ -1272,11 +1289,41 @@ export async function executeStandaloneSearch(
   // 0. Conversational Inventory Mutation (Add Item)
   if (parsedIntent.intent === ClinicalIntent.MUTATE_INVENTORY && parsedIntent.entities.action === "add") {
     const itemToAdd = parsedIntent.entities.item || processedText;
+    const aliasesList = parsedIntent.entities.learned_aliases || [];
+    const notesStr = parsedIntent.entities.notes || "";
     const elapsed = Math.max(1, Math.round(performance.now() - t0));
+
     if (parsedIntent.entities.location) {
-      const card = await addInventoryItemStandalone(itemToAdd, parsedIntent.entities.location, tenantId);
+      const card = await addInventoryItemStandalone(
+        itemToAdd,
+        parsedIntent.entities.location,
+        tenantId,
+        parsedIntent.entities.category || "Supplies",
+        notesStr,
+        aliasesList.join("|")
+      );
+
+      let reply = `✓ Added ${card.item} to inventory at ${card.full_code}.`;
+      if (aliasesList.length > 0) {
+        const { facilityId, departmentId } = getFacilityIdFromTenant(tenantId);
+        const learnedNames: string[] = [];
+        for (const al of aliasesList) {
+          const disp = titleCaseTerm(al);
+          learnAliasClient(
+            facilityId,
+            departmentId,
+            al,
+            card.item,
+            profile.userId || "anonymous",
+            disp
+          );
+          learnedNames.push(`"${disp}"`);
+        }
+        reply += `\n\n🧠 Also learned facility alias: ${learnedNames.join(", ")} ↔ ${card.item}.`;
+      }
+
       return {
-        reply_text: `✓ Added ${card.item} to inventory at ${card.full_code}.`,
+        reply_text: reply,
         routing_tier: "TIER_1_LOCAL_CSV",
         scrubbed_query: processedText,
         phi_detected: false,
@@ -1288,6 +1335,13 @@ export async function executeStandaloneSearch(
         disambiguation_chips: parsedIntent.disambiguation_options,
       };
     } else {
+      let quickNotes = notesStr;
+      if (aliasesList.length > 0 && !quickNotes) {
+        quickNotes = `Also called: ${aliasesList.join(", ")}`;
+      } else if (aliasesList.length > 0 && quickNotes) {
+        quickNotes = `${quickNotes}; Also called: ${aliasesList.join(", ")}`;
+      }
+
       return {
         reply_text: `What location should I add '${itemToAdd}' to? Fill in the details below or say 'Add ${itemToAdd} to OR 21 B 1 A'.`,
         routing_tier: "TIER_1_LOCAL_CSV",
@@ -1296,7 +1350,11 @@ export async function executeStandaloneSearch(
         latency_ms: elapsed,
         coordinate_card: null,
         move_widget: null,
-        quick_add_widget: { item: itemToAdd },
+        quick_add_widget: {
+          item: itemToAdd,
+          notes: quickNotes || undefined,
+          category: parsedIntent.entities.category || "Supplies",
+        },
         spoken_transcript_correction: parsedIntent.spoken_transcript_correction,
         disambiguation_chips: parsedIntent.disambiguation_options,
       };

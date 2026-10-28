@@ -331,7 +331,70 @@ _STOP_WORDS = {
     "get", "me", "do", "we", "have", "keep", "stored", "stocked",
     "show", "location", "of", "for", "in", "from", "please", "can",
     "you", "tell", "whats", "what", "give", "bring", "grab", "hand",
+    # Vocal fillers and spoken disfluencies (Phase 40)
+    "um", "umm", "ummm", "uh", "uhh", "uhhh", "er", "erm", "ah", "ahh",
+    "hmm", "hm", "like", "wait", "basically", "actually", "literally",
+    "okay", "ok", "well", "so",
 }
+
+# ---------------------------------------------------------------------------
+# 4.5. Spoken Disfluency & Hesitation Scrubber (Phase 40)
+# ---------------------------------------------------------------------------
+SPOKEN_DISFLUENCIES = [
+    # Multi-word fillers first
+    r"\byou\s+know\b",
+    r"\bi\s+mean\b",
+    r"\blet'?s\s+see\b",
+    r"\bsort\s+of\b",
+    r"\bkind\s+of\b",
+    # Vocal fillers & hesitation sounds
+    r"\buh+[mh]*\b",        # uh, uhh, uhhh, uhm
+    r"\bum+[h]*\b",         # um, umm, ummm
+    r"\berm?\b",            # er, erm
+    r"\bah+[h]*\b",         # ah, ahh, ahhh
+    r"\bhm+[m]*\b",         # hm, hmm, hmmm
+    r"\bha+[h]*\b",         # ha, haa
+    # Casual discourse markers / filler words
+    r"\bwait\b",
+    r"\bbasically\b",
+    r"\bactually\b",
+    r"\bliterally\b",
+]
+
+_DISFLUENCY_COMPILED = [re.compile(pat, re.IGNORECASE) for pat in SPOKEN_DISFLUENCIES]
+_LEADING_FILLERS = re.compile(r"^(?:(?:like|so|well|okay|ok|wait|look|hey)\b[\s,]*)+", re.IGNORECASE)
+_INFIX_LIKE_FILLER = re.compile(r"\b(is|are|have|find|locate|get|grab|bring|see|the|a|an)\s+like\b\s*", re.IGNORECASE)
+
+
+def strip_spoken_disfluencies(text: str) -> str:
+    """
+    Strip conversational vocal fillers, hesitations, and disfluencies
+    (e.g. 'umm', 'uhh', 'er', 'ah', 'you know', 'let's see') so they never
+    interfere with surgical instrument matching or clinical intent parsing.
+    """
+    if not text:
+        return ""
+    res = text.strip()
+
+    # 1. Strip leading discourse fillers
+    res = _LEADING_FILLERS.sub("", res)
+
+    # 2. Strip multi-word and vocal filler disfluencies
+    for pat in _DISFLUENCY_COMPILED:
+        res = pat.sub(" ", res)
+
+    # 3. Strip infix filler 'like'
+    res = _INFIX_LIKE_FILLER.sub(r"\1 ", res)
+
+    # 4. Re-strip leading discourse fillers after vocal hesitations are removed
+    res = _LEADING_FILLERS.sub("", res.strip())
+
+    # Clean double spaces, dangling punctuation like ", ," or leading commas
+    res = re.sub(r"\s+([,.;?!])", r"\1", res)
+    res = re.sub(r"[,;]\s*[,;]", ", ", res)
+    res = re.sub(r"^[,\s]+|[,\s]+$", "", res)
+    return re.sub(r"\s+", " ", res).strip()
+
 
 # ---------------------------------------------------------------------------
 # 5. Core Ontology Engine Functions
@@ -340,11 +403,12 @@ _STOP_WORDS = {
 def normalize_acoustic_speech(text: str) -> str:
     """
     Fix ONLY acoustic speech-to-text mishearings (e.g. 'add son' -> 'adson', 'the bakery' -> 'debakey'),
-    while strictly PRESERVING user surgical slang ('pickups', 'metz', 'snaps', 'peanuts', 'gemini').
+    while strictly PRESERVING user surgical slang ('pickups', 'metz', 'snaps', 'peanuts', 'gemini')
+    and stripping spoken disfluencies ('umm', 'uhh').
     """
     if not text:
         return ""
-    res = text.strip()
+    res = strip_spoken_disfluencies(text)
 
     # Apply only phonetic STT fixes
     for err, canonical in sorted(EPONYM_PHONETIC_STT_MAP.items(), key=lambda kv: len(kv[0]), reverse=True):
@@ -365,7 +429,7 @@ def normalize_or_lingo(text: str) -> str:
     """
     if not text:
         return ""
-    res = text.lower().strip()
+    res = strip_spoken_disfluencies(text).lower()
 
     # 1. Phonetic STT Mishearings (longest keys first)
     for err, canonical in sorted(EPONYM_PHONETIC_STT_MAP.items(), key=lambda kv: len(kv[0]), reverse=True):

@@ -136,6 +136,8 @@ class QuickAddWidget(BaseModel):
     """Inline widget prompt when user asks to add an item without coordinates."""
     item: str
     suggested_location: Optional[str] = None
+    notes: Optional[str] = None
+    category: Optional[str] = None
 
 
 class ChatResponse(BaseModel):
@@ -163,6 +165,7 @@ class AddItemRequest(BaseModel):
     location: str = Field(..., min_length=1)
     category: str = Field(default="Supplies")
     surgeon_notes: str = Field(default="")
+    learned_aliases: list[str] = Field(default_factory=list)
 
 
 class VerifyMoveRequest(BaseModel):
@@ -250,11 +253,39 @@ async def handle_chat(req: ChatRequest):
     # Step 1.8: Handle Conversational Inventory Mutations (Add Item)
     if parsed_intent.intent == ClinicalIntent.MUTATE_INVENTORY and parsed_intent.entities.action == "add":
         item_to_add = parsed_intent.entities.item or processed_text
+        aliases_list = parsed_intent.entities.learned_aliases or []
+        notes_str = parsed_intent.entities.notes or ""
+
         if parsed_intent.entities.location:
-            card_dict = inv_service.add_inventory_item(item_to_add, parsed_intent.entities.location)
+            card_dict = inv_service.add_inventory_item(
+                item=item_to_add,
+                location_str=parsed_intent.entities.location,
+                category=parsed_intent.entities.category or "Supplies",
+                surgeon_notes=notes_str,
+                aliases="|".join(aliases_list),
+            )
             card = CoordinateCard(**card_dict)
             elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
             reply = f"✓ Added {card.item} to inventory at {card.full_code}."
+
+            # Automatically learn facility aliases if any were decomposed from discourse
+            if aliases_list:
+                facility_id, department_id = get_facility_id_from_tenant(req.tenant_id)
+                user_id = getattr(req, "user_id", None) or "anonymous"
+                learned_names = []
+                for al in aliases_list:
+                    disp = title_case_term(al)
+                    learn_alias(
+                        facility_id=facility_id,
+                        department_id=department_id,
+                        spoken_term=al,
+                        canonical_item=card.item,
+                        user_id=user_id,
+                        display_name=disp,
+                    )
+                    learned_names.append(f'"{disp}"')
+                reply += f"\n\n🧠 Also learned facility alias: {', '.join(learned_names)} ↔ {card.item}."
+
             return ChatResponse(
                 reply_text=reply,
                 routing_tier="TIER_1_LOCAL_CSV",
@@ -268,13 +299,23 @@ async def handle_chat(req: ChatRequest):
         else:
             elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
             reply = f"What location should I add '{item_to_add}' to? Fill in the details below or say 'Add {item_to_add} to OR 21 B 1 A'."
+            quick_notes = notes_str
+            if aliases_list and not quick_notes:
+                quick_notes = f"Also called: {', '.join(aliases_list)}"
+            elif aliases_list and quick_notes:
+                quick_notes = f"{quick_notes}; Also called: {', '.join(aliases_list)}"
+
             return ChatResponse(
                 reply_text=reply,
                 routing_tier="TIER_1_LOCAL_CSV",
                 scrubbed_query=scrubbed_text,
                 phi_detected=phi_detected,
                 latency_ms=elapsed_ms,
-                quick_add_widget=QuickAddWidget(item=item_to_add),
+                quick_add_widget=QuickAddWidget(
+                    item=item_to_add,
+                    notes=quick_notes if quick_notes else None,
+                    category=parsed_intent.entities.category or "Supplies",
+                ),
                 spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
             )
 
@@ -862,16 +903,41 @@ async def handle_verify_move(req: VerifyMoveRequest):
 async def handle_add_inventory_item(req: AddItemRequest):
     """
     Directly insert or update an item in inventory with specified coordinates.
+    Also handles learning facility aliases if supplied or embedded in notes.
     """
     check_tenant(req.tenant_id)
 
     inv_service = get_inventory_service(req.tenant_id)
+    aliases_to_save = list(req.learned_aliases)
+    if req.surgeon_notes:
+        m_al = re.search(r"(?:also\s+called|aka|alias)[:\s]+([^;\.]+)", req.surgeon_notes, re.IGNORECASE)
+        if m_al:
+            extracted_alias = m_al.group(1).strip()
+            if extracted_alias and extracted_alias.lower() not in [a.lower() for a in aliases_to_save]:
+                aliases_to_save.append(extracted_alias)
+
     card_dict = inv_service.add_inventory_item(
         item=req.item,
         location_str=req.location,
         category=req.category,
         surgeon_notes=req.surgeon_notes,
+        aliases="|".join(aliases_to_save),
     )
+
+    if aliases_to_save:
+        facility_id, department_id = get_facility_id_from_tenant(req.tenant_id)
+        canonical = card_dict.get("item", req.item.strip().title())
+        for al in aliases_to_save:
+            disp = title_case_term(al)
+            learn_alias(
+                facility_id=facility_id,
+                department_id=department_id,
+                spoken_term=al,
+                canonical_item=canonical,
+                user_id="anonymous",
+                display_name=disp,
+            )
+
     return CoordinateCard(**card_dict)
 
 

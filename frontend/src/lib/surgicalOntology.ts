@@ -307,16 +307,59 @@ export const EPONYM_PHONETIC_STT_MAP: Record<string, string> = {
   ticron: "ti-cron",
 };
 
+export const SPOKEN_DISFLUENCIES = [
+  "um",
+  "umm",
+  "ummm",
+  "uh",
+  "uhh",
+  "uhhh",
+  "er",
+  "erm",
+  "ah",
+  "ahh",
+  "hmm",
+  "hm",
+  "you know",
+  "i mean",
+  "let's see",
+  "lets see",
+  "basically",
+  "actually",
+  "literally",
+];
+
+const DISFLUENCY_REGEX = new RegExp(
+  `\\b(?:${SPOKEN_DISFLUENCIES.map((d) => d.replace(/['.]/g, "\\$&")).join("|")})\\b`,
+  "gi"
+);
+
+const LEADING_FILLERS = /^(?:wait|so|well|okay|ok)\b[\s,]*/i;
+const INFIX_LIKE_FILLER = /\b(is|are|have|find|locate|get|grab|bring|see|the|a|an)\s+like\b\s*/gi;
+
+export function stripSpokenDisfluencies(text: string): string {
+  if (!text) return "";
+  let res = text;
+  res = res.replace(DISFLUENCY_REGEX, " ");
+  res = res.replace(INFIX_LIKE_FILLER, "$1 ");
+  res = res.replace(LEADING_FILLERS, "");
+  res = res.replace(/([.?!,;]\s*)(?:wait|so|well|okay|ok)\b[\s,]*/gi, "$1");
+  return res.replace(/\s+/g, " ").trim();
+}
+
 const STOP_WORDS = new Set([
   "where", "is", "are", "the", "a", "an", "find", "locate", "need",
   "get", "me", "do", "we", "have", "keep", "stored", "stocked",
   "show", "location", "of", "for", "in", "from", "please", "can",
   "you", "tell", "whats", "what", "give", "bring", "grab", "hand",
+  "um", "umm", "ummm", "uh", "uhh", "uhhh", "er", "erm", "ah", "ahh",
+  "hmm", "hm", "like", "you know", "i mean", "wait", "let's see", "lets see",
+  "so", "well", "basically", "actually", "literally", "okay", "ok",
 ]);
 
 export function normalizeAcousticSpeech(text: string): string {
   if (!text) return "";
-  let res = text.trim();
+  let res = stripSpokenDisfluencies(text.trim());
 
   // Apply only acoustic STT phonetic fixes, leaving user lingo intact
   const sttKeys = Object.keys(EPONYM_PHONETIC_STT_MAP).sort((a, b) => b.length - a.length);
@@ -331,7 +374,7 @@ export function normalizeAcousticSpeech(text: string): string {
 
 export function normalizeOrLingo(text: string): string {
   if (!text) return "";
-  let res = text.toLowerCase().trim();
+  let res = stripSpokenDisfluencies(text.toLowerCase().trim());
 
   // 1. Phonetic STT Mishearings (longest keys first)
   const sttKeys = Object.keys(EPONYM_PHONETIC_STT_MAP).sort((a, b) => b.length - a.length);

@@ -9,6 +9,7 @@
  */
 
 import { detectTeachingIntentClient } from "./lexiconLearning";
+import { stripSpokenDisfluencies } from "./surgicalOntology";
 
 export enum ClinicalIntent {
   FIND_INVENTORY = "FIND_INVENTORY",
@@ -29,6 +30,8 @@ export interface ClinicalEntities {
   action?: "add" | "move" | "flag" | "broadcast" | "view_card" | "teach_alias";
   surgeon?: string;
   procedure?: string;
+  learned_aliases?: string[];
+  notes?: string;
 }
 
 export interface ParsedIntent {
@@ -77,20 +80,101 @@ const COMMON_SUTURE_FAMILIES = ["vicryl", "prolene", "silk", "ti-cron", "monocry
 
 const PEER_BROADCAST_PATTERNS = /\b(?:question\s+for\s+(?:the\s+)?(?:unit|team|peers|nurses|everyone|or|cvor)|can\s+(?:someone|anyone)\s+tell\s+me|(?:orientee|new\s+grad)\s+question|ask\s+(?:the\s+)?(?:unit|peers|team|department)|peer\s+ping|has\s+anyone\s+seen|does\s+anyone\s+know\s+(?:where|what|who|if))\b/i;
 
-const MUTATE_ADD_PATTERN = /^(?:please\s+|can\s+you\s+)?(?:add|insert|register|new\s+item)\s+(.+?)(?:\s+(?:to|into|in|at)\s+((?:(?:OR|room|bay|pod|trauma\s+bay|trauma|icu|er|ed|pacu|core|shelf|rack|cabinet|cart|bin)\b.+))|\s+(?:to\s+(?:the\s+)?(?:list|inventory|system|database|stock|catalog))|$)/i;
+// Packed coordinate regex e.g. "or21c1f", "icu2b1", "core1b2c", "or4b2a"
+export const PACKED_COORD_REGEX = /\b(or|room|icu|er|ed|pacu|bay|pod|core|pump)?\s*(\d{1,2})?\s*([a-z])\s*(\d{1,2})\s*([a-z])\b/i;
 
-const MUTATE_MOVE_PATTERN = /^(?:the\s+)?(.+?)\s+(?:was\s+moved|moved|relocated|is\s+now\s+at|is\s+now\s+in|transfer\s+to|move\s+to)\s+(?:to\s+)?((?:(?:OR|room|bay|pod|trauma\s+bay|trauma|icu|er|ed|pacu)\b|Core\s+Supply|Pump\s+Room|Rack\s+\d+|Shelf\s+[a-z0-9]|Cart\s+[a-z0-9]|Bin\s+[a-z0-9]).+?)\s*\.?$/i;
+// Natural spaced coordinate regex e.g. "OR 21 C 1 F", "Cart A Shelf 1 Bin B"
+export const SPACED_COORD_REGEX = /\b(?:(trauma\s+bay|trauma|bay|pod|icu(?:\s+supply)?|er|ed|pacu(?:\s+med\s+room)?|or|room)(?:\s*(\d+))?|(core\s+supply|core)|(pump\s+room|pump))\s*(?:cart|cabinet|cab|rack|pyxis|alcove)?\s*([a-zA-Z])\s*(?:shelf|drawer)?\s*(\d+)\s*(?:bin|container)?\s*([a-zA-Z])\b/i;
+
+// Secondary alias clause regex e.g. ", theyre also called ribbon", ", also called ribbon"
+export const ALIAS_CLAUSE_REGEX = /(?:,|;|\.|\s+and|\s+also)\s*(?:they(?:'re|\'re|re|\s+are)|it(?:'s|\'s|s|\s+is)|we|people)?\s*(?:also\s+)?(?:called|call\s+them|known\s+as|referred\s+to\s+as|aka)\s+([^,;\.]+)/i;
+
+// Secondary note clause regex e.g. ", notes: Dr House preferred", "; note: pediatric only"
+export const NOTE_CLAUSE_REGEX = /(?:,|;|\.|\s+and|\s+with)\s*(?:notes?|surgeon\s+notes?|preferences?|note\s+is|pref)\s*[:\s]+([^,;\.]+)/i;
+
+/**
+ * Extracts and unpacks any packed or spaced 4-part coordinate from an utterance,
+ * returning the canonical coordinate and the utterance stripped of the coordinate.
+ */
+export function extractAndNormalizeCoordinateClient(text: string): { location: string; cleanText: string } | null {
+  if (!text) return null;
+
+  // 1. Spaced format
+  const mSpaced = text.match(SPACED_COORD_REGEX);
+  if (mSpaced) {
+    const fullMatch = mSpaced[0];
+    const unit = mSpaced[1];
+    const num = mSpaced[2];
+    const core = mSpaced[3];
+    const pump = mSpaced[4];
+    const cab = mSpaced[5];
+    const shelf = mSpaced[6];
+    const bin = mSpaced[7];
+
+    let room = "Core Supply";
+    if (core) {
+      room = "Core Supply";
+    } else if (pump) {
+      room = "Pump Room";
+    } else if (unit) {
+      const u = unit.toLowerCase();
+      if (u === "or" || u === "room") room = num ? `OR ${num}` : "OR";
+      else if (u.includes("trauma")) room = num ? `Trauma Bay ${num}` : "Trauma";
+      else if (u === "bay") room = num ? `Bay ${num}` : "Bay";
+      else if (u.includes("icu")) room = num ? `ICU ${num}` : "ICU";
+      else if (u === "er" || u === "ed") room = num ? `ER ${num}` : "ER";
+      else if (u.includes("pacu")) room = num ? `PACU ${num}` : "PACU";
+      else if (u === "pod") room = num ? `Pod ${num}` : "Pod";
+      else room = num ? `${unit} ${num}` : unit;
+    }
+
+    const normLoc = `${room} ${cab.toUpperCase()} ${shelf} ${bin.toUpperCase()}`;
+    const escaped = fullMatch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const clean = text.replace(new RegExp(`(?:\\s*(?:to|into|in|at))?\\s*${escaped}\\b`, "i"), "").replace(/\s+/g, " ").trim();
+    return { location: normLoc, cleanText: clean };
+  }
+
+  // 2. Packed format (e.g. or21c1f, icu2b1, etc.)
+  const mPacked = text.match(PACKED_COORD_REGEX);
+  if (mPacked) {
+    const fullMatch = mPacked[0];
+    const prefix = (mPacked[1] || "").toLowerCase();
+    const num = mPacked[2] || "";
+    const cab = mPacked[3].toUpperCase();
+    const shelf = mPacked[4];
+    const bin = mPacked[5].toUpperCase();
+
+    let room = "OR";
+    if (prefix === "or" || prefix === "room") room = num ? `OR ${num}` : "OR";
+    else if (prefix === "icu") room = num ? `ICU ${num}` : "ICU";
+    else if (prefix === "er" || prefix === "ed") room = num ? `ER ${num}` : "ER";
+    else if (prefix === "pacu") room = num ? `PACU ${num}` : "PACU";
+    else if (prefix === "bay") room = num ? `Bay ${num}` : "Bay";
+    else if (prefix === "pod") room = num ? `Pod ${num}` : "Pod";
+    else if (prefix === "core") room = "Core Supply";
+    else if (prefix === "pump") room = "Pump Room";
+    else if (num) room = `OR ${num}`;
+    else room = "OR 21";
+
+    const normLoc = `${room} ${cab} ${shelf} ${bin}`;
+    const escaped = fullMatch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const clean = text.replace(new RegExp(`(?:\\s*(?:to|into|in|at))?\\s*${escaped}\\b`, "i"), "").replace(/\s+/g, " ").trim();
+    return { location: normLoc, cleanText: clean };
+  }
+
+  return null;
+}
 
 const PREFERENCE_CARD_PATTERNS = /\b(?:(?:pull\s+up|show\s+me|open|get|view|display|check)\s+(?:dr\.?|doctor)?\s*([a-z]+(?:'s)?)?\s*(?:preference\s*cards?|preferences?)|preference\s*cards?\s+(?:for\s+)?|dr\.?\s+([a-z]+)'s?\s+(?:lap\s+chole|chole|knee|total\s+knee|cabg|prostatectomy|ralp|discectomy|appendectomy|preferences?)|(?:mayo\s+stand|instrument\s+tray|back\s+table|tray\s+setup|tray\s+breakdown)\s+for\s+)/i;
 
 const GENERAL_QUERY_PATTERNS = /\b(?:protocol|guideline|policy|checklist|orient(?:ation)?|what\s+(?:is|are)\s+the\s+(?:protocol|steps|policy|checklist|dosing|dose|target|positioning|prep)|how\s+(?:do|to|much|many)|surgical\s+safety\s+time[\s-]*out|sign[\s-]*out|malignant\s+hyperthermia|dantrolene|heparin|protamine|act\s+target|scrub\s+roles?|circulator\s+roles?|preceptor|aldrete|blood\s+bank|code\s+blue)\b/i;
 
 /**
- * Normalizes speech input with clinical homophones and voice biases.
+ * Normalizes speech input with clinical homophones, disfluencies, and voice biases.
  */
 export function normalizeClinicalSpeech(text: string): { normalized: string; correction?: string } {
   const original = (text || "").trim();
-  let norm = original;
+  let norm = stripSpokenDisfluencies(original);
 
   for (const [pat, gauge] of SUTURE_GAUGE_MAP) {
     norm = norm.replace(pat, gauge);
@@ -158,39 +242,62 @@ export function parseClinicalIntent(query: string, clinicalRole?: string): Parse
     };
   }
 
-  // 2. MUTATE_INVENTORY (Add / Move / Flag)
-  const addMatch = cleaned.match(MUTATE_ADD_PATTERN);
-  if (addMatch) {
-    const rawItem = addMatch[1] ? addMatch[1].trim() : "";
-    const rawLoc = addMatch[2] ? addMatch[2].trim() : undefined;
-    const itemClean = rawItem.replace(/^(?:an?\s+|the\s+)/i, "").trim();
+  // 2. MUTATE_INVENTORY (Add / Move / Flag with Multi-Clause Discourse Decomposition)
+  const isAdd = /^(?:please\s+|can\s+you\s+)?(?:add|insert|register|new\s+item)\b/i.test(cleaned);
+  const isMove = /^(?:please\s+|can\s+you\s+)?(?:move|relocate|transfer)\b/i.test(cleaned) ||
+    (/\b(?:was\s+moved|moved|relocated|is\s+now\s+at|is\s+now\s+in)\b/i.test(cleaned) && !cleaned.endsWith("?"));
+
+  if (isAdd || isMove) {
+    let working = cleaned;
+    const action: "add" | "move" = isAdd ? "add" : "move";
+    working = working.replace(/^(?:please\s+|can\s+you\s+)?(?:add|insert|register|new\s+item|move|relocate|transfer)\s+/i, "");
+
+    // A. Extract and scrub secondary alias clause
+    const learnedAliases: string[] = [];
+    const mAlias = working.match(ALIAS_CLAUSE_REGEX);
+    if (mAlias) {
+      const aliasRaw = mAlias[1].trim();
+      for (const al of aliasRaw.split(/,|\band\b/i)) {
+        const cleanedAl = al.trim().replace(/^['"]|['"]$/g, "");
+        if (cleanedAl) learnedAliases.push(cleanedAl);
+      }
+      working = working.replace(mAlias[0], " ").trim();
+    }
+
+    // B. Extract and scrub secondary note clause
+    let notes: string | undefined = undefined;
+    const mNote = working.match(NOTE_CLAUSE_REGEX);
+    if (mNote) {
+      notes = mNote[1].trim();
+      working = working.replace(mNote[0], " ").trim();
+    }
+
+    // C. Extract coordinate (packed or spaced)
+    let extractedLoc: string | undefined = undefined;
+    const coordRes = extractAndNormalizeCoordinateClient(working);
+    if (coordRes) {
+      extractedLoc = coordRes.location;
+      working = coordRes.cleanText;
+    }
+
+    // Clean up residual prepositions, articles, punctuation from item
+    let itemClean = working
+      .replace(/^(?:an?\s+|the\s+)/i, "")
+      .replace(/(?:\s+(?:to|into|in|at)\s+(?:the\s+)?(?:list|inventory|system|database|stock|catalog|here|it)?)+$/i, "")
+      .replace(/[\s,\.;]+$/g, "")
+      .trim();
+
+    itemClean = itemClean.replace(/\s+(?:to|into|in|at)\s*$/i, "").trim();
+
     return {
       intent: ClinicalIntent.MUTATE_INVENTORY,
       confidence: 0.95,
       entities: {
-        item: itemClean,
-        action: "add",
-        location: rawLoc,
-      },
-      raw_query: query,
-      normalized_query: normalized,
-      spoken_transcript_correction: correction,
-      disambiguation_options: [],
-    };
-  }
-
-  const moveMatch = cleaned.match(MUTATE_MOVE_PATTERN);
-  if (moveMatch && !cleaned.endsWith("?")) {
-    const rawItem = moveMatch[1] ? moveMatch[1].trim() : "";
-    const rawLoc = moveMatch[2] ? moveMatch[2].trim() : undefined;
-    const itemClean = rawItem.replace(/^(?:an?\s+|the\s+)/i, "").trim();
-    return {
-      intent: ClinicalIntent.MUTATE_INVENTORY,
-      confidence: 0.96,
-      entities: {
-        item: itemClean,
-        action: "move",
-        location: rawLoc,
+        item: itemClean || undefined,
+        action,
+        location: extractedLoc,
+        learned_aliases: learnedAliases.length > 0 ? learnedAliases : undefined,
+        notes,
       },
       raw_query: query,
       normalized_query: normalized,

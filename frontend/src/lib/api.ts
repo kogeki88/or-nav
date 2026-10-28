@@ -25,7 +25,11 @@ import {
 } from "./directGemini";
 
 // Single-port relative path by default so Next.js proxies to backend without CORS or port 8000 mobile issues
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== "undefined" && (window.location.port === "3000" || window.location.hostname === "localhost")
+    ? "http://localhost:8000"
+    : "");
 
 export interface CoordinateCardData {
   item: string;
@@ -64,6 +68,8 @@ export interface MoveWidgetData {
 export interface QuickAddWidgetData {
   item: string;
   suggested_location?: string;
+  notes?: string;
+  category?: string;
 }
 
 export interface ChatResponse {
@@ -328,6 +334,15 @@ export async function addInventoryItemApi(
   category: string = "Supplies",
   surgeonNotes: string = ""
 ): Promise<CoordinateCardData> {
+  const aliases: string[] = [];
+  if (surgeonNotes) {
+    const mAl = surgeonNotes.match(/(?:also\s+called|aka|alias)[:\s]+([^;\.]+)/i);
+    if (mAl) {
+      const parsedAl = mAl[1].trim();
+      if (parsedAl) aliases.push(parsedAl);
+    }
+  }
+
   try {
     const res = await fetch(`${API_BASE}/api/inventory/add-item`, {
       method: "POST",
@@ -338,6 +353,7 @@ export async function addInventoryItemApi(
         location,
         category,
         surgeon_notes: surgeonNotes,
+        learned_aliases: aliases,
       }),
     });
     if (res.ok) {
@@ -346,7 +362,7 @@ export async function addInventoryItemApi(
   } catch {}
 
   const { addInventoryItemStandalone } = await import("./standaloneEngine");
-  return addInventoryItemStandalone(item, location, tenantId, category, surgeonNotes);
+  return addInventoryItemStandalone(item, location, tenantId, category, surgeonNotes, aliases.join("|"));
 }
 
 /**

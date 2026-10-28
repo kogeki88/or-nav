@@ -536,6 +536,7 @@ export default function Omnibar({
 
           <button
             type="submit"
+            data-testid="omnibar-submit-btn"
             disabled={disabled || isTranscribingState || (!input.trim() && !activeListening && micStatus !== "requesting")}
             className="p-2 rounded-lg bg-zinc-100 hover:bg-white text-zinc-950 transition-colors shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
           >

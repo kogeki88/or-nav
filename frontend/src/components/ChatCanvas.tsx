@@ -11,6 +11,8 @@ import { getDepartment } from "@/lib/departments";
 export interface QuickAddWidgetData {
   item: string;
   suggested_location?: string;
+  notes?: string;
+  category?: string;
 }
 
 export interface MessageItem {
@@ -54,7 +56,7 @@ interface ChatCanvasProps {
   onSpeakSingleMessage?: (text: string) => void;
   onStarterChipClick?: (prompt: string) => void;
   onAskDepartmentPeers?: (questionContext?: string) => void;
-  onSaveQuickAddItem?: (item: string, location: string, category?: string) => Promise<void>;
+  onSaveQuickAddItem?: (item: string, location: string, category?: string, notes?: string) => Promise<void>;
   onConfirmImplicitLearn?: (slangTerm: string, canonicalItem: string) => Promise<void>;
 }
 
@@ -68,14 +70,19 @@ const STARTER_PROMPTS = [
 function InlineQuickAddCard({
   item,
   tenantId,
+  initialNotes = "",
+  initialCategory = "Supplies",
   onSave,
 }: {
   item: string;
   tenantId: string;
-  onSave?: (item: string, location: string, category?: string) => Promise<void>;
+  initialNotes?: string;
+  initialCategory?: string;
+  onSave?: (item: string, location: string, category?: string, notes?: string) => Promise<void>;
 }) {
   const [location, setLocation] = React.useState("OR 21 B 1 A");
-  const [category, setCategory] = React.useState("Supplies");
+  const [category, setCategory] = React.useState(initialCategory || "Supplies");
+  const [notes, setNotes] = React.useState(initialNotes || "");
   const [saving, setSaving] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
 
@@ -83,7 +90,7 @@ function InlineQuickAddCard({
     if (!onSave || !location.trim()) return;
     setSaving(true);
     try {
-      await onSave(item, location.trim(), category);
+      await onSave(item, location.trim(), category, notes);
       setSaved(true);
     } finally {
       setSaving(false);
@@ -138,6 +145,19 @@ function InlineQuickAddCard({
           />
         </div>
       </div>
+
+      {notes ? (
+        <div>
+          <label className="text-[11px] text-zinc-400 font-mono">Aliases / Surgeon Notes</label>
+          <input
+            type="text"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="e.g. Also called: Ribbon"
+            className="w-full mt-1 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-700 text-zinc-100 text-xs focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
+      ) : null}
 
       <button
         type="button"
@@ -328,6 +348,11 @@ export default function ChatCanvas({
 
                 return (
                   <div className="flex flex-col space-y-2.5 w-full">
+                    {msg.text && (msg.text.includes("Added") || msg.text.includes("Moved") || msg.text.includes("learned facility alias") || msg.text.includes("✓")) && (
+                      <div className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed py-1">
+                        {msg.text}
+                      </div>
+                    )}
                     {cards.length > 1 && (
                       <div className="text-xs text-zinc-400 font-medium">
                         Found {cards.length} items:
@@ -411,6 +436,8 @@ export default function ChatCanvas({
               {msg.quickAddWidget && (
                 <InlineQuickAddCard
                   item={msg.quickAddWidget.item}
+                  initialNotes={msg.quickAddWidget.notes}
+                  initialCategory={msg.quickAddWidget.category}
                   tenantId={tenantId}
                   onSave={onSaveQuickAddItem}
                 />

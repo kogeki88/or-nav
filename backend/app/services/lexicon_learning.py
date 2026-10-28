@@ -101,6 +101,18 @@ def save_facility_lexicon(facility_id: str, entries: List[dict]) -> None:
         temp_path.replace(path)
 
 
+def reset_facility_lexicons() -> None:
+    """Clear all facility lexicon files (used in tests)."""
+    with _lexicon_lock:
+        for fac in ["sacred_heart", "princeton_plainsboro", "county_general"]:
+            p = _get_facility_lexicon_path(fac)
+            if p.exists():
+                try:
+                    p.unlink()
+                except Exception:
+                    pass
+
+
 def title_case_term(term: str) -> str:
     """Format user phrase cleanly into title case (e.g. 'adson pickups' -> 'Adson Pickups')."""
     words = term.strip().split()
@@ -180,28 +192,38 @@ def learn_alias(
 def resolve_spoken_alias(facility_id: str, query: str) -> Optional[dict]:
     """
     Check if a query matches any learned alias for this facility.
-    Matches exact normalized phrase or subphrase.
+    Matches exact normalized phrase, singular/plural stem, or subphrase.
     """
     if not query:
         return None
     norm_q = query.strip().lower()
     entries = load_facility_lexicon(facility_id)
 
-    # 1. Exact match on spokenTerm
+    # 1. Exact match on spokenTerm or singular/plural stem
     for entry in entries:
-        if entry.get("spokenTerm", "").lower() == norm_q:
+        term = entry.get("spokenTerm", "").lower()
+        if term == norm_q:
+            return entry
+        if term.rstrip("s") == norm_q.rstrip("s") and len(term.rstrip("s")) >= 3:
             return entry
 
     # 2. Query equals displayPreferredName
     for entry in entries:
-        if entry.get("displayPreferredName", "").lower() == norm_q:
+        disp = entry.get("displayPreferredName", "").lower()
+        if disp == norm_q:
+            return entry
+        if disp.rstrip("s") == norm_q.rstrip("s") and len(disp.rstrip("s")) >= 3:
             return entry
 
-    # 3. Word-bounded subphrase match (e.g. "where can i find adson pickups in or 21")
+    # 3. Word-bounded subphrase match (e.g. "where can i find adson pickups in or 21" or "where is the gemini")
     for entry in entries:
         term = entry.get("spokenTerm", "").lower()
-        if len(term) >= 3 and re.search(rf"\b{re.escape(term)}\b", norm_q):
-            return entry
+        if len(term) >= 3:
+            if re.search(rf"\b{re.escape(term)}\b", norm_q):
+                return entry
+            stem = term.rstrip("s")
+            if len(stem) >= 3 and re.search(rf"\b{re.escape(stem)}(?:s)?\b", norm_q):
+                return entry
 
     return None
 
