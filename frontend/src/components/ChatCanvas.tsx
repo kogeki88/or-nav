@@ -21,6 +21,7 @@ export interface MessageItem {
   coordinateCard?: CoordinateCardData | null;
   coordinateCards?: CoordinateCardData[];
   moveWidget?: MoveWidgetData | null;
+  feedbackCaptured?: boolean;
 }
 
 interface ChatCanvasProps {
@@ -124,6 +125,14 @@ export default function ChatCanvas({
                 <div className="max-w-[85%] sm:max-w-[70%] px-4 py-2.5 rounded-2xl rounded-tr-sm bg-zinc-800 text-zinc-100 text-sm leading-relaxed">
                   <div className="whitespace-pre-wrap break-words">{msg.text}</div>
                 </div>
+                {msg.feedbackCaptured && (
+                  <span
+                    data-testid="feedback-captured-pill"
+                    className="text-[10px] text-indigo-400 font-medium flex items-center gap-1 mr-1 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20 animate-fadeIn"
+                  >
+                    💡 Logged to Developer Feedback (+15 XP)
+                  </span>
+                )}
                 {msg.clientPhiDetected && (
                   <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1 mr-1">
                     <Shield className="w-3 h-3 text-zinc-400" /> PHI Redacted

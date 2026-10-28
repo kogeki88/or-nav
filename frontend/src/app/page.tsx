@@ -10,6 +10,7 @@ import UserProfileModal from "@/components/UserProfileModal";
 import AutoUpdateModal from "@/components/AutoUpdateModal";
 import ResourceManagerModal from "@/components/ResourceManagerModal";
 import PeerQnAPanel from "@/components/PeerQnAPanel";
+import { FeedbackModal } from "@/components/FeedbackModal";
 import AuthScreen from "@/components/AuthScreen";
 import {
   getCurrentSession,
@@ -66,6 +67,7 @@ import {
   XP_EVENT_NAME,
   type XpGainedDetail,
 } from "@/lib/gamification";
+import { interceptChatComplaint } from "@/lib/feedbackEngine";
 
 export default function Home() {
   const [tenants, setTenants] = useState<string[]>([
@@ -110,6 +112,7 @@ export default function Home() {
   const [resourceModalOpen, setResourceModalOpen] = useState<boolean>(false);
   const [peerQnAOpen, setPeerQnAOpen] = useState<boolean>(false);
   const [peerQnAPrefill, setPeerQnAPrefill] = useState<string>("");
+  const [feedbackModalOpen, setFeedbackModalOpen] = useState<boolean>(false);
   const [xpToast, setXpToast] = useState<XpGainedDetail | null>(null);
 
   useEffect(() => {
@@ -451,6 +454,18 @@ export default function Home() {
       const { text: clientScrubbed, redactionCount } = scrubPhi(rawMessage);
       const clientPhiDetected = redactionCount > 0;
 
+      // Passive Chat Complaint & Feature Wish Interceptor (Phase 36)
+      let feedbackIntercepted = false;
+      try {
+        const item = await interceptChatComplaint(rawMessage, profile);
+        if (item) {
+          feedbackIntercepted = true;
+          awardClinicalXP("feedback_logged", "Feedback Captured for Dev Roadmap (+15 XP)");
+        }
+      } catch (e) {
+        console.warn("Feedback interception error:", e);
+      }
+
       const userMsgId = `user-${Date.now()}`;
       const userMessage: MessageItem = {
         id: userMsgId,
@@ -461,6 +476,7 @@ export default function Home() {
           minute: "2-digit",
         }),
         clientPhiDetected,
+        feedbackCaptured: feedbackIntercepted,
       };
 
       setMessages((prev) => [...prev, userMessage]);
@@ -565,6 +581,16 @@ export default function Home() {
         }
 
         if (res.safe_transcript) {
+          // Voice feedback interception
+          let voiceFeedbackCaptured = false;
+          try {
+            const vItem = await interceptChatComplaint(res.safe_transcript, profile);
+            if (vItem) {
+              voiceFeedbackCaptured = true;
+              awardClinicalXP("feedback_logged", "Voice Feedback Captured (+15 XP)");
+            }
+          } catch {}
+
           setHistory((prev) =>
             prev.includes(res.safe_transcript)
               ? prev
@@ -580,6 +606,7 @@ export default function Home() {
                 hour: "2-digit",
                 minute: "2-digit",
               }),
+              feedbackCaptured: voiceFeedbackCaptured,
             },
           ]);
         }
@@ -963,6 +990,7 @@ export default function Home() {
               setPeerQnAPrefill("");
               setPeerQnAOpen(true);
             }}
+            onOpenFeedbackModal={() => setFeedbackModalOpen(true)}
             appSettings={appSettings}
             onToggleAutoUpdate={handleToggleAutoUpdate}
             onToggleAutoSync={handleToggleAutoSync}
@@ -1031,6 +1059,10 @@ export default function Home() {
                 setMobileSidebarOpen(false);
                 setPeerQnAPrefill("");
                 setPeerQnAOpen(true);
+              }}
+              onOpenFeedbackModal={() => {
+                setMobileSidebarOpen(false);
+                setFeedbackModalOpen(true);
               }}
               appSettings={appSettings}
               onToggleAutoUpdate={handleToggleAutoUpdate}
@@ -1283,6 +1315,13 @@ export default function Home() {
         tenantId={selectedTenant}
         userProfile={profile}
         prefillQuestion={peerQnAPrefill}
+      />
+
+      {/* Feedback & Dev Recommendations Hub Modal (Phase 36) */}
+      <FeedbackModal
+        isOpen={feedbackModalOpen}
+        onClose={() => setFeedbackModalOpen(false)}
+        userProfile={profile}
       />
     </div>
   );

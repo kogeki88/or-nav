@@ -89,6 +89,7 @@ interface SidebarProps {
   onManualSync?: () => Promise<SyncResult>;
   onOpenResourceManager?: () => void;
   onOpenPeerQnA?: () => void;
+  onOpenFeedbackModal?: () => void;
   pastSessions?: ChatSession[];
   currentSessionId?: string;
   onSelectSession?: (sessionId: string) => void;
@@ -124,6 +125,7 @@ export default function Sidebar({
   onManualSync,
   onOpenResourceManager,
   onOpenPeerQnA,
+  onOpenFeedbackModal,
   pastSessions = [],
   currentSessionId,
   onSelectSession,
@@ -172,6 +174,26 @@ export default function Sidebar({
   });
 
   const [rewards, setRewards] = useState<ClinicianRewards>(() => getClinicianRewards());
+  const [openFeedbackCount, setOpenFeedbackCount] = useState(3);
+
+  useEffect(() => {
+    const updateCount = () => {
+      try {
+        const raw = localStorage.getItem("ornav_feedback_store");
+        if (raw) {
+          const list = JSON.parse(raw);
+          if (Array.isArray(list)) {
+            setOpenFeedbackCount(list.filter((x: any) => x.status === "open").length);
+            return;
+          }
+        }
+      } catch {}
+      setOpenFeedbackCount(3);
+    };
+    updateCount();
+    window.addEventListener("ornav-feedback-updated", updateCount);
+    return () => window.removeEventListener("ornav-feedback-updated", updateCount);
+  }, []);
 
   useEffect(() => {
     setRewards(getClinicianRewards());
@@ -393,6 +415,27 @@ export default function Sidebar({
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-200">
             Multi-Peer
           </span>
+        </button>
+
+        {/* Feedback & Dev Recommendations Hub Button */}
+        <button
+          type="button"
+          onClick={onOpenFeedbackModal}
+          data-testid="sidebar-feedback-btn"
+          className="w-full mt-2 flex items-center justify-between px-3 py-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 active:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 font-medium text-xs transition-colors shadow-sm cursor-pointer"
+        >
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Feedback &amp; Roadmap</span>
+          </div>
+          {openFeedbackCount > 0 && (
+            <span
+              data-testid="feedback-open-count"
+              className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200"
+            >
+              {openFeedbackCount} open
+            </span>
+          )}
         </button>
 
         {/* Over-The-Air (OTA) Update Banner */}

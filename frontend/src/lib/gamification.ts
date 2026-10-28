@@ -244,7 +244,9 @@ export type ActionType =
   | "ask_question"
   | "inventory_fix"
   | "peer_answer"
-  | "peer_verify";
+  | "peer_verify"
+  | "feedback_logged"
+  | "feedback_manual";
 
 const ACTION_CONFIG: Record<
   ActionType,
@@ -256,6 +258,8 @@ const ACTION_CONFIG: Record<
   inventory_fix: { xp: 25, label: "Bin Move / Location Verified" },
   peer_answer: { xp: 30, label: "Peer Clinical Answer Submitted" },
   peer_verify: { xp: 40, label: "Consensus Verification Vote" },
+  feedback_logged: { xp: 15, label: "Feedback Captured for Dev Roadmap" },
+  feedback_manual: { xp: 20, label: "Clinical Feedback Contributed" },
 };
 
 export function awardClinicalXP(

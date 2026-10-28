@@ -12,9 +12,9 @@ export interface VersionManifest {
   changelog: string;
 }
 
-export const CURRENT_VERSION = "v0.51";
-export const CURRENT_BUILD_NUMBER = 8;
-export const CURRENT_RELEASE_DATE = "2026-10-27";
+export const CURRENT_VERSION = "v0.52";
+export const CURRENT_BUILD_NUMBER = 9;
+export const CURRENT_RELEASE_DATE = "2026-10-28";
 
 export const GITHUB_REPO_OWNER = "kogeki88";
 export const GITHUB_REPO_NAME = "or-nav";
@@ -29,7 +29,7 @@ export const LOCAL_VERSION_MANIFEST: VersionManifest = {
   apk_download_url: CLOUD_APK_DOWNLOAD_URL,
   min_supported_version: "v0.1",
   changelog:
-    "v0.51 (Build 8): Clinical Mastery & Gamification Engine on User Profile, Level Progression, Shift Quests, and Achievement Badges.",
+    "v0.52 (Build 9): Passive Chat Complaint Interceptor, Dedicated Feedback Portal, and Sorted Dev Recommendations Hub with 1-Click Antigravity Fix Prompts.",
 };
 
 /**
