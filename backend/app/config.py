@@ -21,11 +21,12 @@ _VALID_TENANT_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_\/]+$")
 
 def validate_tenant_id(tenant_id: str) -> str:
     """
-    Validate that tenant_id is strictly alphanumeric and underscores.
+    Validate that tenant_id is strictly alphanumeric, underscores, or slashes.
     Rejects directory traversal (../, ..\\) and special characters.
+    Normalizes double-colon notation (e.g. sacred_heart::or -> sacred_heart/or).
     """
-    clean = (tenant_id or "").strip()
-    if not clean or not _VALID_TENANT_ID_PATTERN.match(clean):
+    clean = (tenant_id or "").strip().replace("::", "/")
+    if not clean or not _VALID_TENANT_ID_PATTERN.match(clean) or ".." in clean:
         raise ValueError(
             f"Invalid tenant_id '{tenant_id}'. Must be non-empty alphanumeric with underscores only."
         )

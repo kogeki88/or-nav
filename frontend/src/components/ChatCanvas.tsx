@@ -5,8 +5,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CoordinateCardData, MoveWidgetData } from "@/lib/api";
 import CoordinateCard from "./CoordinateCard";
 import MoveVerifyWidget from "./MoveVerifyWidget";
-import { Shield, Sparkles, BookOpen, Volume2, Users } from "lucide-react";
+import { Shield, Sparkles, BookOpen, Volume2, Users, PlusCircle, Check } from "lucide-react";
 import { getDepartment } from "@/lib/departments";
+
+export interface QuickAddWidgetData {
+  item: string;
+  suggested_location?: string;
+}
 
 export interface MessageItem {
   id: string;
@@ -22,6 +27,9 @@ export interface MessageItem {
   coordinateCards?: CoordinateCardData[];
   moveWidget?: MoveWidgetData | null;
   feedbackCaptured?: boolean;
+  spokenTranscriptCorrection?: string;
+  disambiguationChips?: string[];
+  quickAddWidget?: QuickAddWidgetData | null;
 }
 
 interface ChatCanvasProps {
@@ -33,6 +41,7 @@ interface ChatCanvasProps {
   onSpeakSingleMessage?: (text: string) => void;
   onStarterChipClick?: (prompt: string) => void;
   onAskDepartmentPeers?: (questionContext?: string) => void;
+  onSaveQuickAddItem?: (item: string, location: string, category?: string) => Promise<void>;
 }
 
 const STARTER_PROMPTS = [
@@ -41,6 +50,94 @@ const STARTER_PROMPTS = [
   { label: "MH Cart & Dantrolene dose", prompt: "What is the Dantrolene dosing for malignant hyperthermia?" },
   { label: "Report an item moved", prompt: "The 3-0 silk moved to OR 21 B 1 A" },
 ];
+
+function InlineQuickAddCard({
+  item,
+  tenantId,
+  onSave,
+}: {
+  item: string;
+  tenantId: string;
+  onSave?: (item: string, location: string, category?: string) => Promise<void>;
+}) {
+  const [location, setLocation] = React.useState("OR 21 B 1 A");
+  const [category, setCategory] = React.useState("Supplies");
+  const [saving, setSaving] = React.useState(false);
+  const [saved, setSaved] = React.useState(false);
+
+  const handleCommit = async () => {
+    if (!onSave || !location.trim()) return;
+    setSaving(true);
+    try {
+      await onSave(item, location.trim(), category);
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (saved) {
+    return (
+      <div
+        data-testid="inline-quick-add-saved"
+        className="w-full bg-emerald-950/30 border border-emerald-800/40 rounded-xl p-3 text-xs text-emerald-300 flex items-center gap-2"
+      >
+        <Check className="w-4 h-4 text-emerald-400" />
+        <span>✓ "{item}" saved to inventory at {location} (+5 XP)</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      data-testid="inline-quick-add-card"
+      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-3.5 space-y-3 shadow-lg"
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5 font-mono uppercase tracking-wider">
+          <PlusCircle className="w-4 h-4 text-emerald-400" />
+          <span>Add to Department Inventory</span>
+        </span>
+        <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/20">
+          +5 XP
+        </span>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+        <div>
+          <label className="text-[11px] text-zinc-400 font-mono">Item Name</label>
+          <input
+            type="text"
+            readOnly
+            value={item}
+            className="w-full mt-1 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-200 font-medium"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] text-zinc-400 font-mono">Location Coordinate</label>
+          <input
+            type="text"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="e.g. OR 21 B 1 A, Rack 4 Shelf A"
+            className="w-full mt-1 px-2.5 py-1.5 rounded-lg bg-zinc-950 border border-zinc-700 text-zinc-100 font-mono focus:border-emerald-500 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleCommit}
+        disabled={saving || !location.trim()}
+        data-testid="save-quick-add-btn"
+        className="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+      >
+        <Check className="w-3.5 h-3.5" />
+        <span>{saving ? "Saving..." : "✓ Save Item to Inventory (+5 XP)"}</span>
+      </button>
+    </div>
+  );
+}
 
 export default function ChatCanvas({
   messages,
@@ -51,6 +148,7 @@ export default function ChatCanvas({
   onSpeakSingleMessage,
   onStarterChipClick,
   onAskDepartmentPeers,
+  onSaveQuickAddItem,
 }: ChatCanvasProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const dept = getDepartment(tenantId);
@@ -133,6 +231,14 @@ export default function ChatCanvas({
                     💡 Logged to Developer Feedback (+3 XP)
                   </span>
                 )}
+                {msg.spokenTranscriptCorrection && (
+                  <span
+                    data-testid="speech-normalized-pill"
+                    className="text-[10px] text-emerald-400 font-mono flex items-center gap-1 mr-1 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20"
+                  >
+                    🎙️ {msg.spokenTranscriptCorrection}
+                  </span>
+                )}
                 {msg.clientPhiDetected && (
                   <span className="text-[10px] text-zinc-500 font-mono flex items-center gap-1 mr-1">
                     <Shield className="w-3 h-3 text-zinc-400" /> PHI Redacted
@@ -158,6 +264,16 @@ export default function ChatCanvas({
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-950/30 border border-amber-800/50 text-[11px] font-mono text-amber-300">
                   <BookOpen className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                   <span>📘 Standard Clinical Reference — Defer to Facility Policy</span>
+                </div>
+              )}
+
+              {/* Voice Transcript Normalization Pill */}
+              {msg.spokenTranscriptCorrection && (
+                <div
+                  data-testid="speech-normalized-pill"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[11px] font-mono text-emerald-300"
+                >
+                  <span>🎙️ {msg.spokenTranscriptCorrection}</span>
                 </div>
               )}
 
@@ -252,6 +368,35 @@ export default function ChatCanvas({
                 <MoveVerifyWidget
                   widget={msg.moveWidget}
                   tenantId={tenantId}
+                />
+              )}
+
+              {/* Suture Gauge Disambiguation Chips */}
+              {msg.disambiguationChips && msg.disambiguationChips.length > 0 && (
+                <div data-testid="disambiguation-chips" className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-xs text-zinc-400 font-medium">Available Gauges:</span>
+                  {msg.disambiguationChips.map((gauge) => {
+                    const baseItem = msg.coordinateCard?.item || msg.text.split(/[:\n]/)[0].replace(/.*?(?=vicryl|prolene|silk|ti-cron|monocryl|ethibond|chromic)/i, "") || "vicryl";
+                    return (
+                      <button
+                        key={gauge}
+                        type="button"
+                        onClick={() => onStarterChipClick?.(`where is ${gauge} ${baseItem.trim()}`)}
+                        className="px-2.5 py-1 rounded-md text-xs font-semibold bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 text-zinc-200 border border-zinc-700 cursor-pointer shadow-sm transition-all"
+                      >
+                        {gauge}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Inline Quick-Add Item Widget */}
+              {msg.quickAddWidget && (
+                <InlineQuickAddCard
+                  item={msg.quickAddWidget.item}
+                  tenantId={tenantId}
+                  onSave={onSaveQuickAddItem}
                 />
               )}
 

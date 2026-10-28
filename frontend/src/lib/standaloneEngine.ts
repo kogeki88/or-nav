@@ -22,6 +22,7 @@ import {
   getSeedQuestions,
 } from "./seedData";
 import { directGeminiRAG, isGeminiDirectAvailable } from "./directGemini";
+import { parseClinicalIntent, ClinicalIntent } from "./semanticParser";
 import {
   getUserProfile,
   getRoleScope,
@@ -1101,6 +1102,80 @@ export async function flagWrongStandalone(
   return updated;
 }
 
+export async function addInventoryItemStandalone(
+  item: string,
+  location: string,
+  tenantId: string = DEFAULT_TENANT,
+  category: string = "Supplies",
+  surgeonNotes: string = ""
+): Promise<CoordinateCardData> {
+  const db = offlineDb || (await selfHealOfflineDatabase());
+  const canonicalLoc = normalizeLocationCoordinate(location) || location.trim();
+  const tokens = canonicalLoc.split(/\s+/);
+  let room = "Core Supply";
+  let cabinet = "A";
+  let shelf = "1";
+  let container = "A";
+
+  if (tokens.length >= 4) {
+    room = tokens.slice(0, tokens.length - 3).join(" ");
+    cabinet = tokens[tokens.length - 3].toUpperCase();
+    shelf = tokens[tokens.length - 2];
+    container = tokens[tokens.length - 1].toUpperCase();
+  } else if (tokens.length === 3) {
+    cabinet = tokens[0].toUpperCase();
+    shelf = tokens[1];
+    container = tokens[2].toUpperCase();
+  }
+
+  const humanAlias = `${room} · Cart ${cabinet} · Shelf ${shelf} · Bin ${container}`;
+  const nowIso = new Date().toISOString();
+  const itemTitle = item.trim().charAt(0).toUpperCase() + item.trim().slice(1);
+
+  const card: CoordinateCardData = {
+    item: itemTitle,
+    room,
+    cabinet,
+    shelf,
+    container,
+    full_code: `${room} ${cabinet} ${shelf} ${container}`,
+    human_alias: humanAlias,
+    category,
+    surgeon_notes: surgeonNotes,
+    pending_location: "",
+    verify_count: 0,
+    verification_score: 3.0,
+    status: "verified",
+    last_verified_at: nowIso,
+    match_stage: "STAGE_A_EXACT",
+  };
+
+  if (db) {
+    const existing = await db.inventoryItems
+      .where("tenant_id")
+      .equals(tenantId)
+      .and((r) => r.item.toLowerCase() === item.trim().toLowerCase())
+      .first();
+
+    if (existing) {
+      await db.inventoryItems.update(existing.id!, {
+        ...card,
+        tenant_id: tenantId,
+      });
+    } else {
+      await db.inventoryItems.add({
+        ...card,
+        id: `${tenantId}::${item.trim().toLowerCase()}`,
+        tenant_id: tenantId,
+        aliases: "",
+        normalized_name: item.trim().toLowerCase(),
+      });
+    }
+  }
+
+  return card;
+}
+
 // ---------------------------------------------------------------------------
 // 10. Unified Standalone Search Entrypoint
 // ---------------------------------------------------------------------------
@@ -1120,7 +1195,42 @@ export async function executeStandaloneSearch(
   if (!db) throw new Error("IndexedDB offline store unavailable");
 
   const allRows = await db.inventoryItems.where("tenant_id").equals(tenantId).toArray();
-  const processedText = preprocessVoiceQuery(rawQuery).trim();
+  const parsedIntent = parseClinicalIntent(rawQuery, profile.clinicalRole);
+  const processedText = preprocessVoiceQuery(parsedIntent.normalized_query).trim();
+
+  // 0. Conversational Inventory Mutation (Add Item)
+  if (parsedIntent.intent === ClinicalIntent.MUTATE_INVENTORY && parsedIntent.entities.action === "add") {
+    const itemToAdd = parsedIntent.entities.item || processedText;
+    const elapsed = Math.max(1, Math.round(performance.now() - t0));
+    if (parsedIntent.entities.location) {
+      const card = await addInventoryItemStandalone(itemToAdd, parsedIntent.entities.location, tenantId);
+      return {
+        reply_text: `✓ Added ${card.item} to inventory at ${card.full_code}.`,
+        routing_tier: "TIER_1_LOCAL_CSV",
+        scrubbed_query: processedText,
+        phi_detected: false,
+        latency_ms: elapsed,
+        coordinate_card: card,
+        coordinate_cards: [card],
+        move_widget: null,
+        spoken_transcript_correction: parsedIntent.spoken_transcript_correction,
+        disambiguation_chips: parsedIntent.disambiguation_options,
+      };
+    } else {
+      return {
+        reply_text: `What location should I add '${itemToAdd}' to? Fill in the details below or say 'Add ${itemToAdd} to OR 21 B 1 A'.`,
+        routing_tier: "TIER_1_LOCAL_CSV",
+        scrubbed_query: processedText,
+        phi_detected: false,
+        latency_ms: elapsed,
+        coordinate_card: null,
+        move_widget: null,
+        quick_add_widget: { item: itemToAdd },
+        spoken_transcript_correction: parsedIntent.spoken_transcript_correction,
+        disambiguation_chips: parsedIntent.disambiguation_options,
+      };
+    }
+  }
 
   // 1. Natural Spoken Move Reporting Intent
   const moveIntent = parseMoveIntent(processedText);
@@ -1136,6 +1246,8 @@ export async function executeStandaloneSearch(
         latency_ms: elapsed,
         coordinate_card: card,
         move_widget: widget,
+        spoken_transcript_correction: parsedIntent.spoken_transcript_correction,
+        disambiguation_chips: parsedIntent.disambiguation_options,
       };
     }
   }
@@ -1222,6 +1334,8 @@ export async function executeStandaloneSearch(
         coordinate_card: cardsFound[0],
         coordinate_cards: cardsFound,
         move_widget: null,
+        spoken_transcript_correction: parsedIntent.spoken_transcript_correction,
+        disambiguation_chips: parsedIntent.disambiguation_options,
       };
     }
   }
@@ -1265,6 +1379,8 @@ export async function executeStandaloneSearch(
         coordinate_card: familyCards[0],
         coordinate_cards: familyCards,
         move_widget: null,
+        spoken_transcript_correction: parsedIntent.spoken_transcript_correction,
+        disambiguation_chips: parsedIntent.disambiguation_options,
       };
     }
   }
@@ -1321,6 +1437,8 @@ export async function executeStandaloneSearch(
       coordinate_card: card,
       coordinate_cards: [card],
       move_widget: widget,
+      spoken_transcript_correction: parsedIntent.spoken_transcript_correction,
+      disambiguation_chips: parsedIntent.disambiguation_options,
     };
   }
 

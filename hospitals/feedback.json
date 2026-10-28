@@ -1,5 +1,20 @@
 [
   {
+    "id": "fb-b69612d3",
+    "tenantId": "sacred_heart::or_main",
+    "userName": "Sean Iglesia, RN",
+    "userRole": "Circulating RN",
+    "source": "chat_auto_detected",
+    "category": "feature_request",
+    "severity": "low",
+    "rawText": "can you add open heart tray to the list",
+    "aiRecommendation": "Evaluate proposed clinical feature enhancement and design modular component architecture.",
+    "suggestedFixPrompt": "ANTIGRAVITY DIRECTIVE: Implement requested clinical workflow feature: 'can you add open heart tray to the list'. Integrate cleanly into current perioperative navigation tabs.",
+    "upvotes": 1,
+    "status": "open",
+    "createdAt": "2026-10-28T11:52:35.909863+00:00"
+  },
+  {
     "id": "fb-cc1102e1",
     "tenantId": "sacred_heart::or_main",
     "userName": "Sean Iglesia, RN",
@@ -25,7 +40,7 @@
     "rawText": "I wish this app had a quick vascular clamp size chart",
     "aiRecommendation": "Evaluate proposed clinical feature enhancement and design modular component architecture.",
     "suggestedFixPrompt": "ANTIGRAVITY DIRECTIVE: Implement requested clinical workflow feature: 'I wish this app had a quick vascular clamp size chart'. Integrate cleanly into current perioperative navigation tabs.",
-    "upvotes": 2,
+    "upvotes": 3,
     "status": "open",
     "createdAt": "2026-10-28T10:58:15.254877+00:00"
   },

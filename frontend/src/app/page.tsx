@@ -27,6 +27,7 @@ import {
   fetchQuestions,
   ingestFile,
   DepartmentQuestion,
+  addInventoryItemApi,
 } from "@/lib/api";
 import {
   syncTenantInventoryToOfflineDb,
@@ -514,6 +515,9 @@ export default function Home() {
           routingTier: response.routing_tier,
           isEducationalBaseline: response.is_educational_baseline,
           moveWidget: response.move_widget,
+          spokenTranscriptCorrection: response.spoken_transcript_correction,
+          disambiguationChips: response.disambiguation_chips,
+          quickAddWidget: response.quick_add_widget,
         };
 
         setMessages((prev) => [...prev, botMessage]);
@@ -1207,6 +1211,29 @@ export default function Home() {
           onFlagWrong={handleFlagWrong}
           onSpeakSingleMessage={speakSingleMessage}
           onStarterChipClick={handleSendMessage}
+          onSaveQuickAddItem={async (item, loc, cat) => {
+            try {
+              const card = await addInventoryItemApi(item, loc, selectedTenant, cat || "Supplies");
+              awardClinicalXP("inventory_fix", `Added "${card.item}" to Inventory (+5 XP)`);
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: `sys-${Date.now()}`,
+                  sender: "assistant",
+                  text: `✓ Added "${card.item}" to ${card.full_code}.`,
+                  timestamp: new Date().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                  coordinateCard: card,
+                  coordinateCards: [card],
+                  routingTier: "TIER_1_LOCAL_CSV",
+                },
+              ]);
+            } catch (err) {
+              console.error("Failed to add inventory item:", err);
+            }
+          }}
           onAskDepartmentPeers={(qContext) => {
             setPeerQnAPrefill(qContext || "");
             setPeerQnAOpen(true);

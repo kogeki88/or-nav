@@ -485,8 +485,6 @@ class RAGService:
         if best_baseline_score > best_local_score and not scored_inventory:
             scored_baseline.sort(reverse=True, key=lambda x: x[0])
             top_b = scored_baseline[0][1]
-            if len(top_b) > 650:
-                top_b = top_b[:650] + "..."
             return (
                 f"Based on the AORN / CNOR Perioperative Educational Baseline:\n\n{top_b}",
                 True,
@@ -496,8 +494,6 @@ class RAGService:
         if scored_local:
             scored_local.sort(reverse=True, key=lambda x: x[0])
             top_section = scored_local[0][1]
-            if len(top_section) > 600:
-                top_section = top_section[:600] + "..."
             parts.append(f"Based on the facility orientation guide:\n\n{top_section}")
 
         if scored_inventory:
@@ -515,8 +511,6 @@ class RAGService:
         if not parts and scored_baseline:
             scored_baseline.sort(reverse=True, key=lambda x: x[0])
             top_b = scored_baseline[0][1]
-            if len(top_b) > 650:
-                top_b = top_b[:650] + "..."
             return (
                 f"Based on the AORN / CNOR Perioperative Educational Baseline:\n\n{top_b}",
                 True,

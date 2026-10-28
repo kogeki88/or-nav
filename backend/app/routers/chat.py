@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 
 from app.config import get_tenant, settings, DEPARTMENTS
 from app.scrubber import scrub_phi
+from app.intent_parser import parse_clinical_intent, ClinicalIntent
 from app.services.governance import get_governance_service
 from app.services.inventory_search import (
     get_inventory_service,
@@ -115,6 +116,12 @@ class MoveVerifyWidget(BaseModel):
     committed: bool = False
 
 
+class QuickAddWidget(BaseModel):
+    """Inline widget prompt when user asks to add an item without coordinates."""
+    item: str
+    suggested_location: Optional[str] = None
+
+
 class ChatResponse(BaseModel):
     """Unified response from /api/chat."""
     reply_text: str
@@ -126,6 +133,18 @@ class ChatResponse(BaseModel):
     coordinate_card: Optional[CoordinateCard] = None
     coordinate_cards: list[CoordinateCard] = Field(default_factory=list)
     move_widget: Optional[MoveVerifyWidget] = None
+    spoken_transcript_correction: Optional[str] = None
+    disambiguation_chips: list[str] = Field(default_factory=list)
+    quick_add_widget: Optional[QuickAddWidget] = None
+
+
+class AddItemRequest(BaseModel):
+    """Request body for POST /api/inventory/add-item."""
+    tenant_id: str = Field(default=settings.default_tenant)
+    item: str = Field(..., min_length=1)
+    location: str = Field(..., min_length=1)
+    category: str = Field(default="Supplies")
+    surgeon_notes: str = Field(default="")
 
 
 class VerifyMoveRequest(BaseModel):
@@ -190,9 +209,10 @@ async def handle_chat(req: ChatRequest):
     """
     Hybrid query router:
       1. Scrub PHI from incoming message before any processing.
-      2. Check if message reports a natural-language item relocation.
-      3. Attempt Tier 1 3-Stage Deterministic Cascade (<15ms, $0 LLM cost).
-      4. Fall back to Tier 2 Gemini 2.5 Flash RAG (+ GLOBAL_BASELINE) for procedural queries.
+      2. Parse structured semantic intent and spoken clinical speech biases.
+      3. Check if message reports a conversational inventory mutation (Add Item or Move Item).
+      4. Attempt Tier 1 3-Stage Deterministic Cascade (<15ms, $0 LLM cost).
+      5. Fall back to Tier 2 Gemini 2.5 Flash RAG (+ GLOBAL_BASELINE) for procedural queries.
     """
     t0 = time.perf_counter()
 
@@ -202,9 +222,43 @@ async def handle_chat(req: ChatRequest):
     scrub_result = scrub_phi(req.message)
     scrubbed_text = scrub_result.text
     phi_detected = scrub_result.redaction_count > 0
-    processed_text = preprocess_voice_query(scrubbed_text)
+
+    # Step 1.5: Semantic Intent & Biased Clinical Listening Normalizer
+    parsed_intent = parse_clinical_intent(scrubbed_text, req.clinical_role)
+    processed_text = preprocess_voice_query(parsed_intent.normalized_query)
 
     inv_service = get_inventory_service(req.tenant_id)
+
+    # Step 1.8: Handle Conversational Inventory Mutations (Add Item)
+    if parsed_intent.intent == ClinicalIntent.MUTATE_INVENTORY and parsed_intent.entities.action == "add":
+        item_to_add = parsed_intent.entities.item or processed_text
+        if parsed_intent.entities.location:
+            card_dict = inv_service.add_inventory_item(item_to_add, parsed_intent.entities.location)
+            card = CoordinateCard(**card_dict)
+            elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
+            reply = f"✓ Added {card.item} to inventory at {card.full_code}."
+            return ChatResponse(
+                reply_text=reply,
+                routing_tier="TIER_1_LOCAL_CSV",
+                scrubbed_query=scrubbed_text,
+                phi_detected=phi_detected,
+                latency_ms=elapsed_ms,
+                coordinate_card=card,
+                coordinate_cards=[card],
+                spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
+            )
+        else:
+            elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
+            reply = f"What location should I add '{item_to_add}' to? Fill in the details below or say 'Add {item_to_add} to OR 21 B 1 A'."
+            return ChatResponse(
+                reply_text=reply,
+                routing_tier="TIER_1_LOCAL_CSV",
+                scrubbed_query=scrubbed_text,
+                phi_detected=phi_detected,
+                latency_ms=elapsed_ms,
+                quick_add_widget=QuickAddWidget(item=item_to_add),
+                spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
+            )
 
     # Step 2: Check for natural language move command
     move_parsed = inv_service.parse_move_command(processed_text)
@@ -235,6 +289,7 @@ async def handle_chat(req: ChatRequest):
                 latency_ms=elapsed_ms,
                 coordinate_card=card,
                 move_widget=widget,
+                spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
             )
 
     # Step 3: Tier 1 Local CSV Lookup (Multi-Item Compound Lookup & Single Item Cascade)
@@ -316,6 +371,8 @@ async def handle_chat(req: ChatRequest):
                 coordinate_card=cards_found[0],
                 coordinate_cards=cards_found,
                 move_widget=None,
+                spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
+                disambiguation_chips=parsed_intent.disambiguation_options,
             )
 
     # Vector 4: Generic Family Multi-Match (e.g. "where is prolene", "where are blades")
@@ -341,6 +398,8 @@ async def handle_chat(req: ChatRequest):
                 coordinate_card=family_cards[0],
                 coordinate_cards=family_cards,
                 move_widget=None,
+                spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
+                disambiguation_chips=parsed_intent.disambiguation_options,
             )
 
     # Standard Single Item Search
@@ -389,6 +448,8 @@ async def handle_chat(req: ChatRequest):
             coordinate_card=card,
             coordinate_cards=[card],
             move_widget=widget,
+            spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
+            disambiguation_chips=parsed_intent.disambiguation_options,
         )
 
     # Step 4: Tier 2 Gemini 2.5 Flash RAG Fallback (+ GLOBAL_BASELINE)
@@ -404,6 +465,7 @@ async def handle_chat(req: ChatRequest):
             is_educational_baseline=False,
             coordinate_card=None,
             move_widget=None,
+            spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
         )
 
     rag_service = get_rag_service(req.tenant_id)
@@ -423,6 +485,8 @@ async def handle_chat(req: ChatRequest):
         is_educational_baseline=is_baseline,
         coordinate_card=None,
         move_widget=None,
+        spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
+        disambiguation_chips=parsed_intent.disambiguation_options,
     )
 
 
@@ -678,6 +742,28 @@ async def handle_verify_move(req: VerifyMoveRequest):
         reply_text=reply_text,
         coordinate_card=card,
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/inventory/add-item — Conversational or Interactive Inventory Addition
+# ---------------------------------------------------------------------------
+
+@router.post("/inventory/add-item", response_model=CoordinateCard)
+async def handle_add_inventory_item(req: AddItemRequest):
+    """
+    Directly insert or update an item in inventory with specified coordinates.
+    """
+    check_tenant(req.tenant_id)
+
+    inv_service = get_inventory_service(req.tenant_id)
+    card_dict = inv_service.add_inventory_item(
+        item=req.item,
+        location_str=req.location,
+        category=req.category,
+        surgeon_notes=req.surgeon_notes,
+    )
+    return CoordinateCard(**card_dict)
+
 
 
 # ---------------------------------------------------------------------------

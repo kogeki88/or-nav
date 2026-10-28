@@ -1314,6 +1314,82 @@ class InventoryService:
             card["committed"] = committed
             return card
 
+    def add_inventory_item(
+        self,
+        item: str,
+        location_str: str,
+        category: str = "Supplies",
+        surgeon_notes: str = "",
+        status: str = "verified",
+    ) -> dict:
+        """
+        Add a new inventory item or update an existing item's location atomically.
+        Parses location into room, cabinet, shelf, container, enriches row, saves CSV,
+        and invalidates RAG cache so updates reflect immediately.
+        """
+        canonical_loc = normalize_location_coordinate(location_str) or location_str.strip()
+        tokens = canonical_loc.split()
+        if len(tokens) >= 4:
+            room = " ".join(tokens[:-3])
+            cab = tokens[-3].upper()
+            shelf = tokens[-2]
+            container = tokens[-1].upper()
+        elif len(tokens) == 3:
+            room = "Core Supply"
+            cab = tokens[0].upper()
+            shelf = tokens[1]
+            container = tokens[2].upper()
+        else:
+            room = "Core Supply"
+            cab = "A"
+            shelf = "1"
+            container = "A"
+            m_cab = re.search(r"\b(?:cart|cabinet|cab|rack|alcove)\s*([a-zA-Z0-9]+)\b", location_str, re.I)
+            if m_cab:
+                cab = m_cab.group(1).upper()
+            m_sh = re.search(r"\b(?:shelf|drawer)\s*([0-9]+)\b", location_str, re.I)
+            if m_sh:
+                shelf = m_sh.group(1)
+            m_bin = re.search(r"\b(?:bin|container|shelf)\s*([a-zA-Z])\b", location_str, re.I)
+            if m_bin:
+                container = m_bin.group(1).upper()
+
+        new_row_dict = {
+            "item": item.strip().title(),
+            "category": category,
+            "room": room,
+            "cabinet": cab,
+            "shelf": shelf,
+            "container": container,
+            "human_alias": f"{room} · Cart {cab} · Shelf {shelf} · Bin {container}",
+            "aliases": "",
+            "pending_location": "",
+            "verify_count": 0,
+            "surgeon_notes": surgeon_notes,
+            "verification_score": 3.0,
+            "status": status,
+            "last_verified_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        enriched = self._enrich_row(new_row_dict)
+        with self._lock:
+            existing_idx = None
+            for idx, r in enumerate(self._rows):
+                if r["item"].lower() == item.strip().lower():
+                    existing_idx = idx
+                    break
+            if existing_idx is not None:
+                self._rows[existing_idx] = enriched
+            else:
+                self._rows.append(enriched)
+            self._save_csv()
+            try:
+                from app.services.rag_fallback import get_rag_service
+                get_rag_service(self.tenant.tenant_id).reload()
+            except Exception:
+                pass
+            return self._row_to_card(enriched)
+
+
 
 # ---------------------------------------------------------------------------
 # Module-level service cache (one instance per tenant) & Verification Cooldown

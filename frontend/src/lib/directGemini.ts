@@ -134,7 +134,7 @@ export async function directGeminiRAG(
     // Return baseline guidance if no live API key is set
     const elapsed = Math.max(1, Math.round(performance.now() - t0));
     return {
-      reply_text: `📘 [Standard Clinical Reference]\n\n${facilityName} · ${dept.name} (${roleScope.name})\nProtocols & Orientation:\n${actualOrientation.slice(0, 450)}...\n\n(Tip: Enter a Gemini API key in System to activate live role-scoped generative clinical guidance).`,
+      reply_text: `📘 [Standard Clinical Reference]\n\n${facilityName} · ${dept.name} (${roleScope.name})\nProtocols & Orientation:\n${actualOrientation}\n\n(Tip: Enter a Gemini API key in System to activate live role-scoped generative clinical guidance).`,
       routing_tier: "TIER_2_GEMINI_RAG",
       scrubbed_query: query,
       phi_detected: false,

@@ -12,8 +12,8 @@ export interface VersionManifest {
   changelog: string;
 }
 
-export const CURRENT_VERSION = "v0.53";
-export const CURRENT_BUILD_NUMBER = 10;
+export const CURRENT_VERSION = "v0.54";
+export const CURRENT_BUILD_NUMBER = 11;
 export const CURRENT_RELEASE_DATE = "2026-10-28";
 
 export const GITHUB_REPO_OWNER = "kogeki88";
@@ -29,7 +29,7 @@ export const LOCAL_VERSION_MANIFEST: VersionManifest = {
   apk_download_url: CLOUD_APK_DOWNLOAD_URL,
   min_supported_version: "v0.1",
   changelog:
-    "v0.53 (Build 10): Admin-only feedback inbox, minimal mobile UI, RPG game ranks (Novice Scout to Grandmaster Navigator), and rebalanced XP.",
+    "v0.54 (Build 11): Semantic Intent & Slot-Parsing Engine, Biased Clinical Listening Normalizer, Conversational Inventory Mutations, and Uncut Markdown.",
 };
 
 /**

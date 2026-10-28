@@ -58,6 +58,11 @@ export interface MoveWidgetData {
   required_count?: number;
 }
 
+export interface QuickAddWidgetData {
+  item: string;
+  suggested_location?: string;
+}
+
 export interface ChatResponse {
   scrubbed_query: string;
   phi_detected: boolean;
@@ -68,6 +73,9 @@ export interface ChatResponse {
   coordinate_card: CoordinateCardData | null;
   coordinate_cards?: CoordinateCardData[];
   move_widget: MoveWidgetData | null;
+  spoken_transcript_correction?: string;
+  disambiguation_chips?: string[];
+  quick_add_widget?: QuickAddWidgetData | null;
 }
 
 export interface VerifyMoveResponse {
@@ -292,6 +300,37 @@ export async function sendChatMessage(
     }
     throw new Error("Unable to execute query in standalone offline mode.");
   }
+}
+
+/**
+ * Add a new item to inventory via backend API or fallback to IndexedDB.
+ */
+export async function addInventoryItemApi(
+  item: string,
+  location: string,
+  tenantId: string,
+  category: string = "Supplies",
+  surgeonNotes: string = ""
+): Promise<CoordinateCardData> {
+  try {
+    const res = await fetch(`${API_BASE}/api/inventory/add-item`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        tenant_id: tenantId,
+        item,
+        location,
+        category,
+        surgeon_notes: surgeonNotes,
+      }),
+    });
+    if (res.ok) {
+      return res.json();
+    }
+  } catch {}
+
+  const { addInventoryItemStandalone } = await import("./standaloneEngine");
+  return addInventoryItemStandalone(item, location, tenantId, category, surgeonNotes);
 }
 
 /**
