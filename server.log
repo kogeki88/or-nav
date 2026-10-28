@@ -1,0 +1,2167 @@
+
+> frontend@0.1.0 dev
+> next dev
+
+▲ Next.js 16.4.2 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+✓ Ready in 957ms
+✓ Running next.config.ts took 242ms
+Attention: Next.js now collects completely anonymous telemetry regarding usage.
+This information is used to shape Next.js' roadmap and prioritize features.
+You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+https://nextjs.org/telemetry
+
+
+○ Compiling / ...
+ GET / 200 in 1529ms (next.js: 629ms, application-code: 901ms)
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Backend login failed/offline, checking local mirror: TypeError: Failed to fetch
+    at loginUser (src/lib/auth.ts:262:23)
+    at quickDemoLogin (src/lib/auth.ts:450:16)
+    at handleDemoLogin (src/components/AuthScreen.tsx:116:43)
+  260 |   // 1. Try FastAPI backend first
+  261 |   try {
+> 262 |     const res = await fetch(getAuthApiUrl("/api/auth/login"), {
+      |                       ^
+  263 |       method: "POST",
+  264 |       headers: { "Content-Type": "application/json" },
+  265 |       signal: createTimeoutSignal(1200), (src/lib/auth.ts:290:13)
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/chat Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+ GET / 200 in 63ms (next.js: 1.6ms, application-code: 62ms)
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Backend login failed/offline, checking local mirror: TypeError: Failed to fetch
+    at loginUser (src/lib/auth.ts:262:23)
+    at quickDemoLogin (src/lib/auth.ts:450:16)
+    at handleDemoLogin (src/components/AuthScreen.tsx:116:43)
+  260 |   // 1. Try FastAPI backend first
+  261 |   try {
+> 262 |     const res = await fetch(getAuthApiUrl("/api/auth/login"), {
+      |                       ^
+  263 |       method: "POST",
+  264 |       headers: { "Content-Type": "application/json" },
+  265 |       signal: createTimeoutSignal(1200), (src/lib/auth.ts:290:13)
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/version?t=1793204159654 Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+ GET / 200 in 79ms (next.js: 1.6ms, application-code: 77ms)
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Backend login failed/offline, checking local mirror: TypeError: Failed to fetch
+    at loginUser (src/lib/auth.ts:262:23)
+    at quickDemoLogin (src/lib/auth.ts:450:16)
+    at handleDemoLogin (src/components/AuthScreen.tsx:116:43)
+  260 |   // 1. Try FastAPI backend first
+  261 |   try {
+> 262 |     const res = await fetch(getAuthApiUrl("/api/auth/login"), {
+      |                       ^
+  263 |       method: "POST",
+  264 |       headers: { "Content-Type": "application/json" },
+  265 |       signal: createTimeoutSignal(1200), (src/lib/auth.ts:290:13)
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/version?t=1793204203042 Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+ GET / 200 in 67ms (next.js: 1.5ms, application-code: 65ms)
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Backend login failed/offline, checking local mirror: TypeError: Failed to fetch
+    at loginUser (src/lib/auth.ts:262:23)
+    at quickDemoLogin (src/lib/auth.ts:450:16)
+    at handleDemoLogin (src/components/AuthScreen.tsx:116:43)
+  260 |   // 1. Try FastAPI backend first
+  261 |   try {
+> 262 |     const res = await fetch(getAuthApiUrl("/api/auth/login"), {
+      |                       ^
+  263 |       method: "POST",
+  264 |       headers: { "Content-Type": "application/json" },
+  265 |       signal: createTimeoutSignal(1200), (src/lib/auth.ts:290:13)
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/version?t=1793204244485 Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+ GET / 200 in 79ms (next.js: 1.5ms, application-code: 78ms)
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+ GET / 200 in 78ms (next.js: 1.5ms, application-code: 77ms)
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Backend login failed/offline, checking local mirror: TypeError: Failed to fetch
+    at loginUser (src/lib/auth.ts:262:23)
+    at quickDemoLogin (src/lib/auth.ts:450:16)
+    at handleDemoLogin (src/components/AuthScreen.tsx:116:43)
+  260 |   // 1. Try FastAPI backend first
+  261 |   try {
+> 262 |     const res = await fetch(getAuthApiUrl("/api/auth/login"), {
+      |                       ^
+  263 |       method: "POST",
+  264 |       headers: { "Content-Type": "application/json" },
+  265 |       signal: createTimeoutSignal(1200), (src/lib/auth.ts:290:13)
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/version?t=1793204300014 Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/chat Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+ GET / 200 in 72ms (next.js: 2ms, application-code: 69ms)
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/tenants Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/voice/status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+[browser] Could not load tenants from backend: Error: Failed to load tenants: 500
+    at fetchTenants (src/lib/api.ts:255:22)
+  253 | export async function fetchTenants(): Promise<TenantsResponse> {
+  254 |   const res = await fetch(`${API_BASE}/api/tenants`);
+> 255 |   if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
+      |                      ^
+  256 |   return res.json();
+  257 | }
+  258 | (src/app/page.tsx:256:17)
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=or_main Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+[browser] Backend login failed/offline, checking local mirror: TypeError: Failed to fetch
+    at loginUser (src/lib/auth.ts:262:23)
+    at quickDemoLogin (src/lib/auth.ts:450:16)
+    at handleDemoLogin (src/components/AuthScreen.tsx:116:43)
+  260 |   // 1. Try FastAPI backend first
+  261 |   try {
+> 262 |     const res = await fetch(getAuthApiUrl("/api/auth/login"), {
+      |                       ^
+  263 |       method: "POST",
+  264 |       headers: { "Content-Type": "application/json" },
+  265 |       signal: createTimeoutSignal(1200), (src/lib/auth.ts:290:13)
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/config/gemini-status Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/inventory/sync?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/questions?tenant_id=sacred_heart%3A%3Aor Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/version?t=1793204380847 Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Failed to proxy http://127.0.0.1:8000/api/chat Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at ignore-listed frames {
+  errno: -111,
+  code: 'ECONNREFUSED',
+  syscall: 'connect',
+  address: '127.0.0.1',
+  port: 8000
+}
