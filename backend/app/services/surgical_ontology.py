@@ -337,6 +337,23 @@ _STOP_WORDS = {
 # 5. Core Ontology Engine Functions
 # ---------------------------------------------------------------------------
 
+def normalize_acoustic_speech(text: str) -> str:
+    """
+    Fix ONLY acoustic speech-to-text mishearings (e.g. 'add son' -> 'adson', 'the bakery' -> 'debakey'),
+    while strictly PRESERVING user surgical slang ('pickups', 'metz', 'snaps', 'peanuts', 'gemini').
+    """
+    if not text:
+        return ""
+    res = text.strip()
+
+    # Apply only phonetic STT fixes
+    for err, canonical in sorted(EPONYM_PHONETIC_STT_MAP.items(), key=lambda kv: len(kv[0]), reverse=True):
+        pattern = re.compile(r"(?<!\w)" + re.escape(err) + r"(?!\w)", re.IGNORECASE)
+        res = pattern.sub(canonical, res)
+
+    return re.sub(r"\s+", " ", res).strip()
+
+
 def normalize_or_lingo(text: str) -> str:
     """
     Rewrite speech-to-text acoustic mishearings and OR slang into canonical medical terminology.

@@ -39,6 +39,7 @@ import {
   clearChatSessions,
   type ChatSession,
 } from "@/lib/offlineDb";
+import { learnAliasClient, titleCaseTerm } from "@/lib/lexiconLearning";
 import { hydrateFromSeedIfEmpty } from "@/lib/standaloneEngine";
 import { scrubPhi } from "@/lib/scrubClient";
 import { usePushToTalk } from "@/hooks/usePushToTalk";
@@ -154,8 +155,8 @@ export default function Home() {
         saveProfile({ ...session.profile, fullName: name });
         if (session.profile.departmentId && session.profile.departmentId !== selectedTenant) {
           const clean =
-            session.profile.departmentId === "general_memorial_cvor"
-              ? "or_main"
+            session.profile.departmentId === "general_memorial_cvor" || session.profile.departmentId === "or_main"
+              ? "sacred_heart::or"
               : session.profile.departmentId;
           setSelectedTenant(clean);
           setActiveDepartmentId(clean);
@@ -518,10 +519,15 @@ export default function Home() {
           spokenTranscriptCorrection: response.spoken_transcript_correction,
           disambiguationChips: response.disambiguation_chips,
           quickAddWidget: response.quick_add_widget,
+          implicitLearnPrompt: response.implicit_learn_prompt,
+          teachingCard: response.teaching_card,
         };
 
         setMessages((prev) => [...prev, botMessage]);
         awardClinicalXP("lookup", "Clinical Lookup: " + trimmed.slice(0, 30));
+        if (response.teaching_card) {
+          awardClinicalXP("lookup", "Taught facility lingo: " + response.teaching_card.slang);
+        }
 
         // Auto-TTS if enabled
         if (response.reply_text) {
@@ -637,11 +643,16 @@ export default function Home() {
               routingTier: res.routing_tier,
               isEducationalBaseline: res.is_educational_baseline,
               moveWidget: res.move_widget,
+              implicitLearnPrompt: res.implicit_learn_prompt,
+              teachingCard: res.teaching_card,
             },
           ]);
 
           speakText(res.reply_text);
           awardClinicalXP("lookup", "Voice Lookup: " + (res.safe_transcript || "Voice Query").slice(0, 30));
+          if (res.teaching_card) {
+            awardClinicalXP("lookup", "Taught facility lingo: " + res.teaching_card.slang);
+          }
         }
         return true;
       } catch (err: unknown) {
@@ -764,6 +775,46 @@ export default function Home() {
           }),
         },
       ]);
+    }
+  };
+
+  // Implicit slang learning confirmation handler (Pathway B)
+  const handleConfirmImplicitLearn = async (slangTerm: string, canonicalItem: string) => {
+    try {
+      const facId = selectedTenant.includes("::") ? selectedTenant.split("::")[0] : selectedTenant;
+      learnAliasClient(facId, "or", slangTerm, canonicalItem, profile.email || "anonymous");
+      await fetch("/api/lexicon/confirm-implicit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          facility_id: facId,
+          department_id: "or",
+          slang_term: slangTerm,
+          canonical_item: canonicalItem,
+          user_id: profile.email || "anonymous",
+        }),
+      }).catch(() => {});
+
+      awardClinicalXP("lookup", `Taught facility slang: ${slangTerm}`);
+      const dispTerm = titleCaseTerm(slangTerm);
+      const facDisplay = facId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `bot-implicit-${Date.now()}`,
+          sender: "assistant",
+          text: `🧠 **Facility Lingo Learned (${facDisplay})**\n\nMapped **"${dispTerm}"** ↔ **${canonicalItem}**.\n\nEveryone in your facility can now search using either name, and we'll use your preferred term! (+5 XP)`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          teachingCard: {
+            slang: dispTerm,
+            canonical: canonicalItem,
+            facility: facDisplay,
+            xp_awarded: 5,
+          },
+        },
+      ]);
+    } catch (err) {
+      console.error("Failed to confirm implicit learn:", err);
     }
   };
 
@@ -1211,6 +1262,7 @@ export default function Home() {
           onFlagWrong={handleFlagWrong}
           onSpeakSingleMessage={speakSingleMessage}
           onStarterChipClick={handleSendMessage}
+          onConfirmImplicitLearn={handleConfirmImplicitLearn}
           onSaveQuickAddItem={async (item, loc, cat) => {
             try {
               const card = await addInventoryItemApi(item, loc, selectedTenant, cat || "Supplies");

@@ -1,0 +1,58 @@
+[
+  {
+    "aliasId": "ppth_lex_1",
+    "facilityId": "princeton_plainsboro",
+    "departmentId": "or",
+    "spokenTerm": "rat tooth",
+    "displayPreferredName": "Rat Tooth",
+    "canonicalItemName": "Adson Tissue Forceps 1x2 (Adson Pickups)",
+    "usageCount": 4,
+    "usedByUsers": [
+      "chase@ppth.org",
+      "cameron@ppth.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T08:00:00Z"
+  },
+  {
+    "aliasId": "ppth_lex_2",
+    "facilityId": "princeton_plainsboro",
+    "departmentId": "or",
+    "spokenTerm": "right angle",
+    "displayPreferredName": "Right Angle",
+    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+    "usageCount": 5,
+    "usedByUsers": [
+      "foreman@ppth.org",
+      "chase@ppth.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T08:10:00Z"
+  },
+  {
+    "aliasId": "ppth_lex_3",
+    "facilityId": "princeton_plainsboro",
+    "departmentId": "or",
+    "spokenTerm": "cherry",
+    "displayPreferredName": "Cherry",
+    "canonicalItemName": "Kittner Dissector Sponges (Peanuts)",
+    "usageCount": 3,
+    "usedByUsers": [
+      "house@ppth.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T08:20:00Z"
+  },
+  {
+    "aliasId": "princeton_plainsboro_1793196096_4",
+    "facilityId": "princeton_plainsboro",
+    "departmentId": "princeton_plainsboro/or",
+    "spokenTerm": "debakey",
+    "displayPreferredName": "Debakey",
+    "canonicalItemName": "DeBakey Vascular Tissue Forceps 12in",
+    "usageCount": 3,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:14:46Z"
+  }
+]

@@ -4,7 +4,7 @@
  */
 
 import { scrubPhi } from "./scrubClient";
-import { normalizeOrLingo } from "./surgicalOntology";
+import { normalizeAcousticSpeech } from "./surgicalOntology";
 import { SEED_ORIENTATION_MD, SEED_BASELINE_MD, getSeedOrientationMd } from "./seedData";
 import { getDepartment, getActiveDepartmentId } from "./departments";
 import { getUserProfile, getRoleScope, type UserProfile } from "./userProfile";
@@ -107,9 +107,9 @@ export async function directTranscribeAudio(
     return null;
   }
 
-  // Client-side HIPAA PHI Scrub and Surgical Ontology Normalization
+  // Client-side HIPAA PHI Scrub and Acoustic Normalization (preserving user slang)
   const { text: scrubbed } = scrubPhi(rawText);
-  const normalized = normalizeOrLingo(scrubbed);
+  const normalized = normalizeAcousticSpeech(scrubbed);
   return normalized.trim() || null;
 }
 

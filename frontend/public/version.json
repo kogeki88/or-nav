@@ -1,8 +1,8 @@
 {
-  "version": "v0.55",
-  "build_number": 12,
+  "version": "v0.56",
+  "build_number": 13,
   "release_date": "2026-10-28",
   "apk_download_url": "https://github.com/kogeki88/or-nav/releases/latest/download/or-nav.apk",
   "min_supported_version": "v0.1",
-  "changelog": "v0.55 (Build 12): Surgical Ontology Engine, Strict Eponym Guard (Zero Generic False Positives), Audio Transcriber Prompting & 120+ Master OR Catalog."
+  "changelog": "v0.56 (Build 13): 2-Tier Adaptive Facility Lexicon, Personal Term Preservation, Conversational Teaching, Implicit Search-Reformulation Learning & Multi-User Slang Graph."
 }

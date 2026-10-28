@@ -12,8 +12,8 @@ export interface VersionManifest {
   changelog: string;
 }
 
-export const CURRENT_VERSION = "v0.55";
-export const CURRENT_BUILD_NUMBER = 12;
+export const CURRENT_VERSION = "v0.56";
+export const CURRENT_BUILD_NUMBER = 13;
 export const CURRENT_RELEASE_DATE = "2026-10-28";
 
 export const GITHUB_REPO_OWNER = "kogeki88";

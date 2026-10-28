@@ -29,6 +29,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 export interface CoordinateCardData {
   item: string;
+  user_preferred_term?: string;
+  facility_aliases?: string[];
+  facility_name?: string;
   room: string;
   cabinet: string;
   shelf: string;
@@ -76,6 +79,19 @@ export interface ChatResponse {
   spoken_transcript_correction?: string;
   disambiguation_chips?: string[];
   quick_add_widget?: QuickAddWidgetData | null;
+  implicit_learn_prompt?: {
+    slang_term: string;
+    canonical_item: string;
+    facility_id?: string;
+    department_id?: string;
+    message: string;
+  } | null;
+  teaching_card?: {
+    slang: string;
+    canonical: string;
+    facility: string;
+    xp_awarded: number;
+  } | null;
 }
 
 export interface VerifyMoveResponse {

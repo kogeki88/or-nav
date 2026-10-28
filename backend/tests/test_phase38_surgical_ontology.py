@@ -240,7 +240,8 @@ def test_voice_transcribe_endpoint():
     assert resp_hint.status_code == 200
     data_hint = resp_hint.json()
     assert data_hint["silence"] is False
-    assert "metzenbaum" in data_hint["transcript"]
+    # In Phase 39, acoustic normalization preserves clinician slang 'metz' while fixing 'ad son' -> 'adson'
+    assert "metz" in data_hint["transcript"] or "metzenbaum" in data_hint["transcript"]
     assert "adson" in data_hint["transcript"]
 
 

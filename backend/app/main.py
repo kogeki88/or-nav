@@ -21,6 +21,7 @@ from app.routers.voice import router as voice_router
 from app.peer_qna import router as peer_qna_router
 from app.auth import router as auth_router
 from app.feedback import router as feedback_router
+from app.routers.lexicon import router as lexicon_router
 from app.services.rag_fallback import reset_rag_services
 from app.services.tunnel import start_tunnel_background, stop_tunnel, get_tunnel_url
 
@@ -55,6 +56,7 @@ app.include_router(voice_router)
 app.include_router(peer_qna_router)
 app.include_router(auth_router)
 app.include_router(feedback_router)
+app.include_router(lexicon_router)
 
 
 def get_lan_ip() -> str:
@@ -170,8 +172,8 @@ async def get_version(response: Response):
             pass
 
     return {
-        "version": "v0.55",
-        "build_number": 12,
+        "version": "v0.56",
+        "build_number": 13,
         "release_date": "2026-10-28",
         "apk_download_url": f"http://{lan_ip or '192.168.1.217'}:8000/api/download-apk",
         "min_supported_version": "v0.1",

@@ -12,7 +12,7 @@ import re
 from typing import Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
-from app.services.surgical_ontology import normalize_or_lingo
+from app.services.surgical_ontology import normalize_acoustic_speech, normalize_or_lingo
 from app.scrubber import scrub_phi
 
 router = APIRouter()
@@ -218,7 +218,8 @@ async def transcribe_surgical_audio(
     if not cleaned or cleaned.upper().strip(".") in ("[SILENCE]", "SILENCE"):
         return VoiceTranscribeResponse(transcript="", safe_transcript="", silence=True)
 
-    normalized = normalize_or_lingo(cleaned)
+    # Apply acoustic phonetic fixes while preserving user surgical slang/lingo
+    normalized = normalize_acoustic_speech(cleaned)
     scrubbed = scrub_phi(normalized).text
 
     return VoiceTranscribeResponse(

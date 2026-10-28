@@ -30,6 +30,19 @@ export interface MessageItem {
   spokenTranscriptCorrection?: string;
   disambiguationChips?: string[];
   quickAddWidget?: QuickAddWidgetData | null;
+  implicitLearnPrompt?: {
+    slang_term: string;
+    canonical_item: string;
+    facility_id?: string;
+    department_id?: string;
+    message: string;
+  } | null;
+  teachingCard?: {
+    slang: string;
+    canonical: string;
+    facility: string;
+    xp_awarded: number;
+  } | null;
 }
 
 interface ChatCanvasProps {
@@ -42,6 +55,7 @@ interface ChatCanvasProps {
   onStarterChipClick?: (prompt: string) => void;
   onAskDepartmentPeers?: (questionContext?: string) => void;
   onSaveQuickAddItem?: (item: string, location: string, category?: string) => Promise<void>;
+  onConfirmImplicitLearn?: (slangTerm: string, canonicalItem: string) => Promise<void>;
 }
 
 const STARTER_PROMPTS = [
@@ -149,6 +163,7 @@ export default function ChatCanvas({
   onStarterChipClick,
   onAskDepartmentPeers,
   onSaveQuickAddItem,
+  onConfirmImplicitLearn,
 }: ChatCanvasProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const dept = getDepartment(tenantId);
@@ -323,6 +338,7 @@ export default function ChatCanvas({
                         key={`${card.item}-${cIdx}`}
                         card={card}
                         departmentId={tenantId}
+                        facilityId={tenantId.includes("::") ? tenantId.split("::")[0] : tenantId}
                         onVerifyPendingMove={onVerifyPendingMove}
                         onFlagWrong={onFlagWrong}
                         onSpeakText={onSpeakSingleMessage}
@@ -398,6 +414,55 @@ export default function ChatCanvas({
                   tenantId={tenantId}
                   onSave={onSaveQuickAddItem}
                 />
+              )}
+
+              {/* Pathway A: Conversational Slang Teaching Confirmation Card */}
+              {msg.teachingCard && (
+                <div
+                  data-testid="teaching-card"
+                  className="mt-2 w-full max-w-md rounded-xl bg-purple-950/40 border border-purple-800/60 p-3.5 text-purple-100 text-xs flex flex-col gap-1.5 shadow-sm"
+                >
+                  <div className="flex items-center gap-1.5 font-semibold text-purple-300 font-mono text-xs">
+                    <span>🧠 Facility Lingo Learned ({msg.teachingCard.facility})</span>
+                  </div>
+                  <div className="text-zinc-200 leading-relaxed">
+                    Mapped <strong className="text-purple-300 font-semibold">&quot;{msg.teachingCard.slang}&quot;</strong> ↔{" "}
+                    <strong className="text-zinc-100 font-semibold">{msg.teachingCard.canonical}</strong>.
+                  </div>
+                  <div className="text-[11px] text-zinc-400">
+                    Everyone in your facility can now search using either name, and we&apos;ll use your preferred term!
+                  </div>
+                  <div className="mt-1 flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
+                    <span>⭐ +{msg.teachingCard.xp_awarded} XP Awarded</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Pathway B: Implicit Search-Reformulation Learning Prompt */}
+              {msg.implicitLearnPrompt && (
+                <div
+                  data-testid="implicit-learn-prompt"
+                  className="mt-2 w-full max-w-md rounded-xl bg-purple-950/30 border border-purple-800/50 p-3 text-purple-200 text-xs flex flex-col gap-2"
+                >
+                  <div className="flex items-center gap-1.5 font-medium text-purple-100">
+                    <span>💡 {msg.implicitLearnPrompt.message}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      data-testid="confirm-implicit-learn-btn"
+                      onClick={() =>
+                        onConfirmImplicitLearn?.(
+                          msg.implicitLearnPrompt!.slang_term,
+                          msg.implicitLearnPrompt!.canonical_item
+                        )
+                      }
+                      className="px-3 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white font-medium text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                    >
+                      ✓ Yes, Teach Facility (+5 XP)
+                    </button>
+                  </div>
+                </div>
               )}
 
               {/* Minimal Whisper-Quiet Metadata Footer */}

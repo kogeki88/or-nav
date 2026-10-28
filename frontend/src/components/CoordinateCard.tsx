@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { CoordinateCardData } from "@/lib/api";
+import { learnAliasClient, getFacilityIdFromTenant, titleCaseTerm } from "@/lib/lexiconLearning";
 import {
   ChevronRight,
   ChevronDown,
@@ -10,6 +11,7 @@ import {
   Volume2,
   AlertTriangle,
   ThumbsUp,
+  Tag,
 } from "lucide-react";
 
 interface CoordinateCardProps {
@@ -17,8 +19,10 @@ interface CoordinateCardProps {
   onVerifyPendingMove?: (item: string) => Promise<void>;
   onFlagWrong?: (item: string) => Promise<void>;
   onSpeakText?: (text: string) => void;
+  onAddLocalAlias?: (canonicalItem: string, alias: string) => Promise<void>;
   defaultExpanded?: boolean;
   departmentId?: string;
+  facilityId?: string;
 }
 
 function isOlderThan90Days(isoDate?: string): boolean {
@@ -34,8 +38,10 @@ export default function CoordinateCard({
   onVerifyPendingMove,
   onFlagWrong,
   onSpeakText,
+  onAddLocalAlias,
   defaultExpanded = false,
   departmentId,
+  facilityId,
 }: CoordinateCardProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [verifying, setVerifying] = useState(false);
@@ -44,6 +50,18 @@ export default function CoordinateCard({
   const [flaggedLocally, setFlaggedLocally] = useState(false);
   const [reverifiedLocally, setReverifiedLocally] = useState(false);
   const [speakingCard, setSpeakingCard] = useState(false);
+
+  const [addingAlias, setAddingAlias] = useState(false);
+  const [newAliasText, setNewAliasText] = useState("");
+  const [localAliases, setLocalAliases] = useState<string[]>(card.facility_aliases || []);
+  const [savingAlias, setSavingAlias] = useState(false);
+  const [aliasSavedSuccess, setAliasSavedSuccess] = useState(false);
+
+  const hasPreferredTerm = Boolean(
+    card.user_preferred_term &&
+      card.user_preferred_term.trim().toLowerCase() !== card.item.trim().toLowerCase()
+  );
+  const displayTitle = hasPreferredTerm ? card.user_preferred_term : card.item;
 
   const isOR = !departmentId || departmentId === "or_main" || departmentId === "general_memorial_cvor";
   const notesHeader = isOR ? "Surgeon & Case Notes" : "Clinical & Unit Notes";
@@ -91,7 +109,9 @@ export default function CoordinateCard({
   };
 
   const handleSpeakCard = () => {
-    const spoken = `${card.item} is in ${card.room}, Cabinet ${card.cabinet}, Shelf ${card.shelf}, Bin ${card.container}.`;
+    const spoken = hasPreferredTerm
+      ? `${displayTitle}, catalog ${card.item}, is in ${card.room}, Cabinet ${card.cabinet}, Shelf ${card.shelf}, Bin ${card.container}.`
+      : `${card.item} is in ${card.room}, Cabinet ${card.cabinet}, Shelf ${card.shelf}, Bin ${card.container}.`;
     setSpeakingCard(true);
     setTimeout(() => setSpeakingCard(false), 1800);
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
@@ -109,6 +129,41 @@ export default function CoordinateCard({
     }
   };
 
+  const handleAddAliasSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanTerm = newAliasText.trim();
+    if (!cleanTerm) return;
+    setSavingAlias(true);
+    try {
+      if (onAddLocalAlias) {
+        await onAddLocalAlias(card.item, cleanTerm);
+      } else {
+        const facId =
+          facilityId || (departmentId ? getFacilityIdFromTenant(departmentId).facilityId : "sacred_heart");
+        learnAliasClient(facId, "or", cleanTerm, card.item);
+        fetch("/api/lexicon/learn", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            facility_id: facId,
+            department_id: "or",
+            spoken_term: cleanTerm,
+            canonical_item: card.item,
+          }),
+        }).catch(() => {});
+      }
+      setLocalAliases((prev) => (prev.includes(cleanTerm) ? prev : [...prev, cleanTerm]));
+      setAddingAlias(false);
+      setNewAliasText("");
+      setAliasSavedSuccess(true);
+      setTimeout(() => setAliasSavedSuccess(false), 3000);
+    } catch (err) {
+      console.error("Failed to add local alias:", err);
+    } finally {
+      setSavingAlias(false);
+    }
+  };
+
   return (
     <div
       data-testid="coordinate-card"
@@ -117,8 +172,11 @@ export default function CoordinateCard({
       {/* Header: Item Name + Category + On-Demand Audio Readback */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <h3 className="text-sm sm:text-base font-semibold text-zinc-100 tracking-tight truncate">
-            {card.item}
+          <h3
+            data-testid="coordinate-card-title"
+            className="text-sm sm:text-base font-semibold text-zinc-100 tracking-tight truncate"
+          >
+            {displayTitle}
           </h3>
           {effectiveStatus === "provisional" && (
             <span className="text-[10px] font-mono text-amber-400/90 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-800/50 shrink-0">
@@ -148,6 +206,21 @@ export default function CoordinateCard({
           )}
         </div>
       </div>
+
+      {/* Preferred Term Badge & Catalog Subtitle */}
+      {hasPreferredTerm && (
+        <div className="flex items-center gap-2 mt-0.5 mb-1.5 flex-wrap">
+          <span
+            data-testid="preferred-facility-term-badge"
+            className="text-[10px] font-mono text-purple-400 bg-purple-950/40 px-2 py-0.5 rounded border border-purple-800/50 flex items-center gap-1 shrink-0"
+          >
+            🧠 Preferred Facility Term
+          </span>
+          <span className="text-xs text-zinc-400 font-sans truncate">
+            Catalog: <span className="text-zinc-300 font-medium">{card.item}</span>
+          </span>
+        </div>
+      )}
 
       {/* Coordinate Strip: Unified 4-column divider grid */}
       <div className="grid grid-cols-4 divide-x divide-zinc-800 bg-zinc-950 rounded-lg border border-zinc-800/80 py-3 mt-3 mb-2 text-center">
@@ -314,6 +387,87 @@ export default function CoordinateCard({
               )}
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Facility Lingo & Local Aliases Strip */}
+      <div className="mt-3 pt-2.5 border-t border-zinc-800/80 flex flex-col gap-1.5">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap text-xs">
+            <span className="text-[11px] text-zinc-400 flex items-center gap-1 font-mono">
+              <Tag className="w-3 h-3 text-purple-400" />
+              <span>Facility Lingo:</span>
+            </span>
+            {localAliases.length > 0 ? (
+              localAliases.map((al) => (
+                <span
+                  key={al}
+                  data-testid="facility-alias-chip"
+                  className="px-2 py-0.5 rounded-full bg-zinc-800/80 text-zinc-300 text-[11px] font-medium border border-zinc-700/50"
+                >
+                  {al}
+                </span>
+              ))
+            ) : (
+              <span className="text-[11px] text-zinc-500 italic">No custom facility aliases yet</span>
+            )}
+          </div>
+
+          {!addingAlias && (
+            <button
+              type="button"
+              data-testid="add-local-alias-btn"
+              onClick={() => {
+                setAddingAlias(true);
+                setAliasSavedSuccess(false);
+              }}
+              className="text-[11px] text-purple-400 hover:text-purple-300 hover:bg-purple-950/30 px-2 py-0.5 rounded border border-purple-800/50 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              + Add Local Name
+            </button>
+          )}
+        </div>
+
+        {/* Inline Add Alias Input Box */}
+        {addingAlias && (
+          <form
+            onSubmit={handleAddAliasSubmit}
+            className="mt-1 flex items-center gap-2 bg-zinc-950 p-2 rounded-lg border border-purple-800/40"
+          >
+            <input
+              type="text"
+              data-testid="add-local-alias-input"
+              value={newAliasText}
+              onChange={(e) => setNewAliasText(e.target.value)}
+              placeholder='e.g. "Rat-tooth", "Gemini", "Blue Drape"'
+              autoFocus
+              className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-purple-500"
+            />
+            <button
+              type="submit"
+              disabled={!newAliasText.trim() || savingAlias}
+              data-testid="save-local-alias-btn"
+              className="px-2.5 py-1 rounded bg-purple-600 hover:bg-purple-500 text-white text-xs font-medium disabled:opacity-50 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              {savingAlias ? "Saving..." : "Save (+5 XP)"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAddingAlias(false);
+                setNewAliasText("");
+              }}
+              className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-colors cursor-pointer shrink-0"
+            >
+              Cancel
+            </button>
+          </form>
+        )}
+
+        {aliasSavedSuccess && (
+          <span className="text-[10px] text-emerald-400 font-medium">
+            ✓ Added new local name for facility (+5 XP)!
+          </span>
         )}
       </div>
     </div>

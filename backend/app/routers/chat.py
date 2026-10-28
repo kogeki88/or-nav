@@ -37,6 +37,15 @@ from app.services.rag_fallback import (
     evaluate_rbac,
     filter_surgeon_note_for_role,
 )
+from app.services.lexicon_learning import (
+    get_facility_id_from_tenant,
+    learn_alias,
+    title_case_term,
+    get_all_aliases_for_item,
+)
+
+# In-memory session tracker for Pathway B implicit search reformulation learning
+_session_zero_matches: dict[str, dict] = {}
 
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -61,11 +70,18 @@ class ChatRequest(BaseModel):
         default=None,
         description="Assigned clinical role (e.g. Circulating RN (CNOR), Scrub Nurse / CST)",
     )
+    user_id: Optional[str] = Field(
+        default="anonymous",
+        description="Email or ID of authenticated clinician",
+    )
 
 
 class CoordinateCard(BaseModel):
     """Structured 4-part location card returned by Tier 1 lookups."""
     item: str
+    user_preferred_term: Optional[str] = None
+    facility_aliases: list[str] = Field(default_factory=list)
+    facility_name: Optional[str] = None
     category: str
     room: str
     cabinet: str
@@ -136,6 +152,8 @@ class ChatResponse(BaseModel):
     spoken_transcript_correction: Optional[str] = None
     disambiguation_chips: list[str] = Field(default_factory=list)
     quick_add_widget: Optional[QuickAddWidget] = None
+    implicit_learn_prompt: Optional[dict] = None
+    teaching_card: Optional[dict] = None
 
 
 class AddItemRequest(BaseModel):
@@ -259,6 +277,59 @@ async def handle_chat(req: ChatRequest):
                 quick_add_widget=QuickAddWidget(item=item_to_add),
                 spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
             )
+
+    # Step 1.9: Handle Conversational Slang Teaching (Pathway A)
+    if parsed_intent.intent == ClinicalIntent.TEACH_ALIAS:
+        facility_id, department_id = get_facility_id_from_tenant(req.tenant_id)
+        raw_target = (parsed_intent.entities.target_item or "").strip()
+        raw_alias = (parsed_intent.entities.alias_term or "").strip()
+
+        # Check which side matches a known inventory catalog item
+        match_a = inv_service.search(raw_target, record_implicit_verification=False)
+        match_b = inv_service.search(raw_alias, record_implicit_verification=False)
+
+        if match_a:
+            canonical_item = match_a["item"]
+            slang_term = raw_alias
+        elif match_b:
+            canonical_item = match_b["item"]
+            slang_term = raw_target
+        else:
+            canonical_item = raw_target
+            slang_term = raw_alias
+
+        disp_term = title_case_term(slang_term)
+        user_id = getattr(req, "user_id", None) or "anonymous"
+        learn_alias(
+            facility_id=facility_id,
+            department_id=department_id,
+            spoken_term=slang_term,
+            canonical_item=canonical_item,
+            user_id=user_id,
+            display_name=disp_term,
+        )
+
+        fac_display = req.facility_name or facility_id.replace("_", " ").title()
+        reply = (
+            f"🧠 **Facility Lingo Learned ({fac_display})**\n\n"
+            f"Mapped **\"{disp_term}\"** ↔ **{canonical_item}**.\n\n"
+            f"Everyone in your facility can now search using either name, and we'll use your preferred term! (+5 XP)"
+        )
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
+        return ChatResponse(
+            reply_text=reply,
+            routing_tier="TIER_1_LOCAL_CSV",
+            scrubbed_query=scrubbed_text,
+            phi_detected=phi_detected,
+            latency_ms=elapsed_ms,
+            spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
+            teaching_card={
+                "slang": disp_term,
+                "canonical": canonical_item,
+                "facility": fac_display,
+                "xp_awarded": 5,
+            },
+        )
 
     # Step 2: Check for natural language move command
     move_parsed = inv_service.parse_move_command(processed_text)
@@ -403,10 +474,31 @@ async def handle_chat(req: ChatRequest):
             )
 
     # Standard Single Item Search
-    card_dict = inv_service.search(processed_text, record_implicit_verification=True)
+    facility_id, department_id = get_facility_id_from_tenant(req.tenant_id)
+    card_dict = inv_service.search(
+        processed_text,
+        record_implicit_verification=True,
+        user_id=getattr(req, "user_id", None) or "anonymous",
+    )
     if card_dict is not None:
         elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
         card = CoordinateCard(**card_dict)
+
+        # Check for Pathway B: Implicit Search-Reformulation Learning
+        session_key = f"{req.tenant_id}::{getattr(req, 'user_id', None) or 'anon'}"
+        implicit_prompt = None
+        if session_key in _session_zero_matches:
+            prev = _session_zero_matches.pop(session_key)
+            if time.time() - prev.get("timestamp", 0) <= 90.0:
+                prev_q = prev.get("query", "").strip()
+                if prev_q and prev_q.lower() != card.item.lower():
+                    implicit_prompt = {
+                        "slang_term": prev_q,
+                        "canonical_item": card.item,
+                        "facility_id": facility_id,
+                        "department_id": department_id,
+                        "message": f'Did "{prev_q}" mean {card.item}?',
+                    }
 
         surgeon_name = extract_surgeon_name(processed_text) or extract_surgeon_name(req.message)
         if surgeon_name:
@@ -422,7 +514,11 @@ async def handle_chat(req: ChatRequest):
                 if not card.highlighted_surgeon_note:
                     card.surgeon_filter = None
 
-        reply = f"{card.item} is in {card.room}, Cabinet {card.cabinet}, Shelf {card.shelf}, Container {card.container}."
+        if card.user_preferred_term and card.user_preferred_term.lower() != card.item.lower():
+            reply = f"{card.user_preferred_term} ({card.item}) is in {card.room}, Cabinet {card.cabinet}, Shelf {card.shelf}, Container {card.container}."
+        else:
+            reply = f"{card.item} is in {card.room}, Cabinet {card.cabinet}, Shelf {card.shelf}, Container {card.container}."
+
         if card.highlighted_surgeon_note:
             reply += f" Note for {card.surgeon_filter}: {card.highlighted_surgeon_note}."
         elif card.surgeon_notes:
@@ -450,12 +546,17 @@ async def handle_chat(req: ChatRequest):
             move_widget=widget,
             spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
             disambiguation_chips=parsed_intent.disambiguation_options,
+            implicit_learn_prompt=implicit_prompt,
         )
 
-    # If the user was searching for a specific item and it is not in inventory, show quick-add widget
+    # If the user was searching for a specific item and it is not in inventory, record 0-match for Pathway B and show quick-add widget
     if parsed_intent.intent == ClinicalIntent.FIND_INVENTORY:
         elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
         target_item = (parsed_intent.entities.item or processed_text).strip()
+        # Record zero-match query in session for potential reformulation learning
+        session_key = f"{req.tenant_id}::{getattr(req, 'user_id', None) or 'anon'}"
+        _session_zero_matches[session_key] = {"query": target_item, "timestamp": time.time()}
+
         reply = f"'{target_item}' is not currently stocked in local inventory. Would you like to add it?"
         return ChatResponse(
             reply_text=reply,

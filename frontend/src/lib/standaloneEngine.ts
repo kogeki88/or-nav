@@ -25,6 +25,13 @@ import { directGeminiRAG, isGeminiDirectAvailable } from "./directGemini";
 import { parseClinicalIntent, ClinicalIntent } from "./semanticParser";
 import { isEponymConflict, isGenericClassOnly, normalizeOrLingo } from "./surgicalOntology";
 import {
+  getFacilityIdFromTenant,
+  resolveSpokenAliasClient,
+  getAllAliasesForItemClient,
+  learnAliasClient,
+  titleCaseTerm,
+} from "./lexiconLearning";
+import {
   getUserProfile,
   getRoleScope,
   evaluateRbacQuery,
@@ -826,15 +833,61 @@ export async function hydrateFromSeedIfEmpty(tenantId: string = DEFAULT_TENANT):
 
 export function findMatchingRow(
   query: string,
-  rows: OfflineInventoryRecord[]
-): { row: OfflineInventoryRecord | null; stage: string } {
+  rows: OfflineInventoryRecord[],
+  facilityId?: string,
+  userId?: string
+): {
+  row: OfflineInventoryRecord | null;
+  stage: string;
+  userPreferredTerm?: string;
+  facilityAliases?: string[];
+  facilityName?: string;
+} {
   const cleaned = query.replace(QUERY_PREFIXES, "").trim();
   if (!cleaned || cleaned.length < 2) return { row: null, stage: "" };
   if (isGenericClassOnly(cleaned)) return { row: null, stage: "" };
 
+  const facId =
+    facilityId ||
+    (rows.length > 0 && rows[0].tenant_id ? getFacilityIdFromTenant(rows[0].tenant_id).facilityId : "sacred_heart");
+
+  // Check learned facility lexicon first
+  const aliasEntry = resolveSpokenAliasClient(facId, query);
+  if (aliasEntry) {
+    const canonNorm = aliasEntry.canonicalItemName.trim().toLowerCase();
+    for (const r of rows) {
+      if (r.item.trim().toLowerCase() === canonNorm || (r.normalized_name && r.normalized_name.toLowerCase() === canonNorm)) {
+        const pref = aliasEntry.displayPreferredName || titleCaseTerm(aliasEntry.spokenTerm);
+        learnAliasClient(facId, "or", aliasEntry.spokenTerm, r.item, userId || "anonymous", pref);
+        return {
+          row: r,
+          stage: "STAGE_A_LEXICON_ALIAS",
+          userPreferredTerm: pref,
+          facilityAliases: getAllAliasesForItemClient(facId, r.item),
+          facilityName: facId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        };
+      }
+    }
+  }
+
   const [normQuery, queryPhonetic] = normalizeAndHash(query);
   const querySpecs = extractGaugeAndSpecs(`${normQuery} ${cleaned} ${query}`);
   const normLingo = normalizeOrLingo(cleaned);
+
+  const wrapMatch = (row: OfflineInventoryRecord, stage: string) => {
+    const userPref = titleCaseTerm(cleaned);
+    const isLocalVariant = cleaned.toLowerCase() !== row.item.toLowerCase();
+    if (isLocalVariant) {
+      learnAliasClient(facId, "or", cleaned, row.item, userId || "anonymous", userPref);
+    }
+    return {
+      row,
+      stage,
+      userPreferredTerm: isLocalVariant ? userPref : row.item,
+      facilityAliases: getAllAliasesForItemClient(facId, row.item),
+      facilityName: facId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    };
+  };
 
   // STAGE A: Exact Normalized Match
   for (const row of rows) {
@@ -850,17 +903,17 @@ export function findMatchingRow(
       .filter(Boolean);
 
     if (normQuery === normRow || aliases.includes(normQuery) || normLingo === normRow || aliases.includes(normLingo)) {
-      return { row, stage: "STAGE_A_EXACT" };
+      return wrapMatch(row, "STAGE_A_EXACT");
     }
     if ((normRow.startsWith(`${normQuery} `) && normQuery.length >= 4) || (normRow.startsWith(`${normLingo} `) && normLingo.length >= 4)) {
-      return { row, stage: "STAGE_A_EXACT" };
+      return wrapMatch(row, "STAGE_A_EXACT");
     }
     for (const cand of [normRow, ...aliases]) {
       if (cand.length >= 4 && (
         new RegExp(`\\b${cand.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "i").test(normQuery) ||
         new RegExp(`\\b${cand.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "i").test(normLingo)
       )) {
-        return { row, stage: "STAGE_A_EXACT" };
+        return wrapMatch(row, "STAGE_A_EXACT");
       }
     }
   }
@@ -875,11 +928,11 @@ export function findMatchingRow(
 
       const rowPhon = row.phonetic_code || normalizeAndHash(row.item)[1];
       if (queryPhonetic === rowPhon) {
-        return { row, stage: "STAGE_B_PHONETIC" };
+        return wrapMatch(row, "STAGE_B_PHONETIC");
       }
       const rowPhonTokens = new Set(rowPhon.split(" "));
       if (queryPhonTokens.length > 0 && queryPhonTokens.every((tok) => rowPhonTokens.has(tok))) {
-        return { row, stage: "STAGE_B_PHONETIC" };
+        return wrapMatch(row, "STAGE_B_PHONETIC");
       }
     }
   }
@@ -906,7 +959,7 @@ export function findMatchingRow(
   }
 
   if (bestRow) {
-    return { row: bestRow, stage: "STAGE_C_FUZZY" };
+    return wrapMatch(bestRow, "STAGE_C_FUZZY");
   }
 
   return { row: null, stage: "" };
@@ -1270,6 +1323,52 @@ export async function executeStandaloneSearch(
     }
   }
 
+  // 1.8 TEACH_ALIAS (Pathway A Conversational Slang Teaching)
+  if (parsedIntent.intent === ClinicalIntent.TEACH_ALIAS) {
+    const { facilityId, departmentId } = getFacilityIdFromTenant(tenantId);
+    const rawTarget = (parsedIntent.entities.target_item || "").trim();
+    const rawAlias = (parsedIntent.entities.alias_term || "").trim();
+
+    const matchA = findMatchingRow(rawTarget, allRows, facilityId);
+    const matchB = findMatchingRow(rawAlias, allRows, facilityId);
+
+    let canonicalItem = rawTarget;
+    let slangTerm = rawAlias;
+
+    if (matchA.row) {
+      canonicalItem = matchA.row.item;
+      slangTerm = rawAlias;
+    } else if (matchB.row) {
+      canonicalItem = matchB.row.item;
+      slangTerm = rawTarget;
+    }
+
+    const dispTerm = titleCaseTerm(slangTerm);
+    learnAliasClient(facilityId, departmentId, slangTerm, canonicalItem, profile.email || "anonymous", dispTerm);
+
+    const facDisplay = facilityId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const reply = `🧠 **Facility Lingo Learned (${facDisplay})**\n\nMapped **"${dispTerm}"** ↔ **${canonicalItem}**.\n\nEveryone in your facility can now search using either name, and we'll use your preferred term! (+5 XP)`;
+    const elapsed = Math.max(1, Math.round(performance.now() - t0));
+
+    return {
+      reply_text: reply,
+      routing_tier: "TIER_1_LOCAL_CSV",
+      scrubbed_query: processedText,
+      phi_detected: false,
+      latency_ms: elapsed,
+      coordinate_card: null,
+      coordinate_cards: [],
+      move_widget: null,
+      spoken_transcript_correction: parsedIntent.spoken_transcript_correction,
+      teaching_card: {
+        slang: dispTerm,
+        canonical: canonicalItem,
+        facility: facDisplay,
+        xp_awarded: 5,
+      },
+    };
+  }
+
   // 2. Compound Multi-Item Lookup
   const compoundParts = splitCompoundQuery(processedText);
   if (compoundParts.length >= 2) {
@@ -1404,10 +1503,21 @@ export async function executeStandaloneSearch(
   }
 
   // 4. Standard Single Item Cascade
-  const { row } = findMatchingRow(processedText, allRows);
+  const { facilityId } = getFacilityIdFromTenant(tenantId);
+  const { row, userPreferredTerm, facilityAliases, facilityName } = findMatchingRow(
+    processedText,
+    allRows,
+    facilityId,
+    profile.email || "anonymous"
+  );
   if (row) {
     const elapsed = Math.max(1, Math.round(performance.now() - t0));
-    const card: CoordinateCardData = { ...row };
+    const card: CoordinateCardData = {
+      ...row,
+      user_preferred_term: userPreferredTerm,
+      facility_aliases: facilityAliases,
+      facility_name: facilityName,
+    };
     const surgeon = extractSurgeonName(processedText);
     if (surgeon) {
       const specNote = highlightSurgeonNote(surgeon, card.surgeon_notes);
@@ -1427,7 +1537,12 @@ export async function executeStandaloneSearch(
       }
     }
 
-    let reply = `${card.item} is in ${card.room}, Cabinet ${card.cabinet}, Shelf ${card.shelf}, Container ${card.container}.`;
+    let reply = "";
+    if (card.user_preferred_term && card.user_preferred_term.toLowerCase() !== card.item.toLowerCase()) {
+      reply = `${card.user_preferred_term} (${card.item}) is in ${card.room}, Cabinet ${card.cabinet}, Shelf ${card.shelf}, Container ${card.container}.`;
+    } else {
+      reply = `${card.item} is in ${card.room}, Cabinet ${card.cabinet}, Shelf ${card.shelf}, Container ${card.container}.`;
+    }
     if (card.highlighted_surgeon_note) {
       reply += ` Note for ${card.surgeon_filter}: ${card.highlighted_surgeon_note}.`;
     } else if (card.surgeon_notes) {

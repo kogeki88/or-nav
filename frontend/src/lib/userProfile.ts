@@ -37,6 +37,8 @@ export const ROLES_BY_DEPARTMENT: Record<string, string[]> = {
 
 export interface UserProfile {
   fullName: string;      // e.g. "Sean Iglesia, RN"
+  email?: string;
+  userId?: string;
   facilityId: string;    // "sacred_heart" | "princeton_plainsboro" | "county_general"
   facilityName: string;  // e.g. "Sacred Heart Hospital"
   departmentId: string;  // "or_main" | "icu_critical_care" | "er_trauma" | "pacu_periop"

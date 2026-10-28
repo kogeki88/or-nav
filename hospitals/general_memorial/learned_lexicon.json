@@ -1,0 +1,62 @@
+[
+  {
+    "aliasId": "general_memorial_1793196096_1",
+    "facilityId": "general_memorial",
+    "departmentId": "or",
+    "spokenTerm": "3-0 silk",
+    "displayPreferredName": "3-0 Silk",
+    "canonicalItemName": "3-0 Silk Suture",
+    "usageCount": 9,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:14:46Z"
+  },
+  {
+    "aliasId": "general_memorial_1793196097_2",
+    "facilityId": "general_memorial",
+    "departmentId": "or",
+    "spokenTerm": "debakey forceps",
+    "displayPreferredName": "Debakey Forceps",
+    "canonicalItemName": "DeBakey Vascular Tissue Forceps 12in",
+    "usageCount": 9,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:14:46Z"
+  },
+  {
+    "aliasId": "general_memorial_1793196216_3",
+    "facilityId": "general_memorial",
+    "departmentId": "or",
+    "spokenTerm": "adson pickups",
+    "displayPreferredName": "Adson Pickups",
+    "canonicalItemName": "Adson Tissue Forceps 1x2 (Adson Pickups)",
+    "usageCount": 6,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:09:15Z"
+  },
+  {
+    "aliasId": "general_memorial_1793196217_4",
+    "facilityId": "general_memorial",
+    "departmentId": "or",
+    "spokenTerm": "mixter clamps",
+    "displayPreferredName": "Mixter Clamps",
+    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+    "usageCount": 6,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:09:16Z"
+  },
+  {
+    "aliasId": "general_memorial_1793196218_5",
+    "facilityId": "general_memorial",
+    "departmentId": "or",
+    "spokenTerm": "geminis",
+    "displayPreferredName": "Geminis",
+    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+    "usageCount": 11,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:09:16Z"
+  }
+]

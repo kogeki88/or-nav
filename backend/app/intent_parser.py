@@ -13,21 +13,26 @@ from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, Field
 
+from app.services.lexicon_learning import detect_teaching_intent
+
 
 class ClinicalIntent(str, Enum):
     FIND_INVENTORY = "FIND_INVENTORY"
     VIEW_PREFERENCE_CARD = "VIEW_PREFERENCE_CARD"
     MUTATE_INVENTORY = "MUTATE_INVENTORY"
     PEER_BROADCAST = "PEER_BROADCAST"
+    TEACH_ALIAS = "TEACH_ALIAS"
     GENERAL_QUERY = "GENERAL_QUERY"
 
 
 class ClinicalEntities(BaseModel):
     item: Optional[str] = None
+    target_item: Optional[str] = None
+    alias_term: Optional[str] = None
     gauge: Optional[str] = None
     category: Optional[str] = None
     location: Optional[str] = None
-    action: Optional[str] = None  # "add", "move", "flag"
+    action: Optional[str] = None  # "add", "move", "flag", "teach_alias"
     surgeon: Optional[str] = None
     procedure: Optional[str] = None
 
@@ -38,6 +43,8 @@ class ParsedIntent(BaseModel):
     entities: ClinicalEntities
     raw_query: str
     normalized_query: str
+    user_preferred_term: Optional[str] = None
+    search_expanded_query: Optional[str] = None
     spoken_transcript_correction: Optional[str] = None
     disambiguation_options: list[str] = Field(default_factory=list)
 
@@ -69,7 +76,8 @@ CLINICAL_TERM_CORRECTIONS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\b(?:white\s*laner|white\s*liner|white\s*lainer|weit\s*laner)\b", re.IGNORECASE), "weitlaner"),
     (re.compile(r"\b(?:bovey|bo\s*vie|bovie\s*pencil)\b", re.IGNORECASE), "bovie"),
     (re.compile(r"\b(?:heprin|heparine)\b", re.IGNORECASE), "heparin"),
-    (re.compile(r"\b(?:metz|metzenbaum\s+scissors?)\b", re.IGNORECASE), "metzenbaum"),
+    (re.compile(r"\b(?:add\s*son|ad\s+son)\b", re.IGNORECASE), "adson"),
+    (re.compile(r"\b(?:metzenbaum\s+scissors?)\b", re.IGNORECASE), "metzenbaum"),
     (re.compile(r"\b(?:trochar|trochars)\b", re.IGNORECASE), "trocar"),
     (re.compile(r"\b(?:monacryl|monocrile)\b", re.IGNORECASE), "monocryl"),
     (re.compile(r"\b(?:cromatic|chromick)\b", re.IGNORECASE), "chromic"),
@@ -184,6 +192,25 @@ def parse_clinical_intent(query: str, clinical_role: Optional[str] = None) -> Pa
     """
     normalized_query, correction = normalize_clinical_speech(query)
     cleaned = re.sub(r"\[REDACTED_PHI\]", "", normalized_query, flags=re.IGNORECASE).strip()
+
+    # 0. Check TEACH_ALIAS intent (e.g. "Here we call Mixter clamps Geminis", "Adson forceps are called Adson pickups")
+    teach_match = detect_teaching_intent(cleaned)
+    if teach_match:
+        part_a, part_b = teach_match
+        return ParsedIntent(
+            intent=ClinicalIntent.TEACH_ALIAS,
+            confidence=0.98,
+            entities=ClinicalEntities(
+                target_item=part_a,
+                alias_term=part_b,
+                action="teach_alias",
+            ),
+            raw_query=query,
+            normalized_query=normalized_query,
+            user_preferred_term=part_b,
+            search_expanded_query=part_a,
+            spoken_transcript_correction=correction,
+        )
 
     # 1. Check PEER_BROADCAST intent first
     if PEER_BROADCAST_PATTERNS.search(cleaned):

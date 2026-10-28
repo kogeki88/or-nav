@@ -1,0 +1,414 @@
+[
+  {
+    "aliasId": "sh_lex_1",
+    "facilityId": "sacred_heart",
+    "departmentId": "or",
+    "spokenTerm": "adson pickups",
+    "displayPreferredName": "Adson Pickups",
+    "canonicalItemName": "Adson Tissue Forceps 1x2 (Adson Pickups)",
+    "usageCount": 10,
+    "usedByUsers": [
+      "jd@sacredheart.org",
+      "sean@sacredheart.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:13:11Z"
+  },
+  {
+    "aliasId": "sh_lex_2",
+    "facilityId": "sacred_heart",
+    "departmentId": "or",
+    "spokenTerm": "toothed adson",
+    "displayPreferredName": "Toothed Adson",
+    "canonicalItemName": "Adson Tissue Forceps 1x2 (Adson Pickups)",
+    "usageCount": 2,
+    "usedByUsers": [
+      "turk@sacredheart.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T08:15:00Z"
+  },
+  {
+    "aliasId": "sh_lex_3",
+    "facilityId": "sacred_heart",
+    "departmentId": "or",
+    "spokenTerm": "gemini",
+    "displayPreferredName": "Gemini",
+    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+    "usageCount": 7,
+    "usedByUsers": [
+      "jd@sacredheart.org",
+      "sean@sacredheart.org",
+      "turk@sacredheart.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:13:14Z"
+  },
+  {
+    "aliasId": "sh_lex_4",
+    "facilityId": "sacred_heart",
+    "departmentId": "or",
+    "spokenTerm": "peanut",
+    "displayPreferredName": "Peanut",
+    "canonicalItemName": "Kittner Dissector Sponges (Peanuts)",
+    "usageCount": 5,
+    "usedByUsers": [
+      "carla@sacredheart.org",
+      "sean@sacredheart.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:56Z"
+  },
+  {
+    "aliasId": "sh_lex_5",
+    "facilityId": "sacred_heart",
+    "departmentId": "or",
+    "spokenTerm": "right-angle",
+    "displayPreferredName": "Right-Angle",
+    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+    "usageCount": 3,
+    "usedByUsers": [
+      "carla@sacredheart.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T08:40:00Z"
+  },
+  {
+    "aliasId": "sh_lex_6",
+    "facilityId": "sacred_heart",
+    "departmentId": "or",
+    "spokenTerm": "stat",
+    "displayPreferredName": "Stat",
+    "canonicalItemName": "Crile Hemostatic Forceps Curved 5.5in",
+    "usageCount": 2,
+    "usedByUsers": [
+      "elliot@sacredheart.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T08:45:00Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196069_7",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "mixter clamps",
+    "displayPreferredName": "Mixter Clamps",
+    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+    "usageCount": 3,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:13:12Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196070_8",
+    "facilityId": "sacred_heart",
+    "departmentId": "or",
+    "spokenTerm": "geminis",
+    "displayPreferredName": "Geminis",
+    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+    "usageCount": 5,
+    "usedByUsers": [
+      "turk@sacredheart.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:13:12Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196070_9",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "right angle",
+    "displayPreferredName": "Right Angle",
+    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+    "usageCount": 4,
+    "usedByUsers": [
+      "carla@sacredheart.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:02:13Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196070_10",
+    "facilityId": "sacred_heart",
+    "departmentId": "or",
+    "spokenTerm": "test ratchet clamp b1c943",
+    "displayPreferredName": "Test Ratchet Clamp B1c943",
+    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+    "usageCount": 2,
+    "usedByUsers": [
+      "user_alpha@sacredheart.org",
+      "user_beta@sacredheart.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:10Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196070_11",
+    "facilityId": "sacred_heart",
+    "departmentId": "or",
+    "spokenTerm": "pillowcase",
+    "displayPreferredName": "Pillowcase",
+    "canonicalItemName": "Mayo Stand Cover Reinforced Blue",
+    "usageCount": 2,
+    "usedByUsers": [
+      "laverne@sacredheart.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:02:13Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196084_12",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "debakey pickups",
+    "displayPreferredName": "Debakey Pickups",
+    "canonicalItemName": "DeBakey Vascular Tissue Forceps 6in",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:56Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196084_13",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "gerald pickups",
+    "displayPreferredName": "Gerald Pickups",
+    "canonicalItemName": "Gerald Tissue Forceps 1x2",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:56Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196084_14",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "russian pickups",
+    "displayPreferredName": "Russian Pickups",
+    "canonicalItemName": "Russian Tissue Forceps 8in",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:56Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196084_15",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "metz",
+    "displayPreferredName": "Metz",
+    "canonicalItemName": "Metzenbaum Scissors 7in Curved",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:56Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196084_16",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "snaps",
+    "displayPreferredName": "Snaps",
+    "canonicalItemName": "Crile Hemostat Forceps Curved 5.5in (Snaps)",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:56Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196084_17",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "castro",
+    "displayPreferredName": "Castro",
+    "canonicalItemName": "Castroviejo Micro Needle Holder",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:56Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196084_18",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "rich",
+    "displayPreferredName": "Rich",
+    "canonicalItemName": "Richardson Retractor Large",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:56Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196084_19",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "cat paw",
+    "displayPreferredName": "Cat Paw",
+    "canonicalItemName": "Senn Retractor Double Ended",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:56Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196084_20",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "raytec",
+    "displayPreferredName": "Raytec",
+    "canonicalItemName": "Ray-Tec X-Ray Detectable Sponges 4x4",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:56Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196085_21",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "add son pickups",
+    "displayPreferredName": "Add Son Pickups",
+    "canonicalItemName": "Adson Tissue Forceps 1x2 (Adson Pickups)",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:57Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196085_22",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "the bakey pickups",
+    "displayPreferredName": "The Bakey Pickups",
+    "canonicalItemName": "DeBakey Vascular Tissue Forceps 12in",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:01:57Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196085_23",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "white laner",
+    "displayPreferredName": "White Laner",
+    "canonicalItemName": "Saphenous Vein Retractor (Weitlaner 3x4 Sharp)",
+    "usageCount": 5,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:14:47Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196096_24",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "debakey",
+    "displayPreferredName": "Debakey",
+    "canonicalItemName": "DeBakey Vascular Tissue Forceps 12in",
+    "usageCount": 3,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:14:46Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196097_25",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "the bakery",
+    "displayPreferredName": "The Bakery",
+    "canonicalItemName": "DeBakey Vascular Tissue Forceps 12in",
+    "usageCount": 3,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:14:47Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196097_26",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "pro lean",
+    "displayPreferredName": "Pro Lean",
+    "canonicalItemName": "2-0 Prolene Suture on SH",
+    "usageCount": 3,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:14:47Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196097_27",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "bovey",
+    "displayPreferredName": "Bovey",
+    "canonicalItemName": "Bovie Pencil with Holster",
+    "usageCount": 3,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:14:47Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196097_28",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "heprin",
+    "displayPreferredName": "Heprin",
+    "canonicalItemName": "Heparin Sodium 1000u/mL 10mL",
+    "usageCount": 3,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:14:47Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196097_29",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/icu",
+    "spokenTerm": "arterial line",
+    "displayPreferredName": "Arterial Line",
+    "canonicalItemName": "Arterial Line Transducer (Edwards TruWave)",
+    "usageCount": 3,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:14:47Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196097_30",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/er",
+    "spokenTerm": "ez-io",
+    "displayPreferredName": "Ez-io",
+    "canonicalItemName": "EZ-IO Intraosseous Drill & Needles",
+    "usageCount": 3,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:14:47Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196097_31",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/pacu",
+    "spokenTerm": "sugammadex",
+    "displayPreferredName": "Sugammadex",
+    "canonicalItemName": "Sugammadex (Bridion) 200mg/2mL",
+    "usageCount": 3,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:14:47Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793196133_32",
+    "facilityId": "sacred_heart",
+    "departmentId": "or",
+    "spokenTerm": "test ratchet clamp 28de04",
+    "displayPreferredName": "Test Ratchet Clamp 28de04",
+    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+    "usageCount": 2,
+    "usedByUsers": [
+      "user_alpha@sacredheart.org",
+      "user_beta@sacredheart.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T14:02:13Z"
+  }
+]

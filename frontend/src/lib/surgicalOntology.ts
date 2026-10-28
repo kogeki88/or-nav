@@ -314,6 +314,21 @@ const STOP_WORDS = new Set([
   "you", "tell", "whats", "what", "give", "bring", "grab", "hand",
 ]);
 
+export function normalizeAcousticSpeech(text: string): string {
+  if (!text) return "";
+  let res = text.trim();
+
+  // Apply only acoustic STT phonetic fixes, leaving user lingo intact
+  const sttKeys = Object.keys(EPONYM_PHONETIC_STT_MAP).sort((a, b) => b.length - a.length);
+  for (const err of sttKeys) {
+    const canonical = EPONYM_PHONETIC_STT_MAP[err];
+    const regex = new RegExp(`(?<!\\w)${err.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?!\\w)`, "gi");
+    res = res.replace(regex, canonical);
+  }
+
+  return res.replace(/\s+/g, " ").trim();
+}
+
 export function normalizeOrLingo(text: string): string {
   if (!text) return "";
   let res = text.toLowerCase().trim();

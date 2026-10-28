@@ -8,20 +8,25 @@
  * - Generates 1-tap disambiguation chips when item searched without gauge
  */
 
+import { detectTeachingIntentClient } from "./lexiconLearning";
+
 export enum ClinicalIntent {
   FIND_INVENTORY = "FIND_INVENTORY",
   VIEW_PREFERENCE_CARD = "VIEW_PREFERENCE_CARD",
   MUTATE_INVENTORY = "MUTATE_INVENTORY",
   PEER_BROADCAST = "PEER_BROADCAST",
+  TEACH_ALIAS = "TEACH_ALIAS",
   GENERAL_QUERY = "GENERAL_QUERY",
 }
 
 export interface ClinicalEntities {
   item?: string;
+  target_item?: string;
+  alias_term?: string;
   gauge?: string;
   category?: string;
   location?: string;
-  action?: "add" | "move" | "flag" | "broadcast" | "view_card";
+  action?: "add" | "move" | "flag" | "broadcast" | "view_card" | "teach_alias";
   surgeon?: string;
   procedure?: string;
 }
@@ -32,6 +37,8 @@ export interface ParsedIntent {
   entities: ClinicalEntities;
   raw_query: string;
   normalized_query: string;
+  user_preferred_term?: string;
+  search_expanded_query?: string;
   spoken_transcript_correction?: string;
   disambiguation_options: string[];
 }
@@ -56,7 +63,8 @@ const CLINICAL_TERM_CORRECTIONS: Array<[RegExp, string]> = [
   [/\b(?:white\s*laner|white\s*liner|white\s*lainer|weit\s*laner)\b/gi, "weitlaner"],
   [/\b(?:bovey|bo\s*vie|bovie\s*pencil)\b/gi, "bovie"],
   [/\b(?:heprin|heparine)\b/gi, "heparin"],
-  [/\b(?:metz|metzenbaum\s+scissors?)\b/gi, "metzenbaum"],
+  [/\b(?:add\s*son|ad\s+son)\b/gi, "adson"],
+  [/\b(?:metzenbaum\s+scissors?)\b/gi, "metzenbaum"],
   [/\b(?:trochar|trochars)\b/gi, "trocar"],
   [/\b(?:monacryl|monocrile)\b/gi, "monocryl"],
   [/\b(?:cromatic|chromick)\b/gi, "chromic"],
@@ -111,6 +119,26 @@ export function normalizeClinicalSpeech(text: string): { normalized: string; cor
 export function parseClinicalIntent(query: string, clinicalRole?: string): ParsedIntent {
   const { normalized, correction } = normalizeClinicalSpeech(query);
   const cleaned = normalized.replace(/\[REDACTED_PHI\]/gi, "").trim();
+
+  // 0. TEACH_ALIAS (e.g. "Here we call Mixter clamps Geminis", "Adson forceps are called Adson pickups")
+  const teachMatch = detectTeachingIntentClient(cleaned);
+  if (teachMatch) {
+    return {
+      intent: ClinicalIntent.TEACH_ALIAS,
+      confidence: 0.98,
+      entities: {
+        target_item: teachMatch.target,
+        alias_term: teachMatch.alias,
+        action: "teach_alias",
+      },
+      raw_query: query,
+      normalized_query: normalized,
+      user_preferred_term: teachMatch.alias,
+      search_expanded_query: teachMatch.target,
+      spoken_transcript_correction: correction,
+      disambiguation_options: [],
+    };
+  }
 
   // 1. PEER_BROADCAST
   if (PEER_BROADCAST_PATTERNS.test(cleaned)) {

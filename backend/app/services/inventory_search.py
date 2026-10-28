@@ -31,6 +31,13 @@ from app.services.surgical_ontology import (
     normalize_or_lingo,
     extract_eponyms,
 )
+from app.services.lexicon_learning import (
+    get_facility_id_from_tenant,
+    resolve_spoken_alias,
+    get_all_aliases_for_item,
+    learn_alias,
+    title_case_term,
+)
 
 
 # Minimum similarity score (0-100) to accept a Stage C fuzzy match in Tier 1.
@@ -1080,9 +1087,10 @@ class InventoryService:
         query: str,
         record_implicit_verification: bool = True,
         cooldown_seconds: Optional[float] = None,
+        user_id: Optional[str] = None,
     ) -> Optional[dict]:
         """
-        Search inventory for a matching item using the 3-Stage Cascade.
+        Search inventory for a matching item using the 3-Stage Cascade and Facility Lexicon.
         If `record_implicit_verification` is True and the matched item is
         provisional (`verification_score < 3.0`), increments its score by +0.5
         and promotes to `verified` at 3.0, protected by an optional cooldown
@@ -1092,7 +1100,52 @@ class InventoryService:
             return None
 
         with self._lock:
-            matched_row, stage = self._find_matching_row(query)
+            facility_id, department_id = get_facility_id_from_tenant(self.tenant.tenant_id)
+            alias_entry = resolve_spoken_alias(facility_id, query)
+            matched_row = None
+            stage = ""
+
+            # Check learned facility lexicon first
+            if alias_entry:
+                canon_norm = alias_entry["canonicalItemName"].strip().lower()
+                for r in self._rows:
+                    if r["item"].strip().lower() == canon_norm or r["normalized_name"] == canon_norm:
+                        matched_row = r
+                        stage = "STAGE_A_LEXICON_ALIAS"
+                        matched_row["_user_preferred_term"] = alias_entry.get("displayPreferredName") or title_case_term(alias_entry["spokenTerm"])
+                        matched_row["_facility_aliases"] = get_all_aliases_for_item(facility_id, r["item"])
+                        matched_row["_facility_name"] = facility_id.replace("_", " ").title()
+                        learn_alias(
+                            facility_id=facility_id,
+                            department_id=department_id,
+                            spoken_term=alias_entry["spokenTerm"],
+                            canonical_item=r["item"],
+                            user_id=user_id or "anonymous",
+                            display_name=alias_entry.get("displayPreferredName"),
+                        )
+                        break
+
+            if matched_row is None:
+                matched_row, stage = self._find_matching_row(query)
+                if matched_row is not None:
+                    cleaned_q = self._clean_query(query)
+                    user_pref = title_case_term(cleaned_q)
+                    matched_row["_facility_aliases"] = get_all_aliases_for_item(facility_id, matched_row["item"])
+                    matched_row["_facility_name"] = facility_id.replace("_", " ").title()
+                    # If user asked with a slang / local variant (not identical to item name)
+                    if cleaned_q.lower() != matched_row["item"].lower():
+                        matched_row["_user_preferred_term"] = user_pref
+                        learn_alias(
+                            facility_id=facility_id,
+                            department_id=department_id,
+                            spoken_term=cleaned_q,
+                            canonical_item=matched_row["item"],
+                            user_id=user_id or "anonymous",
+                            display_name=user_pref,
+                        )
+                    else:
+                        matched_row["_user_preferred_term"] = matched_row["item"]
+
             if matched_row is None:
                 return None
 
@@ -1186,6 +1239,9 @@ class InventoryService:
         container = row["container"]
         return AttrDict({
             "item": row["item"],
+            "user_preferred_term": row.get("_user_preferred_term"),
+            "facility_aliases": row.get("_facility_aliases", []),
+            "facility_name": row.get("_facility_name"),
             "category": row["category"],
             "room": room,
             "cabinet": cabinet,

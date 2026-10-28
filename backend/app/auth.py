@@ -39,7 +39,7 @@ DEFAULT_DEMO_USERS: List[Dict[str, Any]] = [
         "profile": {
             "facilityId": "sacred_heart",
             "facilityName": "Sacred Heart Hospital",
-            "departmentId": "or_main",
+            "departmentId": "sacred_heart::or",
             "clinicalRole": "Circulating RN",
         },
         "createdAt": "2026-10-27T00:00:00Z",
