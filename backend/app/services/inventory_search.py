@@ -19,7 +19,7 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union, Dict, Any, List, Set, Tuple
 
 from metaphone import doublemetaphone
 from rapidfuzz import fuzz

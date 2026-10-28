@@ -15,6 +15,7 @@ Features:
 """
 
 import hashlib
+from typing import Optional, Dict, Any, List
 import os
 import re
 import threading
