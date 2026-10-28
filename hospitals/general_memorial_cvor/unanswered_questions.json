@@ -1,5 +1,23 @@
 [
   {
+    "id": "q-094d9f8f",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Where do we keep the backup cryo nerve probe?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "verified",
+    "created_at": "2026-10-28T19:14:05Z",
+    "verified_at": "2026-10-28T19:14:05Z",
+    "answers": [
+      {
+        "id": "ans-25e278",
+        "responder_role": "CVOR Peer RN",
+        "answer_text": "Cryo probe is in Core Supply Pyxis D Bin 3.",
+        "confidence": "confident",
+        "created_at": "2026-10-28T19:14:05Z"
+      }
+    ]
+  },
+  {
     "id": "q-98e93bc1",
     "hospital_id": "general_memorial_cvor",
     "question_text": "Where do we keep the backup cryo nerve probe?",

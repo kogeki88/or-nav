@@ -1,50 +1,5 @@
 [
   {
-    "id": "fb-b69612d3",
-    "tenantId": "sacred_heart::or_main",
-    "userName": "Sean Iglesia, RN",
-    "userRole": "Circulating RN",
-    "source": "chat_auto_detected",
-    "category": "feature_request",
-    "severity": "low",
-    "rawText": "can you add open heart tray to the list",
-    "aiRecommendation": "Evaluate proposed clinical feature enhancement and design modular component architecture.",
-    "suggestedFixPrompt": "ANTIGRAVITY DIRECTIVE: Implement requested clinical workflow feature: 'can you add open heart tray to the list'. Integrate cleanly into current perioperative navigation tabs.",
-    "upvotes": 1,
-    "status": "open",
-    "createdAt": "2026-10-28T11:52:35.909863+00:00"
-  },
-  {
-    "id": "fb-cc1102e1",
-    "tenantId": "sacred_heart::or_main",
-    "userName": "Sean Iglesia, RN",
-    "userRole": "Circulating RN",
-    "source": "manual_submission",
-    "category": "feature_request",
-    "severity": "medium",
-    "rawText": "Could you add an auto-scroll to the bottom of the preference card table?",
-    "aiRecommendation": "Evaluate proposed clinical feature enhancement and design modular component architecture.",
-    "suggestedFixPrompt": "ANTIGRAVITY DIRECTIVE: Implement requested clinical workflow feature: 'Could you add an auto-scroll to the bottom of the preference card table?'. Integrate cleanly into current perioperative navigation tabs.",
-    "upvotes": 1,
-    "status": "open",
-    "createdAt": "2026-10-28T10:58:16.767493+00:00"
-  },
-  {
-    "id": "fb-71a85c85",
-    "tenantId": "sacred_heart::or_main",
-    "userName": "Sean Iglesia, RN",
-    "userRole": "Circulating RN",
-    "source": "chat_auto_detected",
-    "category": "feature_request",
-    "severity": "low",
-    "rawText": "I wish this app had a quick vascular clamp size chart",
-    "aiRecommendation": "Evaluate proposed clinical feature enhancement and design modular component architecture.",
-    "suggestedFixPrompt": "ANTIGRAVITY DIRECTIVE: Implement requested clinical workflow feature: 'I wish this app had a quick vascular clamp size chart'. Integrate cleanly into current perioperative navigation tabs.",
-    "upvotes": 3,
-    "status": "open",
-    "createdAt": "2026-10-28T10:58:15.254877+00:00"
-  },
-  {
     "id": "fb-seed-001",
     "tenantId": "sacred_heart::or",
     "userName": "Dr. Christopher Turk",
@@ -55,8 +10,8 @@
     "rawText": "The screen is way too bright during laparoscopic cholecystectomy in OR 4. We dim the room lights and the white background causes glare on the monitor.",
     "aiRecommendation": "Add surgical dark-mode toggle and low-glare high-contrast theme for dimmed laparoscopic suites.",
     "suggestedFixPrompt": "ANTIGRAVITY DIRECTIVE: Implement a high-contrast Surgical Night Mode toggle in the header and system drawer. In low light, invert bright backgrounds and enhance bin coordinate legibility without glare.",
-    "upvotes": 6,
-    "status": "resolved",
+    "upvotes": 5,
+    "status": "open",
     "createdAt": "2026-10-27T18:30:00Z"
   },
   {

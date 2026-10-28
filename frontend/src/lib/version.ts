@@ -12,8 +12,8 @@ export interface VersionManifest {
   changelog: string;
 }
 
-export const CURRENT_VERSION = "v0.59";
-export const CURRENT_BUILD_NUMBER = 16;
+export const CURRENT_VERSION = "v0.60";
+export const CURRENT_BUILD_NUMBER = 17;
 export const CURRENT_RELEASE_DATE = "2026-10-28";
 
 export const GITHUB_REPO_OWNER = "kogeki88";
@@ -29,7 +29,7 @@ export const LOCAL_VERSION_MANIFEST: VersionManifest = {
   apk_download_url: CLOUD_APK_DOWNLOAD_URL,
   min_supported_version: "v0.1",
   changelog:
-    "v0.59 (Build 16): Fix stale 34-item Dexie cache trap, auto-upgrade offline catalog to 143+ items, hydrate installed resource packs & preference cards into active offline lookup.",
+    "v0.60 (Build 17): Sidebar declutter, unified clinician profile card, split audio and pairing settings, and streamlined system info.",
 };
 
 /**

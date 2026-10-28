@@ -96,7 +96,10 @@ export default function UserProfileModal({
       aria-labelledby="profile-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
     >
-      <div className="relative w-full max-w-md bg-[#121215] border border-zinc-800 rounded-xl shadow-2xl text-zinc-100 overflow-hidden">
+      <div
+        data-testid="profile-modal"
+        className="relative w-full max-w-md bg-[#121215] border border-zinc-800 rounded-xl shadow-2xl text-zinc-100 overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/80 bg-zinc-950/60">
           <div className="flex items-center gap-2">
@@ -113,6 +116,7 @@ export default function UserProfileModal({
             <button
               type="button"
               onClick={onClose}
+              data-testid="close-profile-modal-btn"
               aria-label="Close"
               className="p-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
             >

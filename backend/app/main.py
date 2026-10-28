@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="HIPAA-compliant, voice-first CVOR clinical assistant",
-    version="0.59.0",
+    version="0.60.0",
     lifespan=lifespan,
 )
 
@@ -172,12 +172,12 @@ async def get_version(response: Response):
             pass
 
     return {
-        "version": "v0.59",
-        "build_number": 16,
+        "version": "v0.60",
+        "build_number": 17,
         "release_date": "2026-10-28",
         "apk_download_url": f"http://{lan_ip or '192.168.1.217'}:8000/api/download-apk",
         "min_supported_version": "v0.1",
-        "changelog": "v0.59 (Build 16): Fix stale 34-item Dexie cache trap, auto-upgrade offline catalog to 143+ items, hydrate installed resource packs & preference cards into active offline lookup.",
+        "changelog": "v0.60 (Build 17): Sidebar declutter, unified clinician profile card, split audio and pairing settings, and streamlined system info.",
     }
 
 
