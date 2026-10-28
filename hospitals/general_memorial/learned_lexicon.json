@@ -6,10 +6,10 @@
     "spokenTerm": "3-0 silk",
     "displayPreferredName": "3-0 Silk",
     "canonicalItemName": "3-0 Silk Suture",
-    "usageCount": 9,
+    "usageCount": 19,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T14:14:46Z"
+    "updatedAt": "2026-10-28T17:22:42Z"
   },
   {
     "aliasId": "general_memorial_1793196097_2",
@@ -18,10 +18,10 @@
     "spokenTerm": "debakey forceps",
     "displayPreferredName": "Debakey Forceps",
     "canonicalItemName": "DeBakey Vascular Tissue Forceps 12in",
-    "usageCount": 9,
+    "usageCount": 52,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T14:14:46Z"
+    "updatedAt": "2026-10-28T17:28:32Z"
   },
   {
     "aliasId": "general_memorial_1793196216_3",
@@ -58,5 +58,137 @@
     "usedByUsers": [],
     "confidence": "facility_consensus",
     "updatedAt": "2026-10-28T14:09:16Z"
+  },
+  {
+    "aliasId": "general_memorial_1793206053_6",
+    "facilityId": "general_memorial",
+    "departmentId": "general",
+    "spokenTerm": "4-0 prolene rb-1 and heparin 300 units/kg for act over 480",
+    "displayPreferredName": "4-0 Prolene Rb-1 And Heparin 300 Units/kg For Act Over 480",
+    "canonicalItemName": "4-0 Prolene Suture on RB-1",
+    "usageCount": 3,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T17:22:35Z"
+  },
+  {
+    "aliasId": "general_memorial_1793206060_7",
+    "facilityId": "general_memorial",
+    "departmentId": "or",
+    "spokenTerm": "endo gia stapler",
+    "displayPreferredName": "Endo Gia Stapler",
+    "canonicalItemName": "Endo GIA 60mm Articulating Stapler",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T17:22:41Z"
+  },
+  {
+    "aliasId": "general_memorial_1793206060_8",
+    "facilityId": "general_memorial",
+    "departmentId": "er",
+    "spokenTerm": "adult rsi airway tackle box",
+    "displayPreferredName": "Adult Rsi Airway Tackle Box",
+    "canonicalItemName": "RSI Medication Tackle Box",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T17:22:41Z"
+  },
+  {
+    "aliasId": "general_memorial_1793206060_9",
+    "facilityId": "general_memorial",
+    "departmentId": "pacu",
+    "spokenTerm": "bair hugger warming blanket",
+    "displayPreferredName": "Bair Hugger Warming Blanket",
+    "canonicalItemName": "Bair Hugger Full Body Blanket 30000",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T17:22:42Z"
+  },
+  {
+    "aliasId": "general_memorial_1793206061_10",
+    "facilityId": "general_memorial",
+    "departmentId": "icu",
+    "spokenTerm": "central line kit",
+    "displayPreferredName": "Central Line Kit",
+    "canonicalItemName": "Central Line (Arrow Triple Lumen CVC 7Fr 20cm)",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T17:22:42Z"
+  },
+  {
+    "aliasId": "general_memorial_1793206061_11",
+    "facilityId": "general_memorial",
+    "departmentId": "icu",
+    "spokenTerm": "arterial line",
+    "displayPreferredName": "Arterial Line",
+    "canonicalItemName": "Arterial Line Transducer (Edwards TruWave)",
+    "usageCount": 4,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T17:22:42Z"
+  },
+  {
+    "aliasId": "general_memorial_1793206061_12",
+    "facilityId": "general_memorial",
+    "departmentId": "er",
+    "spokenTerm": "rsi tackle box",
+    "displayPreferredName": "Rsi Tackle Box",
+    "canonicalItemName": "RSI Medication Tackle Box",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T17:22:42Z"
+  },
+  {
+    "aliasId": "general_memorial_1793206061_13",
+    "facilityId": "general_memorial",
+    "departmentId": "pacu",
+    "spokenTerm": "nerve block",
+    "displayPreferredName": "Nerve Block",
+    "canonicalItemName": "Ultrasound Nerve Block Tray & Needles",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T17:22:42Z"
+  },
+  {
+    "aliasId": "general_memorial_1793206061_14",
+    "facilityId": "general_memorial",
+    "departmentId": "er",
+    "spokenTerm": "chest tube insertion kit",
+    "displayPreferredName": "Chest Tube Insertion Kit",
+    "canonicalItemName": "Chest Tube Insertion Tray",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T17:22:42Z"
+  },
+  {
+    "aliasId": "general_memorial_1793206069_15",
+    "facilityId": "general_memorial",
+    "departmentId": "general",
+    "spokenTerm": "skin knife",
+    "displayPreferredName": "Skin Knife",
+    "canonicalItemName": "Ethicon Proximate 35W Skin Stapler",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T17:22:54Z"
+  },
+  {
+    "aliasId": "general_memorial_1793206084_16",
+    "facilityId": "general_memorial",
+    "departmentId": "general",
+    "spokenTerm": "laser scalpel 9000",
+    "displayPreferredName": "Laser Scalpel 9000",
+    "canonicalItemName": "Harmonic Scalpel ACE+7 Shears",
+    "usageCount": 2,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-28T17:23:10Z"
   }
 ]

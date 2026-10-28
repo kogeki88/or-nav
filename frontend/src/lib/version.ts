@@ -12,8 +12,8 @@ export interface VersionManifest {
   changelog: string;
 }
 
-export const CURRENT_VERSION = "v0.57";
-export const CURRENT_BUILD_NUMBER = 14;
+export const CURRENT_VERSION = "v0.58";
+export const CURRENT_BUILD_NUMBER = 15;
 export const CURRENT_RELEASE_DATE = "2026-10-28";
 
 export const GITHUB_REPO_OWNER = "kogeki88";
@@ -29,7 +29,7 @@ export const LOCAL_VERSION_MANIFEST: VersionManifest = {
   apk_download_url: CLOUD_APK_DOWNLOAD_URL,
   min_supported_version: "v0.1",
   changelog:
-    "v0.54 (Build 11): Semantic Intent & Slot-Parsing Engine, Biased Clinical Listening Normalizer, Conversational Inventory Mutations, and Uncut Markdown.",
+    "v0.58 (Build 15): Full system verification check, regression gauntlet passed, and production APK published.",
 };
 
 /**

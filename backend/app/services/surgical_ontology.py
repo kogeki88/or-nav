@@ -93,8 +93,6 @@ SURGICAL_EPONYMS: Set[str] = {
     "potts-smith",
     "cushing",
     "singley",
-    "bipolar",
-    "bayonet",
     # Scissors
     "metzenbaum",
     "mayo",
@@ -148,6 +146,7 @@ SURGICAL_EPONYMS: Set[str] = {
     "harrington",
     "green",
     "beckman",
+    "beckman-weitlaner",
     "jansen",
     "mastoid",
     "langenbeck",
@@ -400,6 +399,37 @@ def strip_spoken_disfluencies(text: str) -> str:
 # 5. Core Ontology Engine Functions
 # ---------------------------------------------------------------------------
 
+# Precompiled regex patterns for zero-latency ontology matching
+_STT_COMPILED = [
+    (re.compile(r"(?<![\w-])" + re.escape(err) + r"(?![\w-])", re.IGNORECASE), canonical)
+    for err, canonical in sorted(EPONYM_PHONETIC_STT_MAP.items(), key=lambda kv: len(kv[0]), reverse=True)
+]
+
+_LINGO_COMPILED = [
+    (re.compile(r"(?<![\w-])" + re.escape(slang) + r"(?![\w-])", re.IGNORECASE), standard)
+    for slang, standard in sorted(OR_LINGO_EQUIVALENCE.items(), key=lambda kv: len(kv[0]), reverse=True)
+]
+
+_COMPOUND_EPONYM_SUBS = [
+    (re.compile(r"\bbrown\s+adson\b", re.IGNORECASE), "brown-adson"),
+    (re.compile(r"\barmy\s+navy\b", re.IGNORECASE), "army-navy"),
+    (re.compile(r"\bbeckman\s+weitlaner\b", re.IGNORECASE), "beckman-weitlaner"),
+    (re.compile(r"\bmayo\s+hegar\b", re.IGNORECASE), "mayo-hegar"),
+    (re.compile(r"\bcrile\s+wood\b", re.IGNORECASE), "crile-wood"),
+    (re.compile(r"\bferris\s+smith\b", re.IGNORECASE), "ferris-smith"),
+    (re.compile(r"\bpotts\s+smith\b", re.IGNORECASE), "potts-smith"),
+    (re.compile(r"\brochester\s+pean\b", re.IGNORECASE), "rochester-pean"),
+    (re.compile(r"\bomni\s+tract\b", re.IGNORECASE), "omni-tract"),
+    (re.compile(r"\brichardson\s+eastman\b", re.IGNORECASE), "richardson-eastman"),
+    (re.compile(r"\bray\s+tec\b", re.IGNORECASE), "ray-tec"),
+]
+
+_EPONYM_COMPILED = [
+    (ep, re.compile(r"(?<![\w-])" + re.escape(ep) + r"(?![\w-])", re.IGNORECASE))
+    for ep in sorted(SURGICAL_EPONYMS, key=len, reverse=True)
+]
+
+
 def normalize_acoustic_speech(text: str) -> str:
     """
     Fix ONLY acoustic speech-to-text mishearings (e.g. 'add son' -> 'adson', 'the bakery' -> 'debakey'),
@@ -410,10 +440,9 @@ def normalize_acoustic_speech(text: str) -> str:
         return ""
     res = strip_spoken_disfluencies(text)
 
-    # Apply only phonetic STT fixes
-    for err, canonical in sorted(EPONYM_PHONETIC_STT_MAP.items(), key=lambda kv: len(kv[0]), reverse=True):
-        pattern = re.compile(r"(?<!\w)" + re.escape(err) + r"(?!\w)", re.IGNORECASE)
-        res = pattern.sub(canonical, res)
+    # Apply only phonetic STT fixes using precompiled patterns
+    for pat, canonical in _STT_COMPILED:
+        res = pat.sub(canonical, res)
 
     return re.sub(r"\s+", " ", res).strip()
 
@@ -432,14 +461,12 @@ def normalize_or_lingo(text: str) -> str:
     res = strip_spoken_disfluencies(text).lower()
 
     # 1. Phonetic STT Mishearings (longest keys first)
-    for err, canonical in sorted(EPONYM_PHONETIC_STT_MAP.items(), key=lambda kv: len(kv[0]), reverse=True):
-        pattern = re.compile(r"(?<!\w)" + re.escape(err) + r"(?!\w)", re.IGNORECASE)
-        res = pattern.sub(canonical, res)
+    for pat, canonical in _STT_COMPILED:
+        res = pat.sub(canonical, res)
 
     # 2. OR Lingo / Slang Substitutions (longest keys first)
-    for slang, standard in sorted(OR_LINGO_EQUIVALENCE.items(), key=lambda kv: len(kv[0]), reverse=True):
-        pattern = re.compile(r"(?<!\w)" + re.escape(slang) + r"(?!\w)", re.IGNORECASE)
-        res = pattern.sub(standard, res)
+    for pat, standard in _LINGO_COMPILED:
+        res = pat.sub(standard, res)
 
     # Clean double spaces
     return re.sub(r"\s+", " ", res).strip()
@@ -458,25 +485,13 @@ def extract_eponyms(text: str) -> Set[str]:
 
     lowered = text.lower()
     # Replace space in compound eponyms so they are treated as single tokens
-    lowered = re.sub(r"\bbrown\s+adson\b", "brown-adson", lowered)
-    lowered = re.sub(r"\barmy\s+navy\b", "army-navy", lowered)
-    lowered = re.sub(r"\bmayo\s+hegar\b", "mayo-hegar", lowered)
-    lowered = re.sub(r"\bcrile\s+wood\b", "crile-wood", lowered)
-    lowered = re.sub(r"\bferris\s+smith\b", "ferris-smith", lowered)
-    lowered = re.sub(r"\bpotts\s+smith\b", "potts-smith", lowered)
-    lowered = re.sub(r"\brochester\s+pean\b", "rochester-pean", lowered)
-    lowered = re.sub(r"\bomni\s+tract\b", "omni-tract", lowered)
-    lowered = re.sub(r"\brichardson\s+eastman\b", "richardson-eastman", lowered)
-    lowered = re.sub(r"\bray\s+tec\b", "ray-tec", lowered)
+    for pat, repl in _COMPOUND_EPONYM_SUBS:
+        lowered = pat.sub(repl, lowered)
 
     found: Set[str] = set()
-    # Check compound eponyms first
-    for ep in sorted(SURGICAL_EPONYMS, key=lambda s: len(s), reverse=True):
-        pattern = re.compile(r"(?<!\w)" + re.escape(ep) + r"(?!\w)", re.IGNORECASE)
-        if pattern.search(lowered):
-            # If compound matched (e.g. brown-adson), do not add single parts (adson)
-            if any(ep in c and ep != c for c in found):
-                continue
+    # Check compound and standalone eponyms using precompiled word-bounded patterns
+    for ep, pat in _EPONYM_COMPILED:
+        if pat.search(lowered):
             found.add(ep)
 
     # Also resolve slang that implies an eponym

@@ -21,7 +21,124 @@ from pydantic import BaseModel, Field
 ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent
 HOSPITALS_DIR = ROOT_DIR / "hospitals"
 
-_lexicon_lock = threading.Lock()
+_lexicon_lock = threading.RLock()
+
+DEFAULT_PRESEEDED_LEXICONS: dict[str, list[dict]] = {
+    "sacred_heart": [
+        {
+            "aliasId": "sh_lex_1",
+            "facilityId": "sacred_heart",
+            "departmentId": "or",
+            "spokenTerm": "adson pickups",
+            "displayPreferredName": "Adson Pickups",
+            "canonicalItemName": "Adson Tissue Forceps 1x2 (Adson Pickups)",
+            "usageCount": 6,
+            "usedByUsers": ["sean@sacredheart.org", "jd@sacredheart.org"],
+            "confidence": "facility_consensus",
+            "updatedAt": "2026-10-28T08:00:00Z",
+        },
+        {
+            "aliasId": "sh_lex_2",
+            "facilityId": "sacred_heart",
+            "departmentId": "or",
+            "spokenTerm": "toothed adson",
+            "displayPreferredName": "Toothed Adson",
+            "canonicalItemName": "Adson Tissue Forceps 1x2 (Adson Pickups)",
+            "usageCount": 2,
+            "usedByUsers": ["turk@sacredheart.org"],
+            "confidence": "facility_consensus",
+            "updatedAt": "2026-10-28T08:15:00Z",
+        },
+        {
+            "aliasId": "sh_lex_3",
+            "facilityId": "sacred_heart",
+            "departmentId": "or",
+            "spokenTerm": "gemini",
+            "displayPreferredName": "Gemini",
+            "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+            "usageCount": 5,
+            "usedByUsers": ["turk@sacredheart.org", "sean@sacredheart.org"],
+            "confidence": "facility_consensus",
+            "updatedAt": "2026-10-28T08:20:00Z",
+        },
+        {
+            "aliasId": "sh_lex_4",
+            "facilityId": "sacred_heart",
+            "departmentId": "or",
+            "spokenTerm": "peanut",
+            "displayPreferredName": "Peanut",
+            "canonicalItemName": "Kittner Dissector Sponges (Peanuts)",
+            "usageCount": 4,
+            "usedByUsers": ["carla@sacredheart.org", "sean@sacredheart.org"],
+            "confidence": "facility_consensus",
+            "updatedAt": "2026-10-28T08:30:00Z",
+        },
+        {
+            "aliasId": "sh_lex_5",
+            "facilityId": "sacred_heart",
+            "departmentId": "or",
+            "spokenTerm": "stat",
+            "displayPreferredName": "Stat",
+            "canonicalItemName": "Crile Hemostat Forceps Curved 5.5in (Snaps)",
+            "usageCount": 4,
+            "usedByUsers": ["elliot@sacredheart.org", "sean@sacredheart.org"],
+            "confidence": "facility_consensus",
+            "updatedAt": "2026-10-28T08:45:00Z",
+        },
+        {
+            "aliasId": "sh_lex_6",
+            "facilityId": "sacred_heart",
+            "departmentId": "or",
+            "spokenTerm": "pillowcase",
+            "displayPreferredName": "Pillowcase",
+            "canonicalItemName": "Mayo Stand Cover Reinforced Blue",
+            "usageCount": 3,
+            "usedByUsers": ["laverne@sacredheart.org", "sean@sacredheart.org"],
+            "confidence": "facility_consensus",
+            "updatedAt": "2026-10-28T08:50:00Z",
+        },
+    ],
+    "princeton_plainsboro": [
+        {
+            "aliasId": "ppth_lex_1",
+            "facilityId": "princeton_plainsboro",
+            "departmentId": "or",
+            "spokenTerm": "rat tooth",
+            "displayPreferredName": "Rat Tooth",
+            "canonicalItemName": "Adson Tissue Forceps 1x2 (Adson Pickups)",
+            "usageCount": 4,
+            "usedByUsers": ["chase@ppth.org", "cameron@ppth.org"],
+            "confidence": "facility_consensus",
+            "updatedAt": "2026-10-28T08:00:00Z",
+        },
+        {
+            "aliasId": "ppth_lex_2",
+            "facilityId": "princeton_plainsboro",
+            "departmentId": "or",
+            "spokenTerm": "right angle",
+            "displayPreferredName": "Right Angle",
+            "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+            "usageCount": 5,
+            "usedByUsers": ["foreman@ppth.org", "chase@ppth.org"],
+            "confidence": "facility_consensus",
+            "updatedAt": "2026-10-28T08:10:00Z",
+        },
+    ],
+    "county_general": [
+        {
+            "aliasId": "cg_lex_1",
+            "facilityId": "county_general",
+            "departmentId": "or",
+            "spokenTerm": "straight snap",
+            "displayPreferredName": "Straight Snap",
+            "canonicalItemName": "Crile Hemostat Forceps Straight 5.5in",
+            "usageCount": 3,
+            "usedByUsers": ["benton@countygen.org"],
+            "confidence": "facility_consensus",
+            "updatedAt": "2026-10-28T08:00:00Z",
+        },
+    ]
+}
 
 
 class LearnedAliasEntry(BaseModel):
@@ -77,15 +194,31 @@ def _get_facility_lexicon_path(facility_id: str) -> Path:
     return fac_dir / "learned_lexicon.json"
 
 
+_LEXICON_CACHE: dict[str, tuple[int, list[dict]]] = {}
+
+
 def load_facility_lexicon(facility_id: str) -> List[dict]:
-    """Load all learned aliases for a facility from disk."""
+    """Load all learned aliases for a facility from disk (cached in-memory by mtime)."""
     path = _get_facility_lexicon_path(facility_id)
     with _lexicon_lock:
         if not path.exists():
+            defaults = DEFAULT_PRESEEDED_LEXICONS.get(facility_id.lower(), [])
+            if defaults:
+                temp_path = path.with_suffix(".tmp")
+                temp_path.write_text(json.dumps(defaults, indent=2, ensure_ascii=False), encoding="utf-8")
+                temp_path.replace(path)
+                _LEXICON_CACHE[facility_id] = (path.stat().st_mtime_ns, [dict(d) for d in defaults])
+                return [dict(d) for d in defaults]
+            _LEXICON_CACHE.pop(facility_id, None)
             return []
         try:
+            mtime = path.stat().st_mtime_ns
+            cached = _LEXICON_CACHE.get(facility_id)
+            if cached is not None and cached[0] == mtime:
+                return cached[1]
             data = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(data, list):
+                _LEXICON_CACHE[facility_id] = (mtime, data)
                 return data
             return []
         except Exception:
@@ -99,18 +232,18 @@ def save_facility_lexicon(facility_id: str, entries: List[dict]) -> None:
         temp_path = path.with_suffix(".tmp")
         temp_path.write_text(json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
         temp_path.replace(path)
+        _LEXICON_CACHE.pop(facility_id, None)
 
 
 def reset_facility_lexicons() -> None:
-    """Clear all facility lexicon files (used in tests)."""
+    """Reset all facility lexicon files to pre-seeded defaults (used in tests)."""
     with _lexicon_lock:
-        for fac in ["sacred_heart", "princeton_plainsboro", "county_general"]:
-            p = _get_facility_lexicon_path(fac)
-            if p.exists():
-                try:
-                    p.unlink()
-                except Exception:
-                    pass
+        _LEXICON_CACHE.clear()
+        for fac, defaults in DEFAULT_PRESEEDED_LEXICONS.items():
+            path = _get_facility_lexicon_path(fac)
+            temp_path = path.with_suffix(".tmp")
+            temp_path.write_text(json.dumps(defaults, indent=2, ensure_ascii=False), encoding="utf-8")
+            temp_path.replace(path)
 
 
 def title_case_term(term: str) -> str:
@@ -193,37 +326,72 @@ def resolve_spoken_alias(facility_id: str, query: str) -> Optional[dict]:
     """
     Check if a query matches any learned alias for this facility.
     Matches exact normalized phrase, singular/plural stem, or subphrase.
+    Strictly prevents eponym false-positives across hyphens and protects
+    against conflicting sizing/gauge specifications.
     """
     if not query:
         return None
     norm_q = query.strip().lower()
     entries = load_facility_lexicon(facility_id)
+    if not entries:
+        return None
+
+    from app.services.surgical_ontology import extract_eponyms
+    from app.services.inventory_search import extract_gauge_and_specs, has_conflicting_specifications
+
+    query_specs = extract_gauge_and_specs(query)
+
+    def _is_valid_entry(entry: dict) -> bool:
+        canon = entry.get("canonicalItemName", "")
+        if not canon:
+            return False
+        # Veto only if query contains a distinct surgical eponym that conflicts with canonical item
+        q_eponyms = extract_eponyms(norm_q)
+        c_eponyms = extract_eponyms(canon)
+        if q_eponyms and not (q_eponyms & c_eponyms):
+            return False
+        # Veto if query has conflicting size/gauge specs with canonical item (e.g. 6in vs 12in)
+        canon_specs = extract_gauge_and_specs(canon)
+        fake_row = {"_specs": canon_specs, "item": canon, "aliases": "", "category": ""}
+        if has_conflicting_specifications(query_specs, fake_row):
+            return False
+        return True
 
     # 1. Exact match on spokenTerm or singular/plural stem
     for entry in entries:
         term = entry.get("spokenTerm", "").lower()
         if term == norm_q:
-            return entry
+            if _is_valid_entry(entry):
+                return entry
         if term.rstrip("s") == norm_q.rstrip("s") and len(term.rstrip("s")) >= 3:
-            return entry
+            if _is_valid_entry(entry):
+                return entry
 
     # 2. Query equals displayPreferredName
     for entry in entries:
         disp = entry.get("displayPreferredName", "").lower()
         if disp == norm_q:
-            return entry
+            if _is_valid_entry(entry):
+                return entry
         if disp.rstrip("s") == norm_q.rstrip("s") and len(disp.rstrip("s")) >= 3:
-            return entry
+            if _is_valid_entry(entry):
+                return entry
 
     # 3. Word-bounded subphrase match (e.g. "where can i find adson pickups in or 21" or "where is the gemini")
+    # Uses (?<![\w-]) and (?![\w-]) to prevent false-positive matching inside compound words (e.g. brown-adson)
     for entry in entries:
         term = entry.get("spokenTerm", "").lower()
         if len(term) >= 3:
-            if re.search(rf"\b{re.escape(term)}\b", norm_q):
-                return entry
+            pattern = rf"(?<![\w-]){re.escape(term)}(?![\w-])"
+            if re.search(pattern, norm_q):
+                if _is_valid_entry(entry):
+                    return entry
             stem = term.rstrip("s")
-            if len(stem) >= 3 and re.search(rf"\b{re.escape(stem)}(?:s)?\b", norm_q):
-                return entry
+            if len(stem) >= 3:
+                stem_pattern = rf"(?<![\w-]){re.escape(stem)}(?:s)?(?![\w-])"
+                if re.search(stem_pattern, norm_q):
+                    if _is_valid_entry(entry):
+                        return entry
 
     return None
 

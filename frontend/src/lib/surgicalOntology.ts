@@ -82,8 +82,6 @@ export const SURGICAL_EPONYMS: Set<string> = new Set([
   "potts-smith",
   "cushing",
   "singley",
-  "bipolar",
-  "bayonet",
   // Scissors
   "metzenbaum",
   "mayo",
@@ -137,6 +135,7 @@ export const SURGICAL_EPONYMS: Set<string> = new Set([
   "harrington",
   "green",
   "beckman",
+  "beckman-weitlaner",
   "jansen",
   "mastoid",
   "langenbeck",
@@ -401,6 +400,7 @@ export function extractEponyms(text: string): Set<string> {
   let lowered = text.toLowerCase();
   lowered = lowered.replace(/\bbrown\s+adson\b/g, "brown-adson");
   lowered = lowered.replace(/\barmy\s+navy\b/g, "army-navy");
+  lowered = lowered.replace(/\bbeckman\s+weitlaner\b/g, "beckman-weitlaner");
   lowered = lowered.replace(/\bmayo\s+hegar\b/g, "mayo-hegar");
   lowered = lowered.replace(/\bcrile\s+wood\b/g, "crile-wood");
   lowered = lowered.replace(/\bferris\s+smith\b/g, "ferris-smith");
@@ -414,18 +414,9 @@ export function extractEponyms(text: string): Set<string> {
   const sortedEponyms = Array.from(SURGICAL_EPONYMS).sort((a, b) => b.length - a.length);
 
   for (const ep of sortedEponyms) {
-    const regex = new RegExp(`(?<!\\w)${ep.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?!\\w)`, "i");
+    const regex = new RegExp(`(?<![\\w-])${ep.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?![\\w-])`, "i");
     if (regex.test(lowered)) {
-      let isSub = false;
-      for (const existing of found) {
-        if (existing.includes(ep) && existing !== ep) {
-          isSub = true;
-          break;
-        }
-      }
-      if (!isSub) {
-        found.add(ep);
-      }
+      found.add(ep);
     }
   }
 

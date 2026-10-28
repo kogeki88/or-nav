@@ -8,6 +8,8 @@
  * - Syncs with /api/lexicon when online.
  */
 
+import { extractEponyms } from "./surgicalOntology";
+
 export interface LearnedAliasEntry {
   aliasId: string;
   facilityId: string;
@@ -70,6 +72,30 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
       usedByUsers: ["carla@sacredheart.org", "sean@sacredheart.org"],
       confidence: "facility_consensus",
       updatedAt: "2026-10-28T08:30:00Z",
+    },
+    {
+      aliasId: "sh_lex_5",
+      facilityId: "sacred_heart",
+      departmentId: "or",
+      spokenTerm: "stat",
+      displayPreferredName: "Stat",
+      canonicalItemName: "Crile Hemostat Forceps Curved 5.5in (Snaps)",
+      usageCount: 4,
+      usedByUsers: ["elliot@sacredheart.org", "sean@sacredheart.org"],
+      confidence: "facility_consensus",
+      updatedAt: "2026-10-28T08:45:00Z",
+    },
+    {
+      aliasId: "sh_lex_6",
+      facilityId: "sacred_heart",
+      departmentId: "or",
+      spokenTerm: "pillowcase",
+      displayPreferredName: "Pillowcase",
+      canonicalItemName: "Mayo Stand Cover Reinforced Blue",
+      usageCount: 3,
+      usedByUsers: ["laverne@sacredheart.org", "sean@sacredheart.org"],
+      confidence: "facility_consensus",
+      updatedAt: "2026-10-28T08:50:00Z",
     },
   ],
   princeton_plainsboro: [
@@ -257,25 +283,51 @@ export function resolveSpokenAliasClient(facilityId: string, query: string): Lea
   if (!query) return null;
   const normQ = query.trim().toLowerCase();
   const entries = loadFacilityLexicon(facilityId);
+  const qEponyms = extractEponyms(normQ);
+
+  const isValidEntry = (entry: LearnedAliasEntry): boolean => {
+    const canon = entry.canonicalItemName || "";
+    if (!canon) return false;
+    const cEponyms = extractEponyms(canon);
+    if (qEponyms.size > 0) {
+      let hasOverlap = false;
+      for (const ep of qEponyms) {
+        if (cEponyms.has(ep)) {
+          hasOverlap = true;
+          break;
+        }
+      }
+      if (!hasOverlap) return false;
+    }
+    return true;
+  };
 
   // Exact or stem match
   for (const entry of entries) {
     const term = entry.spokenTerm.toLowerCase();
     const disp = entry.displayPreferredName.toLowerCase();
-    if (term === normQ || disp === normQ) return entry;
-    if (term.replace(/s$/, "") === normQ.replace(/s$/, "") && term.length >= 3) return entry;
+    if (term === normQ || disp === normQ) {
+      if (isValidEntry(entry)) return entry;
+    }
+    if (term.replace(/s$/, "") === normQ.replace(/s$/, "") && term.length >= 3) {
+      if (isValidEntry(entry)) return entry;
+    }
   }
 
-  // Word-bounded subphrase match
+  // Word-bounded subphrase match (protect against hyphen leaks like brown-adson vs adson)
   for (const entry of entries) {
     const term = entry.spokenTerm.toLowerCase();
     if (term.length >= 3) {
-      if (new RegExp(`\\b${term.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "i").test(normQ)) {
-        return entry;
+      const termRegex = new RegExp(`(?<![\\w-])${term.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?![\\w-])`, "i");
+      if (termRegex.test(normQ)) {
+        if (isValidEntry(entry)) return entry;
       }
       const stem = term.replace(/s$/, "");
-      if (stem.length >= 3 && new RegExp(`\\b${stem.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?:s)?\\b`, "i").test(normQ)) {
-        return entry;
+      if (stem.length >= 3) {
+        const stemRegex = new RegExp(`(?<![\\w-])${stem.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?:s)?(?![\\w-])`, "i");
+        if (stemRegex.test(normQ)) {
+          if (isValidEntry(entry)) return entry;
+        }
       }
     }
   }

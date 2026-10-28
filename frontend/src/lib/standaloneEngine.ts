@@ -23,7 +23,7 @@ import {
 } from "./seedData";
 import { directGeminiRAG, isGeminiDirectAvailable } from "./directGemini";
 import { parseClinicalIntent, ClinicalIntent, extractAndNormalizeCoordinateClient } from "./semanticParser";
-import { isEponymConflict, isGenericClassOnly, normalizeOrLingo, stripSpokenDisfluencies } from "./surgicalOntology";
+import { isEponymConflict, isGenericClassOnly, normalizeOrLingo, stripSpokenDisfluencies, extractEponyms } from "./surgicalOntology";
 import {
   getFacilityIdFromTenant,
   resolveSpokenAliasClient,
@@ -860,25 +860,6 @@ export function findMatchingRow(
     facilityId ||
     (rows.length > 0 && rows[0].tenant_id ? getFacilityIdFromTenant(rows[0].tenant_id).facilityId : "sacred_heart");
 
-  // Check learned facility lexicon first
-  const aliasEntry = resolveSpokenAliasClient(facId, query);
-  if (aliasEntry) {
-    const canonNorm = aliasEntry.canonicalItemName.trim().toLowerCase();
-    for (const r of rows) {
-      if (r.item.trim().toLowerCase() === canonNorm || (r.normalized_name && r.normalized_name.toLowerCase() === canonNorm)) {
-        const pref = aliasEntry.displayPreferredName || titleCaseTerm(aliasEntry.spokenTerm);
-        learnAliasClient(facId, "or", aliasEntry.spokenTerm, r.item, userId || "anonymous", pref);
-        return {
-          row: r,
-          stage: "STAGE_A_LEXICON_ALIAS",
-          userPreferredTerm: pref,
-          facilityAliases: getAllAliasesForItemClient(facId, r.item),
-          facilityName: facId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-        };
-      }
-    }
-  }
-
   const [normQuery, queryPhonetic] = normalizeAndHash(query);
   const querySpecs = extractGaugeAndSpecs(`${normQuery} ${cleaned} ${query}`);
   const normLingo = normalizeOrLingo(cleaned);
@@ -898,7 +879,58 @@ export function findMatchingRow(
     };
   };
 
-  // STAGE A: Exact Normalized Match
+  // 1. Exact Normalized Match (Catalog priority: exact catalog names/aliases never hijacked by loose learned aliases)
+  for (const row of rows) {
+    const normRow = row.normalized_name || normalizeAndHash(row.item)[0];
+    const aliases = (row.aliases || "")
+      .toLowerCase()
+      .split("|")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    if (normQuery === normRow || aliases.includes(normQuery) || normLingo === normRow || aliases.includes(normLingo)) {
+      if (hasConflictingSpecifications(querySpecs, row)) continue;
+      const rowFull = `${row.item} ${row.aliases || ""}`;
+      if (isEponymConflict(cleaned, rowFull)) continue;
+      return wrapMatch(row, "STAGE_A_EXACT");
+    }
+  }
+
+  // 2. Check learned facility lexicon (for uncataloged colloquialisms / local slang)
+  const aliasEntry = resolveSpokenAliasClient(facId, query);
+  if (aliasEntry) {
+    const canonNorm = aliasEntry.canonicalItemName.trim().toLowerCase();
+    for (const r of rows) {
+      if (r.item.trim().toLowerCase() === canonNorm || (r.normalized_name && r.normalized_name.toLowerCase() === canonNorm)) {
+        if (hasConflictingSpecifications(querySpecs, r)) continue;
+        const rowFull = `${r.item} ${r.aliases || ""}`;
+        const qEponyms = extractEponyms(cleaned);
+        const cEponyms = extractEponyms(rowFull);
+        if (qEponyms.size > 0) {
+          let hasOverlap = false;
+          for (const ep of qEponyms) {
+            if (cEponyms.has(ep)) {
+              hasOverlap = true;
+              break;
+            }
+          }
+          if (!hasOverlap) continue;
+        }
+
+        const pref = aliasEntry.displayPreferredName || titleCaseTerm(aliasEntry.spokenTerm);
+        learnAliasClient(facId, "or", aliasEntry.spokenTerm, r.item, userId || "anonymous", pref);
+        return {
+          row: r,
+          stage: "STAGE_A_LEXICON_ALIAS",
+          userPreferredTerm: pref,
+          facilityAliases: getAllAliasesForItemClient(facId, r.item),
+          facilityName: facId.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+        };
+      }
+    }
+  }
+
+  // 3. Fallback to STAGE A Prefix / Subphrase, STAGE B, STAGE C
   for (const row of rows) {
     if (hasConflictingSpecifications(querySpecs, row)) continue;
     const rowFull = `${row.item} ${row.aliases || ""}`;
@@ -911,9 +943,6 @@ export function findMatchingRow(
       .map((s) => s.trim())
       .filter(Boolean);
 
-    if (normQuery === normRow || aliases.includes(normQuery) || normLingo === normRow || aliases.includes(normLingo)) {
-      return wrapMatch(row, "STAGE_A_EXACT");
-    }
     if ((normRow.startsWith(`${normQuery} `) && normQuery.length >= 4) || (normRow.startsWith(`${normLingo} `) && normLingo.length >= 4)) {
       return wrapMatch(row, "STAGE_A_EXACT");
     }

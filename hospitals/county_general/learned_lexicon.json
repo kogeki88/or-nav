@@ -3,42 +3,14 @@
     "aliasId": "cg_lex_1",
     "facilityId": "county_general",
     "departmentId": "or",
-    "spokenTerm": "1x2 pickups",
-    "displayPreferredName": "1x2 Pickups",
-    "canonicalItemName": "Adson Tissue Forceps 1x2 (Adson Pickups)",
-    "usageCount": 5,
+    "spokenTerm": "straight snap",
+    "displayPreferredName": "Straight Snap",
+    "canonicalItemName": "Crile Hemostat Forceps Straight 5.5in",
+    "usageCount": 3,
     "usedByUsers": [
-      "benton@countygen.org",
-      "carter@countygen.org"
-    ],
-    "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T08:00:00Z"
-  },
-  {
-    "aliasId": "cg_lex_2",
-    "facilityId": "county_general",
-    "departmentId": "or",
-    "spokenTerm": "mixter clamp",
-    "displayPreferredName": "Mixter Clamp",
-    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
-    "usageCount": 4,
-    "usedByUsers": [
-      "ross@countygen.org",
       "benton@countygen.org"
     ],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T08:15:00Z"
-  },
-  {
-    "aliasId": "county_general_1793196096_3",
-    "facilityId": "county_general",
-    "departmentId": "county_general/or",
-    "spokenTerm": "debakey",
-    "displayPreferredName": "Debakey",
-    "canonicalItemName": "DeBakey Vascular Tissue Forceps 12in",
-    "usageCount": 3,
-    "usedByUsers": [],
-    "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T14:14:46Z"
+    "updatedAt": "2026-10-28T08:00:00Z"
   }
 ]

@@ -124,9 +124,9 @@ _PROCEDURAL_INDICATORS = re.compile(
     r"(?:dr\.?|doctor)\s+[a-z]+(?:'s)?\s+(?:prefer|preference|protocol|like|use|want)|"
     r"prefer(?:s|ence|ences)?|"
     r"protocol|guideline|policy|checklist|orient(?:ation)?|"
-    r"mayo\s+stand|tray\s+(?:breakdown|setup)|instrument\s+setup|suture\s+loading|"
+    r"mayo\s+stand\s+(?:setup|layout|rules?|breakdown)|tray\s+(?:breakdown|setup)|instrument\s+setup|suture\s+loading|"
     r"activate\s+mtp|massive\s+transfusion|"
-    r"malignant\s+hyperthermia|dantrolene\s+(?:dose|dosing|protocol|mixing|reconstitution)|"
+    r"malignant\s+hyperthermia\s+(?:protocol|guidelines?|policy|crisis|management|algorithm|steps?)|dantrolene\s+(?:dose|dosing|protocol|mixing|reconstitution)|"
     r"heparin\s+(?:dose|dosing|target|act|protocol)|"
     r"protamine\s+(?:dose|dosing|protocol|ratio|reversal)|"
     r"act\s+target|target\s+act|"
@@ -762,6 +762,7 @@ class InventoryService:
                 phon_aliases.append(pa)
 
         specs = extract_gauge_and_specs(f"{item_name} {aliases_raw} {(row.get('surgeon_notes') or '')}")
+        eponyms = extract_eponyms(f"{item_name} {aliases_raw}")
 
         return {
             "item": item_name,
@@ -783,6 +784,7 @@ class InventoryService:
             "_norm_aliases": norm_aliases,
             "_phon_aliases": phon_aliases,
             "_specs": specs,
+            "_eponyms": eponyms,
         }
 
     def _load_csv(self) -> None:
@@ -917,7 +919,7 @@ class InventoryService:
         text = strip_spoken_disfluencies(query)
         text = re.sub(r"\[REDACTED_PHI\]", " ", text, flags=re.IGNORECASE)
         text = re.sub(r"\b(?:from|in)\s+(?:or|room)\s*\d+\b", " ", text, flags=re.IGNORECASE)
-        text = re.sub(r"[?!.,;:\"'()]+", " ", text)
+        text = re.sub(r"[?!,;:\"'()]+|(?<!\d)\.|\.(?!\d)", " ", text)
         text = re.sub(r"\s+", " ", text).strip()
 
         text = _QUERY_PREFIXES.sub("", text).strip()
@@ -959,12 +961,22 @@ class InventoryService:
             return 0.0
 
         candidates = [row["item"].lower()]
-        if row["aliases"]:
+        if row.get("aliases"):
             candidates.extend(
                 alias.strip().lower()
                 for alias in row["aliases"].split("|")
                 if alias.strip()
             )
+        fac_aliases = row.get("facility_aliases") or row.get("_facility_aliases") or []
+        if fac_aliases:
+            candidates.extend(
+                fa.strip().lower()
+                for fa in fac_aliases
+                if fa.strip()
+            )
+        user_pref = row.get("user_preferred_term") or row.get("_user_preferred_term")
+        if user_pref:
+            candidates.append(user_pref.strip().lower())
 
         row_text_all = " ".join(candidates)
         if is_eponym_conflict(cleaned_query, row_text_all):
@@ -1012,14 +1024,17 @@ class InventoryService:
 
         # --- STAGE A: Exact Normalized Match ---
         for row in self._rows:
-            if has_conflicting_specifications(query_specs, row):
-                continue
-            row_full = f"{row.get('item', '')} {row.get('aliases', '')}"
-            if is_eponym_conflict(cleaned, row_full):
-                continue
-            if norm_query == row["normalized_name"] or norm_query in row["_norm_aliases"]:
-                return row, "STAGE_A_EXACT"
-            if norm_lingo == row["normalized_name"] or norm_lingo in row["_norm_aliases"]:
+            if (
+                norm_query == row["normalized_name"]
+                or norm_query in row["_norm_aliases"]
+                or norm_lingo == row["normalized_name"]
+                or norm_lingo in row["_norm_aliases"]
+            ):
+                if has_conflicting_specifications(query_specs, row):
+                    continue
+                row_full = f"{row.get('item', '')} {row.get('aliases', '')}"
+                if is_eponym_conflict(cleaned, row_full):
+                    continue
                 return row, "STAGE_A_EXACT"
 
         # Check leading prefix match (e.g. "3-0 silk" matching "3-0 silk suture")
@@ -1118,49 +1133,94 @@ class InventoryService:
 
         with self._lock:
             facility_id, department_id = get_facility_id_from_tenant(self.tenant.tenant_id)
-            alias_entry = resolve_spoken_alias(facility_id, query)
             matched_row = None
             stage = ""
+            cleaned_q = self._clean_query(query)
 
-            # Check learned facility lexicon first
-            if alias_entry:
-                canon_norm = alias_entry["canonicalItemName"].strip().lower()
-                for r in self._rows:
-                    if r["item"].strip().lower() == canon_norm or r["normalized_name"] == canon_norm:
-                        matched_row = r
-                        stage = "STAGE_A_LEXICON_ALIAS"
-                        cleaned_q = self._clean_query(query)
-                        matched_row["_user_preferred_term"] = title_case_term(cleaned_q) if cleaned_q else (alias_entry.get("displayPreferredName") or title_case_term(alias_entry["spokenTerm"]))
-                        matched_row["_facility_aliases"] = get_all_aliases_for_item(facility_id, r["item"])
+            # 1. Exact catalog match check (Stage A exact)
+            # If the user's query exactly matches a catalog item name or catalog alias,
+            # resolve it immediately so learned aliases never hijack exact catalog items.
+            if cleaned_q and len(cleaned_q) >= 2 and not is_generic_class_only(cleaned_q):
+                norm_query, _ = normalize_and_hash(cleaned_q)
+                query_specs = extract_gauge_and_specs(f"{norm_query} {cleaned_q} {query}")
+                norm_lingo = normalize_or_lingo(cleaned_q)
+
+                for row in self._rows:
+                    if (
+                        norm_query == row["normalized_name"]
+                        or norm_query in row["_norm_aliases"]
+                        or norm_lingo == row["normalized_name"]
+                        or norm_lingo in row["_norm_aliases"]
+                    ):
+                        if has_conflicting_specifications(query_specs, row):
+                            continue
+                        row_full = f"{row.get('item', '')} {row.get('aliases', '')}"
+                        if is_eponym_conflict(cleaned_q, row_full):
+                            continue
+                        matched_row = row
+                        stage = "STAGE_A_EXACT"
+                        user_pref = title_case_term(cleaned_q) if cleaned_q else matched_row["item"]
+                        matched_row["_facility_aliases"] = get_all_aliases_for_item(facility_id, matched_row["item"])
                         matched_row["_facility_name"] = facility_id.replace("_", " ").title()
-                        learn_alias(
-                            facility_id=facility_id,
-                            department_id=department_id,
-                            spoken_term=alias_entry["spokenTerm"],
-                            canonical_item=r["item"],
-                            user_id=user_id or "anonymous",
-                            display_name=alias_entry.get("displayPreferredName"),
-                        )
+                        if cleaned_q and cleaned_q.lower() != matched_row["item"].lower():
+                            matched_row["_user_preferred_term"] = user_pref
+                        else:
+                            matched_row["_user_preferred_term"] = matched_row["item"]
                         break
 
+            # 2. Check learned facility lexicon (for local slang / uncataloged colloquialisms)
+            if matched_row is None:
+                alias_entry = resolve_spoken_alias(facility_id, query)
+                if alias_entry:
+                    canon_norm = alias_entry["canonicalItemName"].strip().lower()
+                    query_specs = extract_gauge_and_specs(f"{cleaned_q} {query}")
+                    for r in self._rows:
+                        if r["item"].strip().lower() == canon_norm or r["normalized_name"] == canon_norm:
+                            if has_conflicting_specifications(query_specs, r):
+                                continue
+                            q_eponyms = extract_eponyms(cleaned_q)
+                            c_eponyms = r.get("_eponyms") or extract_eponyms(f"{r.get('item', '')} {r.get('aliases', '')}")
+                            if q_eponyms and not (q_eponyms & c_eponyms):
+                                continue
+                            matched_row = r
+                            stage = "STAGE_A_LEXICON_ALIAS"
+                            matched_row["_user_preferred_term"] = (
+                                title_case_term(cleaned_q)
+                                if cleaned_q
+                                else (alias_entry.get("displayPreferredName") or title_case_term(alias_entry["spokenTerm"]))
+                            )
+                            matched_row["_facility_aliases"] = get_all_aliases_for_item(facility_id, r["item"])
+                            matched_row["_facility_name"] = facility_id.replace("_", " ").title()
+                            if record_implicit_verification:
+                                learn_alias(
+                                    facility_id=facility_id,
+                                    department_id=department_id,
+                                    spoken_term=alias_entry["spokenTerm"],
+                                    canonical_item=r["item"],
+                                    user_id=user_id or "anonymous",
+                                    display_name=alias_entry.get("displayPreferredName"),
+                                )
+                            break
+
+            # 3. Fallback to full 3-Stage Cascade (prefix, phonetic, fuzzy)
             if matched_row is None:
                 matched_row, stage = self._find_matching_row(query)
                 if matched_row is not None:
-                    cleaned_q = self._clean_query(query)
-                    user_pref = title_case_term(cleaned_q)
+                    user_pref = title_case_term(cleaned_q) if cleaned_q else matched_row["item"]
                     matched_row["_facility_aliases"] = get_all_aliases_for_item(facility_id, matched_row["item"])
                     matched_row["_facility_name"] = facility_id.replace("_", " ").title()
                     # If user asked with a slang / local variant (not identical to item name)
-                    if cleaned_q.lower() != matched_row["item"].lower():
+                    if cleaned_q and cleaned_q.lower() != matched_row["item"].lower():
                         matched_row["_user_preferred_term"] = user_pref
-                        learn_alias(
-                            facility_id=facility_id,
-                            department_id=department_id,
-                            spoken_term=cleaned_q,
-                            canonical_item=matched_row["item"],
-                            user_id=user_id or "anonymous",
-                            display_name=user_pref,
-                        )
+                        if record_implicit_verification:
+                            learn_alias(
+                                facility_id=facility_id,
+                                department_id=department_id,
+                                spoken_term=cleaned_q,
+                                canonical_item=matched_row["item"],
+                                user_id=user_id or "anonymous",
+                                display_name=user_pref,
+                            )
                     else:
                         matched_row["_user_preferred_term"] = matched_row["item"]
 
