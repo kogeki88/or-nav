@@ -8,7 +8,13 @@
 
 import Dexie, { type Table } from "dexie";
 import type { CoordinateCardData, DepartmentQuestion } from "./api";
-import { SEED_UNANSWERED_QUESTIONS, getSeedQuestions } from "./seedData";
+import {
+  SEED_UNANSWERED_QUESTIONS,
+  getSeedQuestions,
+  getSeedInventoryItems,
+  DEFAULT_TENANT,
+} from "./seedData";
+import { CURRENT_BUILD_NUMBER } from "./version";
 import type { MessageItem } from "@/components/ChatCanvas";
 
 export interface OfflineInventoryRecord extends CoordinateCardData {
@@ -542,6 +548,7 @@ export async function syncTenantInventoryToOfflineDb(
     if (!res.ok) return 0;
     const data = await res.json();
     const items: CoordinateCardData[] = data.items || [];
+    if (!items || items.length === 0) return 0;
 
     const records: OfflineInventoryRecord[] = items.map((item) => ({
       ...item,
@@ -554,14 +561,25 @@ export async function syncTenantInventoryToOfflineDb(
     if (!db) return 0;
 
     try {
+      // Preserve any user-added items
+      const existing = await db.inventoryItems
+        .where("tenant_id")
+        .equals(tenantId)
+        .toArray();
+      const userAdded = existing.filter(
+        (e) => e.status === "user_added" || (e.verify_count !== undefined && e.verify_count < 3)
+      );
+
       await db.inventoryItems.where("tenant_id").equals(tenantId).delete();
-      await db.inventoryItems.bulkPut(records);
-      return records.length;
+      await db.inventoryItems.bulkPut([...records, ...userAdded]);
+      localStorage.setItem(`ornav_dexie_build_${tenantId}`, String(CURRENT_BUILD_NUMBER));
+      return records.length + userAdded.length;
     } catch {
       // Self-heal and retry once on corruption / version conflict (Vector 7)
       const healedDb = await selfHealOfflineDatabase();
       if (healedDb) {
         await healedDb.inventoryItems.bulkPut(records);
+        localStorage.setItem(`ornav_dexie_build_${tenantId}`, String(CURRENT_BUILD_NUMBER));
         return records.length;
       }
     }
@@ -569,6 +587,167 @@ export async function syncTenantInventoryToOfflineDb(
   } catch {
     return 0;
   }
+}
+
+/**
+ * Hydrates or automatically upgrades Dexie inventory items for a tenant.
+ *
+ * Prevents the "stale cache trap" where devices with an older or partial cache
+ * (e.g. 34 items) fail to receive the full 143+ item catalog.
+ *
+ * Upgrade triggers:
+ * 1. forceRebuild === true
+ * 2. Existing Dexie item count < seedItems.length (e.g. 34 < 143)
+ * 3. Stored build number < CURRENT_BUILD_NUMBER
+ *
+ * Preserves user-added items and provisional moves during upgrade!
+ */
+export async function hydrateOrUpgradeOfflineInventory(
+  tenantId: string = DEFAULT_TENANT,
+  forceRebuild: boolean = false
+): Promise<number> {
+  if (typeof window === "undefined") return 0;
+  const db = activeDb || (await selfHealOfflineDatabase());
+  if (!db) return 0;
+
+  // Normalize tenantId (handle legacy underscores if passed)
+  const normTenant = tenantId.includes("::") ? tenantId : tenantId.replace("_", "::");
+
+  try {
+    const seedItems = getSeedInventoryItems(normTenant);
+    const existingItems = await db.inventoryItems
+      .where("tenant_id")
+      .equals(normTenant)
+      .toArray();
+
+    const storedBuildKey = `ornav_dexie_build_${normTenant}`;
+    const storedBuild = parseInt(
+      localStorage.getItem(storedBuildKey) || "0",
+      10
+    );
+
+    const isStale =
+      existingItems.length === 0 ||
+      existingItems.length < seedItems.length ||
+      storedBuild < CURRENT_BUILD_NUMBER ||
+      forceRebuild;
+
+    if (!isStale) {
+      return existingItems.length;
+    }
+
+    // 1. Identify user-added custom items or provisional moves to preserve
+    const userItems = existingItems.filter(
+      (item) =>
+        item.status === "user_added" ||
+        (item.verify_count !== undefined && item.verify_count < 3) ||
+        !seedItems.some(
+          (s) => s.item.toLowerCase() === item.item.toLowerCase()
+        )
+    );
+
+    // 2. Build record map starting with seed items
+    const recordMap = new Map<string, OfflineInventoryRecord>();
+    for (const item of seedItems) {
+      const lower = item.item.toLowerCase();
+      recordMap.set(lower, {
+        ...item,
+        id: `${normTenant}::${lower}`,
+        tenant_id: normTenant,
+        normalized_name: normalizeClientQuery(item.item),
+      });
+    }
+
+    // 3. Check if installed resource packs in Dexie have custom inventory CSV
+    try {
+      const installedPacks = await db.installedPacks.toArray();
+      const [facId, deptId] = normTenant.split("::");
+      const invPack = installedPacks.find(
+        (p) =>
+          p.filePath.endsWith("inventory.csv") &&
+          p.facilityId === facId &&
+          (!p.departmentId || p.departmentId === deptId)
+      );
+      if (invPack && invPack.content) {
+        const lines = invPack.content.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        if (lines.length > 1) {
+          const header = lines[0].split(",").map((h) => h.trim().toLowerCase());
+          const itemIdx = header.indexOf("item");
+          const roomIdx = header.indexOf("room");
+          const cabIdx = header.indexOf("cabinet");
+          const shelfIdx = header.indexOf("shelf");
+          const binIdx = header.indexOf("container");
+          const codeIdx = header.indexOf("full_code");
+          const phoneticIdx = header.indexOf("phonetic_code");
+          const notesIdx = header.indexOf("surgeon_notes");
+          const catIdx = header.indexOf("category");
+
+          for (let i = 1; i < lines.length; i++) {
+            const parts = lines[i].split(",").map((p) => p.trim());
+            if (parts.length < 5) continue;
+            const itemName = parts[itemIdx] || parts[0];
+            const lower = itemName.toLowerCase();
+            const rm = parts[roomIdx] || "Main OR";
+            const cab = parts[cabIdx] || "A";
+            const sh = parts[shelfIdx] || "1";
+            const bin = parts[binIdx] || "A";
+            const fullCode = parts[codeIdx] || `${rm} ${cab} ${sh} ${bin}`;
+            recordMap.set(lower, {
+              id: `${normTenant}::${lower}`,
+              tenant_id: normTenant,
+              item: itemName,
+              room: rm,
+              cabinet: cab,
+              shelf: sh,
+              container: bin,
+              full_code: fullCode,
+              phonetic_code: parts[phoneticIdx] || fullCode,
+              surgeon_notes: notesIdx >= 0 ? parts[notesIdx] : "",
+              category: catIdx >= 0 ? parts[catIdx] : "",
+              pending_location: "",
+              verify_count: 3,
+              normalized_name: normalizeClientQuery(itemName),
+            });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[Dexie Hydration] Failed to overlay installed inventory packs:", e);
+    }
+
+    // 4. Overlay user-added items so custom clinician modifications are never lost
+    for (const u of userItems) {
+      recordMap.set(u.item.toLowerCase(), {
+        ...u,
+        id: `${normTenant}::${u.item.toLowerCase()}`,
+        tenant_id: normTenant,
+        normalized_name: normalizeClientQuery(u.item),
+      });
+    }
+
+    const mergedRecords = Array.from(recordMap.values());
+
+    // 5. Clean up old tenant records and legacy underscore records
+    await db.inventoryItems.where("tenant_id").equals(normTenant).delete();
+    const legacyUnderscore = normTenant.replace("::", "_");
+    if (legacyUnderscore !== normTenant) {
+      await db.inventoryItems.where("tenant_id").equals(legacyUnderscore).delete();
+    }
+
+    // 6. Bulk put merged records into Dexie
+    await db.inventoryItems.bulkPut(mergedRecords);
+    localStorage.setItem(storedBuildKey, String(CURRENT_BUILD_NUMBER));
+
+    return mergedRecords.length;
+  } catch (err) {
+    console.warn("[Dexie Hydration] Error in hydrateOrUpgradeOfflineInventory:", err);
+    return 0;
+  }
+}
+
+if (typeof window !== "undefined") {
+  (window as any).hydrateOrUpgradeOfflineInventory = hydrateOrUpgradeOfflineInventory;
+  (window as any).offlineDb = activeDb;
 }
 
 const SUTURE_MATERIALS = [

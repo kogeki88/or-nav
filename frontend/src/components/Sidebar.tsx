@@ -97,6 +97,7 @@ interface SidebarProps {
   onDeleteSession?: (sessionId: string) => void;
   onClearAllSessions?: () => void;
   onSignOut?: () => void;
+  onRebuildCache?: () => Promise<number>;
 }
 
 export default function Sidebar({
@@ -133,7 +134,9 @@ export default function Sidebar({
   onDeleteSession,
   onClearAllSessions,
   onSignOut,
+  onRebuildCache,
 }: SidebarProps) {
+  const [isRebuildingCache, setIsRebuildingCache] = useState(false);
   const [recentCasesOpen, setRecentCasesOpen] = useState(true);
   const [recentQueriesOpen, setRecentQueriesOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -1070,7 +1073,33 @@ export default function Sidebar({
                 <div className="p-2.5 pt-1.5 border-t border-zinc-800/60 space-y-1.5 bg-zinc-950/60 text-[11px] font-mono text-zinc-400">
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-500">Offline Cache:</span>
-                    <span className="text-zinc-300">{offlineSyncedCount} items (Dexie)</span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-zinc-300" data-testid="dexie-item-count">
+                        {offlineSyncedCount} items (Dexie)
+                        {offlineSyncedCount >= 140 ? " • All Packs Active" : ""}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (isRebuildingCache) return;
+                          setIsRebuildingCache(true);
+                          try {
+                            if (onRebuildCache) {
+                              await onRebuildCache();
+                            }
+                          } finally {
+                            setTimeout(() => setIsRebuildingCache(false), 500);
+                          }
+                        }}
+                        disabled={isRebuildingCache}
+                        title="Refresh & Rebuild Offline Cache (Dexie + Installed Packs)"
+                        aria-label="Rebuild Offline Cache"
+                        data-testid="rebuild-offline-cache-btn"
+                        className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${isRebuildingCache ? "animate-spin text-emerald-400" : ""}`} />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-zinc-500">Voice Engine:</span>

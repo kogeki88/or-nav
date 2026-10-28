@@ -31,6 +31,7 @@ import {
 } from "@/lib/api";
 import {
   syncTenantInventoryToOfflineDb,
+  hydrateOrUpgradeOfflineInventory,
   queueOfflineMutation,
   saveChatSession,
   getChatSession,
@@ -99,7 +100,7 @@ export default function Home() {
   // Silent-First OR Output by default
   const [autoTts, setAutoTts] = useState<boolean>(false);
   const [handsFreeUntil, setHandsFreeUntil] = useState<number | null>(null);
-  const [offlineSyncedCount, setOfflineSyncedCount] = useState<number>(20);
+  const [offlineSyncedCount, setOfflineSyncedCount] = useState<number>(143);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
   const [qrModalOpen, setQrModalOpen] = useState<boolean>(false);
@@ -270,15 +271,23 @@ export default function Home() {
 
   useEffect(() => {
     refreshQuestions();
-    syncTenantInventoryToOfflineDb(selectedTenant).then(async (count) => {
-      if (count > 0) {
-        setOfflineSyncedCount(count);
-      } else {
-        const seedCount = await hydrateFromSeedIfEmpty(selectedTenant);
-        if (seedCount > 0) setOfflineSyncedCount(seedCount);
-      }
+    // 1. Immediately hydrate/upgrade from local Dexie & seed data (0ms latency)
+    hydrateOrUpgradeOfflineInventory(selectedTenant).then((count) => {
+      if (count > 0) setOfflineSyncedCount(count);
+    });
+    // 2. In background, attempt sync with backend server if reachable
+    syncTenantInventoryToOfflineDb(selectedTenant).then((count) => {
+      if (count > 0) setOfflineSyncedCount(count);
     });
   }, [selectedTenant, refreshQuestions]);
+
+  const handleRebuildOfflineCache = useCallback(async () => {
+    const count = await hydrateOrUpgradeOfflineInventory(selectedTenant, true);
+    if (count > 0) {
+      setOfflineSyncedCount(count);
+    }
+    return count;
+  }, [selectedTenant]);
 
   // Phase 29.1: Restore active case messages & session history on load / department switch
   useEffect(() => {
@@ -1025,6 +1034,7 @@ export default function Home() {
             handsFreeActive={handsFreeUntil !== null}
             onStartHandsFree15Min={startHandsFree15Min}
             offlineSyncedCount={offlineSyncedCount}
+            onRebuildCache={handleRebuildOfflineCache}
             onSelectStarterPrompt={handleSendMessage}
             loading={loading}
             voiceMode={voiceMode}
@@ -1084,6 +1094,7 @@ export default function Home() {
               handsFreeActive={handsFreeUntil !== null}
               onStartHandsFree15Min={startHandsFree15Min}
               offlineSyncedCount={offlineSyncedCount}
+            onRebuildCache={handleRebuildOfflineCache}
               onSelectStarterPrompt={(prompt) => {
                 handleSendMessage(prompt);
                 setMobileSidebarOpen(false);
@@ -1388,6 +1399,7 @@ export default function Home() {
         isOpen={resourceModalOpen}
         onClose={() => setResourceModalOpen(false)}
         activeProfile={profile}
+        onPacksUpdated={handleRebuildOfflineCache}
       />
 
       {/* Over-The-Air (OTA) Auto-Update Prompt Modal */}

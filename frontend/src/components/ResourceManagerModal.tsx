@@ -34,12 +34,14 @@ interface ResourceManagerModalProps {
   isOpen: boolean;
   onClose: () => void;
   activeProfile?: UserProfile;
+  onPacksUpdated?: () => void;
 }
 
 export default function ResourceManagerModal({
   isOpen,
   onClose,
   activeProfile,
+  onPacksUpdated,
 }: ResourceManagerModalProps) {
   const [manifest, setManifest] = useState<HospitalPacksManifest | null>(null);
   const [installedPacks, setInstalledPacks] = useState<InstalledResourcePack[]>([]);
@@ -107,6 +109,7 @@ export default function ResourceManagerModal({
       setStatusMessage(`Installed ${pack.title}`);
       awardClinicalXP("pack_sync", `Synced Pack: ${pack.title}`);
       await loadData();
+      onPacksUpdated?.();
     } catch (err: any) {
       setStatusMessage(`Error: ${err.message}`);
     } finally {
@@ -122,6 +125,7 @@ export default function ResourceManagerModal({
       await deletePack(packId);
       setStatusMessage(`Deleted ${title}`);
       await loadData();
+      onPacksUpdated?.();
     } catch (err: any) {
       setStatusMessage(`Error: ${err.message}`);
     } finally {
@@ -141,6 +145,7 @@ export default function ResourceManagerModal({
       setStatusMessage("All required packs synced successfully!");
       awardClinicalXP("pack_sync", "All Required Packs Synced");
       await loadData();
+      onPacksUpdated?.();
     } catch (err: any) {
       setStatusMessage(`Sync error: ${err.message}`);
     } finally {
@@ -156,6 +161,7 @@ export default function ResourceManagerModal({
       const purged = await purgeUnassignedHospitalPacks(profile.facilityId);
       setStatusMessage(`Purged ${purged} unassigned packs.`);
       await loadData();
+      onPacksUpdated?.();
     } catch (err: any) {
       setStatusMessage(`Purge error: ${err.message}`);
     } finally {

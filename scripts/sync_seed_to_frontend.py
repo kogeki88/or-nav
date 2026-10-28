@@ -17,6 +17,18 @@ def main():
     sh_er_csv = (HOSPITALS_DIR / "sacred_heart" / "er" / "inventory.csv").read_text(encoding="utf-8")
     sh_pacu_csv = (HOSPITALS_DIR / "sacred_heart" / "pacu" / "inventory.csv").read_text(encoding="utf-8")
 
+    sh_pref_cards = json.loads((HOSPITALS_DIR / "sacred_heart" / "or" / "preference_cards.json").read_text(encoding="utf-8"))
+    pp_pref_cards = json.loads((HOSPITALS_DIR / "princeton_plainsboro" / "or" / "preference_cards.json").read_text(encoding="utf-8"))
+    cg_pref_cards = json.loads((HOSPITALS_DIR / "county_general" / "or" / "preference_cards.json").read_text(encoding="utf-8"))
+
+    pref_cards_dict = {
+        "or_main": sh_pref_cards,
+        "general_memorial_cvor": sh_pref_cards,
+        "sacred_heart::or": sh_pref_cards,
+        "princeton_plainsboro::or": pp_pref_cards,
+        "county_general::or": cg_pref_cards,
+    }
+
     def parse_csv_items(csv_text: str):
         reader = csv.DictReader(io.StringIO(csv_text.strip()))
         items = []
@@ -127,6 +139,8 @@ export const SEED_QUESTIONS: Record<string, DepartmentQuestion[]> = {questions_b
 
 export const SEED_ITEMS_BY_DEPT: Record<string, CoordinateCardData[]> = {json.dumps(items_dict, indent=2)};
 
+export const SEED_PREFERENCE_CARDS: Record<string, any[]> = {json.dumps(pref_cards_dict, indent=2)};
+
 export const SEED_INVENTORY_CSV = SEED_INVENTORIES.or_main;
 export const SEED_ORIENTATION_MD = SEED_ORIENTATIONS.or_main;
 export const SEED_UNANSWERED_QUESTIONS = SEED_QUESTIONS.or_main;
@@ -150,6 +164,11 @@ export function getSeedQuestions(tenantId?: string): DepartmentQuestion[] {{
 export function getSeedInventoryItems(tenantId?: string): CoordinateCardData[] {{
   const key = tenantId && SEED_ITEMS_BY_DEPT[tenantId] ? tenantId : "or_main";
   return SEED_ITEMS_BY_DEPT[key] || SEED_ITEMS_BY_DEPT.or_main;
+}}
+
+export function getSeedPreferenceCards(tenantId?: string): any[] {{
+  const key = tenantId && SEED_PREFERENCE_CARDS[tenantId] ? tenantId : "or_main";
+  return SEED_PREFERENCE_CARDS[key] || SEED_PREFERENCE_CARDS.or_main || [];
 }}
 """
     SEED_DATA_FILE.write_text(new_ts, encoding="utf-8")

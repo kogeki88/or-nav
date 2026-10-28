@@ -10,7 +10,12 @@
  * - IndexedDB Move Governance (1/3 -> 3/3 auto-commit) & Unanswered Questions
  */
 
-import { offlineDb, selfHealOfflineDatabase, type OfflineInventoryRecord } from "./offlineDb";
+import {
+  offlineDb,
+  selfHealOfflineDatabase,
+  hydrateOrUpgradeOfflineInventory,
+  type OfflineInventoryRecord,
+} from "./offlineDb";
 import {
   DEFAULT_TENANT,
   SEED_INVENTORY_ITEMS,
@@ -20,6 +25,7 @@ import {
   getSeedInventoryItems,
   getSeedOrientationMd,
   getSeedQuestions,
+  getSeedPreferenceCards,
 } from "./seedData";
 import { directGeminiRAG, isGeminiDirectAvailable } from "./directGemini";
 import { parseClinicalIntent, ClinicalIntent, extractAndNormalizeCoordinateClient } from "./semanticParser";
@@ -806,34 +812,11 @@ function tokenSetRatio(s1: string, s2: string): number {
 // 7. Seed Hydration & IndexedDB Operations
 // ---------------------------------------------------------------------------
 
-export async function hydrateFromSeedIfEmpty(tenantId: string = DEFAULT_TENANT): Promise<number> {
-  if (typeof window === "undefined") return 0;
-  const db = offlineDb || (await selfHealOfflineDatabase());
-  if (!db) return 0;
-
-  try {
-    const count = await db.inventoryItems.where("tenant_id").equals(tenantId).count();
-    if (count > 0) return count;
-
-    // Build offline records from bundled TypeScript seed data for this specific department
-    const seedItems = getSeedInventoryItems(tenantId);
-    const records: OfflineInventoryRecord[] = seedItems.map((item) => {
-      const [norm, phon] = normalizeAndHash(item.item);
-      return {
-        ...item,
-        id: `${tenantId}::${item.item.toLowerCase()}`,
-        tenant_id: tenantId,
-        normalized_name: norm,
-        phonetic_code: phon,
-      };
-    });
-
-    await db.inventoryItems.bulkPut(records);
-    return records.length;
-  } catch (err) {
-    console.warn("Hydrate from seed failed:", err);
-    return 0;
-  }
+export async function hydrateFromSeedIfEmpty(
+  tenantId: string = DEFAULT_TENANT,
+  forceRebuild: boolean = false
+): Promise<number> {
+  return await hydrateOrUpgradeOfflineInventory(tenantId, forceRebuild);
 }
 
 // ---------------------------------------------------------------------------
@@ -888,7 +871,17 @@ export function findMatchingRow(
       .map((s) => s.trim())
       .filter(Boolean);
 
-    if (normQuery === normRow || aliases.includes(normQuery) || normLingo === normRow || aliases.includes(normLingo)) {
+    // Also strip doctor prefix from item name for clinician queries (e.g. "custom vascular stapler" -> "Dr. Iglesia Custom Vascular Stapler")
+    const normWithoutDr = normRow.replace(/^(?:dr\.?|doctor)\s+[a-z]+\s+/i, "");
+
+    if (
+      normQuery === normRow ||
+      normQuery === normWithoutDr ||
+      aliases.includes(normQuery) ||
+      normLingo === normRow ||
+      normLingo === normWithoutDr ||
+      aliases.includes(normLingo)
+    ) {
       if (hasConflictingSpecifications(querySpecs, row)) continue;
       const rowFull = `${row.item} ${row.aliases || ""}`;
       if (isEponymConflict(cleaned, rowFull)) continue;
@@ -943,13 +936,20 @@ export function findMatchingRow(
       .map((s) => s.trim())
       .filter(Boolean);
 
-    if ((normRow.startsWith(`${normQuery} `) && normQuery.length >= 4) || (normRow.startsWith(`${normLingo} `) && normLingo.length >= 4)) {
+    if (
+      (normRow.startsWith(`${normQuery} `) && normQuery.length >= 4) ||
+      (normRow.startsWith(`${normLingo} `) && normLingo.length >= 4) ||
+      (normRow.endsWith(` ${normQuery}`) && normQuery.length >= 4) ||
+      (normRow.endsWith(` ${normLingo}`) && normLingo.length >= 4)
+    ) {
       return wrapMatch(row, "STAGE_A_EXACT");
     }
     for (const cand of [normRow, ...aliases]) {
       if (cand.length >= 4 && (
-        new RegExp(`\\b${cand.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "i").test(normQuery) ||
-        new RegExp(`\\b${cand.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "i").test(normLingo)
+        cand.startsWith(`${normQuery} `) ||
+        cand.startsWith(`${normLingo} `) ||
+        cand.endsWith(` ${normQuery}`) ||
+        cand.endsWith(` ${normLingo}`)
       )) {
         return wrapMatch(row, "STAGE_A_EXACT");
       }
@@ -1293,6 +1293,175 @@ export async function addInventoryItemStandalone(
   return card;
 }
 
+// 9.5. On-Device Knowledge Pack Matcher (Preference Cards, Handbook, Role Guides)
+// ---------------------------------------------------------------------------
+
+async function matchOnDeviceKnowledgePacks(
+  processedText: string,
+  parsedIntent: any,
+  tenantId: string,
+  profile: UserProfile,
+  t0: number
+): Promise<ChatResponse | null> {
+  try {
+    const qLower = processedText.toLowerCase();
+    const { facilityId: facId } = getFacilityIdFromTenant(tenantId);
+    const targetFacility = profile.facilityId || facId;
+    const isScrub =
+      (profile.clinicalRole || "").toLowerCase().includes("scrub") ||
+      (profile.clinicalRole || "").toLowerCase().includes("tech") ||
+      (profile.clinicalRole || "").toLowerCase().includes("cst");
+
+    let installedPacksList: any[] = [];
+    if (offlineDb) {
+      try {
+        installedPacksList = await offlineDb.installedPacks.toArray();
+      } catch {}
+    }
+
+    // 1. Preference Cards match (Installed packs -> Fallback to Seed preference cards)
+    let cardsList: any[] = [];
+    const cardsPack = installedPacksList.find(
+      (p) =>
+        p.filePath.endsWith("preference_cards.json") &&
+        (p.facilityId === targetFacility || p.facilityId === facId)
+    );
+    if (cardsPack && cardsPack.content) {
+      try {
+        cardsList = JSON.parse(cardsPack.content);
+      } catch {}
+    }
+    if (!cardsList || cardsList.length === 0) {
+      cardsList = getSeedPreferenceCards(tenantId);
+    }
+
+    if (cardsList && cardsList.length > 0) {
+      for (const card of cardsList) {
+        const proc = (card.procedure || "").toLowerCase();
+        const surg = (card.surgeon || "").toLowerCase();
+        const spec = (card.specialty || "").toLowerCase();
+        if (
+          (qLower.includes("chole") && proc.includes("chole")) ||
+          (qLower.includes("knee") && proc.includes("knee")) ||
+          (qLower.includes("cabg") && proc.includes("cabg")) ||
+          (qLower.includes("ralp") && proc.includes("prostate")) ||
+          (qLower.includes("prostate") && proc.includes("prostate")) ||
+          (qLower.includes("discectomy") && proc.includes("discectomy")) ||
+          (qLower.includes("laparotomy") && proc.includes("laparotomy")) ||
+          (surg.split(" ").some((w: string) => w.length > 3 && qLower.includes(w))) ||
+          (parsedIntent.intent === ClinicalIntent.VIEW_PREFERENCE_CARD && (proc.includes(qLower) || qLower.includes(proc) || spec.includes(qLower)))
+        ) {
+          const elapsed = Math.max(1, Math.round(performance.now() - t0));
+          let reply = "";
+          if (isScrub) {
+            reply = `📋 Preference Card: ${card.procedure} (${card.surgeon})\n\n` +
+              `• Suture Preferences: ${(card.sutures || []).join(", ")}\n` +
+              `• Instrumentation: ${(card.instrumentation || []).join(", ")}\n` +
+              `• Scrub Setup Notes: ${card.notes || "None"}`;
+          } else {
+            reply = `📋 Preference Card: ${card.procedure} (${card.surgeon})\n\n` +
+              `• Room & Positioning: ${card.room || "Main OR"} | ${card.position || "Supine"}\n` +
+              `• Skin Prep: ${card.prep || "Standard"}\n` +
+              `• Circulator Safety Considerations: ${card.notes || "Standard"}`;
+          }
+          return {
+            reply_text: reply,
+            routing_tier: "TIER_1_LOCAL_CSV",
+            scrubbed_query: processedText,
+            phi_detected: false,
+            latency_ms: elapsed,
+            coordinate_card: null,
+            move_widget: null,
+          };
+        }
+      }
+    }
+
+    // 2. Role Guide match
+    const rolePack = installedPacksList.find(
+      (p) =>
+        p.category === "role" &&
+        (p.facilityId === targetFacility || p.facilityId === facId)
+    );
+    if (rolePack && rolePack.content) {
+      const sections = rolePack.content.split(/(?=^## )/m);
+      for (const sec of sections) {
+        const secLower = sec.toLowerCase();
+        if (
+          (qLower.includes("mayo") && secLower.includes("mayo")) ||
+          (qLower.includes("suture") && secLower.includes("suture")) ||
+          (qLower.includes("position") && secLower.includes("position")) ||
+          (qLower.includes("prep") && secLower.includes("prep")) ||
+          (qLower.includes("drape") && secLower.includes("drap")) ||
+          (qLower.includes("robot") && secLower.includes("robot"))
+        ) {
+          const elapsed = Math.max(1, Math.round(performance.now() - t0));
+          return {
+            reply_text: `📖 Role Guide (${profile.clinicalRole || "Clinical Specialist"}):\n\n${sec.trim()}`,
+            routing_tier: "TIER_1_LOCAL_CSV",
+            scrubbed_query: processedText,
+            phi_detected: false,
+            latency_ms: elapsed,
+            coordinate_card: null,
+            move_widget: null,
+          };
+        }
+      }
+    }
+
+    // 3. Facility Handbook match (Installed pack -> Seed orientation fallback)
+    let handbookContent = "";
+    const handbookPack = installedPacksList.find(
+      (p) =>
+        p.category === "hospital" &&
+        (p.facilityId === targetFacility || p.facilityId === facId)
+    );
+    if (handbookPack && handbookPack.content) {
+      handbookContent = handbookPack.content;
+    } else {
+      handbookContent = getSeedOrientationMd(tenantId) || SEED_BASELINE_MD;
+    }
+
+    if (
+      handbookContent &&
+      (qLower.includes("blood bank") ||
+        qLower.includes("code blue") ||
+        qLower.includes("emergency") ||
+        qLower.includes("exposure") ||
+        qLower.includes("needle") ||
+        qLower.includes("malignant hyperthermia") ||
+        qLower.includes("crisis") ||
+        qLower.includes("fire"))
+    ) {
+      const sections = handbookContent.split(/(?=^#+ )/m);
+      for (const sec of sections) {
+        const secLower = sec.toLowerCase();
+        if (
+          (qLower.includes("blood bank") && secLower.includes("blood bank")) ||
+          (qLower.includes("code blue") && secLower.includes("code blue")) ||
+          (qLower.includes("malignant hyperthermia") && secLower.includes("malignant hyperthermia")) ||
+          (qLower.includes("fire") && secLower.includes("fire")) ||
+          (qLower.includes("exposure") && secLower.includes("exposure"))
+        ) {
+          const elapsed = Math.max(1, Math.round(performance.now() - t0));
+          return {
+            reply_text: `🏥 Facility Emergency Policy:\n\n${sec.trim()}`,
+            routing_tier: "TIER_1_LOCAL_CSV",
+            scrubbed_query: processedText,
+            phi_detected: false,
+            latency_ms: elapsed,
+            coordinate_card: null,
+            move_widget: null,
+          };
+        }
+      }
+    }
+  } catch (packErr) {
+    console.warn("Error searching on-device knowledge packs:", packErr);
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // 10. Unified Standalone Search Entrypoint
 // ---------------------------------------------------------------------------
@@ -1314,6 +1483,15 @@ export async function executeStandaloneSearch(
   const allRows = await db.inventoryItems.where("tenant_id").equals(tenantId).toArray();
   const parsedIntent = parseClinicalIntent(rawQuery, profile.clinicalRole);
   const processedText = preprocessVoiceQuery(parsedIntent.normalized_query).trim();
+
+  // 0. Knowledge Pack Early Check for Preference Cards & Emergency Policies
+  if (
+    parsedIntent.intent === ClinicalIntent.VIEW_PREFERENCE_CARD ||
+    PROCEDURAL_INDICATORS.test(processedText)
+  ) {
+    const earlyPack = await matchOnDeviceKnowledgePacks(processedText, parsedIntent, tenantId, profile, t0);
+    if (earlyPack) return earlyPack;
+  }
 
   // 0. Conversational Inventory Mutation (Add Item)
   if (parsedIntent.intent === ClinicalIntent.MUTATE_INVENTORY && parsedIntent.entities.action === "add") {
@@ -1662,6 +1840,10 @@ export async function executeStandaloneSearch(
     };
   }
 
+  // 4.5. On-Device Knowledge Pack Fallback
+  const fallbackPack = await matchOnDeviceKnowledgePacks(processedText, parsedIntent, tenantId, profile, t0);
+  if (fallbackPack) return fallbackPack;
+
   // If item search had FIND_INVENTORY intent and no item was found, show quick-add widget
   if (parsedIntent.intent === ClinicalIntent.FIND_INVENTORY) {
     const elapsed = Math.max(1, Math.round(performance.now() - t0));
@@ -1679,127 +1861,6 @@ export async function executeStandaloneSearch(
       spoken_transcript_correction: parsedIntent.spoken_transcript_correction,
       disambiguation_chips: parsedIntent.disambiguation_options,
     };
-  }
-
-  // 4.5. On-Device Installed Knowledge Packs (Preference Cards, Facility Handbook, Role Guides)
-  if (offlineDb) {
-    try {
-      const installed = await offlineDb.installedPacks.toArray();
-      const qLower = processedText.toLowerCase();
-      const isScrub =
-        (profile.clinicalRole || "").toLowerCase().includes("scrub") ||
-        (profile.clinicalRole || "").toLowerCase().includes("tech") ||
-        (profile.clinicalRole || "").toLowerCase().includes("cst");
-
-      // 1. Preference Cards match
-      const cardsPack = installed.find(
-        (p) => p.filePath.endsWith("preference_cards.json") && p.facilityId === profile.facilityId
-      );
-      if (cardsPack && cardsPack.content) {
-        try {
-          const cards = JSON.parse(cardsPack.content);
-          for (const card of cards) {
-            const proc = (card.procedure || "").toLowerCase();
-            const surg = (card.surgeon || "").toLowerCase();
-            if (
-              (qLower.includes("chole") && proc.includes("chole")) ||
-              (qLower.includes("knee") && proc.includes("knee")) ||
-              (qLower.includes("cabg") && proc.includes("cabg")) ||
-              (qLower.includes("ralp") && proc.includes("prostate")) ||
-              (qLower.includes("discectomy") && proc.includes("discectomy")) ||
-              (qLower.includes("laparotomy") && proc.includes("laparotomy")) ||
-              (surg.split(" ").some((w: string) => w.length > 3 && qLower.includes(w)))
-            ) {
-              const elapsed = Math.max(1, Math.round(performance.now() - t0));
-              let reply = "";
-              if (isScrub) {
-                reply = `📋 Preference Card: ${card.procedure} (${card.surgeon})\n\n` +
-                  `• Suture Preferences: ${(card.sutures || []).join(", ")}\n` +
-                  `• Instrumentation: ${(card.instrumentation || []).join(", ")}\n` +
-                  `• Scrub Setup Notes: ${card.notes || "None"}`;
-              } else {
-                reply = `📋 Preference Card: ${card.procedure} (${card.surgeon})\n\n` +
-                  `• Room & Positioning: ${card.room || "Main OR"} | ${card.position || "Supine"}\n` +
-                  `• Skin Prep: ${card.prep || "Standard"}\n` +
-                  `• Circulator Safety Considerations: ${card.notes || "Standard"}`;
-              }
-              return {
-                reply_text: reply,
-                routing_tier: "TIER_1_LOCAL_CSV",
-                scrubbed_query: processedText,
-                phi_detected: false,
-                latency_ms: elapsed,
-                coordinate_card: null,
-                move_widget: null,
-              };
-            }
-          }
-        } catch {}
-      }
-
-      // 2. Role Guide match
-      const rolePack = installed.find((p) => p.category === "role" && p.facilityId === profile.facilityId);
-      if (rolePack && rolePack.content) {
-        const sections = rolePack.content.split(/(?=^## )/m);
-        for (const sec of sections) {
-          const secLower = sec.toLowerCase();
-          if (
-            (qLower.includes("mayo") && secLower.includes("mayo")) ||
-            (qLower.includes("suture") && secLower.includes("suture")) ||
-            (qLower.includes("position") && secLower.includes("position")) ||
-            (qLower.includes("prep") && secLower.includes("prep")) ||
-            (qLower.includes("drape") && secLower.includes("drap")) ||
-            (qLower.includes("robot") && secLower.includes("robot"))
-          ) {
-            const elapsed = Math.max(1, Math.round(performance.now() - t0));
-            return {
-              reply_text: `📖 Role Guide (${profile.clinicalRole || "Clinical Specialist"}):\n\n${sec.trim()}`,
-              routing_tier: "TIER_1_LOCAL_CSV",
-              scrubbed_query: processedText,
-              phi_detected: false,
-              latency_ms: elapsed,
-              coordinate_card: null,
-              move_widget: null,
-            };
-          }
-        }
-      }
-
-      // 3. Facility Handbook match
-      const handbookPack = installed.find((p) => p.category === "hospital" && p.facilityId === profile.facilityId);
-      if (handbookPack && handbookPack.content) {
-        if (
-          qLower.includes("blood bank") ||
-          qLower.includes("code blue") ||
-          qLower.includes("emergency") ||
-          qLower.includes("exposure") ||
-          qLower.includes("needle")
-        ) {
-          const sections = handbookPack.content.split(/(?=^## )/m);
-          for (const sec of sections) {
-            const secLower = sec.toLowerCase();
-            if (
-              (qLower.includes("blood") && secLower.includes("blood")) ||
-              (qLower.includes("code") && secLower.includes("code")) ||
-              (qLower.includes("exposure") && secLower.includes("exposure"))
-            ) {
-              const elapsed = Math.max(1, Math.round(performance.now() - t0));
-              return {
-                reply_text: `🏥 Facility Handbook Policy:\n\n${sec.trim()}`,
-                routing_tier: "TIER_1_LOCAL_CSV",
-                scrubbed_query: processedText,
-                phi_detected: false,
-                latency_ms: elapsed,
-                coordinate_card: null,
-                move_widget: null,
-              };
-            }
-          }
-        }
-      }
-    } catch (packErr) {
-      console.warn("Pack lookup error:", packErr);
-    }
   }
 
   // 5. Tier-2 Clinical Protocol Fallback (RBAC check -> Direct Gemini RAG or Baseline)

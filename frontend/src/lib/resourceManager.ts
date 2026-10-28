@@ -8,7 +8,13 @@
  */
 
 import { Capacitor, CapacitorHttp } from "@capacitor/core";
-import { offlineDb, type InstalledResourcePack, type OfflineInventoryRecord } from "./offlineDb";
+import {
+  offlineDb,
+  type InstalledResourcePack,
+  type OfflineInventoryRecord,
+  normalizeClientQuery,
+  hydrateOrUpgradeOfflineInventory,
+} from "./offlineDb";
 import { GITHUB_REPO_OWNER, GITHUB_REPO_NAME } from "./version";
 
 export interface PackManifestEntry {
@@ -201,6 +207,7 @@ export async function installPack(packMeta: PackManifestEntry): Promise<Installe
   // If this pack is a department inventory CSV, populate inventory items
   if (packMeta.filePath.endsWith("inventory.csv") && packMeta.departmentId) {
     await hydrateInventoryFromCsv(rawContent, packMeta.facilityId, packMeta.departmentId);
+    await hydrateOrUpgradeOfflineInventory(`${packMeta.facilityId}::${packMeta.departmentId}`, true);
   }
 
   return record;
@@ -214,7 +221,8 @@ async function hydrateInventoryFromCsv(csvText: string, facilityId: string, depa
   const lines = csvText.split(/\r?\n/).filter((l) => l.trim().length > 0);
   if (lines.length <= 1) return;
 
-  const tenantId = `${facilityId}_${departmentId}`;
+  const tenantId = `${facilityId}::${departmentId}`;
+  const legacyUnderscore = `${facilityId}_${departmentId}`;
   const rows: OfflineInventoryRecord[] = [];
 
   // Parse header
@@ -244,7 +252,7 @@ async function hydrateInventoryFromCsv(csvText: string, facilityId: string, depa
     const category = catIdx >= 0 ? parts[catIdx] : "";
 
     rows.push({
-      id: `${tenantId}__${itemName.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
+      id: `${tenantId}::${itemName.toLowerCase()}`,
       tenant_id: tenantId,
       item: itemName,
       room,
@@ -257,10 +265,13 @@ async function hydrateInventoryFromCsv(csvText: string, facilityId: string, depa
       category: category || "",
       pending_location: "",
       verify_count: 3,
+      normalized_name: normalizeClientQuery(itemName),
     });
   }
 
   if (rows.length > 0) {
+    // Delete legacy underscore items if they exist
+    await offlineDb.inventoryItems.where("tenant_id").equals(legacyUnderscore).delete();
     await offlineDb.inventoryItems.bulkPut(rows);
   }
 }
@@ -296,9 +307,23 @@ export async function deletePack(packId: string): Promise<void> {
 
   // If it was an inventory pack, remove associated items from offlineDb
   if (existing.filePath.endsWith("inventory.csv") && existing.departmentId) {
-    const tenantId = `${existing.facilityId}_${existing.departmentId}`;
+    const tenantId = `${existing.facilityId}::${existing.departmentId}`;
+    const legacyUnderscore = `${existing.facilityId}_${existing.departmentId}`;
     await offlineDb.inventoryItems.where("tenant_id").equals(tenantId).delete();
+    await offlineDb.inventoryItems.where("tenant_id").equals(legacyUnderscore).delete();
+    await hydrateOrUpgradeOfflineInventory(tenantId, true);
   }
+}
+
+/**
+ * Unpacks and rehydrates all installed packs for a facility/department into Dexie
+ */
+export async function unpackInstalledPacksToDexie(
+  facilityId: string,
+  departmentId: string = "or"
+): Promise<number> {
+  const tenantId = `${facilityId}::${departmentId}`;
+  return await hydrateOrUpgradeOfflineInventory(tenantId, true);
 }
 
 /**
