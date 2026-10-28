@@ -7,10 +7,10 @@ import {
   submitManualFeedback,
   upvoteFeedback,
   updateFeedbackStatus,
-  generateTopRecommendations,
   FEEDBACK_EVENT_NAME,
 } from "@/lib/feedbackEngine";
 import { awardClinicalXP } from "@/lib/gamification";
+import { isAdminUser, getCurrentSession } from "@/lib/auth";
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -20,6 +20,8 @@ interface FeedbackModalProps {
     clinicalRole?: string;
     facilityId?: string;
     departmentId?: string;
+    email?: string;
+    role?: string;
   };
   initialTab?: "give_feedback" | "recommendations";
 }
@@ -28,30 +30,30 @@ export function FeedbackModal({
   isOpen,
   onClose,
   userProfile,
-  initialTab = "recommendations",
+  initialTab = "give_feedback",
 }: FeedbackModalProps) {
-  const [activeTab, setActiveTab] = useState<"give_feedback" | "recommendations">(initialTab);
+  const session = getCurrentSession();
+  const isAdmin = isAdminUser(session || userProfile);
+
+  const [activeTab, setActiveTab] = useState<"give_feedback" | "recommendations">(
+    isAdmin ? initialTab : "give_feedback"
+  );
 
   // Form State
-  const [category, setCategory] = useState<"feature_request" | "bug_friction" | "data_inventory" | "ui_ux">("feature_request");
-  const [severity, setSeverity] = useState<"low" | "medium" | "high">("medium");
+  const [category, setCategory] = useState<"feature_request" | "bug_friction" | "data_inventory">("feature_request");
   const [rawText, setRawText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  // Recommendations Hub State
+  // Recommendations / Admin Triage State
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
-  const [sourceFilter, setSourceFilter] = useState<"all" | "chat" | "manual" | "resolved" | "feature" | "bug">("all");
-  const [sortBy, setSortBy] = useState<"priority" | "upvotes" | "newest">("priority");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Load items
+  // Reload feedback items
   const reloadFeedback = async () => {
+    if (!isAdmin) return;
     try {
-      const items = await fetchFeedbackItems({
-        tenantId: userProfile?.facilityId ? `${userProfile.facilityId}::${userProfile.departmentId || "or"}` : undefined,
-        sortBy,
-      });
+      const items = await fetchFeedbackItems({ sortBy: "priority" });
       setFeedbackList(items);
     } catch (e) {
       console.warn("Failed to load feedback items:", e);
@@ -60,16 +62,21 @@ export function FeedbackModal({
 
   useEffect(() => {
     if (isOpen) {
-      setActiveTab(initialTab);
-      reloadFeedback();
+      if (!isAdmin) {
+        setActiveTab("give_feedback");
+      } else {
+        setActiveTab(initialTab);
+        reloadFeedback();
+      }
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, isAdmin]);
 
   useEffect(() => {
+    if (!isAdmin) return;
     const handleUpdated = () => reloadFeedback();
     window.addEventListener(FEEDBACK_EVENT_NAME, handleUpdated);
     return () => window.removeEventListener(FEEDBACK_EVENT_NAME, handleUpdated);
-  }, []);
+  }, [isAdmin]);
 
   if (!isOpen) return null;
 
@@ -83,20 +90,26 @@ export function FeedbackModal({
       await submitManualFeedback({
         rawText,
         category,
-        severity,
+        severity: category === "bug_friction" ? "medium" : "low",
         userProfile,
       });
 
-      // Award +20 XP for manual feedback contribution
-      awardClinicalXP("feedback_manual", "Clinical Feedback Contributed (+20 XP)");
+      // Award +5 XP for manual feedback contribution
+      awardClinicalXP("feedback_manual", "Feedback Contributed (+5 XP)");
 
       setRawText("");
       setSubmitSuccess(true);
-      await reloadFeedback();
+      if (isAdmin) {
+        await reloadFeedback();
+      }
 
       setTimeout(() => {
         setSubmitSuccess(false);
-        setActiveTab("recommendations");
+        if (isAdmin) {
+          setActiveTab("recommendations");
+        } else {
+          onClose();
+        }
       }, 1200);
     } catch (err) {
       console.error("Submission failed:", err);
@@ -111,7 +124,7 @@ export function FeedbackModal({
     await reloadFeedback();
   };
 
-  // Handle Resolve
+  // Handle Mark Done (Resolve)
   const handleToggleResolve = async (id: string, currentStatus: string) => {
     const nextStatus = currentStatus === "resolved" ? "open" : "resolved";
     await updateFeedbackStatus(id, nextStatus);
@@ -125,125 +138,110 @@ export function FeedbackModal({
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2500);
     } catch {
-      // Fallback
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2500);
     }
   };
 
-  // Filtered List for Tab 2
-  const filteredList = feedbackList.filter((item) => {
-    if (sourceFilter === "chat") return item.source === "chat_auto_detected" && item.status !== "resolved";
-    if (sourceFilter === "manual") return item.source === "manual_submission" && item.status !== "resolved";
-    if (sourceFilter === "resolved") return item.status === "resolved";
-    if (sourceFilter === "feature") return item.category === "feature_request" && item.status !== "resolved";
-    if (sourceFilter === "bug") return item.category === "bug_friction" && item.status !== "resolved";
-    return item.status !== "resolved"; // "all" displays all open/planned
-  });
-
-  const topRecommendations = generateTopRecommendations(feedbackList);
-  const openCount = feedbackList.filter((it) => it.status === "open").length;
+  const openItems = feedbackList.filter((it) => it.status === "open");
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-fadeIn"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn"
       data-testid="feedback-modal"
     >
-      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl">
+      <div className="flex max-h-[92vh] w-full max-w-xl flex-col rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden">
         {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3.5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 text-sm">
               💬
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white">Feedback & Dev Recommendations Hub</h2>
-              <p className="text-xs text-slate-400">
-                Turn bedside clinical friction into instant Antigravity engineering roadmaps
+              <h2 className="text-sm font-bold text-white">
+                {isAdmin ? "Feedback & Triage Hub" : "Send Feedback"}
+              </h2>
+              <p className="text-[11px] text-slate-400">
+                {isAdmin
+                  ? "Admin developer recommendations & quick fixes"
+                  : "Help us improve your perioperative assistant"}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
           >
             ✕
           </button>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex border-b border-slate-800 bg-slate-950/40 px-6">
-          <button
-            onClick={() => setActiveTab("recommendations")}
-            data-testid="tab-recommendations-hub"
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === "recommendations"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            🧠 Compiled & Recommended Updates
-            {openCount > 0 && (
-              <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-xs font-semibold text-indigo-300">
-                {openCount}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("give_feedback")}
-            data-testid="tab-give-feedback"
-            className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === "give_feedback"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            ✍️ Give Feedback
-            <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-xs font-semibold text-emerald-400">
-              +20 XP
-            </span>
-          </button>
-        </div>
+        {/* Admin-Only Tab Switcher */}
+        {isAdmin && (
+          <div className="flex border-b border-slate-800 bg-slate-950/40 px-5">
+            <button
+              onClick={() => setActiveTab("give_feedback")}
+              data-testid="tab-give-feedback"
+              className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
+                activeTab === "give_feedback"
+                  ? "border-indigo-500 text-indigo-400"
+                  : "border-transparent text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              ✍️ Submit
+            </button>
+            <button
+              onClick={() => setActiveTab("recommendations")}
+              data-testid="tab-recommendations-hub"
+              className={`flex items-center gap-1.5 border-b-2 px-3 py-2 text-xs font-semibold transition-colors ${
+                activeTab === "recommendations"
+                  ? "border-indigo-500 text-indigo-400"
+                  : "border-transparent text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              🛠️ Admin Triage ({openItems.length})
+            </button>
+          </div>
+        )}
 
         {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {activeTab === "give_feedback" ? (
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+          {activeTab === "give_feedback" || !isAdmin ? (
             /* ============================================================ */
-            /* TAB 1: GIVE FEEDBACK                                         */
+            /* MINIMAL MOBILE FORM: CLINICIANS & SUBMIT VIEW                 */
             /* ============================================================ */
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {submitSuccess && (
                 <div
                   data-testid="feedback-success-banner"
-                  className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-4 text-emerald-300 animate-fadeIn"
+                  className="rounded-xl border border-emerald-500/30 bg-emerald-950/40 p-3 text-emerald-300 text-xs animate-fadeIn"
                 >
-                  <p className="font-semibold">🚀 Feedback Logged to Developer Hub! (+20 XP)</p>
-                  <p className="text-xs text-emerald-400/80">
-                    Your suggestion has been synthesized into an actionable Antigravity prompt.
+                  <p className="font-semibold">🚀 Feedback Received! (+5 XP)</p>
+                  <p className="text-[11px] text-emerald-400/80">
+                    Thank you! We review clinician suggestions every day.
                   </p>
                 </div>
               )}
 
-              {/* Category Selector */}
+              {/* 3 Simple Category Pills */}
               <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Feedback Category
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  Category
                 </label>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: "feature_request", label: "✨ Feature Idea" },
-                    { id: "bug_friction", label: "🐛 Bug / Friction" },
-                    { id: "data_inventory", label: "📦 Missing Data" },
-                    { id: "ui_ux", label: "🎨 UI / Layout" },
+                    { id: "feature_request", label: "✨ Feature" },
+                    { id: "bug_friction", label: "🐛 Bug" },
+                    { id: "data_inventory", label: "📦 Data" },
                   ].map((cat) => (
                     <button
                       key={cat.id}
                       type="button"
                       onClick={() => setCategory(cat.id as any)}
-                      className={`rounded-xl border p-3 text-left text-xs font-medium transition-all ${
+                      className={`rounded-xl border p-2 text-center text-xs font-medium transition-all ${
                         category === cat.id
-                          ? "border-indigo-500 bg-indigo-500/10 text-white shadow-sm ring-1 ring-indigo-500/50"
+                          ? "border-indigo-500 bg-indigo-500/10 text-white shadow-sm ring-1 ring-indigo-500/40"
                           : "border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-slate-200"
                       }`}
                     >
@@ -253,38 +251,10 @@ export function FeedbackModal({
                 </div>
               </div>
 
-              {/* Urgency Selector */}
+              {/* Clean Text Area */}
               <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Urgency / Clinical Impact
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    { id: "low", label: "Low", desc: "Cosmetic / Nice to have" },
-                    { id: "medium", label: "Medium", desc: "Slows down shift" },
-                    { id: "high", label: "🚨 High", desc: "Clinical blocker / Safety" },
-                  ].map((urg) => (
-                    <button
-                      key={urg.id}
-                      type="button"
-                      onClick={() => setSeverity(urg.id as any)}
-                      className={`rounded-xl border p-2.5 text-left text-xs font-medium transition-all ${
-                        severity === urg.id
-                          ? "border-amber-500 bg-amber-500/10 text-white shadow-sm ring-1 ring-amber-500/50"
-                          : "border-slate-800 bg-slate-950/50 text-slate-400 hover:border-slate-700 hover:text-slate-200"
-                      }`}
-                    >
-                      <div className="font-semibold text-slate-200">{urg.label}</div>
-                      <div className="text-[10px] text-slate-400">{urg.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Feedback Textarea */}
-              <div>
-                <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  What's slowing you down or what should we build next?
+                <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  Tell us what to improve...
                 </label>
                 <textarea
                   data-testid="feedback-input-text"
@@ -292,217 +262,97 @@ export function FeedbackModal({
                   onChange={(e) => setRawText(e.target.value)}
                   rows={4}
                   required
-                  placeholder="e.g. I wish the Lap Chole card showed the exact clip applier size, or the screen glare in OR 4 is blinding during laparoscopy..."
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950/80 p-3.5 text-sm text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  placeholder="Tell us what to improve..."
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 
               {/* Submit Button */}
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-xs text-slate-500">
-                  Contributing feedback improves unit efficiency & earns clinical XP.
-                </span>
+              <div className="flex items-center justify-end pt-1">
                 <button
                   type="submit"
                   disabled={isSubmitting || !rawText.trim()}
                   data-testid="btn-submit-feedback"
-                  className="flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all hover:bg-indigo-500 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/25 transition-all hover:bg-indigo-500 disabled:opacity-50"
                 >
-                  {isSubmitting ? "Submitting..." : "🚀 Submit Feedback (+20 XP)"}
+                  {isSubmitting ? "Submitting..." : "Submit Feedback (+5 XP)"}
                 </button>
               </div>
             </form>
           ) : (
             /* ============================================================ */
-            /* TAB 2: COMPILED & RECOMMENDED UPDATES (DEV HUB)              */
+            /* ADMIN-ONLY DECLUTTERED COMPACT TRIAGE VIEW                   */
             /* ============================================================ */
-            <div className="space-y-6" data-testid="recommendations-hub">
-              {/* Top Recommendations Banner */}
-              {topRecommendations.length > 0 && (
-                <div
-                  data-testid="top-recommendations-banner"
-                  className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/20 via-slate-900 to-indigo-950/20 p-4 shadow-lg"
-                >
-                  <div className="mb-2 flex items-center justify-between">
-                    <h3 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-400">
-                      ⚡ Top Synthesized Dev Recommendations
-                    </h3>
-                    <span className="text-[11px] text-slate-400">Sorted by Severity & Frequency</span>
-                  </div>
-                  <div className="space-y-2">
-                    {topRecommendations.map((rec, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-start gap-2 rounded-lg bg-slate-950/60 px-3 py-2 text-xs text-slate-200"
-                      >
-                        <span className="text-slate-400">{idx + 1}.</span>
-                        <span className="font-medium text-slate-300">{rec}</span>
-                      </div>
-                    ))}
-                  </div>
+            <div className="space-y-2.5" data-testid="recommendations-hub">
+              {openItems.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-800 p-8 text-center text-xs text-slate-500">
+                  ✓ Inbox zero! All clinical feedback items resolved.
                 </div>
-              )}
+              ) : (
+                openItems.map((item) => {
+                  const isCopied = copiedId === item.id;
+                  const catDotColor =
+                    item.category === "bug_friction"
+                      ? "bg-rose-500"
+                      : item.category === "data_inventory"
+                      ? "bg-amber-500"
+                      : "bg-emerald-500";
 
-              {/* Filter & Sort Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { id: "all", label: "All Open" },
-                    { id: "chat", label: "🤖 Chat Detected" },
-                    { id: "manual", label: "✍️ Direct Feedback" },
-                    { id: "feature", label: "✨ Features" },
-                    { id: "bug", label: "🐛 Bugs" },
-                    { id: "resolved", label: "✓ Resolved" },
-                  ].map((f) => (
-                    <button
-                      key={f.id}
-                      onClick={() => setSourceFilter(f.id as any)}
-                      data-testid={`filter-${f.id}`}
-                      className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
-                        sourceFilter === f.id
-                          ? "bg-indigo-600 text-white"
-                          : "bg-slate-800/80 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                      }`}
+                  return (
+                    <div
+                      key={item.id}
+                      data-testid="recommendation-card"
+                      className="rounded-xl border border-slate-800/90 bg-slate-950/60 p-3 transition-all hover:border-slate-700"
                     >
-                      {f.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400">Sort:</span>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as any)}
-                    className="rounded-lg border border-slate-800 bg-slate-950 px-2 py-1 text-xs text-slate-300 focus:outline-none"
-                  >
-                    <option value="priority">🔥 Highest Priority</option>
-                    <option value="upvotes">👍 Most Upvoted</option>
-                    <option value="newest">⏱️ Newest</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Recommendations List */}
-              <div className="space-y-4">
-                {filteredList.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-slate-800 p-8 text-center text-sm text-slate-500">
-                    No feedback items found matching this filter.
-                  </div>
-                ) : (
-                  filteredList.map((item) => {
-                    const isCopied = copiedId === item.id;
-                    return (
-                      <div
-                        key={item.id}
-                        data-testid="recommendation-card"
-                        className={`rounded-2xl border p-4.5 transition-all ${
-                          item.status === "resolved"
-                            ? "border-emerald-950/40 bg-slate-950/40 opacity-70"
-                            : item.severity === "high"
-                            ? "border-rose-900/40 bg-gradient-to-b from-rose-950/10 to-slate-900"
-                            : "border-slate-800 bg-slate-900/90"
-                        }`}
-                      >
-                        {/* Top Meta Bar */}
-                        <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {/* Source Badge */}
-                            <span
-                              className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${
-                                item.source === "chat_auto_detected"
-                                  ? "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20"
-                                  : "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                              }`}
-                            >
-                              {item.source === "chat_auto_detected" ? "🤖 Chat Detected" : "✍️ Direct Feedback"}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          {/* Top Row: Dot + Fix Title + Upvotes */}
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`h-2 w-2 rounded-full shrink-0 ${catDotColor}`} />
+                            <span className="text-xs font-bold text-slate-100 truncate">
+                              {item.aiRecommendation}
                             </span>
-
-                            {/* Category Badge */}
-                            <span className="rounded-md border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-medium text-slate-300">
-                              {item.category === "feature_request"
-                                ? "✨ Feature"
-                                : item.category === "bug_friction"
-                                ? "🐛 Bug"
-                                : item.category === "data_inventory"
-                                ? "📦 Data"
-                                : "🎨 UI/UX"}
-                            </span>
-
-                            {/* Severity Pill */}
-                            <span
-                              className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${
-                                item.severity === "high"
-                                  ? "bg-rose-500/20 text-rose-300"
-                                  : item.severity === "medium"
-                                  ? "bg-amber-500/20 text-amber-300"
-                                  : "bg-slate-700/40 text-slate-400"
-                              }`}
-                            >
-                              {item.severity.toUpperCase()}
-                            </span>
+                            {item.upvotes > 1 && (
+                              <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded shrink-0">
+                                x{item.upvotes}
+                              </span>
+                            )}
                           </div>
 
-                          <div className="text-right text-[11px] text-slate-400">
-                            <span className="font-medium text-slate-300">{item.userName}</span> ({item.userRole})
-                          </div>
+                          {/* Raw Quote */}
+                          <p className="text-[11px] text-slate-400 line-clamp-1 italic pl-4">
+                            "{item.rawText}"
+                          </p>
                         </div>
 
-                        {/* Raw User Quote */}
-                        <div className="mb-3 rounded-xl border border-slate-800/80 bg-slate-950/60 p-3 text-xs italic text-slate-300">
-                          "{item.rawText}"
-                        </div>
-
-                        {/* Synthesized Dev Recommendation */}
-                        <div className="mb-3.5 rounded-xl border border-indigo-500/20 bg-indigo-950/20 p-3">
-                          <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-indigo-400">
-                            🛠️ Recommended Fix
-                          </div>
-                          <div className="text-xs font-medium text-indigo-200">
-                            {item.aiRecommendation}
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80 pt-3">
+                        {/* Compact Action Buttons */}
+                        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
                           <button
                             onClick={() => handleCopyPrompt(item.id, item.suggestedFixPrompt)}
                             data-testid="btn-copy-prompt"
-                            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                            title="Copy Antigravity Directive"
+                            className={`rounded-lg px-2 py-1 text-[11px] font-semibold transition-all ${
                               isCopied
                                 ? "bg-emerald-600 text-white"
-                                : "bg-indigo-600/90 text-white hover:bg-indigo-500 shadow-md shadow-indigo-600/20"
+                                : "bg-indigo-600/80 hover:bg-indigo-500 text-white"
                             }`}
                           >
-                            {isCopied ? "✓ Copied to Clipboard!" : "📋 Copy Antigravity Fix Prompt"}
+                            {isCopied ? "✓ Copied" : "📋 Prompt"}
                           </button>
-
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleUpvote(item.id)}
-                              data-testid="btn-upvote-feedback"
-                              className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700"
-                            >
-                              👍 +1 ({item.upvotes})
-                            </button>
-                            <button
-                              onClick={() => handleToggleResolve(item.id, item.status)}
-                              data-testid="btn-resolve-feedback"
-                              className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all ${
-                                item.status === "resolved"
-                                  ? "bg-slate-800 text-slate-400 hover:text-white"
-                                  : "border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                              }`}
-                            >
-                              {item.status === "resolved" ? "Reopen" : "✓ Mark Resolved"}
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => handleToggleResolve(item.id, item.status)}
+                            data-testid="btn-resolve-feedback"
+                            title="Mark Resolved"
+                            className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-1 text-[11px] font-semibold text-emerald-400 transition-all"
+                          >
+                            ✓ Done
+                          </button>
                         </div>
                       </div>
-                    );
-                  })
-                )}
-              </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           )}
         </div>

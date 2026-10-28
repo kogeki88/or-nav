@@ -76,9 +76,9 @@ async function run() {
     });
     const toastMatches =
       toastRendered !== null &&
-      (toastRendered.includes("+10 XP") ||
-        toastRendered.includes("+35 XP") ||
-        toastRendered.includes("First Scrub"));
+      (toastRendered.includes("+2 XP") ||
+        toastRendered.includes("+12 XP") ||
+        toastRendered.includes("First Quest"));
     recordResult(
       "XP Engine",
       "XP Toast Pill Appears on Action",
@@ -97,13 +97,13 @@ async function run() {
       return dash ? dash.textContent : "";
     });
 
-    const hasLevel1 = rewardsText.includes("LEVEL 1") || rewardsText.includes("Clinical Orientee");
-    const hasQuestProgress = rewardsText.includes("Run 3 Clinical Lookups") && rewardsText.includes("+30 XP");
-    const hasBadge = rewardsText.includes("First Scrub");
+    const hasLevel1 = rewardsText.includes("Novice Scout") || rewardsText.includes("Lv.1");
+    const hasQuestProgress = rewardsText.includes("Run 3 Supply Searches") && rewardsText.includes("+10 XP");
+    const hasBadge = rewardsText.includes("First Quest");
 
-    recordResult("Rewards Tab", "Renders Level Rank & XP Tier Progress", hasLevel1, "Level 1 • Clinical Orientee verified");
-    recordResult("Quests", "Active Shift Quest Progress Tracked", hasQuestProgress, "Lookup Quest verified");
-    recordResult("Badges", "First Scrub Achievement Badge Unlocked", hasBadge, "First Scrub unlocked");
+    recordResult("Rewards Tab", "Renders Level Rank & XP Tier Progress", hasLevel1, "Level 1 • Novice Scout verified");
+    recordResult("Quests", "Active Shift Quest Progress Tracked", hasQuestProgress, "Supply Search Quest verified");
+    recordResult("Badges", "First Quest Achievement Badge Unlocked", hasBadge, "First Quest unlocked");
 
     // Capture screenshot of the Rewards Tab
     const ssPath = path.join(ARTIFACT_DIR, "phase35_rewards_dashboard.png");

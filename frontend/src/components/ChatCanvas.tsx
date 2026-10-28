@@ -130,7 +130,7 @@ export default function ChatCanvas({
                     data-testid="feedback-captured-pill"
                     className="text-[10px] text-indigo-400 font-medium flex items-center gap-1 mr-1 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20 animate-fadeIn"
                   >
-                    💡 Logged to Developer Feedback (+15 XP)
+                    💡 Logged to Developer Feedback (+3 XP)
                   </span>
                 )}
                 {msg.clientPhiDetected && (

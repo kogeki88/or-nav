@@ -40,6 +40,7 @@ import {
   XP_EVENT_NAME,
   type ClinicianRewards,
 } from "@/lib/gamification";
+import { isAdminUser, getCurrentSession } from "@/lib/auth";
 
 function formatSessionTime(iso: string): string {
   try {
@@ -426,9 +427,9 @@ export default function Sidebar({
         >
           <div className="flex items-center gap-2">
             <MessageSquare className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Feedback &amp; Roadmap</span>
+            <span>{isAdminUser(getCurrentSession() || userProfile) ? "Feedback & Roadmap" : "Send Feedback"}</span>
           </div>
-          {openFeedbackCount > 0 && (
+          {isAdminUser(getCurrentSession() || userProfile) && openFeedbackCount > 0 && (
             <span
               data-testid="feedback-open-count"
               className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200"

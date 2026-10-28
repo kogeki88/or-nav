@@ -31,6 +31,21 @@ export const AUTH_SESSION_STORAGE_KEY = "ornav_active_session";
 export const USERS_DB_STORAGE_KEY = "ornav_users_db";
 export const AUTH_EVENT = "ornav_auth_session_changed";
 
+export function isAdminUser(
+  user?: { email?: string; fullName?: string; role?: string } | null
+): boolean {
+  if (!user) return false;
+  const email = (user.email || "").toLowerCase().trim();
+  const fullName = (user.fullName || "").toLowerCase().trim();
+  const role = (user.role || "").toLowerCase().trim();
+
+  return (
+    email === "sean@sacredheart.org" ||
+    fullName.includes("sean iglesia") ||
+    role === "admin"
+  );
+}
+
 export function createTimeoutSignal(ms: number): AbortSignal {
   if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
     return AbortSignal.timeout(ms);

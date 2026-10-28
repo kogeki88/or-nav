@@ -460,7 +460,7 @@ export default function Home() {
         const item = await interceptChatComplaint(rawMessage, profile);
         if (item) {
           feedbackIntercepted = true;
-          awardClinicalXP("feedback_logged", "Feedback Captured for Dev Roadmap (+15 XP)");
+          awardClinicalXP("feedback_logged", "Feedback Captured for Roadmap (+3 XP)");
         }
       } catch (e) {
         console.warn("Feedback interception error:", e);
@@ -587,7 +587,7 @@ export default function Home() {
             const vItem = await interceptChatComplaint(res.safe_transcript, profile);
             if (vItem) {
               voiceFeedbackCaptured = true;
-              awardClinicalXP("feedback_logged", "Voice Feedback Captured (+15 XP)");
+              awardClinicalXP("feedback_logged", "Voice Feedback Captured (+3 XP)");
             }
           } catch {}
 

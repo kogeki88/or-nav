@@ -59,54 +59,54 @@ export const XP_EVENT_NAME = "ornav-xp-gained";
 export const CLINICAL_BADGES: Record<string, BadgeDefinition> = {
   first_scrub: {
     id: "first_scrub",
-    title: "First Scrub",
-    description: "Completed first clinical inventory or protocol lookup.",
+    title: "First Quest",
+    description: "Complete 1st search",
     icon: "🌱",
     category: "mastery",
   },
   core_scout: {
     id: "core_scout",
-    title: "Sterile Core Scout",
-    description: "Completed 10+ clinical supply or preference card lookups.",
+    title: "Loot Hunter",
+    description: "10+ supply searches",
     icon: "🧭",
     category: "mastery",
   },
   unit_preceptor: {
     id: "unit_preceptor",
-    title: "Unit Preceptor",
-    description: "Shared clinical expertise by answering an orientee question.",
+    title: "Guild Helper",
+    description: "Answer a peer question",
     icon: "⭐",
     category: "community",
   },
   consensus_guardian: {
     id: "consensus_guardian",
-    title: "Consensus Guardian",
-    description: "Verified 2+ peer answers or confirmed supply bin locations.",
+    title: "Truth Seeker",
+    description: "Verify 2+ answers/bins",
     icon: "🛡️",
     category: "community",
   },
   pack_collector: {
     id: "pack_collector",
-    title: "Offline Ready",
-    description: "Synced 3-tier modular hospital packs for standalone use.",
+    title: "Map Collector",
+    description: "Sync offline pack",
     icon: "📦",
     category: "resilience",
   },
   shift_veteran: {
     id: "shift_veteran",
-    title: "Shift Streak",
-    description: "Logged consecutive shifts of perioperative excellence.",
+    title: "Daily Grinder",
+    description: "Active streak",
     icon: "🔥",
     category: "resilience",
   },
 };
 
 export const LEVEL_THRESHOLDS = [
-  { level: 1, minXp: 0, nextXp: 100, rankTitle: "Clinical Orientee", icon: "🌱" },
-  { level: 2, minXp: 100, nextXp: 300, rankTitle: "Unit Navigator", icon: "🧭" },
-  { level: 3, minXp: 300, nextXp: 600, rankTitle: "Core Specialist", icon: "🛡️" },
-  { level: 4, minXp: 600, nextXp: 1000, rankTitle: "Lead Preceptor", icon: "⭐" },
-  { level: 5, minXp: 1000, nextXp: 2000, rankTitle: "Clinical Master", icon: "👑" },
+  { level: 1, minXp: 0, nextXp: 100, rankTitle: "Novice Scout", icon: "🌱" },
+  { level: 2, minXp: 100, nextXp: 300, rankTitle: "Supply Ranger", icon: "🧭" },
+  { level: 3, minXp: 300, nextXp: 600, rankTitle: "Vault Pathfinder", icon: "🛡️" },
+  { level: 4, minXp: 600, nextXp: 1000, rankTitle: "Lore Seeker", icon: "⚡" },
+  { level: 5, minXp: 1000, nextXp: 2000, rankTitle: "Grandmaster Navigator", icon: "👑" },
 ];
 
 export function getLevelInfo(xp: number) {
@@ -135,26 +135,26 @@ export function getDefaultDailyQuests(): DailyQuest[] {
   return [
     {
       id: "quest_lookups",
-      title: "Run 3 Clinical Lookups",
+      title: "Run 3 Supply Searches",
       target: 3,
       progress: 0,
-      xpReward: 30,
+      xpReward: 10,
       completed: false,
     },
     {
       id: "quest_peer",
-      title: "Verify or Answer 1 Peer Question",
+      title: "Verify or Answer 1 Peer Doubt",
       target: 1,
       progress: 0,
-      xpReward: 50,
+      xpReward: 10,
       completed: false,
     },
     {
       id: "quest_pack",
-      title: "Sync or Reinstall Unit Packs",
+      title: "Sync or Reinstall Knowledge Pack",
       target: 1,
       progress: 0,
-      xpReward: 30,
+      xpReward: 10,
       completed: false,
     },
   ];
@@ -252,14 +252,14 @@ const ACTION_CONFIG: Record<
   ActionType,
   { xp: number; label: string }
 > = {
-  lookup: { xp: 10, label: "Clinical Lookup Completed" },
-  pack_sync: { xp: 15, label: "Resource Pack Synced" },
-  ask_question: { xp: 15, label: "Orientee Question Broadcast" },
-  inventory_fix: { xp: 25, label: "Bin Move / Location Verified" },
-  peer_answer: { xp: 30, label: "Peer Clinical Answer Submitted" },
-  peer_verify: { xp: 40, label: "Consensus Verification Vote" },
-  feedback_logged: { xp: 15, label: "Feedback Captured for Dev Roadmap" },
-  feedback_manual: { xp: 20, label: "Clinical Feedback Contributed" },
+  lookup: { xp: 2, label: "Search Completed" },
+  pack_sync: { xp: 3, label: "Knowledge Pack Synced" },
+  ask_question: { xp: 3, label: "Peer Doubt Broadcast" },
+  inventory_fix: { xp: 5, label: "Bin Move / Location Verified" },
+  peer_answer: { xp: 8, label: "Peer Answer Submitted" },
+  peer_verify: { xp: 10, label: "Consensus Verification Vote" },
+  feedback_logged: { xp: 3, label: "Feedback Captured for Roadmap" },
+  feedback_manual: { xp: 5, label: "Feedback Contributed" },
 };
 
 export function awardClinicalXP(
@@ -268,7 +268,7 @@ export function awardClinicalXP(
   userId?: string
 ): ClinicianRewards {
   const current = getClinicianRewards(userId);
-  const cfg = ACTION_CONFIG[actionType] || { xp: 10, label: "Clinical Action" };
+  const cfg = ACTION_CONFIG[actionType] || { xp: 2, label: "Action" };
   const baseAmount = cfg.xp;
   let totalAwarded = baseAmount;
 
@@ -310,7 +310,7 @@ export function awardClinicalXP(
     if (!current.unlockedBadges.includes(badgeId)) {
       current.unlockedBadges.push(badgeId);
       unlockedBadge = CLINICAL_BADGES[badgeId];
-      totalAwarded += 25; // Bonus XP for unlocking any badge
+      totalAwarded += 10; // Bonus XP for unlocking any badge
     }
   };
 
