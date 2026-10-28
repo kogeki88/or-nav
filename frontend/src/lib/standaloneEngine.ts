@@ -23,6 +23,7 @@ import {
 } from "./seedData";
 import { directGeminiRAG, isGeminiDirectAvailable } from "./directGemini";
 import { parseClinicalIntent, ClinicalIntent } from "./semanticParser";
+import { isEponymConflict, isGenericClassOnly, normalizeOrLingo } from "./surgicalOntology";
 import {
   getUserProfile,
   getRoleScope,
@@ -828,12 +829,19 @@ export function findMatchingRow(
   rows: OfflineInventoryRecord[]
 ): { row: OfflineInventoryRecord | null; stage: string } {
   const cleaned = query.replace(QUERY_PREFIXES, "").trim();
+  if (!cleaned || cleaned.length < 2) return { row: null, stage: "" };
+  if (isGenericClassOnly(cleaned)) return { row: null, stage: "" };
+
   const [normQuery, queryPhonetic] = normalizeAndHash(query);
   const querySpecs = extractGaugeAndSpecs(`${normQuery} ${cleaned} ${query}`);
+  const normLingo = normalizeOrLingo(cleaned);
 
   // STAGE A: Exact Normalized Match
   for (const row of rows) {
     if (hasConflictingSpecifications(querySpecs, row)) continue;
+    const rowFull = `${row.item} ${row.aliases || ""}`;
+    if (isEponymConflict(cleaned, rowFull)) continue;
+
     const normRow = row.normalized_name || normalizeAndHash(row.item)[0];
     const aliases = (row.aliases || "")
       .toLowerCase()
@@ -841,14 +849,17 @@ export function findMatchingRow(
       .map((s) => s.trim())
       .filter(Boolean);
 
-    if (normQuery === normRow || aliases.includes(normQuery)) {
+    if (normQuery === normRow || aliases.includes(normQuery) || normLingo === normRow || aliases.includes(normLingo)) {
       return { row, stage: "STAGE_A_EXACT" };
     }
-    if (normRow.startsWith(`${normQuery} `) && normQuery.length >= 4) {
+    if ((normRow.startsWith(`${normQuery} `) && normQuery.length >= 4) || (normRow.startsWith(`${normLingo} `) && normLingo.length >= 4)) {
       return { row, stage: "STAGE_A_EXACT" };
     }
     for (const cand of [normRow, ...aliases]) {
-      if (cand.length >= 4 && new RegExp(`\\b${cand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(normQuery)) {
+      if (cand.length >= 4 && (
+        new RegExp(`\\b${cand.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "i").test(normQuery) ||
+        new RegExp(`\\b${cand.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "i").test(normLingo)
+      )) {
         return { row, stage: "STAGE_A_EXACT" };
       }
     }
@@ -859,6 +870,9 @@ export function findMatchingRow(
     const queryPhonTokens = queryPhonetic.split(" ").filter(Boolean);
     for (const row of rows) {
       if (hasConflictingSpecifications(querySpecs, row)) continue;
+      const rowFull = `${row.item} ${row.aliases || ""}`;
+      if (isEponymConflict(cleaned, rowFull)) continue;
+
       const rowPhon = row.phonetic_code || normalizeAndHash(row.item)[1];
       if (queryPhonetic === rowPhon) {
         return { row, stage: "STAGE_B_PHONETIC" };
@@ -876,10 +890,14 @@ export function findMatchingRow(
 
   for (const row of rows) {
     if (hasConflictingSpecifications(querySpecs, row)) continue;
+    const rowFull = `${row.item} ${row.aliases || ""}`;
+    if (isEponymConflict(cleaned, rowFull)) continue;
+
     const normRow = row.normalized_name || normalizeAndHash(row.item)[0];
     const score = Math.max(
       tokenSetRatio(normQuery, normRow),
-      tokenSetRatio(cleaned, normRow)
+      tokenSetRatio(cleaned, normRow),
+      tokenSetRatio(normLingo, normRow)
     );
     if (score >= 82 && score > bestScore) {
       bestScore = score;
@@ -1437,6 +1455,25 @@ export async function executeStandaloneSearch(
       coordinate_card: card,
       coordinate_cards: [card],
       move_widget: widget,
+      spoken_transcript_correction: parsedIntent.spoken_transcript_correction,
+      disambiguation_chips: parsedIntent.disambiguation_options,
+    };
+  }
+
+  // If item search had FIND_INVENTORY intent and no item was found, show quick-add widget
+  if (parsedIntent.intent === ClinicalIntent.FIND_INVENTORY) {
+    const elapsed = Math.max(1, Math.round(performance.now() - t0));
+    const targetItem = (parsedIntent.entities.item || processedText).trim();
+    return {
+      reply_text: `'${targetItem}' is not currently stocked in local inventory. Would you like to add it?`,
+      routing_tier: "TIER_1_LOCAL_CSV",
+      scrubbed_query: processedText,
+      phi_detected: false,
+      latency_ms: elapsed,
+      coordinate_card: null,
+      coordinate_cards: [],
+      move_widget: null,
+      quick_add_widget: { item: targetItem },
       spoken_transcript_correction: parsedIntent.spoken_transcript_correction,
       disambiguation_chips: parsedIntent.disambiguation_options,
     };

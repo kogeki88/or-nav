@@ -4,6 +4,7 @@
  */
 
 import { scrubPhi } from "./scrubClient";
+import { normalizeOrLingo } from "./surgicalOntology";
 import { SEED_ORIENTATION_MD, SEED_BASELINE_MD, getSeedOrientationMd } from "./seedData";
 import { getDepartment, getActiveDepartmentId } from "./departments";
 import { getUserProfile, getRoleScope, type UserProfile } from "./userProfile";
@@ -77,7 +78,7 @@ export async function directTranscribeAudio(
           },
           {
             text:
-              `You are a real-time ${dept.name} audio transcriber. Transcribe the spoken audio into text. If the audio is silent, background static, empty, or incomprehensible noise, output strictly '[SILENCE]'. Common medical terms: ${dept.vocabHint}. Output ONLY the transcription or '[SILENCE]'.`,
+              `You are an expert Operating Room and Surgical Scrub Nurse transcriber. Transcribe the spoken audio verbatim. Accurately identify surgical instruments, eponyms, sutures, and OR terminology: Adson, DeBakey, Gerald, Russian, Metzenbaum, Mayo, Iris, Tenotomy, Crile, Kelly, Pean, Kocher, Allis, Babcock, Mixter, Schnidt, Satinsky, Cooley, Mayo-Hegar, Crile-Wood, Ryder, Castroviejo, Army-Navy, Senn, Richardson, Deaver, Malleable, Weitlaner, Gelpi, Bookwalter, Omni-Tract, Balfour, Finochietto, Kerrison, Leksell, Cobb, Freer, Penfield, Kittner, Ray-Tec, Yankauer, Frazier, Poole, Prolene, Vicryl, Monocryl, Ethibond, Silk, Bovie, snaps, pickups, metz, peanut, etc. If the audio is silent, background static, empty, or incomprehensible noise, output strictly '[SILENCE]'. Output ONLY the verbatim transcription or '[SILENCE]'.`,
           },
         ],
       },
@@ -106,9 +107,10 @@ export async function directTranscribeAudio(
     return null;
   }
 
-  // Client-side HIPAA PHI Scrub
+  // Client-side HIPAA PHI Scrub and Surgical Ontology Normalization
   const { text: scrubbed } = scrubPhi(rawText);
-  return scrubbed.trim() || null;
+  const normalized = normalizeOrLingo(scrubbed);
+  return normalized.trim() || null;
 }
 
 /**

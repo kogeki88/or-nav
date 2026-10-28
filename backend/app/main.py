@@ -170,12 +170,12 @@ async def get_version(response: Response):
             pass
 
     return {
-        "version": "v0.54",
-        "build_number": 11,
+        "version": "v0.55",
+        "build_number": 12,
         "release_date": "2026-10-28",
         "apk_download_url": f"http://{lan_ip or '192.168.1.217'}:8000/api/download-apk",
         "min_supported_version": "v0.1",
-        "changelog": "v0.54 (Build 11): Semantic Intent & Slot-Parsing Engine, Biased Clinical Listening Normalizer, Conversational Inventory Mutations, and Uncut Markdown.",
+        "changelog": "v0.55 (Build 12): Surgical Ontology Engine, Strict Eponym Guard (Zero Generic False Positives), Audio Transcriber Prompting & 120+ Master OR Catalog.",
     }
 
 

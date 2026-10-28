@@ -25,6 +25,12 @@ from metaphone import doublemetaphone
 from rapidfuzz import fuzz
 
 from app.config import TenantConfig
+from app.services.surgical_ontology import (
+    is_eponym_conflict,
+    is_generic_class_only,
+    normalize_or_lingo,
+    extract_eponyms,
+)
 
 
 # Minimum similarity score (0-100) to accept a Stage C fuzzy match in Tier 1.
@@ -936,8 +942,11 @@ class InventoryService:
                 if alias.strip()
             )
 
-        size_tokens = re.findall(r"\b\d+-(?:0|zero|oh)\b|\b\d+\s*fr\b|\b#\d+\b", cleaned_query)
         row_text_all = " ".join(candidates)
+        if is_eponym_conflict(cleaned_query, row_text_all):
+            return 0.0
+
+        size_tokens = re.findall(r"\b\d+-(?:0|zero|oh)\b|\b\d+\s*fr\b|\b#\d+\b", cleaned_query)
 
         best_score = 0.0
         for candidate in candidates:
@@ -970,21 +979,35 @@ class InventoryService:
         if not cleaned or len(cleaned) < 2:
             return None, ""
 
+        if is_generic_class_only(cleaned):
+            return None, ""
+
         norm_query, query_phonetic = normalize_and_hash(cleaned)
         query_specs = extract_gauge_and_specs(f"{norm_query} {cleaned} {query}")
+        norm_lingo = normalize_or_lingo(cleaned)
 
         # --- STAGE A: Exact Normalized Match ---
         for row in self._rows:
             if has_conflicting_specifications(query_specs, row):
                 continue
+            row_full = f"{row.get('item', '')} {row.get('aliases', '')}"
+            if is_eponym_conflict(cleaned, row_full):
+                continue
             if norm_query == row["normalized_name"] or norm_query in row["_norm_aliases"]:
+                return row, "STAGE_A_EXACT"
+            if norm_lingo == row["normalized_name"] or norm_lingo in row["_norm_aliases"]:
                 return row, "STAGE_A_EXACT"
 
         # Check leading prefix match (e.g. "3-0 silk" matching "3-0 silk suture")
         for row in self._rows:
             if has_conflicting_specifications(query_specs, row):
                 continue
+            row_full = f"{row.get('item', '')} {row.get('aliases', '')}"
+            if is_eponym_conflict(cleaned, row_full):
+                continue
             if row["normalized_name"].startswith(norm_query + " ") and len(norm_query) >= 4:
+                return row, "STAGE_A_EXACT"
+            if row["normalized_name"].startswith(norm_lingo + " ") and len(norm_lingo) >= 4:
                 return row, "STAGE_A_EXACT"
 
         # Check subphrase word-bounded match for items/aliases within longer clinical queries
@@ -992,8 +1015,14 @@ class InventoryService:
         for row in self._rows:
             if has_conflicting_specifications(query_specs, row):
                 continue
+            row_full = f"{row.get('item', '')} {row.get('aliases', '')}"
+            if is_eponym_conflict(cleaned, row_full):
+                continue
             for cand in [row["normalized_name"]] + row["_norm_aliases"]:
-                if len(cand) >= 4 and re.search(r"\b" + re.escape(cand) + r"\b", norm_query):
+                if len(cand) >= 4 and (
+                    re.search(r"\b" + re.escape(cand) + r"\b", norm_query)
+                    or re.search(r"\b" + re.escape(cand) + r"\b", norm_lingo)
+                ):
                     return row, "STAGE_A_EXACT"
 
         # --- STAGE B: Double Metaphone Phonetic Match ---
@@ -1002,12 +1031,18 @@ class InventoryService:
             for row in self._rows:
                 if has_conflicting_specifications(query_specs, row):
                     continue
+                row_full = f"{row.get('item', '')} {row.get('aliases', '')}"
+                if is_eponym_conflict(cleaned, row_full):
+                    continue
                 if query_phonetic == row["phonetic_code"] or query_phonetic in row["_phon_aliases"]:
                     return row, "STAGE_B_PHONETIC"
 
             # Check prefix/subset phonetic match when phonetic token is highly specific (e.g. TPK, TKRN, ATLN, PRLN)
             for row in self._rows:
                 if has_conflicting_specifications(query_specs, row):
+                    continue
+                row_full = f"{row.get('item', '')} {row.get('aliases', '')}"
+                if is_eponym_conflict(cleaned, row_full):
                     continue
                 row_phon_set = set(row["phonetic_code"].split())
                 for pa in row["_phon_aliases"]:
@@ -1023,7 +1058,10 @@ class InventoryService:
         for idx, row in enumerate(self._rows):
             if has_conflicting_specifications(query_specs, row):
                 continue
-            for candidate_q in (norm_query, cleaned):
+            row_full = f"{row.get('item', '')} {row.get('aliases', '')}"
+            if is_eponym_conflict(cleaned, row_full):
+                continue
+            for candidate_q in (norm_query, cleaned, norm_lingo):
                 score = self._compute_match_score(candidate_q, row)
                 if score >= _SIMILARITY_THRESHOLD and (
                     score > best_score

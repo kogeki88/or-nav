@@ -452,6 +452,25 @@ async def handle_chat(req: ChatRequest):
             disambiguation_chips=parsed_intent.disambiguation_options,
         )
 
+    # If the user was searching for a specific item and it is not in inventory, show quick-add widget
+    if parsed_intent.intent == ClinicalIntent.FIND_INVENTORY:
+        elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
+        target_item = (parsed_intent.entities.item or processed_text).strip()
+        reply = f"'{target_item}' is not currently stocked in local inventory. Would you like to add it?"
+        return ChatResponse(
+            reply_text=reply,
+            routing_tier="TIER_1_LOCAL_CSV",
+            scrubbed_query=scrubbed_text,
+            phi_detected=phi_detected,
+            latency_ms=elapsed_ms,
+            coordinate_card=None,
+            coordinate_cards=[],
+            move_widget=None,
+            quick_add_widget=QuickAddWidget(item=target_item),
+            spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
+            disambiguation_chips=parsed_intent.disambiguation_options,
+        )
+
     # Step 4: Tier 2 Gemini 2.5 Flash RAG Fallback (+ GLOBAL_BASELINE)
     allowed, denial_reason = evaluate_rbac(scrubbed_text, req.clinical_role)
     if not allowed:
@@ -603,20 +622,10 @@ async def handle_in_ram_voice_query(
                         data=audio_bytes,
                         mime_type=mime_type,
                     )
-                    dept_info = DEPARTMENTS.get(tenant_id, {})
-                    vocab_hint = dept_info.get("vocab_hint", "Prolene, Silk, Ti-Cron, DeBakey, Weitlaner, Bovie, Heparin, Dantrolene")
-                    prompt = (
-                        "Transcribe the spoken words in this audio verbatim. "
-                        "CRITICAL RULE: If the audio contains only silence, static, clicks, "
-                        "or background hum with no clear human speech, return the exact string "
-                        "[SILENCE] and nothing else. Do NOT guess or invent words from the "
-                        "vocabulary hint. "
-                        f"Spelling hint (use ONLY if these words are clearly spoken): {vocab_hint}. "
-                        "Return ONLY the raw transcript text with no quotes or commentary."
-                    )
+                    from app.routers.voice import SURGICAL_TRANSCRIPTION_PROMPT
                     resp = await client.aio.models.generate_content(
                         model="gemini-2.5-flash",
-                        contents=[audio_part, prompt],
+                        contents=[audio_part, SURGICAL_TRANSCRIPTION_PROMPT],
                         config=genai.types.GenerateContentConfig(
                             temperature=0.0,
                             max_output_tokens=256,

@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Mic, Send, Paperclip, Loader2, Radio } from "lucide-react";
+import { normalizeOrLingo } from "@/lib/surgicalOntology";
 
 interface OmnibarProps {
   onSendMessage: (rawMessage: string) => void;
@@ -216,7 +217,7 @@ export default function Omnibar({
 
       // 1. Spoken words captured by desktop Web Speech -> send them directly
       if (capturedText.length > 0) {
-        onSendMessageRef.current(capturedText);
+        onSendMessageRef.current(normalizeOrLingo(capturedText));
         resetToIdle();
         return;
       }

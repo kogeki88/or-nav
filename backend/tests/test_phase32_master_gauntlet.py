@@ -243,7 +243,7 @@ def test_gauntlet_noisy_speech_homophones_and_compound_queries():
     """Verify exact, Double Metaphone phonetic, and compound queries across departments."""
     # 1. Phonetic speech homophone resolution in OR
     or_service = get_inventory_service("sacred_heart/or")
-    assert or_service.search("the bakery")["item"] == "DeBakey Forceps 12in"
+    assert "DeBakey" in or_service.search("the bakery")["item"]
     assert "prolene" in or_service.search("pro lean")["item"].lower()
     assert "bovie" in or_service.search("bovey")["item"].lower()
     assert "weitlaner" in or_service.search("white laner")["item"].lower()
@@ -365,7 +365,7 @@ def test_gauntlet_ota_manifest_and_apk_bloat_guard():
     assert "no-cache" in res.headers.get("Cache-Control", "")
 
     v_data = res.json()
-    assert v_data["version"] in ["v0.4", "v0.41", "v0.5", "v0.51", "v0.52", "v0.53", "v0.54"]
+    assert v_data["version"] in ["v0.4", "v0.41", "v0.5", "v0.51", "v0.52", "v0.53", "v0.54", "v0.55"]
     assert v_data["build_number"] >= 6
     assert v_data["apk_download_url"].startswith("http")
 

@@ -917,22 +917,122 @@ def generate_department_inventory(facility_id: str, dept_id: str) -> str:
     
     if dept_id == "or":
         items = [
-            ("DeBakey Forceps 12in", "Instruments", prefix, "J", "2", "A", "debakeys|debakey|bakery|pickup|atraumatic forceps", "Dr. Vance takes 2 pair on field; Dr. Patel prefers for coronary pickups", 3.0),
-            ("Saphenous Vein Retractor (Weitlaner 3x4 Sharp)", "Instruments", prefix, "J", "3", "C", "weitlaner|white laner|white liner|vein retractor|saphenous retractor", "Weitlaner style; Dr. Chen wants 2 for vein harvest; ensure spring lock engages", 3.0),
-            ("Balfour Abdominal Retractor", "Instruments", "Core Supply", "E", "1", "A", "balfour|abdominal retractor|bladder blade retractor", "Check thumb screws; includes interchangeable lateral and bladder blades", 3.0),
+            # 1. Tissue Forceps & Pickups
+            ("Adson Tissue Forceps 1x2 (Adson Pickups)", "Instruments", prefix, "J", "1", "A", "adson|adson forceps|adson pickups|adson tissue forceps|toothed adson", "Dr. Vance takes 2 pair on field; standard 1x2 toothed pickups for skin/fascia", 3.0),
+            ("Adson Smooth Forceps", "Instruments", prefix, "J", "1", "B", "smooth adson|adson smooth|adson pickups without teeth|adson dressing forceps", "Atraumatic serrated tips for delicate plastic or subcutaneous handling", 3.0),
+            ("Brown-Adson Tissue Forceps", "Instruments", prefix, "J", "1", "C", "brown adson|brown-adson|brown-adson pickups|brown adson forceps", "Multiple fine interlocking teeth for secure skin grasp without puncture", 3.0),
+            ("DeBakey Vascular Tissue Forceps 6in", "Instruments", prefix, "J", "2", "A", "debakey 6in|6in debakey|short debakey|debakey pickups", "Fine atraumatic longitudinal ribbing for superficial vascular work", 3.0),
+            ("DeBakey Vascular Tissue Forceps 8in", "Instruments", prefix, "J", "2", "B", "debakey 8in|8in debakey|debakey pickups|standard debakey", "Standard peripheral vascular dissecting forceps", 3.0),
+            ("DeBakey Vascular Tissue Forceps 10in", "Instruments", prefix, "J", "2", "C", "debakey 10in|10in debakey|long debakey|deep debakey", "Deep thoracic and abdominal aortic dissecting pickups", 3.0),
+            ("DeBakey Vascular Tissue Forceps 12in", "Instruments", prefix, "J", "2", "D", "debakeys|debakey|bakery|pickup|atraumatic forceps|debakey 12in", "Dr. Vance takes 2 pair on field; Dr. Patel prefers for coronary pickups", 3.0),
+            ("Gerald Tissue Forceps 1x2", "Instruments", prefix, "J", "1", "D", "gerald|gerald pickups|gerald forceps|geralt", "Slender shaft with 1x2 micro-teeth for deep cranial or carotid exposure", 3.0),
+            ("Russian Tissue Forceps 8in", "Instruments", prefix, "J", "1", "E", "russian|russian pickups|russian forceps|spoon forceps", "Circular fenestrated cupped tips for heavy tissue and uterine handling", 3.0),
+            ("Ferris-Smith Tissue Forceps Heavy", "Instruments", "Core Supply", "F", "1", "A", "ferris-smith|ferris smith|heavy tissue forceps|ortho pickups", "Aggressive 2x3 teeth for heavy spinal and orthopedic fascial closure", 3.0),
+            ("Bonney Tissue Forceps 1x2", "Instruments", "Core Supply", "F", "1", "B", "bonney|bonney forceps|bonney pickups|heavy toothed forceps", "Heavy grip forceps for thick abdominal or pelvic fascial traction", 3.0),
+            ("Potts-Smith Tissue Forceps 8in", "Instruments", prefix, "J", "1", "F", "potts-smith|potts smith|potts pickups|fine vascular pickups", "Serrated delicate tips for fine cardiovascular dissection", 3.0),
+            ("Cushing Tissue Forceps 7in", "Instruments", prefix, "J", "1", "G", "cushing|cushing pickups|cushing forceps|neuro pickups", "Fine bayonet or straight neurosurgical tissue pickups", 3.0),
+            ("Singley Tissue Forceps 9in", "Instruments", prefix, "J", "1", "H", "singley|singley forceps|singley pickups|fenestrated pickups", "Oval fenestrated jaws for delicate gastrointestinal handling", 3.0),
+            ("Bayonet Forceps 7in", "Instruments", prefix, "J", "1", "I", "bayonet|bayonet forceps|bayonet pickups|neuro bayonet", "Offset handle for clear sightline in deep nasal and neuro cavities", 3.0),
+
+            # 2. Scissors
+            ("Metzenbaum Scissors 5.5in Curved (Baby Metz)", "Instruments", prefix, "J", "2", "E", "baby metz|short metz|5.5in metzenbaum|baby metzenbaum", "Delicate fine dissecting scissors for superficial dissection", 3.0),
+            ("Metzenbaum Scissors 7in Curved", "Instruments", prefix, "J", "2", "F", "metz|metzenbaum|dissecting scissors|curved metz|7in metz", "Curved tips; never cut sutures or heavy drapes with Metzenbaum", 3.0),
+            ("Metzenbaum Scissors 9in Curved (Long Metz)", "Instruments", prefix, "J", "2", "G", "long metz|9in metz|deep metz|long metzenbaum", "Deep thoracic and pelvic dissecting scissors", 3.0),
+            ("Mayo Scissors Heavy Straight", "Instruments", prefix, "J", "3", "A", "mayo scissors|suture scissors|straight mayo|mayo", "Used for heavy fascial cuts and cutting heavy suture ties", 3.0),
+            ("Mayo Scissors Heavy Curved 6.75in", "Instruments", prefix, "J", "3", "B", "curved mayo|heavy curved scissors|mayo dissecting scissors", "Heavy curved blades for dense fibrous tissue division", 3.0),
+            ("Iris Scissors Straight 4.5in", "Instruments", prefix, "J", "3", "C", "iris scissors|straight iris|fine straight scissors", "Micro sharp-sharp tips for ophthalmic and plastic suture cuts", 3.0),
+            ("Iris Scissors Curved 4.5in", "Instruments", prefix, "J", "3", "D", "curved iris|iris curved|fine curved scissors", "Extremely sharp delicate curved dissecting scissors", 3.0),
+            ("Tenotomy Scissors Curved (Stevens)", "Instruments", prefix, "J", "3", "E", "tenotomy|stevens tenotomy|tenotomy scissors", "Blunt-tipped fine curved scissors for delicate tendon and nerve release", 3.0),
+            ("Jorgenson Scissors Curved Heavy", "Instruments", prefix, "J", "3", "F", "jorgenson|jorgenson scissors|curved jorgenson", "Exaggerated curve for cutting deep around cervical and pelvic angles", 3.0),
+            ("Lister Bandage Scissors 7.25in", "Instruments", prefix, "J", "3", "G", "lister|bandage scissors|lister bandage scissors", "Probe blunt lower tip to prevent patient skin laceration during removal", 3.0),
+            ("Potts-Smith Vascular Scissors 45°", "Instruments", prefix, "J", "3", "H", "potts scissors|potts-smith scissors|angulated scissors|45 degree potts", "Angled blades for extending arteriotomies cleanly", 3.0),
+
+            # 3. Clamps & Hemostats
+            ("Halsted Mosquito Forceps Curved 5in", "Instruments", prefix, "J", "4", "A", "mosquito|mosquito clamp|curved mosquito|halsted", "Delicate fine-tipped clamp for pediatric and micro-vessel hemostasis", 3.0),
+            ("Halsted Mosquito Forceps Straight 5in", "Instruments", prefix, "J", "4", "B", "straight mosquito|mosquito straight", "Straight fine tips for tagging delicate fine sutures", 3.0),
+            ("Crile Hemostat Forceps Curved 5.5in (Snaps)", "Instruments", prefix, "J", "4", "C", "crile|snaps|snap|crile clamp|curved crile", "Standard curved snaps for clamping bleeding vessels", 3.0),
+            ("Crile Hemostat Forceps Straight 5.5in", "Instruments", prefix, "J", "4", "D", "straight snap|straight crile|straight snaps", "Straight jaws for tagging prolene/silk suture ties", 3.0),
+            ("Kelly Hemostatic Forceps Curved", "Instruments", prefix, "J", "4", "E", "kelly|hemostat|clamp|snap", "Standard 5.5in curved hemostat for soft tissue clamping", 3.0),
+            ("Rochester-Pean Forceps Curved 8in", "Instruments", prefix, "J", "4", "F", "pean|pean clamp|rochester pean|heavy clamp", "Heavy transverse serrations for deep vascular pedicle ligation", 3.0),
+            ("Kocher Hemostatic Forceps", "Instruments", prefix, "J", "4", "G", "kocher|oschner|toothed clamp", "1x2 aggressive teeth for tough fibrous fascial traction", 3.0),
+            ("Allis Tissue Forceps 6in", "Instruments", prefix, "J", "4", "H", "allis|allis clamp|grasping forceps", "5x6 teeth; used for grasping fascia and non-viable tissues", 3.0),
+            ("Babcock Intestinal Forceps", "Instruments", prefix, "J", "4", "I", "babcock|tubular grasper|bowel clamp|babcock clamp", "Atraumatic circumferential jaws for bowel and appendix grasp", 3.0),
+            ("Mixter Right-Angle Clamp 7.5in", "Instruments", prefix, "J", "4", "J", "right angle|right-angle|mixter|right angle clamp", "Full 90° right angle for passing ties behind cystic artery or vessels", 3.0),
+            ("Schnidt Tonsil Hemostatic Clamp", "Instruments", prefix, "J", "4", "K", "tonsil|schnidt|tonsil snap|tonsil clamp", "Gentle curve with fine tips for deep blunt dissection and tie-passing", 3.0),
+            ("Satinsky Atraumatic Vascular Clamp", "Instruments", prefix, "J", "4", "L", "satinsky|vascular clamp|aortic clamp|satinsky clamp", "Multi-angled partial occlusion clamp for aorta and vena cava", 3.0),
+            ("Cooley Vascular Clamp Curved", "Instruments", prefix, "J", "4", "M", "cooley|cooley clamp|cooley vascular clamp", "Atraumatic double-row serrations for peripheral vascular occlusions", 3.0),
+            ("DeBakey Vascular Cross-Clamp Atraumatic", "Instruments", prefix, "J", "4", "N", "debakey clamp|debakey cross clamp|aortic cross clamp", "Deep chest aortic cross clamp for cardiopulmonary bypass", 3.0),
+            ("Heaney Hysterectomy Clamp Heavy", "Instruments", "Core Supply", "G", "1", "A", "heaney|heaney clamp|hysterectomy clamp", "Cross-serrated heavy clamp for broad ligament and uterine vessels", 3.0),
+            ("Fogarty Hydrogrip Vascular Clamp", "Instruments", prefix, "J", "4", "O", "fogarty|fogarty clamp|hydrogrip clamp", "Replaceable soft silicone jaw inserts for fragile calcified vessels", 3.0),
+            ("Bulldog Vascular Clamp Straight", "Instruments", prefix, "J", "4", "P", "bulldog|bulldog clamp|vascular bulldog", "Spring-action cross-clamp for temporary micro-vascular occlusion", 3.0),
+            ("Glover Vascular Clamp Curved", "Instruments", prefix, "J", "4", "Q", "glover|glover clamp|curved glover", "Atraumatic serrated clamp for patent ductus and carotid cross-clamping", 3.0),
+
+            # 4. Needle Holders & Drivers
+            ("Castroviejo Micro Needle Holder", "Instruments", prefix, "J", "5", "A", "castro|castroviejo|micro needle driver", "Straight jaws with lock; inspect for tungsten wear before coronary cases", 3.0),
+            ("Mayo-Hegar Needle Holder 6in", "Instruments", prefix, "J", "5", "B", "mayo-hegar|mayo hegar|needle driver|heavy needle driver", "Heavy cross-hatched jaws for #1 and 0 fascial needles (CT-1/UR-6)", 3.0),
+            ("Mayo-Hegar Needle Holder 8in", "Instruments", prefix, "J", "5", "C", "8in mayo hegar|long needle driver|deep needle holder", "Deep abdominal and pelvic heavy needle driving", 3.0),
+            ("Crile-Wood Needle Holder 6in", "Instruments", prefix, "J", "5", "D", "crile-wood|crile wood|fine needle driver|crile needle holder", "Fine tapered jaws for 2-0 to 4-0 vascular and bowel needles (SH/RB-1)", 3.0),
+            ("Crile-Wood Needle Holder 7in", "Instruments", prefix, "J", "5", "E", "7in crile wood|crile-wood 7in", "Intermediate length fine needle driver", 3.0),
+            ("Ryder Vascular Needle Holder", "Instruments", prefix, "J", "5", "F", "ryder|ryder needle driver|fine vascular driver", "Ultra-narrow tungsten carbide jaws for 5-0 to 7-0 micro vascular needles", 3.0),
+            ("Webster Needle Holder Smooth Jaws", "Instruments", prefix, "J", "5", "G", "webster|webster needle holder|plastic needle driver", "Completely smooth jaws to prevent damaging delicate plastic surgery needles", 3.0),
+            ("Baumgartner Needle Holder 5.5in", "Instruments", prefix, "J", "5", "H", "baumgartner|baumgartner needle holder", "Heavy compact needle driver for orthopedic pin and wire driving", 3.0),
+            ("Olsen-Hegar Needle Holder with Scissors", "Instruments", prefix, "J", "5", "I", "olsen-hegar|olsen hegar|driver with scissors", "Combined needle driver with built-in cutting shears", 3.0),
+
+            # 5. Retractors
+            ("Army-Navy Retractor Pair", "Instruments", prefix, "J", "6", "A", "army navy|us army retractor|handheld retractor|army-navy", "Pair of double-ended handheld retractors for superficial exposure", 3.0),
+            ("Senn Retractor Double Ended", "Instruments", prefix, "J", "6", "B", "senn|senn retractor|cat paw retractor|cats paw", "Sharp and dull three-prong rake on one end, right angle blade on other", 3.0),
+            ("Richardson Retractor Large", "Instruments", prefix, "J", "6", "C", "richardson|rich|kelly retractor|large richardson|deep rich", "Deep belly handheld retractor; handle with comfort grip", 3.0),
+            ("Richardson Retractor Medium", "Instruments", prefix, "J", "6", "D", "medium rich|medium richardson|richardson medium", "Standard abdominal handheld retractor blade", 3.0),
+            ("Deaver Retractor #1 Narrow 1in", "Instruments", prefix, "J", "6", "E", "deaver|narrow deaver|deaver 1in", "Gentle curved deep abdominal retractor", 3.0),
+            ("Deaver Retractor #2 Medium 2in", "Instruments", prefix, "J", "6", "F", "medium deaver|deaver 2in|deaver retractor", "Curved abdominal visceral retraction blade", 3.0),
+            ("Deaver Retractor #3 Wide 3in", "Instruments", prefix, "J", "6", "G", "wide deaver|deep deaver|deaver 3in", "Broad deep abdominal wall retractor", 3.0),
+            ("Malleable Ribbon Retractor 1in x 13in", "Instruments", prefix, "J", "6", "H", "malleable|ribbon|ribbon retractor|malleable retractor", "Bendable stainless strip for protecting viscera during closure", 3.0),
+            ("Malleable Ribbon Retractor 2in x 13in", "Instruments", prefix, "J", "6", "I", "wide malleable|wide ribbon|2in malleable", "Wide malleable ribbon for deep abdominal packing and bowel protection", 3.0),
+            ("Saphenous Vein Retractor (Weitlaner 3x4 Sharp)", "Instruments", prefix, "J", "7", "A", "weitlaner|white laner|white liner|vein retractor|saphenous retractor", "Weitlaner style; Dr. Chen wants 2 for vein harvest; ensure spring lock engages", 3.0),
+            ("Weitlaner Retractor 3x4 Dull 6.5in", "Instruments", prefix, "J", "7", "B", "dull weitlaner|weitlaner dull|blunt weitlaner", "Blunt prongs to avoid vascular puncture during groin and hip exposure", 3.0),
+            ("Gelpi Perineal Retractor Sharp", "Instruments", prefix, "J", "7", "C", "gelpi|gelpi retractor|sharp gelpi", "Self-retaining single sharp points for deep orthopedic and spinal retraction", 3.0),
             ("Bookwalter Retractor System", "Instruments", "Core Supply", "M", "2", "A", "bookwalter|table mounted retractor|ring retractor", "Attach post to table rail opposite operative side; sterile wrench in tray", 3.0),
-            ("Castroviejo Micro Needle Holder", "Instruments", prefix, "J", "1", "D", "castro|castroviejo|micro needle driver", "Straight jaws with lock; inspect for tungsten wear before coronary cases", 3.0),
-            ("Metzenbaum Scissors 7in Curved", "Instruments", prefix, "J", "2", "B", "metz|metzenbaum|dissecting scissors", "Curved tips; never cut sutures or heavy drapes with Metzenbaum", 3.0),
-            ("Mayo Scissors Heavy Straight", "Instruments", prefix, "J", "2", "C", "mayo scissors|suture scissors|straight mayo", "Used for heavy fascial cuts and cutting heavy suture ties", 3.0),
-            ("Kelly Hemostatic Forceps Curved", "Instruments", prefix, "J", "3", "A", "kelly|hemostat|clamp|snap", "Standard 5.5in curved hemostat for soft tissue clamping", 3.0),
-            ("Allis Tissue Forceps 6in", "Instruments", prefix, "J", "3", "B", "allis|allis clamp|grasping forceps", "5x6 teeth; used for grasping fascia and non-viable tissues", 3.0),
-            ("Babcock Intestinal Forceps", "Instruments", prefix, "J", "3", "C", "babcock|tubular grasper|bowel clamp", "Atraumatic circumferential jaws for bowel and appendix grasp", 3.0),
-            ("Kocher Hemostatic Forceps", "Instruments", prefix, "J", "3", "D", "kocher|oschner|toothed clamp", "1x2 aggressive teeth for tough fibrous fascial traction", 3.0),
-            ("Army-Navy Retractor Pair", "Instruments", prefix, "J", "4", "A", "army navy|us army retractor|handheld retractor", "Pair of double-ended handheld retractors for superficial exposure", 3.0),
-            ("Richardson Retractor Large", "Instruments", prefix, "J", "4", "B", "richardson|rich|kelly retractor", "Deep belly handheld retractor; handle with comfort grip", 3.0),
-            ("Senn Retractor Double Ended", "Instruments", prefix, "J", "4", "C", "senn|senn retractor|cat paw retractor", "Sharp and dull three-prong rake on one end, right angle blade on other", 3.0),
-            ("Poole Suction Tube with Guard", "Instruments", prefix, "J", "4", "D", "poole suction|abdominal suction|sump suction", "Removable outer sheath with multiple holes to prevent omental suction entrapment", 3.0),
+            ("Omni-Tract Table Retractor System", "Instruments", "Core Supply", "M", "2", "B", "omni|omni-tract|omni tract|omnitract", "Multi-jointed wishbone frame for vascular and transplant surgery", 3.0),
+            ("Balfour Abdominal Retractor", "Instruments", "Core Supply", "E", "1", "A", "balfour|abdominal retractor|bladder blade retractor", "Check thumb screws; includes interchangeable lateral and bladder blades", 3.0),
+            ("Finochietto Rib Spreader Heavy", "Instruments", "Core Supply", "E", "1", "B", "finochietto|rib spreader|chest retractor", "Heavy geared retractor for rapid intercostal exposure during arrest", 3.0),
+            ("Harrington Sweetheart Splanchnic Retractor", "Instruments", prefix, "J", "7", "D", "sweetheart|harrington|sweetheart retractor", "Heart-shaped padded blade for atraumatic liver and spleen retraction", 3.0),
+            ("Green Thyroid Retractor Loop Blade", "Instruments", prefix, "J", "7", "E", "green retractor|thyroid retractor|goiter retractor", "Fenestrated loop blade for delicate neck and thyroid exposure", 3.0),
+            ("Beckman-Weitlaner Hinged Retractor", "Instruments", prefix, "J", "7", "F", "beckman|beckman retractor|hinged weitlaner", "Hinged arms for deep contouring along spinal curvature", 3.0),
+
+            # 6. Rongeurs, Elevators & Bone Instruments
+            ("Kerrison Rongeur 1mm 40° Up-Bite", "Instruments", "Core Supply", "N", "1", "A", "1mm kerrison|kerrison 1mm|cervical kerrison", "Ultra-thin footplate for cervical foraminotomy", 3.0),
+            ("Kerrison Rongeur 2mm 40° Up-Bite", "Instruments", "Core Supply", "N", "1", "B", "2mm kerrison|kerrison 2mm|fine kerrison", "2mm forward-cutting bone punch for laminotomy", 3.0),
+            ("Kerrison Rongeur 3mm 40° Up-Bite", "Instruments", "Core Supply", "N", "1", "C", "3mm kerrison|kerrison 3mm|standard kerrison", "Standard lumbar decompression bone punch", 3.0),
+            ("Kerrison Rongeur 4mm 40° Up-Bite", "Instruments", "Core Supply", "N", "1", "D", "4mm kerrison|kerrison 4mm|lumbar kerrison", "Heavy lumbar laminectomy punch", 3.0),
+            ("Kerrison Rongeur 5mm 40° Up-Bite", "Instruments", "Core Supply", "N", "1", "E", "5mm kerrison|kerrison 5mm|large kerrison", "Extra wide punch for sacral and thoracic facetectomy", 3.0),
+            ("Leksell Rongeur Double Action 8mm", "Instruments", "Core Supply", "N", "2", "A", "leksell|leksell rongeur|double action rongeur", "Curved narrow gouge rongeur for spinal decortication", 3.0),
+            ("Stille-Luer Rongeur Curved Double Action", "Instruments", "Core Supply", "N", "2", "B", "stille-luer|stille luer|bone rongeur", "Heavy bone nibbler for orthopedic joint resection", 3.0),
+            ("Pituitary Rongeur Straight 7in", "Instruments", "Core Supply", "N", "2", "C", "pituitary|pituitary rongeur|cushing rongeur", "Straight cup jaws for disc fragment excision", 3.0),
+            ("Pituitary Rongeur Up-Biting 7in", "Instruments", "Core Supply", "N", "2", "D", "up biting pituitary|angled pituitary rongeur", "Angled cup jaws for subligamentous disc removal", 3.0),
+            ("Cobb Spinal Elevator 10mm", "Instruments", "Core Supply", "N", "3", "A", "cobb|cobb elevator|spinal elevator", "Round handle with sharp beveled edge for paraspinal muscle strip", 3.0),
+            ("Cobb Spinal Elevator 13mm", "Instruments", "Core Supply", "N", "3", "B", "wide cobb|13mm cobb|cobb 13mm", "Wide blade for thoracic muscle subperiosteal stripping", 3.0),
+            ("Freer Elevator Double Ended", "Instruments", prefix, "J", "7", "G", "freer|freer elevator|septum elevator", "Sharp and blunt tips for periosteal elevation and micro dissection", 3.0),
+            ("Penfield Dissector #1 Broad Curved", "Instruments", "Core Supply", "N", "3", "C", "penfield 1|penfield #1|broad dissector", "Broad curved dissector for dura retraction", 3.0),
+            ("Penfield Dissector #2 Double Ended", "Instruments", "Core Supply", "N", "3", "D", "penfield 2|penfield #2", "Curved spoon and wax packer dissector", 3.0),
+            ("Penfield Dissector #3 Full Curve", "Instruments", "Core Supply", "N", "3", "E", "penfield 3|penfield #3", "Fully curved round-ended dissector for deep dura separation", 3.0),
+            ("Penfield Dissector #4 Single Ended Tapered", "Instruments", "Core Supply", "N", "3", "F", "penfield 4|penfield #4|tapered dissector", "Fine light dissector for exploring dural tears and root exit", 3.0),
+            ("Lambotte Osteotome 1in Straight", "Instruments", "Core Supply", "P", "2", "A", "lambotte|osteotome|bone chisel", "Graduated bone chisel for arthroplasty cuts", 3.0),
+            ("Brun Bone Curette #000 Cup", "Instruments", "Core Supply", "P", "2", "B", "brun curette|bone curette|spinal curette", "Miniature cup curette for debriding arthritic osteophytes", 3.0),
+
+            # 7. Sponges, Suction & Dissectors
+            ("Kittner Dissector Sponges (Peanuts)", "Sponges", prefix, "D", "2", "A", "peanut|peanuts|kittner|cherry|cherries|pusher sponges", "Loaded singly on Pean/Kelly; strictly counted; never discard off field", 3.0),
+            ("Ray-Tec X-Ray Detectable Sponges 4x4", "Sponges", prefix, "D", "2", "B", "raytec|ray-tec|ray tec|4x4 sponges|x-ray sponges", "Banded in packs of 10; radiopaque filament intact; verify count", 3.0),
+            ("Laparotomy Sponges 18x18 with Blue Loop", "Sponges", prefix, "D", "2", "C", "laps|lap sponges|laparotomy sponges|lap pack", "Banded in packs of 5; retain loop on ring clamp during abdominal cases", 3.0),
+            ("Neurosurgical Cottonoid Patties 0.5x0.5in", "Sponges", "Core Supply", "D", "3", "A", "cottonoids|patties|cottonoid patties|neuro patties", "Counted in packs of 10; moisten with saline/thrombin; radiopaque string", 3.0),
+            ("Neurosurgical Cottonoid Patties 0.5x1in", "Sponges", "Core Supply", "D", "3", "B", "cottonoid strips|long patties|1in patties", "Long patties for brain and spinal cord protection", 3.0),
             ("Yankauer Suction Tip with Tubing", "Instruments", prefix, "A", "1", "B", "yankauer|tonsil suction|suction wand", "Rigid plastic suction wand for oral and operative field clearance", 3.0),
+            ("Frazier Suction Tube 8Fr with Cut-off", "Instruments", prefix, "J", "8", "A", "frazier 8fr|8fr frazier|fine frazier", "Finger control vent for delicate neuro and micro vascular suction", 3.0),
+            ("Frazier Suction Tube 10Fr with Cut-off", "Instruments", prefix, "J", "8", "B", "frazier 10fr|10fr frazier|frazier suction", "Intermediate suction tip with stylet for clearing obstructions", 3.0),
+            ("Frazier Suction Tube 12Fr with Cut-off", "Instruments", prefix, "J", "8", "C", "frazier 12fr|12fr frazier|large frazier", "Large bore fine suction for orthopedic joint clearance", 3.0),
+            ("Poole Suction Tube with Guard", "Instruments", prefix, "J", "4", "D", "poole suction|abdominal suction|sump suction", "Removable outer sheath with multiple holes to prevent omental suction entrapment", 3.0),
+            ("Barron Suction Tube 5Fr Micro", "Instruments", prefix, "J", "8", "D", "barron suction|micro suction|ear suction", "Ultra-fine lumen for microscopic vascular work", 3.0),
+
+            # 8. Electrosurgery, Energy & Endoscopy
             ("Bovie Pencil with Holster", "Electrosurgery", prefix, "C", "3", "B", "bovie|cautery|electrocautery|esu pencil", "Standard blade tip with push-button cut and coag controls", 3.0),
             ("LigaSure Maryland 5mm Sealer", "Energy Devices", "Core Supply", "K", "1", "A", "ligasure|maryland ligasure|bipolar sealer", "Vessel sealing up to 7mm; single-patient sterile disposable", 3.0),
             ("Harmonic Scalpel ACE+7 Shears", "Energy Devices", "Core Supply", "K", "1", "B", "harmonic|ultrasonic scalpel|harmonic ace", "Ultrasonic shears with advanced hemostasis mode", 3.0),
@@ -943,10 +1043,14 @@ def generate_department_inventory(facility_id: str, dept_id: str) -> str:
             ("5mm Trocar (Applied Medical Kii)", "General/Lap", prefix, "K", "1", "A", "5mm trocar|optical trocar|kii trocar", "Optical non-bladed access trocar with universal seal", 3.0),
             ("12mm Trocar (Applied Medical Kii)", "General/Lap", prefix, "K", "1", "B", "12mm trocar|camera port|large trocar", "Accommodates 5mm to 12mm instruments without reducer caps", 3.0),
             ("Hassan 10/12mm Blunt Trocar", "General/Lap", prefix, "K", "1", "C", "hassan trocar|blunt trocar|open trocar", "Blunt tip with adjustable suture retention sleeve for open entry", 3.0),
+
+            # 9. Robotic Instrumentation
             ("Da Vinci Xi 8mm Bipolar Forceps", "Robotic", "Robotic Core", "R", "2", "A", "fenestrated bipolar|robotic bipolar|da vinci forceps", "Articulating EndoWrist bipolar instrument for delicate dissection", 3.0),
             ("Da Vinci Xi 8mm Curved Scissors", "Robotic", "Robotic Core", "R", "2", "B", "monopolar scissors|robotic shears|robotic scissors", "Hot shears monopolar curved scissors with protective cover", 3.0),
             ("Da Vinci Xi 8mm ProGrasp Forceps", "Robotic", "Robotic Core", "R", "2", "C", "prograsp|robotic grasper|tissue grasper", "Heavy serrated jaws for aggressive organ and bowel retraction", 3.0),
             ("Da Vinci Xi 8mm Large Needle Driver", "Robotic", "Robotic Core", "R", "2", "D", "needle driver|robotic driver|robotic needle holder", "Tungsten carbide diamond-cut jaws for heavy needle control", 3.0),
+
+            # 10. Sutures
             ("3-0 Silk Suture", "Sutures", prefix, "A", "2", "C", "3-0 silk|30 silk|silk ties|free ties|three-oh silk", "Dr. Chen uses for venous cannulation tie-down; Dr. Patel prefers loaded on Debakey", 3.0),
             ("0 Silk Suture on CT-1", "Sutures", prefix, "A", "2", "B", "0 silk|zero silk|aught silk", "Heavy ligating suture for pelvic and deep abdominal pedicles", 3.0),
             ("2-0 Prolene Suture on SH", "Sutures", prefix, "A", "2", "D", "2-0 prolene|20 prolene|blue suture|pro lean", "Dr. Vance double-arms for aortic root purse-strings", 3.0),
@@ -959,6 +1063,8 @@ def generate_department_inventory(facility_id: str, dept_id: str) -> str:
             ("3-0 Vicryl on SH", "Sutures", prefix, "A", "1", "C", "3-0 vicryl|30 vicryl|vicryl suture", "Subcutaneous fat and GI tract mucosal closure", 3.0),
             ("3-0 Monocryl Suture on PS-2", "Sutures", prefix, "A", "1", "D", "3-0 monocryl|30 monocryl|monocryl", "Clear monofilament absorbable suture for plastic subcuticular closure", 3.0),
             ("#1 Stratafix Spiral PDS", "Sutures", prefix, "A", "4", "A", "stratafix|barbed suture|pds stratafix", "Knotless tissue control barbed suture for arthrotomy and fascia", 3.0),
+
+            # 11. Mechanical Closure & Hemostatics
             ("Endo GIA 60mm Articulating Stapler", "Mechanical Closure", "Core Supply", "S", "2", "A", "endo gia|lap stapler|curved stapler", "Endoscopic linear cutting stapler with 45° articulation", 3.0),
             ("Endo GIA 60mm Purple Reload", "Mechanical Closure", "Core Supply", "S", "2", "B", "purple reload|tri-staple reload|thick tissue reload", "Medium/Thick tissue reload (1.5mm - 2.25mm) for stomach and colon", 3.0),
             ("Ethicon Proximate 35W Skin Stapler", "Mechanical Closure", prefix, "A", "4", "B", "skin stapler|stapler|wide staples", "Wide 35-shot sterile disposable surgical skin stapler", 3.0),
@@ -967,6 +1073,8 @@ def generate_department_inventory(facility_id: str, dept_id: str) -> str:
             ("Floseal Hemostatic Matrix Kit 5mL", "Hemostatics", "Core Supply", "Refrig", "2", "B", "floseal|flowseal|thrombin matrix", "Gelatin matrix with bovine thrombin for high-pressure bleeding", 3.0),
             ("Gelfoam Absorbable Gelatin Sponge", "Hemostatics", prefix, "D", "1", "B", "gelfoam|gelatin sponge|gelfoam pad", "Compressed absorbable sponge; soak in topical thrombin solution", 3.0),
             ("Bone Wax Hemostatic Plates", "Hemostatics", prefix, "D", "1", "C", "bone wax|wax plates|sternal wax", "Refined beeswax matrix for mechanical control of bone marrow bleeding", 3.0),
+
+            # 12. Medications & Power Tools
             ("Heparin Sodium 1000u/mL 10mL", "Medications", "Core Supply", "Pyxis D", "1", "A", "heparin|hep|unfractionated heparin", "Anesthesia draws; perfusion confirms ACT > 480 before cannulation. Refrigerated overflow in Pharmacy", 3.0),
             ("Protamine Sulfate 10mg/mL 5mL", "Medications", "Core Supply", "Pyxis D", "1", "B", "protamine|protamine sulfate|heparin reversal", "Specific antagonist for heparin; infuse slowly to avoid hypotension", 3.0),
             ("Dantrolene (Ryanodex) 250mg", "Medications", "MH Cart", "Top", "1", "A", "dantrolene|ryanodex|malignant hyperthermia drug", "250mg vial reconstitutes in 5mL sterile water for MH crisis", 3.0),
@@ -975,6 +1083,7 @@ def generate_department_inventory(facility_id: str, dept_id: str) -> str:
             ("Tranexamic Acid (TXA) 1000mg/10mL", "Medications", "Core Supply", "Pyxis D", "3", "B", "txa|tranexamic acid|antifibrinolytic", "Antifibrinolytic hemostatic agent; give within 3 hours of trauma", 3.0),
             ("Stryker System 7 Drill Battery Pack", "Power Tools", "Core Supply", "P", "1", "A", "stryker drill battery|stryker battery|drill battery|power tool battery", "Sterile rechargeable lithium-ion battery for System 7 sagittal saw and drill", 3.0),
         ]
+
     elif dept_id == "icu":
         items = [
             ("Arrow 20Ga 1.75in Radial Artery Kit", "Arterial Access", prefix, "A", "1", "A", "art line|radial art line|arterial catheter", "Integral spring-wire guide with hydrophilic catheter", 3.0),

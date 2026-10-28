@@ -53,8 +53,8 @@
       "title": "Sacred Heart Hospital (OR) \u2014 Master Inventory & Coordinates",
       "category": "department",
       "filePath": "hospitals/sacred_heart/or/inventory.csv",
-      "sizeBytes": 13736,
-      "versionHash": "1a2a372ae778",
+      "sizeBytes": 34229,
+      "versionHash": "98fdc08e6f56",
       "updatedAt": "2026-10-27"
     },
     {
@@ -141,8 +141,8 @@
       "title": "Princeton-Plainsboro Teaching Hospital (OR) \u2014 Master Inventory & Coordinates",
       "category": "department",
       "filePath": "hospitals/princeton_plainsboro/or/inventory.csv",
-      "sizeBytes": 13736,
-      "versionHash": "1a2a372ae778",
+      "sizeBytes": 34229,
+      "versionHash": "98fdc08e6f56",
       "updatedAt": "2026-10-27"
     },
     {
@@ -229,8 +229,8 @@
       "title": "County General Hospital (OR) \u2014 Master Inventory & Coordinates",
       "category": "department",
       "filePath": "hospitals/county_general/or/inventory.csv",
-      "sizeBytes": 13736,
-      "versionHash": "1a2a372ae778",
+      "sizeBytes": 34229,
+      "versionHash": "98fdc08e6f56",
       "updatedAt": "2026-10-27"
     },
     {
