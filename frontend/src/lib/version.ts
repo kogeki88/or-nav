@@ -54,7 +54,7 @@ export function isNewerVersion(
 
   // 2. Fallback: Semantic version comparison if build_number is missing
   const parse = (v: string): number[] => {
-    const raw = v.replace(/^v/i, "");
+    const raw = v.trim().replace(/^v/i, "");
     return raw.split(".").map((n) => parseInt(n, 10) || 0);
   };
 
