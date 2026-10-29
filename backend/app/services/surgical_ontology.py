@@ -358,6 +358,7 @@ SPOKEN_DISFLUENCIES = [
     r"\bbasically\b",
     r"\bactually\b",
     r"\bliterally\b",
+    r"\bplease\s+find\s+me\b",
 ]
 
 _DISFLUENCY_COMPILED = [re.compile(pat, re.IGNORECASE) for pat in SPOKEN_DISFLUENCIES]
