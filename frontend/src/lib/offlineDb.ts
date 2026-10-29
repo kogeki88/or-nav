@@ -119,6 +119,14 @@ class ORNavOfflineDatabase extends Dexie {
       chatSessions: "sessionId, tenantId, title, updatedAt",
       peerQuestions: "id, tenantId, status, createdAt",
     });
+    this.version(7).stores({
+      inventoryItems: "id, tenant_id, item, full_code, phonetic_code, [tenant_id+status]",
+      offlineOutbox: "++id, tenant_id, type, timestamp",
+      unansweredQuestions: "id, hospital_id, status",
+      installedPacks: "packId, facilityId, departmentId, roleId, category, versionHash, installedAt",
+      chatSessions: "sessionId, tenantId, title, updatedAt",
+      peerQuestions: "id, tenantId, status, createdAt",
+    });
   }
 }
 

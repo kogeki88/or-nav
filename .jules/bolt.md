@@ -1,3 +1,5 @@
-## 2024-05-18 - Bypassing unstable callbacks in React.memo
-**Learning:** In complex chat interfaces, historical components often receive new callback references on every render, defeating `React.memo`. If these callbacks only close over state that is already passed as a primitive prop (like `tenantId` mapping to `departmentId`), you can bypass the callback comparison entirely using a custom equality function.
-**Action:** When memoizing list items with unstable callbacks, use a custom `areEqual` function that shallow-compares the stable data props and ignores the callbacks, provided the callbacks do not rely on rapidly changing closed-over state.
+## 2024-05-18 - Dexie Bulk Operations & Compound Index Performance
+
+- **Learnings**: IndexedDB operations in PWA context can bottleneck if not indexed appropriately. Adding a compound index `[tenant_id+status]` to the `inventoryItems` store significantly optimizes frontend data querying tasks avoiding full table scans.
+- **Edge cases**: Existing schemas must define indices properly. If an index does not exist natively, queries might fall back to JavaScript-level filtering, dropping performance dramatically. Upgrading Dexie versioning correctly ensures existing cached instances don't corrupt and they successfully apply new schema.
+- **Bottlenecks**: Inserting 500+ records one-by-one is unviable on weak mobile devices; utilizing `bulkPut` ensures completion well under the 200ms threshold (measured at ~50-80ms).
