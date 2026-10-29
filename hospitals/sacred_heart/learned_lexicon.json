@@ -35,13 +35,14 @@
     "spokenTerm": "gemini",
     "displayPreferredName": "Gemini",
     "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
-    "usageCount": 5,
+    "usageCount": 6,
     "usedByUsers": [
-      "turk@sacredheart.org",
-      "sean@sacredheart.org"
+      "jd@sacredheart.org",
+      "sean@sacredheart.org",
+      "turk@sacredheart.org"
     ],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T08:20:00Z"
+    "updatedAt": "2026-10-29T18:08:48Z"
   },
   {
     "aliasId": "sh_lex_4",
@@ -80,12 +81,41 @@
     "spokenTerm": "pillowcase",
     "displayPreferredName": "Pillowcase",
     "canonicalItemName": "Mayo Stand Cover Reinforced Blue",
-    "usageCount": 3,
+    "usageCount": 4,
     "usedByUsers": [
       "laverne@sacredheart.org",
       "sean@sacredheart.org"
     ],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T08:50:00Z"
+    "updatedAt": "2026-10-29T18:08:49Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793297328_7",
+    "facilityId": "sacred_heart",
+    "departmentId": "or",
+    "spokenTerm": "geminis",
+    "displayPreferredName": "Geminis",
+    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+    "usageCount": 1,
+    "usedByUsers": [
+      "turk@sacredheart.org"
+    ],
+    "confidence": "personal",
+    "updatedAt": "2026-10-29T18:08:48Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793297329_8",
+    "facilityId": "sacred_heart",
+    "departmentId": "or",
+    "spokenTerm": "test ratchet clamp 81cdd7",
+    "displayPreferredName": "Test Ratchet Clamp 81cdd7",
+    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
+    "usageCount": 2,
+    "usedByUsers": [
+      "user_alpha@sacredheart.org",
+      "user_beta@sacredheart.org"
+    ],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-29T18:08:49Z"
   }
 ]
