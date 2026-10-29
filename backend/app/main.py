@@ -201,7 +201,10 @@ async def get_pack_file(path: str, response: Response):
     if ".." in clean:
         raise HTTPException(status_code=400, detail="Invalid path traversal.")
     root = Path(__file__).resolve().parent.parent.parent
-    target = root / clean
+    hospitals_dir = (root / "hospitals").resolve()
+    target = (root / clean).resolve()
+    if not target.is_relative_to(hospitals_dir):
+        raise HTTPException(status_code=400, detail="Invalid path traversal.")
     if target.exists() and target.is_file():
         content_type = "text/plain; charset=utf-8"
         if target.suffix == ".json":

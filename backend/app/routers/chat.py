@@ -212,6 +212,15 @@ class AnswerQuestionRequest(BaseModel):
 
 def check_tenant(tenant_id: str) -> TenantConfig:
     """Validate tenant_id format and existence, returning 400 for path traversal or 404."""
+    from app.config import validate_tenant_id
+    try:
+        validate_tenant_id(tenant_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if "/" in tenant_id:
+        raise HTTPException(status_code=400, detail=f"Invalid tenant_id '{tenant_id}'. Slashes are not allowed.")
+
     try:
         return get_tenant(tenant_id)
     except ValueError as e:
