@@ -10,6 +10,7 @@
 
 import { detectTeachingIntentClient } from "./lexiconLearning";
 import { stripSpokenDisfluencies } from "./surgicalOntology";
+import { planClinicalQuery } from "./clinicalQueryPlanner";
 
 export enum ClinicalIntent {
   FIND_INVENTORY = "FIND_INVENTORY",
@@ -306,7 +307,51 @@ export function parseClinicalIntent(query: string, clinicalRole?: string): Parse
     };
   }
 
-  // 3. VIEW_PREFERENCE_CARD
+  // 3. Unified Clinical Query Planner (Layer 2) for Preference Cards, Surgeon Facets & Relational Joins
+  try {
+    const clinicalPlan = planClinicalQuery(cleaned);
+    if (
+      clinicalPlan.intent === "PREFERENCE_CARD_LOOKUP" ||
+      clinicalPlan.intent === "PREFERENCE_INVENTORY_JOIN"
+    ) {
+      if (
+        clinicalPlan.intent === "PREFERENCE_INVENTORY_JOIN" &&
+        clinicalPlan.hasExplicitLocative &&
+        clinicalPlan.inventoryCandidateTerms.length > 0
+      ) {
+        const candItem = clinicalPlan.inventoryCandidateTerms[0];
+        return {
+          intent: ClinicalIntent.FIND_INVENTORY,
+          confidence: 0.96,
+          entities: {
+            item: candItem,
+            surgeon: clinicalPlan.surgeon ? clinicalPlan.surgeon.displayName : undefined,
+            procedure: clinicalPlan.procedure ? clinicalPlan.procedure.name : undefined,
+          },
+          raw_query: query,
+          normalized_query: candItem,
+          spoken_transcript_correction: correction,
+          disambiguation_options: [],
+        };
+      }
+      return {
+        intent: ClinicalIntent.VIEW_PREFERENCE_CARD,
+        confidence: 0.96,
+        entities: {
+          surgeon: clinicalPlan.surgeon ? clinicalPlan.surgeon.displayName : undefined,
+          procedure: clinicalPlan.procedure ? clinicalPlan.procedure.name : undefined,
+          item: clinicalPlan.inventoryCandidateTerms[0] || undefined,
+          action: "view_card",
+        },
+        raw_query: query,
+        normalized_query: normalized,
+        spoken_transcript_correction: correction,
+        disambiguation_options: [],
+      };
+    }
+  } catch {}
+
+  // Fallback regex check for explicit Mayo stand / tray setup phrasing
   if (PREFERENCE_CARD_PATTERNS.test(cleaned)) {
     let surgeon: string | undefined;
     const surgMatch = cleaned.match(/\b(?:dr\.?|doctor)\s+([a-zA-Z]+)\b/i);

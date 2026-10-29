@@ -186,8 +186,8 @@ async def get_version(response: Response):
             pass
 
     return {
-        "version": "v0.61",
-        "build_number": 18,
+        "version": "v0.62",
+        "build_number": 19,
         "release_date": "2026-10-29",
         "apk_download_url": f"http://{lan_ip or '192.168.1.217'}:8000/api/download-apk",
         "min_supported_version": "v0.1",

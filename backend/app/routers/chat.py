@@ -417,6 +417,52 @@ async def handle_chat(request: Request, response: Response, req: ChatRequest):
                 spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
             )
 
+    # Step 2.5: Layer 2 & Layer 3 Unified Clinical Query Planner (Preference Cards & Relational Inventory Joins)
+    from app.services.clinical_graph import get_clinical_graph
+    from app.services.clinical_query_planner import (
+        plan_clinical_query,
+        execute_clinical_query_plan,
+    )
+    tenant_graph = get_clinical_graph(req.tenant_id)
+    clinical_plan = plan_clinical_query(scrubbed_text, graph=tenant_graph, tenant_id=req.tenant_id)
+    if clinical_plan.intent in ("PREFERENCE_CARD_LOOKUP", "PREFERENCE_INVENTORY_JOIN"):
+        allowed, denial_reason = evaluate_rbac(scrubbed_text, req.clinical_role)
+        if not allowed:
+            elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
+            return ChatResponse(
+                reply_text=denial_reason or "Access restricted.",
+                routing_tier="RBAC_RESTRICTED",
+                scrubbed_query=scrubbed_text,
+                phi_detected=phi_detected,
+                latency_ms=elapsed_ms,
+                is_educational_baseline=False,
+                coordinate_card=None,
+                move_widget=None,
+                spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
+            )
+
+        plan_exec = execute_clinical_query_plan(clinical_plan, tenant_graph, inv_service)
+        if plan_exec is not None:
+            elapsed_ms = round((time.perf_counter() - t0) * 1000, 2)
+            raw_cards = plan_exec.get("coordinate_cards") or []
+            coord_cards = [CoordinateCard(**c) for c in raw_cards]
+            if req.clinical_role:
+                for cc in coord_cards:
+                    cc.surgeon_notes = filter_surgeon_note_for_role(cc.surgeon_notes, req.clinical_role) or ""
+            primary_card = coord_cards[0] if coord_cards else None
+            return ChatResponse(
+                reply_text=plan_exec["reply_text"],
+                routing_tier=plan_exec.get("routing_tier", "TIER_1_LOCAL_CSV"),
+                scrubbed_query=scrubbed_text,
+                phi_detected=phi_detected,
+                latency_ms=elapsed_ms,
+                coordinate_card=primary_card,
+                coordinate_cards=coord_cards,
+                move_widget=None,
+                spoken_transcript_correction=parsed_intent.spoken_transcript_correction,
+                disambiguation_chips=parsed_intent.disambiguation_options,
+            )
+
     # Step 3: Tier 1 Local CSV Lookup (Multi-Item Compound Lookup & Single Item Cascade)
     compound_parts = split_compound_query(processed_text)
     if len(compound_parts) >= 2:

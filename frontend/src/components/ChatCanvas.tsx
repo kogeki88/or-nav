@@ -348,7 +348,7 @@ export default function ChatCanvas({
 
                 return (
                   <div className="flex flex-col space-y-2.5 w-full">
-                    {msg.text && (msg.text.includes("Added") || msg.text.includes("Moved") || msg.text.includes("learned facility alias") || msg.text.includes("✓")) && (
+                    {msg.text && (msg.text.includes("Added") || msg.text.includes("Moved") || msg.text.includes("learned facility alias") || msg.text.includes("✓") || msg.text.includes("No preference card on file")) && (
                       <div className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed py-1">
                         {msg.text}
                       </div>
@@ -396,7 +396,7 @@ export default function ChatCanvas({
                           <span>Clinical Guidance</span>
                         </div>
                         <div className="text-zinc-300 whitespace-pre-wrap">
-                          {msg.text.split(/📋.*?\n/).filter(Boolean).pop()?.trim() || msg.text}
+                          {msg.text.includes("### 📋") ? msg.text : (msg.text.split(/📋.*?\n/).filter(Boolean).pop()?.trim() || msg.text)}
                         </div>
                       </div>
                     )}

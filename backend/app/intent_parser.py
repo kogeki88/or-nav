@@ -408,7 +408,43 @@ def parse_clinical_intent(query: str, clinical_role: Optional[str] = None) -> Pa
             spoken_transcript_correction=correction,
         )
 
-    # 3. Check VIEW_PREFERENCE_CARD intent
+    # 3. Unified Clinical Query Planner (Layer 2) for Preference Cards, Surgeon Facets & Relational Joins
+    try:
+        from app.services.clinical_query_planner import plan_clinical_query
+        clinical_plan = plan_clinical_query(cleaned)
+        if clinical_plan.intent in ("PREFERENCE_CARD_LOOKUP", "PREFERENCE_INVENTORY_JOIN"):
+            if clinical_plan.intent == "PREFERENCE_INVENTORY_JOIN" and clinical_plan.has_explicit_locative and clinical_plan.inventory_candidate_terms:
+                # Surgeon + explicit locative ("where is Dr. Patel's custom vascular stapler")
+                cand_item = clinical_plan.inventory_candidate_terms[0]
+                return ParsedIntent(
+                    intent=ClinicalIntent.FIND_INVENTORY,
+                    confidence=0.96,
+                    entities=ClinicalEntities(
+                        item=cand_item,
+                        surgeon=clinical_plan.surgeon.display_name if clinical_plan.surgeon else None,
+                        procedure=clinical_plan.procedure.name if clinical_plan.procedure else None,
+                    ),
+                    raw_query=query,
+                    normalized_query=cand_item,
+                    spoken_transcript_correction=correction,
+                )
+            return ParsedIntent(
+                intent=ClinicalIntent.VIEW_PREFERENCE_CARD,
+                confidence=0.96,
+                entities=ClinicalEntities(
+                    surgeon=clinical_plan.surgeon.display_name if clinical_plan.surgeon else None,
+                    procedure=clinical_plan.procedure.name if clinical_plan.procedure else None,
+                    item=clinical_plan.inventory_candidate_terms[0] if clinical_plan.inventory_candidate_terms else None,
+                    action="view_card",
+                ),
+                raw_query=query,
+                normalized_query=normalized_query,
+                spoken_transcript_correction=correction,
+            )
+    except Exception:
+        pass
+
+    # Fallback regex check for explicit Mayo stand / tray setup phrasing
     pref_match = PREFERENCE_CARD_PATTERNS.search(cleaned)
     if pref_match:
         surgeon = None

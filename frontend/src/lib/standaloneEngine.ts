@@ -44,6 +44,8 @@ import {
   filterSurgeonNoteForRole,
   type UserProfile,
 } from "./userProfile";
+import { compileClinicalGraph } from "./clinicalGraph";
+import { planClinicalQuery, executeClinicalQueryPlan } from "./clinicalQueryPlanner";
 import type {
   ChatResponse,
   CoordinateCardData,
@@ -871,15 +873,10 @@ export function findMatchingRow(
       .map((s) => s.trim())
       .filter(Boolean);
 
-    // Also strip doctor prefix from item name for clinician queries (e.g. "custom vascular stapler" -> "Dr. Iglesia Custom Vascular Stapler")
-    const normWithoutDr = normRow.replace(/^(?:dr\.?|doctor)\s+[a-z]+\s+/i, "");
-
     if (
       normQuery === normRow ||
-      normQuery === normWithoutDr ||
       aliases.includes(normQuery) ||
       normLingo === normRow ||
-      normLingo === normWithoutDr ||
       aliases.includes(normLingo)
     ) {
       if (hasConflictingSpecifications(querySpecs, row)) continue;
@@ -1319,7 +1316,7 @@ async function matchOnDeviceKnowledgePacks(
       } catch {}
     }
 
-    // 1. Preference Cards match (Installed packs -> Fallback to Seed preference cards)
+    // 1. Preference Cards & Relational Inventory Join via 3-Layer Unified Clinical Query Planner
     let cardsList: any[] = [];
     const cardsPack = installedPacksList.find(
       (p) =>
@@ -1335,45 +1332,54 @@ async function matchOnDeviceKnowledgePacks(
       cardsList = getSeedPreferenceCards(tenantId);
     }
 
-    if (cardsList && cardsList.length > 0) {
-      for (const card of cardsList) {
-        const proc = (card.procedure || "").toLowerCase();
-        const surg = (card.surgeon || "").toLowerCase();
-        const spec = (card.specialty || "").toLowerCase();
-        if (
-          (qLower.includes("chole") && proc.includes("chole")) ||
-          (qLower.includes("knee") && proc.includes("knee")) ||
-          (qLower.includes("cabg") && proc.includes("cabg")) ||
-          (qLower.includes("ralp") && proc.includes("prostate")) ||
-          (qLower.includes("prostate") && proc.includes("prostate")) ||
-          (qLower.includes("discectomy") && proc.includes("discectomy")) ||
-          (qLower.includes("laparotomy") && proc.includes("laparotomy")) ||
-          (surg.split(" ").some((w: string) => w.length > 3 && qLower.includes(w))) ||
-          (parsedIntent.intent === ClinicalIntent.VIEW_PREFERENCE_CARD && (proc.includes(qLower) || qLower.includes(proc) || spec.includes(qLower)))
-        ) {
-          const elapsed = Math.max(1, Math.round(performance.now() - t0));
-          let reply = "";
-          if (isScrub) {
-            reply = `📋 Preference Card: ${card.procedure} (${card.surgeon})\n\n` +
-              `• Suture Preferences: ${(card.sutures || []).join(", ")}\n` +
-              `• Instrumentation: ${(card.instrumentation || []).join(", ")}\n` +
-              `• Scrub Setup Notes: ${card.notes || "None"}`;
-          } else {
-            reply = `📋 Preference Card: ${card.procedure} (${card.surgeon})\n\n` +
-              `• Room & Positioning: ${card.room || "Main OR"} | ${card.position || "Supine"}\n` +
-              `• Skin Prep: ${card.prep || "Standard"}\n` +
-              `• Circulator Safety Considerations: ${card.notes || "Standard"}`;
-          }
-          return {
-            reply_text: reply,
-            routing_tier: "TIER_1_LOCAL_CSV",
-            scrubbed_query: processedText,
-            phi_detected: false,
-            latency_ms: elapsed,
-            coordinate_card: null,
-            move_widget: null,
-          };
-        }
+    let deptInventoryRows: OfflineInventoryRecord[] = [];
+    if (offlineDb) {
+      try {
+        deptInventoryRows = await offlineDb.inventoryItems.where("tenant_id").equals(tenantId).toArray();
+      } catch {}
+    }
+    if (!deptInventoryRows || deptInventoryRows.length === 0) {
+      deptInventoryRows = getSeedInventoryItems(tenantId) as OfflineInventoryRecord[];
+    }
+
+    const tenantGraph = compileClinicalGraph(tenantId, cardsList, deptInventoryRows);
+    const clinicalPlan = planClinicalQuery(processedText, tenantGraph, tenantId);
+    if (
+      clinicalPlan.intent === "PREFERENCE_CARD_LOOKUP" ||
+      clinicalPlan.intent === "PREFERENCE_INVENTORY_JOIN"
+    ) {
+      const rbacCheck = evaluateRbacQuery(processedText, profile.clinicalRole);
+      if (!rbacCheck.allowed) {
+        return {
+          reply_text: rbacCheck.reason || "Access restricted.",
+          routing_tier: "RBAC_RESTRICTED",
+          scrubbed_query: processedText,
+          phi_detected: false,
+          latency_ms: Math.max(1, Math.round(performance.now() - t0)),
+          coordinate_card: null,
+          move_widget: null,
+        };
+      }
+
+      const planResult = executeClinicalQueryPlan(
+        clinicalPlan,
+        tenantGraph,
+        (candQuery) => findMatchingRow(candQuery, deptInventoryRows, targetFacility, profile.email || "anonymous").row
+      );
+      if (planResult) {
+        const elapsed = Math.max(1, Math.round(performance.now() - t0));
+        return {
+          reply_text: planResult.replyText,
+          routing_tier: planResult.routingTier,
+          scrubbed_query: processedText,
+          phi_detected: false,
+          latency_ms: elapsed,
+          coordinate_card: planResult.coordinateCard,
+          coordinate_cards: planResult.coordinateCards,
+          move_widget: null,
+          spoken_transcript_correction: parsedIntent?.spoken_transcript_correction,
+          disambiguation_chips: parsedIntent?.disambiguation_options,
+        };
       }
     }
 
@@ -1484,12 +1490,17 @@ export async function executeStandaloneSearch(
   const parsedIntent = parseClinicalIntent(rawQuery, profile.clinicalRole);
   const processedText = preprocessVoiceQuery(parsedIntent.normalized_query).trim();
 
-  // 0. Knowledge Pack Early Check for Preference Cards & Emergency Policies
+  // 0. Unified Clinical Query Planner (Layer 2 & Layer 3) & Knowledge Pack Early Check
+  const cleanedRawForPlan = stripSpokenDisfluencies(rawQuery).trim();
+  const earlyQueryPlan = planClinicalQuery(cleanedRawForPlan, undefined, tenantId);
   if (
+    earlyQueryPlan.intent === "PREFERENCE_CARD_LOOKUP" ||
+    earlyQueryPlan.intent === "PREFERENCE_INVENTORY_JOIN" ||
+    earlyQueryPlan.intent === "PROTOCOL_GUIDELINE_LOOKUP" ||
     parsedIntent.intent === ClinicalIntent.VIEW_PREFERENCE_CARD ||
     PROCEDURAL_INDICATORS.test(processedText)
   ) {
-    const earlyPack = await matchOnDeviceKnowledgePacks(processedText, parsedIntent, tenantId, profile, t0);
+    const earlyPack = await matchOnDeviceKnowledgePacks(cleanedRawForPlan, parsedIntent, tenantId, profile, t0);
     if (earlyPack) return earlyPack;
   }
 

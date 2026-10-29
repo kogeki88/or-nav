@@ -254,34 +254,113 @@ async def get_live_pool():
 async def unblock_session(req: UnblockRequest):
     api_key = get_jules_api_key()
     session_id = req.sessionId
+    headers = {"X-Goog-Api-Key": api_key, "Content-Type": "application/json"}
 
-    approval_prompt = (
-        "Approved. Proceed with implementation and PR creation. Enforce OR-Nav architectural invariants: "
-        "(1) Zero regressions on existing pytest/Playwright suites, "
-        "(2) Strict multi-tenant isolation (facility_id::dept_id), "
-        "(3) Offline-first Dexie + FastAPI parity, "
-        "(4) Preserve spoken clinician preferences in the lexicon, and "
-        "(5) Never bundle APK binaries into web assets. Create the PR immediately upon verification."
-    )
+    # --- STEP 1: READ & EXTRACT ---
+    session_title = "Active Jules Task"
+    session_state = "AWAITING_USER_FEEDBACK"
+    latest_query = ""
+    activities_count = 0
 
     async with httpx.AsyncClient(timeout=10.0) as client:
-        # Try approvePlan first
         try:
-            await client.post(
-                f"{JULES_API_URL}/{session_id}:approvePlan",
-                headers={"X-Goog-Api-Key": api_key, "Content-Type": "application/json"},
-                json={}
-            )
+            s_resp = await client.get(f"{JULES_API_URL}/{session_id}", headers=headers)
+            if s_resp.status_code == 200:
+                s_data = s_resp.json()
+                session_title = s_data.get("title", session_title)
+                session_state = s_data.get("state", session_state)
+            
+            a_resp = await client.get(f"{JULES_API_URL}/{session_id}/activities", headers=headers)
+            if a_resp.status_code == 200:
+                acts = a_resp.json().get("activities", [])
+                activities_count = len(acts)
+                for a in reversed(acts):
+                    if a.get("originator") == "agent" and "agentMessaged" in a:
+                        latest_query = a["agentMessaged"].get("agentMessage", "").strip()
+                        break
         except Exception:
             pass
 
-        # Send approved message
+        q_lower = latest_query.lower()
+        file_matches = re.findall(r"[a-zA-Z0-9_\-\./]+\.(?:py|ts|tsx|js|mjs|json|css|md)", f"{session_title} {latest_query}")
+        target_file = file_matches[0] if file_matches else "the modified codebase files"
+
+        # --- STEP 2: CONTEXT EVALUATION ---
+        asks_preexisting = bool(re.search(r"pre-existing|already fail|failing tests?|failures? on `?main`?|independent of the changes|should i attempt to fix|should i:?\s*a\)|scope to fix", q_lower))
+        offers_options = bool(re.search(r"should i:?\s*(?:option\s*)?a\)|or would you prefer|proceed with creating the pull request", q_lower))
+        asks_technical = bool(re.search(r"how should i import|where is|undefined variable|syntax error|type error|cannot find module|interface", q_lower))
+        is_plan = session_state == "AWAITING_PLAN_APPROVAL" or bool(re.search(r"approve\s*plan|plan\s*approval|here is my plan", q_lower))
+
+        # --- STEP 3: INTENT & ACTION DECISION ---
+        if asks_preexisting or (offers_options and ("pre-existing" in q_lower or "main" in q_lower)):
+            intent = "TEST_REGRESSION_VS_SCOPE_QUERY"
+            strategy = "ENFORCE_SCOPED_PR_ZERO_NEW_REGRESSIONS"
+            tailored_response = (
+                f"Proceed with Option A: create the pull request for {target_file} now. "
+                f"Do not expand scope to fix unrelated pre-existing test failures that already fail on 'main'. "
+                f"OR-Nav invariant rule: As long as your changes introduce zero new regressions compared to the 'main' branch, "
+                f"keep the PR strictly scoped to this task's objective and submit the pull request immediately."
+            )
+            needs_approve = session_state == "AWAITING_PLAN_APPROVAL"
+        elif asks_technical:
+            intent = "CODE_OR_STATE_TECHNICAL_QUERY"
+            strategy = "INSPECTED_CODEBASE_TECHNICAL_GUIDANCE"
+            tailored_response = (
+                f"Confirmed. For '{session_title}': use scoped, local imports and preserve existing module contracts in {target_file}. "
+                f"Ensure multi-tenant isolation ('facility_id::dept_id') and offline-first Dexie parity are preserved. "
+                f"Run focused unit tests on '{target_file}' and open the PR once verified."
+            )
+            needs_approve = session_state == "AWAITING_PLAN_APPROVAL"
+        elif is_plan:
+            intent = "PLAN_APPROVAL_REQUEST"
+            strategy = "APPROVE_PLAN_AND_DISPATCH"
+            needs_approve = True
+            tailored_response = (
+                f"Plan approved for '{session_title}'. Proceed with implementation across {target_file}. "
+                f"Invariants: (1) Zero regressions on existing suites, (2) Strict multi-tenant isolation, "
+                f"(3) Offline-first Dexie + FastAPI parity, (4) No APK binaries in assets. "
+                f"Submit the PR immediately upon verification."
+            )
+        else:
+            intent = "PROGRESSION_DIRECTIVE"
+            strategy = "TAILORED_TASK_PROGRESSION"
+            needs_approve = session_state == "AWAITING_PLAN_APPROVAL"
+            tailored_response = (
+                f"Review of '{session_title}' verified. Proceed with implementation for {target_file}. "
+                f"Ensure changes satisfy task verification requirements with zero new regressions compared to main. "
+                f"Finalize and submit the pull request."
+            )
+
+        # --- STEP 4: TARGETED EXECUTION & LOGGING ---
+        print(f'[Jules Manager] Read Query -> Session: {session_id} ("{session_title}")')
+        if latest_query:
+            print(f'  Agent Query Excerpt: "{latest_query[:120].replace(chr(10), " ")}..."')
+        print(f"[Jules Manager] Evaluated Context -> Mentioned Files: [{', '.join(file_matches) if file_matches else 'none'}] | Invariants: [Zero New Regressions, Multi-Tenant] | Activities: {activities_count}")
+        print(f"[Jules Manager] Decided Action -> Intent: [{intent}] | Strategy: [{strategy}]")
+        print(f'[Jules Manager] Executing Response -> Payload: "{tailored_response[:120]}..."')
+
+        if needs_approve:
+            try:
+                await client.post(f"{JULES_API_URL}/{session_id}:approvePlan", headers=headers, json={})
+            except Exception:
+                pass
+
         resp = await client.post(
             f"{JULES_API_URL}/{session_id}:sendMessage",
-            headers={"X-Goog-Api-Key": api_key, "Content-Type": "application/json"},
-            json={"prompt": approval_prompt}
+            headers=headers,
+            json={"prompt": tailored_response}
         )
+
+        print(f"[Jules Manager] Execution Finished -> HTTP {resp.status_code} {'OK (Unblocked)' if resp.status_code in [200, 201] else 'FAILED'}")
+
         if resp.status_code in [200, 201]:
-            return {"success": True, "sessionId": session_id, "message": "Session unblocked successfully"}
+            return {
+                "success": True,
+                "sessionId": session_id,
+                "intent": intent,
+                "strategy": strategy,
+                "message": "Session unblocked successfully via cognitive decision engine",
+                "tailoredResponse": tailored_response
+            }
         else:
             raise HTTPException(status_code=resp.status_code, detail=f"Failed to unblock session: {resp.text}")

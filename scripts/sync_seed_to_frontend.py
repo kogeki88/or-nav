@@ -1,17 +1,60 @@
 #!/usr/bin/env python3
 """
-Sync master inventory CSVs from hospitals/sacred_heart to frontend/src/lib/seedData.ts
+Sync master inventory CSVs and preference cards from hospitals/sacred_heart
+to frontend/src/lib/seedData.ts, legacy hospital folders, and recalculate
+hospitals/manifest.json MD5 checksums & byte sizes.
 """
 import csv
+import hashlib
 import io
 import json
+import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 HOSPITALS_DIR = ROOT / "hospitals"
 SEED_DATA_FILE = ROOT / "frontend" / "src" / "lib" / "seedData.ts"
 
+
 def main():
+    # 1. Propagate sacred_heart/or/preference_cards.json to princeton_plainsboro/or, county_general/or, and legacy folders
+    sh_or_pref_path = HOSPITALS_DIR / "sacred_heart" / "or" / "preference_cards.json"
+    for target_pref in [
+        HOSPITALS_DIR / "princeton_plainsboro" / "or" / "preference_cards.json",
+        HOSPITALS_DIR / "county_general" / "or" / "preference_cards.json",
+        HOSPITALS_DIR / "or_main" / "preference_cards.json",
+        HOSPITALS_DIR / "general_memorial_cvor" / "preference_cards.json",
+    ]:
+        if target_pref.parent.exists():
+            shutil.copyfile(sh_or_pref_path, target_pref)
+
+    for dept, legacy_dir in [
+        ("icu", "icu_critical_care"),
+        ("er", "er_trauma"),
+        ("pacu", "pacu_periop"),
+    ]:
+        src_p = HOSPITALS_DIR / "sacred_heart" / dept / "preference_cards.json"
+        dst_p = HOSPITALS_DIR / legacy_dir / "preference_cards.json"
+        if src_p.exists() and dst_p.parent.exists():
+            shutil.copyfile(src_p, dst_p)
+
+    # 2. Recalculate hospitals/manifest.json sizes & MD5 hashes
+    manifest_path = HOSPITALS_DIR / "manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        for pack in manifest.get("packs", []):
+            fp = ROOT / pack["filePath"]
+            if fp.exists():
+                raw_bytes = fp.read_bytes()
+                pack["sizeBytes"] = len(raw_bytes)
+                pack["versionHash"] = hashlib.md5(raw_bytes).hexdigest()[:12]
+        manifest_text = json.dumps(manifest, indent=2) + "\n"
+        manifest_path.write_text(manifest_text, encoding="utf-8")
+        pub_manifest = ROOT / "frontend" / "public" / "hospitals" / "manifest.json"
+        if pub_manifest.parent.exists():
+            pub_manifest.write_text(manifest_text, encoding="utf-8")
+        print("Updated hospitals/manifest.json checksums and byte sizes.")
+
     sh_or_csv = (HOSPITALS_DIR / "sacred_heart" / "or" / "inventory.csv").read_text(encoding="utf-8")
     sh_icu_csv = (HOSPITALS_DIR / "sacred_heart" / "icu" / "inventory.csv").read_text(encoding="utf-8")
     sh_er_csv = (HOSPITALS_DIR / "sacred_heart" / "er" / "inventory.csv").read_text(encoding="utf-8")
@@ -20,6 +63,9 @@ def main():
     sh_pref_cards = json.loads((HOSPITALS_DIR / "sacred_heart" / "or" / "preference_cards.json").read_text(encoding="utf-8"))
     pp_pref_cards = json.loads((HOSPITALS_DIR / "princeton_plainsboro" / "or" / "preference_cards.json").read_text(encoding="utf-8"))
     cg_pref_cards = json.loads((HOSPITALS_DIR / "county_general" / "or" / "preference_cards.json").read_text(encoding="utf-8"))
+    icu_pref_cards = json.loads((HOSPITALS_DIR / "sacred_heart" / "icu" / "preference_cards.json").read_text(encoding="utf-8"))
+    er_pref_cards = json.loads((HOSPITALS_DIR / "sacred_heart" / "er" / "preference_cards.json").read_text(encoding="utf-8"))
+    pacu_pref_cards = json.loads((HOSPITALS_DIR / "sacred_heart" / "pacu" / "preference_cards.json").read_text(encoding="utf-8"))
 
     pref_cards_dict = {
         "or_main": sh_pref_cards,
@@ -27,6 +73,18 @@ def main():
         "sacred_heart::or": sh_pref_cards,
         "princeton_plainsboro::or": pp_pref_cards,
         "county_general::or": cg_pref_cards,
+        "icu_critical_care": icu_pref_cards,
+        "sacred_heart::icu": icu_pref_cards,
+        "princeton_plainsboro::icu": icu_pref_cards,
+        "county_general::icu": icu_pref_cards,
+        "er_trauma": er_pref_cards,
+        "sacred_heart::er": er_pref_cards,
+        "princeton_plainsboro::er": er_pref_cards,
+        "county_general::er": er_pref_cards,
+        "pacu_periop": pacu_pref_cards,
+        "sacred_heart::pacu": pacu_pref_cards,
+        "princeton_plainsboro::pacu": pacu_pref_cards,
+        "county_general::pacu": pacu_pref_cards,
     }
 
     def parse_csv_items(csv_text: str):
@@ -67,12 +125,6 @@ def main():
 
     print(f"Parsed items: OR={len(or_items)}, ICU={len(icu_items)}, ER={len(er_items)}, PACU={len(pacu_items)}")
 
-    # Read current seedData.ts
-    content = SEED_DATA_FILE.read_text(encoding="utf-8")
-
-    # Generate replacement code
-    # We will export SEED_INVENTORIES with raw strings and SEED_ITEMS_BY_DEPT with parsed items
-    # Also support "sacred_heart::or", "princeton_plainsboro::or", "county_general::or"
     inventories_dict = {
         "or_main": sh_or_csv.strip(),
         "general_memorial_cvor": sh_or_csv.strip(),
@@ -113,9 +165,8 @@ def main():
         "county_general::pacu": pacu_items,
     }
 
-    # Extract SEED_ORIENTATIONS and SEED_QUESTIONS from git HEAD
-    import subprocess
-    head_ts = subprocess.check_output(['git', 'show', 'HEAD:frontend/src/lib/seedData.ts'], encoding='utf-8')
+    # Extract SEED_ORIENTATIONS and SEED_QUESTIONS from current seedData.ts
+    head_ts = SEED_DATA_FILE.read_text(encoding="utf-8")
     import re
     orientations_match = re.search(r"export const SEED_ORIENTATIONS: Record<string, string> = ({[\s\S]+?});\n\nexport const SEED_QUESTIONS", head_ts)
     questions_match = re.search(r"export const SEED_QUESTIONS: Record<string, DepartmentQuestion\[\]> = ({[\s\S]+?});\n\nexport const SEED_ITEMS_BY_DEPT", head_ts)
@@ -173,6 +224,7 @@ export function getSeedPreferenceCards(tenantId?: string): any[] {{
 """
     SEED_DATA_FILE.write_text(new_ts, encoding="utf-8")
     print(f"Successfully updated {SEED_DATA_FILE}!")
+
 
 if __name__ == "__main__":
     main()

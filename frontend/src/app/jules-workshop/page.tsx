@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import Image from 'next/image';
 
 interface JulesTask {
   id: string;
@@ -27,28 +26,37 @@ interface LivePoolResponse {
 }
 
 // ---------------------------------------------------------------------------
-// Ragnarok Online Job Class Mappings
+// 15 Static Class Slots & Dedicated Archetypes
 // ---------------------------------------------------------------------------
-const JOB_CLASS_MAP: Record<
-  string,
+export interface StaticClassSlot {
+  slotId: number;             // 1 to 15
+  cssClass: string;           // class-slot-1 .. class-slot-15
+  name: string;               // e.g. Paladin, Assassin Cross, Biochemist
+  title: string;              // e.g. Security & Token Auth Guardian
+  role: string;
+  category: 'security' | 'performance' | 'testing' | 'clinical' | 'ui';
+  characterClass: 'knight' | 'bolt' | 'alchemist' | 'surgeon' | 'artist';
+  sprite: string;             // dedicated sprite PNG
+  video: string;              // dedicated Veo 3.1 idle video loop
+  defaultStr: number;
+  defaultAgi: number;
+  defaultVit: number;
+  defaultInt: number;
+  defaultDex: number;
+  defaultLuk: number;
+}
+
+export const STATIC_CLASS_SLOTS: StaticClassSlot[] = [
   {
-    key: 'crusader' | 'assassin' | 'alchemist' | 'highpriest' | 'scholar';
-    name: string;
-    title: string;
-    sprite: string;
-    defaultStr: number;
-    defaultAgi: number;
-    defaultVit: number;
-    defaultInt: number;
-    defaultDex: number;
-    defaultLuk: number;
-  }
-> = {
-  knight: {
-    key: 'crusader',
+    slotId: 1,
+    cssClass: 'class-slot-1',
     name: 'Paladin',
-    title: 'Security & Integrity Guard',
-    sprite: '/sprites/ro_crusader.png',
+    title: 'Security & Token Auth Guardian',
+    role: 'Zero-Trust Token Validation & Session Expiry Tests',
+    category: 'security',
+    characterClass: 'knight',
+    sprite: '/sprites/ro_paladin.png',
+    video: '/sprites/videos/paladin_idle.webm',
     defaultStr: 99,
     defaultAgi: 78,
     defaultVit: 99,
@@ -56,11 +64,16 @@ const JOB_CLASS_MAP: Record<
     defaultDex: 85,
     defaultLuk: 77
   },
-  bolt: {
-    key: 'assassin',
+  {
+    slotId: 2,
+    cssClass: 'class-slot-2',
     name: 'Assassin Cross',
     title: 'Performance & Fast Path Optimizer',
-    sprite: '/sprites/ro_assassin.png',
+    role: 'Double Metaphone Memoization & Search Benchmark',
+    category: 'performance',
+    characterClass: 'bolt',
+    sprite: '/sprites/ro_assassin_cross.png',
+    video: '/sprites/videos/assassin_cross_idle.webm',
     defaultStr: 94,
     defaultAgi: 99,
     defaultVit: 72,
@@ -68,11 +81,16 @@ const JOB_CLASS_MAP: Record<
     defaultDex: 92,
     defaultLuk: 88
   },
-  alchemist: {
-    key: 'alchemist',
+  {
+    slotId: 3,
+    cssClass: 'class-slot-3',
     name: 'Biochemist',
     title: 'Test Suite & Stress Lab Alchemist',
-    sprite: '/sprites/ro_alchemist.png',
+    role: 'Adversarial Discourse Decomposer Test Harness',
+    category: 'testing',
+    characterClass: 'alchemist',
+    sprite: '/sprites/ro_biochemist.png',
+    video: '/sprites/videos/biochemist_idle.webm',
     defaultStr: 82,
     defaultAgi: 85,
     defaultVit: 88,
@@ -80,11 +98,16 @@ const JOB_CLASS_MAP: Record<
     defaultDex: 95,
     defaultLuk: 82
   },
-  surgeon: {
-    key: 'highpriest',
+  {
+    slotId: 4,
+    cssClass: 'class-slot-4',
     name: 'High Priest',
     title: 'Clinical Core & Surgical Lexicon',
+    role: 'Cardiovascular Lexicon Invariants & Preference Engine',
+    category: 'clinical',
+    characterClass: 'surgeon',
     sprite: '/sprites/ro_highpriest.png',
+    video: '/sprites/videos/highpriest_idle.webm',
     defaultStr: 70,
     defaultAgi: 82,
     defaultVit: 95,
@@ -92,19 +115,194 @@ const JOB_CLASS_MAP: Record<
     defaultDex: 90,
     defaultLuk: 92
   },
-  artist: {
-    key: 'scholar',
+  {
+    slotId: 5,
+    cssClass: 'class-slot-5',
     name: 'Scholar',
     title: 'UI/UX & Micro-Interaction Professor',
+    role: 'Keyboard Focus Traps & ARIA Landmark Accessibility',
+    category: 'ui',
+    characterClass: 'artist',
     sprite: '/sprites/ro_scholar.png',
+    video: '/sprites/videos/scholar_idle.webm',
     defaultStr: 75,
     defaultAgi: 88,
     defaultVit: 80,
     defaultInt: 99,
     defaultDex: 99,
     defaultLuk: 85
+  },
+  {
+    slotId: 6,
+    cssClass: 'class-slot-6',
+    name: 'Grand Crusader',
+    title: 'Tenant Isolation & HIPAA Shield',
+    role: 'Multi-Facility Upload Path Traversal Hardening',
+    category: 'security',
+    characterClass: 'knight',
+    sprite: '/sprites/ro_grand_crusader.png',
+    video: '/sprites/videos/grand_crusader_idle.webm',
+    defaultStr: 96,
+    defaultAgi: 76,
+    defaultVit: 99,
+    defaultInt: 68,
+    defaultDex: 83,
+    defaultLuk: 80
+  },
+  {
+    slotId: 7,
+    cssClass: 'class-slot-7',
+    name: 'Shadow Chaser',
+    title: 'Cache Eviction & Memory Purger',
+    role: 'In-Memory Gemini RAG Eviction & LRU Benchmark',
+    category: 'performance',
+    characterClass: 'bolt',
+    sprite: '/sprites/ro_shadow_chaser.png',
+    video: '/sprites/videos/shadow_chaser_idle.webm',
+    defaultStr: 91,
+    defaultAgi: 98,
+    defaultVit: 74,
+    defaultInt: 84,
+    defaultDex: 95,
+    defaultLuk: 87
+  },
+  {
+    slotId: 8,
+    cssClass: 'class-slot-8',
+    name: 'Gene Synthesizer',
+    title: 'Coordinate Parser & Fixtures Lab',
+    role: 'Cart/Shelf/Bin Coordinate Validation & Fixtures',
+    category: 'testing',
+    characterClass: 'alchemist',
+    sprite: '/sprites/ro_gene_synthesizer.png',
+    video: '/sprites/videos/gene_synthesizer_idle.webm',
+    defaultStr: 80,
+    defaultAgi: 86,
+    defaultVit: 84,
+    defaultInt: 98,
+    defaultDex: 96,
+    defaultLuk: 83
+  },
+  {
+    slotId: 9,
+    cssClass: 'class-slot-9',
+    name: 'Archbishop',
+    title: 'Voice Discourse & Vocal Filter',
+    role: 'Spoken Disfluency & Acoustic Filler Rejection',
+    category: 'clinical',
+    characterClass: 'surgeon',
+    sprite: '/sprites/ro_archbishop.png',
+    video: '/sprites/videos/archbishop_idle.webm',
+    defaultStr: 72,
+    defaultAgi: 83,
+    defaultVit: 96,
+    defaultInt: 97,
+    defaultDex: 91,
+    defaultLuk: 90
+  },
+  {
+    slotId: 10,
+    cssClass: 'class-slot-10',
+    name: 'Professor',
+    title: 'Accessible DOM & Omnibar Engine',
+    role: 'Push-to-Talk Omnibar Component Regression Tests',
+    category: 'ui',
+    characterClass: 'artist',
+    sprite: '/sprites/ro_professor.png',
+    video: '/sprites/videos/professor_idle.webm',
+    defaultStr: 77,
+    defaultAgi: 89,
+    defaultVit: 79,
+    defaultInt: 99,
+    defaultDex: 98,
+    defaultLuk: 86
+  },
+  {
+    slotId: 11,
+    cssClass: 'class-slot-11',
+    name: 'Templar Sentinel',
+    title: 'Rate Limiting & Firewall Aegis',
+    role: 'DoS Prevention & 429 Throttle Header Validation',
+    category: 'security',
+    characterClass: 'knight',
+    sprite: '/sprites/ro_templar.png',
+    video: '/sprites/videos/templar_idle.webm',
+    defaultStr: 98,
+    defaultAgi: 77,
+    defaultVit: 98,
+    defaultInt: 71,
+    defaultDex: 86,
+    defaultLuk: 78
+  },
+  {
+    slotId: 12,
+    cssClass: 'class-slot-12',
+    name: 'Wind Walker',
+    title: 'Dexie Delta Sync & Outbox Batcher',
+    role: 'Offline-First Rapid Move Verification Debouncing',
+    category: 'performance',
+    characterClass: 'bolt',
+    sprite: '/sprites/ro_wind_walker.png',
+    video: '/sprites/videos/wind_walker_idle.webm',
+    defaultStr: 93,
+    defaultAgi: 99,
+    defaultVit: 75,
+    defaultInt: 81,
+    defaultDex: 97,
+    defaultLuk: 89
+  },
+  {
+    slotId: 13,
+    cssClass: 'class-slot-13',
+    name: 'Apothecary',
+    title: 'Adversarial Fuzzing & Stress Suite',
+    role: 'Cross-Origin CSRF & Hospital Domain Boundary Hardening',
+    category: 'testing',
+    characterClass: 'alchemist',
+    sprite: '/sprites/ro_apothecary.png',
+    video: '/sprites/videos/apothecary_idle.webm',
+    defaultStr: 83,
+    defaultAgi: 87,
+    defaultVit: 86,
+    defaultInt: 96,
+    defaultDex: 94,
+    defaultLuk: 84
+  },
+  {
+    slotId: 14,
+    cssClass: 'class-slot-14',
+    name: 'Cardinal Sage',
+    title: 'Hospital Switcher & Peer Q&A Mesh',
+    role: 'Multi-Tenant Peer Network Resiliency Verification',
+    category: 'clinical',
+    characterClass: 'surgeon',
+    sprite: '/sprites/ro_cardinal.png',
+    video: '/sprites/videos/cardinal_idle.webm',
+    defaultStr: 73,
+    defaultAgi: 81,
+    defaultVit: 94,
+    defaultInt: 99,
+    defaultDex: 89,
+    defaultLuk: 93
+  },
+  {
+    slotId: 15,
+    cssClass: 'class-slot-15',
+    name: 'Arcane Chronomancer',
+    title: 'LiveKit Disconnect Fallback Arbiter',
+    role: 'WebRTC Heartbeat Loss Fallback to Direct Gemini',
+    category: 'ui',
+    characterClass: 'artist',
+    sprite: '/sprites/ro_chronomancer.png',
+    video: '/sprites/videos/chronomancer_idle.webm',
+    defaultStr: 76,
+    defaultAgi: 86,
+    defaultVit: 81,
+    defaultInt: 99,
+    defaultDex: 97,
+    defaultLuk: 90
   }
-};
+];
 
 // ---------------------------------------------------------------------------
 // Synthesized Retro Sound Effects
@@ -122,27 +320,24 @@ function playRoSynthSound(type: 'click' | 'select' | 'levelup' | 'warp') {
     gain.connect(ctx.destination);
 
     if (type === 'select') {
-      // Classic RO Menu Beep
       osc.type = 'square';
-      osc.frequency.setValueAtTime(987.77, now); // B5
-      osc.frequency.setValueAtTime(1318.51, now + 0.05); // E6
+      osc.frequency.setValueAtTime(987.77, now);
+      osc.frequency.setValueAtTime(1318.51, now + 0.05);
       gain.gain.setValueAtTime(0.08, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
       osc.start(now);
       osc.stop(now + 0.12);
     } else if (type === 'levelup') {
-      // Fanfare arpeggio
       osc.type = 'triangle';
-      osc.frequency.setValueAtTime(523.25, now); // C5
-      osc.frequency.setValueAtTime(659.25, now + 0.06); // E5
-      osc.frequency.setValueAtTime(783.99, now + 0.12); // G5
-      osc.frequency.setValueAtTime(1046.5, now + 0.18); // C6
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.setValueAtTime(659.25, now + 0.06);
+      osc.frequency.setValueAtTime(783.99, now + 0.12);
+      osc.frequency.setValueAtTime(1046.5, now + 0.18);
       gain.gain.setValueAtTime(0.12, now);
       gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
       osc.start(now);
       osc.stop(now + 0.35);
     } else {
-      // Quick subtle button click
       osc.type = 'sine';
       osc.frequency.setValueAtTime(800, now);
       osc.frequency.exponentialRampToValueAtTime(300, now + 0.04);
@@ -154,80 +349,67 @@ function playRoSynthSound(type: 'click' | 'select' | 'levelup' | 'warp') {
   } catch {}
 }
 
-const DEFAULT_VIDEO_MAP: Record<string, string> = {
-  crusader: '/sprites/videos/crusader_idle.webm',
-  assassin: '/sprites/videos/assassin_idle.webm',
-  alchemist: '/sprites/videos/alchemist_idle.webm',
-  highpriest: '/sprites/videos/highpriest_idle.webm',
-  scholar: '/sprites/videos/scholar_idle.webm',
-};
+// ---------------------------------------------------------------------------
+// Slot Avatar Media Component with Strict Bounding & Failover
+// ---------------------------------------------------------------------------
+function SlotAvatarMedia({
+  videoSrc,
+  spriteSrc,
+  name,
+  className
+}: {
+  videoSrc?: string | null;
+  spriteSrc: string;
+  name: string;
+  className?: string;
+}) {
+  const [videoError, setVideoError] = useState(false);
 
-const DEFAULT_JULES_TASKS: JulesTask[] = [
-  { id: 'jules-1', title: 'Sentinel • Security & HIPAA Policy Scrubber', shortTag: 'Paladin • Shield', category: 'security', characterClass: 'knight', state: 'IN_PROGRESS', progress: 75, branch: 'jules/task-1', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'AST inspection & tenant invariant verification' },
-  { id: 'jules-2', title: 'Bolt • High-Velocity Double Metaphone & IndexedDB Cache', shortTag: 'Assassin • Turbo', category: 'performance', characterClass: 'bolt', state: 'IN_PROGRESS', progress: 90, branch: 'jules/task-2', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'Dexie 178-item bulk hydrate optimization' },
-  { id: 'jules-3', title: 'Scholar • Ragnarok Character Select Workshop & Veo Motion', shortTag: 'Scholar • Canvas', category: 'ui', characterClass: 'artist', state: 'IN_PROGRESS', progress: 85, branch: 'jules/task-3', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'Interactive character pedestal rendering' },
-  { id: 'jules-4', title: 'Biochemist • E2E Regression Gauntlet & Parity Audit', shortTag: 'Alchemist • Lab', category: 'testing', characterClass: 'alchemist', state: 'IN_PROGRESS', progress: 95, branch: 'jules/task-4', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'Master gauntlet & data parity audit' },
-  { id: 'jules-5', title: 'High Priest • 120+ CVOR Surgical Instrument Ontology', shortTag: 'Priest • Lexicon', category: 'clinical', characterClass: 'surgeon', state: 'IN_PROGRESS', progress: 100, branch: 'jules/task-5', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'Strict eponym guard & clinical alias sync' },
-  { id: 'jules-6', title: 'Sentinel • WebSocket & WebRTC Live Audio Guard', shortTag: 'Paladin • Audio', category: 'security', characterClass: 'knight', state: 'IN_PROGRESS', progress: 65, branch: 'jules/task-6', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: '15-min audio window buffer inspection' },
-  { id: 'jules-7', title: 'Bolt • Standalone Offline Engine & Fast Path Parser', shortTag: 'Assassin • FastPath', category: 'performance', characterClass: 'bolt', state: 'IN_PROGRESS', progress: 80, branch: 'jules/task-7', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'Microsecond token index lookups' },
-  { id: 'jules-8', title: 'Scholar • Clean Sidebar & Clinician Profile Assignment', shortTag: 'Scholar • Declutter', category: 'ui', characterClass: 'artist', state: 'PR_CREATED', progress: 100, branch: 'jules/task-8', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'v0.60 sidebar declutter merged' },
-  { id: 'jules-9', title: 'Biochemist • Chaos Testing & Memory Leak Guard', shortTag: 'Alchemist • Chaos', category: 'testing', characterClass: 'alchemist', state: 'IN_PROGRESS', progress: 70, branch: 'jules/task-9', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: '15-write concurrent mutation validation' },
-  { id: 'jules-10', title: 'High Priest • Multi-Clause Discourse Utterance Decomposer', shortTag: 'Priest • Discourse', category: 'clinical', characterClass: 'surgeon', state: 'IN_PROGRESS', progress: 85, branch: 'jules/task-10', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'Spoken disfluency filter verification' },
-  { id: 'jules-11', title: 'Sentinel • Multi-Tenant RBAC & Cross-Hospital Isolation', shortTag: 'Paladin • RBAC', category: 'security', characterClass: 'knight', state: 'IN_PROGRESS', progress: 90, branch: 'jules/task-11', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'Strict hospital tenant boundary enforcement' },
-  { id: 'jules-12', title: 'Bolt • React Memoization & Render Cycle Minimizer', shortTag: 'Assassin • Memo', category: 'performance', characterClass: 'bolt', state: 'IN_PROGRESS', progress: 88, branch: 'jules/task-12', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'Zero unnecessary re-renders' },
-  { id: 'jules-13', title: 'Scholar • RPG Mastery Ranks & Clinician Rewards System', shortTag: 'Scholar • Rewards', category: 'ui', characterClass: 'artist', state: 'IN_PROGRESS', progress: 92, branch: 'jules/task-13', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'XP progress bar & level progression' },
-  { id: 'jules-14', title: 'Biochemist • OTA Version Monotonicity & Bloat Guard', shortTag: 'Alchemist • OTA', category: 'testing', characterClass: 'alchemist', state: 'IN_PROGRESS', progress: 95, branch: 'jules/task-14', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'APK size validation (<10MB)' },
-  { id: 'jules-15', title: 'High Priest • 2-Tier Adaptive Hospital Lexicon & Slang Graph', shortTag: 'Priest • LexiconGraph', category: 'clinical', characterClass: 'surgeon', state: 'IN_PROGRESS', progress: 94, branch: 'jules/task-15', prUrl: 'https://github.com/kogeki88/or-nav/pulls', lastActivity: 'Implicit consensus & nickname resolution' },
-];
+  return (
+    <div className={`relative w-full h-full flex items-center justify-center overflow-hidden ${className || ''}`}>
+      {videoSrc && !videoError ? (
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          preload="auto"
+          onError={() => setVideoError(true)}
+          className="w-full h-full object-contain pointer-events-none ro-pixelated"
+        >
+          <source src={videoSrc} type="video/webm" />
+          <source src={videoSrc.replace('.webm', '.mp4')} type="video/mp4" />
+          <img
+            src={spriteSrc}
+            alt={name}
+            className="w-full h-full object-contain pointer-events-none ro-pixelated animate-ro-breathe"
+          />
+        </video>
+      ) : (
+        <img
+          src={spriteSrc}
+          alt={name}
+          className="w-full h-full object-contain pointer-events-none ro-pixelated animate-ro-breathe"
+        />
+      )}
+    </div>
+  );
+}
 
+// ---------------------------------------------------------------------------
+// Main Dashboard Component
+// ---------------------------------------------------------------------------
 export default function JulesRagnarokWorkshopPage() {
-  const [tasks, setTasks] = useState<JulesTask[]>(DEFAULT_JULES_TASKS);
+  const [tasks, setTasks] = useState<JulesTask[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'3-slot' | '15-grid'>('15-grid');
-  const [classicPage, setClassicPage] = useState<number>(0); // 0..4 (3 slots per page)
-  const [mergedCount, setMergedCount] = useState<number>(8);
-  const [countdown, setCountdown] = useState<number>(2400);
+  const [classicPage, setClassicPage] = useState<number>(0);
+  const [mergedCount, setMergedCount] = useState<number>(22);
+  const [countdown, setCountdown] = useState<number>(2150);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [unblockingId, setUnblockingId] = useState<string | null>(null);
-  const [videoMap, setVideoMap] = useState<Record<string, string>>(DEFAULT_VIDEO_MAP);
-  const synthesizingRef = React.useRef<Set<string>>(new Set());
-
-  // Automatic Background Hydration: Check cached Veo loops & trigger background synthesis if missing
-  const autoHydrateVeoLoops = async () => {
-    try {
-      const res = await fetch('/api/jules/animate-sprite');
-      if (res.ok) {
-        const data = await res.json();
-        const available = data.availableVideos || {};
-        setVideoMap(available);
-
-        // Silently request synthesis for any missing job classes in background
-        const allJobKeys = ['crusader', 'assassin', 'alchemist', 'highpriest', 'scholar'];
-        for (const jobKey of allJobKeys) {
-          if (!available[jobKey] && !synthesizingRef.current.has(jobKey)) {
-            synthesizingRef.current.add(jobKey);
-            fetch('/api/jules/animate-sprite', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ jobClass: jobKey, currentState: 'IN_PROGRESS' })
-            })
-              .then((r) => r.json())
-              .then((synth) => {
-                if (synth.success && synth.localVideoPath) {
-                  setVideoMap((prev) => ({ ...prev, [jobKey]: synth.localVideoPath }));
-                }
-              })
-              .catch(() => {});
-          }
-        }
-      }
-    } catch {}
-  };
-
-  useEffect(() => {
-    autoHydrateVeoLoops();
-  }, []);
+  const [isDispatching, setIsDispatching] = useState<boolean>(false);
 
   // Fetch telemetry from live pool
   const fetchPoolData = async () => {
@@ -237,7 +419,7 @@ export default function JulesRagnarokWorkshopPage() {
       if (res.ok) {
         const data: LivePoolResponse = await res.json();
         setTasks(data.sessions || []);
-        setMergedCount(data.mergedPRCount || 8);
+        if (typeof data.mergedPRCount === 'number') setMergedCount(data.mergedPRCount);
         if (data.nextSyncSeconds) setCountdown(data.nextSyncSeconds);
       }
     } catch (err) {
@@ -249,7 +431,7 @@ export default function JulesRagnarokWorkshopPage() {
 
   useEffect(() => {
     fetchPoolData();
-    const interval = setInterval(fetchPoolData, 8000);
+    const interval = setInterval(fetchPoolData, 6000);
     return () => clearInterval(interval);
   }, []);
 
@@ -261,19 +443,32 @@ export default function JulesRagnarokWorkshopPage() {
     return () => clearInterval(timer);
   }, []);
 
-  // Selected Task
-  const selectedTask = useMemo(() => {
-    if (!tasks.length) return null;
-    return tasks[selectedIndex % tasks.length] || tasks[0];
-  }, [tasks, selectedIndex]);
+  // Map 15 Static Class Slots to Active Sessions
+  const mappedSlots = useMemo(() => {
+    return STATIC_CLASS_SLOTS.map((slot, idx) => {
+      const boundSession = tasks[idx] || null;
+      const isBound = !!boundSession && boundSession.state !== 'IDLE';
 
-  // Selected RO Job Details
-  const selectedJob = useMemo(() => {
-    if (!selectedTask) return JOB_CLASS_MAP.knight;
-    return JOB_CLASS_MAP[selectedTask.characterClass] || JOB_CLASS_MAP.knight;
-  }, [selectedTask]);
+      return {
+        slot,
+        session: boundSession,
+        isBound,
+        state: isBound ? boundSession.state : 'IDLE',
+        progress: isBound ? boundSession.progress : 0,
+        activityText: isBound ? boundSession.lastActivity : 'Standby • Slot ready for assignment'
+      };
+    });
+  }, [tasks]);
 
-  // Handle Unblock
+  // Selected Slot & Session State Controller
+  const selectedSlotData = useMemo(() => {
+    const safeIdx = Math.min(Math.max(selectedIndex, 0), STATIC_CLASS_SLOTS.length - 1);
+    return mappedSlots[safeIdx] || mappedSlots[0];
+  }, [mappedSlots, selectedIndex]);
+
+  const { slot: selectedSlot, session: selectedSession, isBound: isSelectedBound } = selectedSlotData;
+
+  // Handle Unblocking
   const handleUnblock = async (sessionId: string) => {
     setUnblockingId(sessionId);
     if (soundEnabled) playRoSynthSound('levelup');
@@ -287,7 +482,7 @@ export default function JulesRagnarokWorkshopPage() {
       if (res.ok) {
         setTasks((prev) =>
           prev.map((t) =>
-            t.id === sessionId ? { ...t, state: 'IN_PROGRESS', progress: 85 } : t
+            t.id === sessionId ? { ...t, state: 'IN_PROGRESS', progress: 85, lastActivity: 'Plan approved: implementing & pushing PR' } : t
           )
         );
         setTimeout(fetchPoolData, 1500);
@@ -297,17 +492,54 @@ export default function JulesRagnarokWorkshopPage() {
     }
   };
 
+  // Handle Launching a New Quest Session into an unassigned slot
+  const handleLaunchQuest = async (slotId: number) => {
+    const slotIdx = slotId - 1;
+    const targetSlot = STATIC_CLASS_SLOTS[slotIdx];
+    setIsDispatching(true);
+    if (soundEnabled) playRoSynthSound('levelup');
+
+    try {
+      const res = await fetch('/api/jules/live-pool', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'dispatch',
+          slotIndex: slotIdx,
+          slotName: targetSlot.name,
+          role: targetSlot.role,
+          category: targetSlot.category
+        })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.session) {
+          setTasks((prev) => {
+            const next = [...prev];
+            next[slotIdx] = data.session;
+            return next;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn('Launch quest failed:', err);
+    } finally {
+      setIsDispatching(false);
+      setTimeout(fetchPoolData, 1200);
+    }
+  };
+
   const formattedCountdown = useMemo(() => {
     const m = Math.floor(countdown / 60);
     const s = countdown % 60;
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   }, [countdown]);
 
-  // Paged slots for 3-slot mode
+  // Paged slots for 3-slot mode (0..4 pages of 3 slots each)
   const current3Slots = useMemo(() => {
     const start = classicPage * 3;
-    return tasks.slice(start, start + 3);
-  }, [tasks, classicPage]);
+    return mappedSlots.slice(start, start + 3);
+  }, [mappedSlots, classicPage]);
 
   return (
     <div className="relative min-h-screen w-full bg-[#111622] text-slate-800 flex flex-col items-center justify-center p-3 sm:p-6 font-sans select-none overflow-x-hidden">
@@ -332,7 +564,7 @@ export default function JulesRagnarokWorkshopPage() {
               className="text-xs font-bold text-white tracking-wide"
               style={{ textShadow: '1px 1px 1px #1e293b' }}
             >
-              Character Select — Jules Autonomous Fleet (15/15 Active Slots)
+              Character Select — Jules Autonomous Fleet (15 Static Class Slots)
             </span>
           </div>
 
@@ -348,7 +580,7 @@ export default function JulesRagnarokWorkshopPage() {
               {viewMode === '15-grid' ? '★ Switch to 3-Slot View' : '★ Switch to 15-Grid View'}
             </button>
 
-            {/* Window buttons */}
+            {/* Window decorative buttons */}
             <div className="flex items-center gap-1 pl-2 border-l border-blue-900/40">
               <div className="w-3.5 h-3.5 rounded bg-gradient-to-b from-slate-100 to-slate-300 border border-slate-600 flex items-center justify-center text-[10px] font-mono text-slate-700 leading-none">
                 _
@@ -365,7 +597,7 @@ export default function JulesRagnarokWorkshopPage() {
         {/* ================================================================= */}
         <div className="relative w-full p-4 sm:p-6 bg-[#ffffff] min-h-[580px] flex flex-col justify-between">
           
-          {/* Subtle Ice-Blue Tribal/Wing Background Watermark (Authentic RO SVG) */}
+          {/* Subtle Ice-Blue Tribal/Wing Background Watermark */}
           <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.09]" viewBox="0 0 1000 600" fill="none">
             <path
               d="M 50 300 Q 250 100 500 280 T 950 300 M 100 350 Q 300 200 500 320 T 900 350 M 500 50 C 400 250 200 350 50 400 C 200 450 400 480 500 550 C 600 480 800 450 950 400 C 800 350 600 250 500 50 Z"
@@ -388,10 +620,10 @@ export default function JulesRagnarokWorkshopPage() {
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-[#2d4b75]">Party Fleet Status:</span>
               <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">
-                ● 15 / 15 Agents Deployed
+                ● {mappedSlots.filter(s => s.isBound).length} / 15 Agents Deployed
               </span>
               <span className="text-xs font-mono text-slate-500 ml-2">
-                origin/main: <span className="font-semibold text-blue-700">8 PRs Merged</span>
+                origin/main: <span className="font-semibold text-blue-700">{mergedCount} PRs Merged</span>
               </span>
             </div>
 
@@ -412,27 +644,27 @@ export default function JulesRagnarokWorkshopPage() {
           {/* CHARACTER PEDESTALS: MODE 1 (15-Grid) vs MODE 2 (3-Slot Classic) */}
           {/* =============================================================== */}
           {viewMode === '15-grid' ? (
-            /* 15-SLOT PARTY GRID (5x3) */
-            <div className="relative z-10 grid grid-cols-3 sm:grid-cols-5 gap-2.5 my-2">
-              {tasks.slice(0, 15).map((task, idx) => {
+            /* 15 STATIC CLASS SLOTS PARTY GRID (5x3) */
+            <div className="relative z-10 grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-2.5 my-2">
+              {mappedSlots.map((item, idx) => {
+                const { slot, session, isBound } = item;
                 const isSelected = selectedIndex === idx;
-                const jobMeta = JOB_CLASS_MAP[task.characterClass] || JOB_CLASS_MAP.knight;
-                const isWaiting = task.state === 'WAITING_FOR_INPUT';
-                const isDone = task.state === 'PR_CREATED';
 
                 return (
                   <div
-                    key={task.id || idx}
+                    key={slot.slotId}
                     onClick={() => {
                       setSelectedIndex(idx);
                       if (soundEnabled) playRoSynthSound('select');
                     }}
-                    className={`relative flex flex-col items-center justify-between h-[155px] p-2 rounded cursor-pointer transition-all ${
+                    className={`${slot.cssClass} class-slot-base min-h-[168px] max-h-[185px] w-full p-2 border cursor-pointer ${
                       isSelected
                         ? 'border-[2px] border-[#6d8dc7] bg-gradient-to-b from-white to-[#f0f4fa] shadow-[0_2px_8px_rgba(109,141,199,0.4)]'
-                        : isWaiting
+                        : item.state === 'WAITING_FOR_INPUT'
                         ? 'border-[2px] border-amber-400 bg-amber-50/40'
-                        : 'border border-[#cad8ea] bg-white hover:border-[#9cb4d4] hover:bg-[#fafcff]'
+                        : isBound
+                        ? 'border-[#cad8ea] bg-white hover:border-[#9cb4d4] hover:bg-[#fafcff]'
+                        : 'border-dashed border-slate-300 bg-slate-50/50 opacity-80 hover:opacity-100 hover:border-slate-400'
                     }`}
                   >
                     {/* Protruding Periwinkle Folder Tab when Selected */}
@@ -441,66 +673,66 @@ export default function JulesRagnarokWorkshopPage() {
                         Select
                       </div>
                     )}
-                    {isWaiting && !isSelected && (
+                    {item.state === 'WAITING_FOR_INPUT' && !isSelected && (
                       <div className="absolute -top-[19px] left-[-2px] px-2 py-0.5 bg-amber-500 text-black text-[9px] font-bold rounded-t shadow-sm animate-pulse">
                         Input?
                       </div>
                     )}
-
-                    {/* Floor Radial Oval Shadow + Spinning Magic Seal */}
-                    <div className="absolute bottom-9 left-1/2 -translate-x-1/2 w-16 h-5 rounded-full pointer-events-none" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(60, 75, 105, 0.45) 0%, transparent 70%)' }} />
-                    {task.state === 'IN_PROGRESS' && (
-                      <div className="absolute bottom-9 left-1/2 -translate-x-1/2 w-14 h-14 rounded-full border border-dashed border-cyan-400/50 animate-magic-seal pointer-events-none opacity-60" />
+                    {!isBound && (
+                      <div className="absolute top-1 right-1 px-1 py-0.2 rounded bg-slate-200 text-slate-600 text-[8px] font-mono">
+                        STANDBY
+                      </div>
                     )}
 
-                    {/* Live Head Emote / Cast Bar */}
-                    <div className="relative z-10 w-full flex flex-col items-center">
-                      {isWaiting ? (
+                    {/* Status Emote or Cast Bar */}
+                    <div className="relative z-10 w-full flex flex-col items-center h-4 justify-center">
+                      {item.state === 'WAITING_FOR_INPUT' ? (
                         <div className="px-1.5 py-0.2 rounded-full bg-white border border-amber-500 shadow-md text-[10px] font-bold text-amber-600 animate-bounce">
                           [ ? ]
                         </div>
-                      ) : isDone ? (
+                      ) : item.state === 'PR_CREATED' ? (
                         <div className="px-1.5 py-0.2 rounded bg-yellow-100 border border-yellow-500 shadow text-[9px] font-bold text-yellow-800 animate-pulse">
                           ★ LEVEL UP!
                         </div>
-                      ) : (
-                        /* Cast Bar */
+                      ) : isBound ? (
                         <div className="w-14 h-1.5 bg-slate-200 rounded-full border border-slate-400 overflow-hidden shadow-inner">
                           <div
                             className="h-full bg-gradient-to-r from-emerald-500 to-yellow-400"
-                            style={{ width: `${task.progress}%` }}
+                            style={{ width: `${item.progress}%` }}
                           />
+                        </div>
+                      ) : (
+                        <div className="text-[9px] font-mono text-slate-400 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                          <span>Ready</span>
                         </div>
                       )}
                     </div>
 
-                    {/* Authentic RO Pixel Sprite / Veo 3.1 Motion Loop */}
-                    <div className="relative z-10 flex-1 w-full h-[80px] flex items-center justify-center my-0.5 overflow-hidden">
-                      {videoMap[jobMeta.key] ? (
-                        <video
-                          src={videoMap[jobMeta.key]}
-                          autoPlay
-                          loop
-                          muted
-                          playsInline
-                          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-                        />
-                      ) : (
-                        <img
-                          src={jobMeta.sprite}
-                          alt={jobMeta.name}
-                          className="h-[80px] w-auto ro-pixelated object-contain animate-ro-breathe pointer-events-none"
-                        />
+                    {/* Avatar Container with strict CSS bounding constraints (aspect-square, max bounds) */}
+                    <div className="relative z-10 w-full aspect-square max-h-[92px] max-w-[92px] sm:max-h-[105px] sm:max-w-[105px] mx-auto my-0.5 flex items-center justify-center overflow-hidden">
+                      {/* Floor Oval Shadow */}
+                      <div
+                        className="absolute bottom-1 left-1/2 -translate-x-1/2 w-14 h-3.5 rounded-full pointer-events-none"
+                        style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(60, 75, 105, 0.45) 0%, transparent 70%)' }}
+                      />
+                      {item.state === 'IN_PROGRESS' && (
+                        <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-12 h-12 rounded-full border border-dashed border-cyan-400/50 animate-magic-seal pointer-events-none opacity-60" />
                       )}
+                      <SlotAvatarMedia
+                        videoSrc={slot.video}
+                        spriteSrc={slot.sprite}
+                        name={slot.name}
+                      />
                     </div>
 
                     {/* Slot Name & Class Label */}
                     <div className="relative z-10 w-full text-center flex flex-col items-center leading-tight">
                       <span className="text-[10px] font-bold text-[#1e3a8a] truncate max-w-[95px]">
-                        {jobMeta.name}
+                        #{slot.slotId} {slot.name}
                       </span>
-                      <span className="text-[9px] font-mono text-slate-500 truncate max-w-[95px]">
-                        {task.shortTag}
+                      <span className="text-[8.5px] font-mono text-slate-500 truncate max-w-[95px]">
+                        {isBound ? (session?.shortTag || slot.role) : 'Standby • Ready'}
                       </span>
                     </div>
                   </div>
@@ -524,26 +756,26 @@ export default function JulesRagnarokWorkshopPage() {
 
               {/* 3 Pedestal Slots */}
               <div className="grid grid-cols-3 gap-6 w-full max-w-2xl">
-                {current3Slots.map((task, slotIdx) => {
+                {current3Slots.map((item, slotIdx) => {
                   const globalIdx = classicPage * 3 + slotIdx;
                   const isSelected = selectedIndex === globalIdx;
-                  const jobMeta = JOB_CLASS_MAP[task.characterClass] || JOB_CLASS_MAP.knight;
-                  const isWaiting = task.state === 'WAITING_FOR_INPUT';
-                  const isDone = task.state === 'PR_CREATED';
+                  const { slot, session, isBound } = item;
 
                   return (
                     <div
-                      key={task.id || slotIdx}
+                      key={slot.slotId}
                       onClick={() => {
                         setSelectedIndex(globalIdx);
                         if (soundEnabled) playRoSynthSound('select');
                       }}
-                      className={`relative flex flex-col items-center justify-between h-[230px] p-3 rounded cursor-pointer transition-all ${
+                      className={`${slot.cssClass} class-slot-base min-h-[230px] max-h-[250px] w-full p-3 border cursor-pointer ${
                         isSelected
                           ? 'border-[3px] border-[#6d8dc7] bg-gradient-to-b from-white to-[#edf3fc] shadow-[0_4px_16px_rgba(109,141,199,0.5)]'
-                          : isWaiting
+                          : item.state === 'WAITING_FOR_INPUT'
                           ? 'border-[2px] border-amber-400 bg-amber-50/40'
-                          : 'border border-[#b8c8e0] bg-white hover:border-[#8ea8cf]'
+                          : isBound
+                          ? 'border-[#b8c8e0] bg-white hover:border-[#8ea8cf]'
+                          : 'border-dashed border-slate-300 bg-slate-50/50 opacity-80'
                       }`}
                     >
                       {/* Protruding Tab */}
@@ -553,53 +785,48 @@ export default function JulesRagnarokWorkshopPage() {
                         </div>
                       )}
 
-                      {/* Floor Radial Shadow */}
-                      <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-28 h-7 rounded-full pointer-events-none" style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(60, 75, 105, 0.45) 0%, transparent 70%)' }} />
-                      {task.state === 'IN_PROGRESS' && (
-                        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-24 h-24 rounded-full border border-dashed border-cyan-500/60 animate-magic-seal pointer-events-none opacity-70" />
-                      )}
-
                       {/* Floating Emote / Cast Bar */}
-                      <div className="relative z-10 w-full flex flex-col items-center">
-                        {isWaiting ? (
+                      <div className="relative z-10 w-full flex flex-col items-center h-5 justify-center">
+                        {item.state === 'WAITING_FOR_INPUT' ? (
                           <div className="px-2 py-0.5 rounded-full bg-white border border-amber-500 shadow text-xs font-bold text-amber-600 animate-bounce">
                             [ ? Waiting Input ]
                           </div>
-                        ) : isDone ? (
+                        ) : item.state === 'PR_CREATED' ? (
                           <div className="px-2 py-0.5 rounded bg-yellow-100 border border-yellow-500 shadow text-xs font-bold text-yellow-800 animate-pulse">
                             ★ JOB LEVEL UP! ★
                           </div>
-                        ) : (
+                        ) : isBound ? (
                           <div className="w-24 h-2 bg-slate-200 rounded-full border border-slate-400 overflow-hidden shadow-inner">
-                            <div className="h-full bg-gradient-to-r from-emerald-500 to-yellow-400" style={{ width: `${task.progress}%` }} />
+                            <div className="h-full bg-gradient-to-r from-emerald-500 to-yellow-400" style={{ width: `${item.progress}%` }} />
                           </div>
+                        ) : (
+                          <span className="text-[10px] font-mono text-slate-400">Standby Concurrency Slot</span>
                         )}
                       </div>
 
-                      {/* Sprite Image / Veo 3.1 Motion Loop */}
-                      <div className="relative z-10 flex-1 w-full h-[135px] flex items-center justify-center overflow-hidden">
-                        {videoMap[jobMeta.key] ? (
-                          <video
-                            src={videoMap[jobMeta.key]}
-                            autoPlay
-                            loop
-                            muted
-                            playsInline
-                            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-                          />
-                        ) : (
-                          <img
-                            src={jobMeta.sprite}
-                            alt={jobMeta.name}
-                            className="h-[135px] w-auto ro-pixelated object-contain animate-ro-breathe pointer-events-none"
-                          />
+                      {/* Avatar Media with strict CSS bounding constraints */}
+                      <div className="relative z-10 w-full aspect-square max-h-[140px] max-w-[140px] sm:max-h-[160px] sm:max-w-[160px] mx-auto my-1 flex items-center justify-center overflow-hidden">
+                        {/* Floor Radial Shadow */}
+                        <div
+                          className="absolute bottom-2 left-1/2 -translate-x-1/2 w-24 h-6 rounded-full pointer-events-none"
+                          style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(60, 75, 105, 0.45) 0%, transparent 70%)' }}
+                        />
+                        {item.state === 'IN_PROGRESS' && (
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 w-20 h-20 rounded-full border border-dashed border-cyan-500/60 animate-magic-seal pointer-events-none opacity-70" />
                         )}
+                        <SlotAvatarMedia
+                          videoSrc={slot.video}
+                          spriteSrc={slot.sprite}
+                          name={slot.name}
+                        />
                       </div>
 
                       {/* Slot Description */}
                       <div className="relative z-10 w-full text-center flex flex-col items-center">
-                        <span className="text-xs font-bold text-[#1e3a8a]">{jobMeta.name}</span>
-                        <span className="text-[10px] font-mono text-slate-500">{task.shortTag}</span>
+                        <span className="text-xs font-bold text-[#1e3a8a]">#{slot.slotId} {slot.name}</span>
+                        <span className="text-[10px] font-mono text-slate-500">
+                          {isBound ? (session?.shortTag || slot.role) : 'Standby • Available'}
+                        </span>
                       </div>
                     </div>
                   );
@@ -628,8 +855,8 @@ export default function JulesRagnarokWorkshopPage() {
             {/* LEFT: Authentic 2-Column RO Striped Stat Table (7 cols) */}
             <div className="md:col-span-7 rounded border border-[#a2bad8] overflow-hidden shadow-sm bg-white">
               <div className="bg-[#4a70a3] px-2.5 py-1 text-white text-[11px] font-bold flex items-center justify-between border-b border-[#2d4b75]">
-                <span>Status Window — {selectedJob.name}</span>
-                <span className="font-mono text-[10px] text-blue-200">Slot #{selectedIndex + 1}</span>
+                <span>Status Window — {selectedSlot.name}</span>
+                <span className="font-mono text-[10px] text-blue-200">Slot #{selectedSlot.slotId} ({selectedSlot.category.toUpperCase()})</span>
               </div>
 
               <div className="grid grid-cols-2 text-xs divide-x divide-[#c4d4e6]">
@@ -639,28 +866,28 @@ export default function JulesRagnarokWorkshopPage() {
                     <tr className="border-b border-[#e2eaf4]">
                       <td className="w-16 px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">Name</td>
                       <td className="px-2 py-1 bg-[#f7faff] font-mono font-medium text-slate-800 truncate max-w-[130px]">
-                        {selectedJob.name}-{selectedIndex + 1}
+                        {selectedSlot.name}-{selectedSlot.slotId}
                       </td>
                     </tr>
                     <tr className="border-b border-[#e2eaf4]">
                       <td className="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">Job</td>
                       <td className="px-2 py-1 bg-[#f7faff] text-[11px] font-semibold text-[#1e3a8a]">
-                        {selectedJob.name} ({selectedTask?.category?.toUpperCase()})
+                        {selectedSlot.name} ({selectedSlot.category.toUpperCase()})
                       </td>
                     </tr>
                     <tr className="border-b border-[#e2eaf4]">
                       <td className="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">Lv.</td>
                       <td className="px-2 py-1 bg-[#f7faff] font-mono font-bold text-slate-800">
-                        {40 + (selectedIndex * 3) % 59}
+                        {45 + (selectedSlot.slotId * 3) % 54}
                       </td>
                     </tr>
                     <tr className="border-b border-[#e2eaf4]">
                       <td className="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">EXP</td>
                       <td className="px-2 py-1 bg-[#f7faff]">
                         <div className="flex items-center gap-1.5 font-mono text-[10px]">
-                          <span>{selectedTask?.progress || 50}%</span>
+                          <span>{selectedSlotData.progress}%</span>
                           <div className="flex-1 h-1.5 bg-slate-200 rounded overflow-hidden">
-                            <div className="h-full bg-blue-600" style={{ width: `${selectedTask?.progress || 50}%` }} />
+                            <div className="h-full bg-blue-600" style={{ width: `${selectedSlotData.progress}%` }} />
                           </div>
                         </div>
                       </td>
@@ -686,42 +913,42 @@ export default function JulesRagnarokWorkshopPage() {
                     <tr className="border-b border-[#e2eaf4]">
                       <td className="w-14 px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">STR</td>
                       <td className="px-2 py-1 bg-[#f7faff] font-mono text-xs flex items-center justify-between">
-                        <span className="font-bold">{selectedJob.defaultStr}</span>
+                        <span className="font-bold">{selectedSlot.defaultStr}</span>
                         <span className="text-[9px] text-slate-400">Commits</span>
                       </td>
                     </tr>
                     <tr className="border-b border-[#e2eaf4]">
                       <td className="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">AGI</td>
                       <td className="px-2 py-1 bg-[#f7faff] font-mono text-xs flex items-center justify-between">
-                        <span className="font-bold">{selectedJob.defaultAgi}</span>
+                        <span className="font-bold">{selectedSlot.defaultAgi}</span>
                         <span className="text-[9px] text-slate-400">Speed</span>
                       </td>
                     </tr>
                     <tr className="border-b border-[#e2eaf4]">
                       <td className="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">VIT</td>
                       <td className="px-2 py-1 bg-[#f7faff] font-mono text-xs flex items-center justify-between">
-                        <span className="font-bold">{selectedJob.defaultVit}</span>
+                        <span className="font-bold">{selectedSlot.defaultVit}</span>
                         <span className="text-[9px] text-slate-400">Defense</span>
                       </td>
                     </tr>
                     <tr className="border-b border-[#e2eaf4]">
                       <td className="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">INT</td>
                       <td className="px-2 py-1 bg-[#f7faff] font-mono text-xs flex items-center justify-between">
-                        <span className="font-bold">{selectedJob.defaultInt}</span>
+                        <span className="font-bold">{selectedSlot.defaultInt}</span>
                         <span className="text-[9px] text-slate-400">AST Depth</span>
                       </td>
                     </tr>
                     <tr className="border-b border-[#e2eaf4]">
                       <td className="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">DEX</td>
                       <td className="px-2 py-1 bg-[#f7faff] font-mono text-xs flex items-center justify-between">
-                        <span className="font-bold">{selectedJob.defaultDex}</span>
+                        <span className="font-bold">{selectedSlot.defaultDex}</span>
                         <span className="text-[9px] text-slate-400">Precision</span>
                       </td>
                     </tr>
                     <tr>
                       <td className="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">LUK</td>
                       <td className="px-2 py-1 bg-[#f7faff] font-mono text-xs flex items-center justify-between">
-                        <span className="font-bold">{selectedJob.defaultLuk}</span>
+                        <span className="font-bold">{selectedSlot.defaultLuk}</span>
                         <span className="text-[9px] text-slate-400">Auto-Merge</span>
                       </td>
                     </tr>
@@ -735,37 +962,39 @@ export default function JulesRagnarokWorkshopPage() {
               <div>
                 <div className="flex items-center justify-between mb-1.5 pb-1 border-b border-[#d8e4f2]">
                   <span className="text-[11px] font-bold text-[#1e3a8a] flex items-center gap-1">
-                    <span>⚔️</span> Active Mission Quest
+                    <span>⚔️</span> {isSelectedBound ? 'Active Mission Quest' : 'Slot Concurrency Controller'}
                   </span>
                   <span className="text-[10px] font-mono text-slate-500">
-                    {selectedTask?.branch}
+                    {isSelectedBound ? selectedSession?.branch : 'origin/main'}
                   </span>
                 </div>
 
                 <h4 className="text-xs font-semibold text-slate-800 leading-snug line-clamp-2 mb-1.5">
-                  {selectedTask?.title || 'OR-Nav Autonomous Hardening Task'}
+                  {isSelectedBound
+                    ? (selectedSession?.title || `${selectedSlot.name}: ${selectedSlot.role}`)
+                    : `Slot #${selectedSlot.slotId}: ${selectedSlot.name} (${selectedSlot.title})`}
                 </h4>
 
                 <div className="text-[10px] text-slate-600 bg-white p-1.5 rounded border border-[#d8e4f2] leading-tight">
                   <span className="font-bold text-[#203a60]">Live Status: </span>
-                  {selectedTask?.lastActivity}
+                  {selectedSlotData.activityText}
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="mt-2.5 pt-2 border-t border-[#d8e4f2] flex items-center gap-2">
-                {selectedTask?.state === 'WAITING_FOR_INPUT' ? (
+                {selectedSlotData.state === 'WAITING_FOR_INPUT' && selectedSession ? (
                   <button
-                    onClick={() => handleUnblock(selectedTask.id)}
-                    disabled={unblockingId === selectedTask.id}
+                    onClick={() => handleUnblock(selectedSession.id)}
+                    disabled={unblockingId === selectedSession.id}
                     className="ro-button-ok flex-1 py-1 px-3 text-xs font-bold text-amber-950 rounded shadow flex items-center justify-center gap-1 active:scale-95"
                   >
                     <span>⚡</span>
-                    <span>{unblockingId === selectedTask.id ? 'Unblocking...' : 'OK (Approve Plan)'}</span>
+                    <span>{unblockingId === selectedSession.id ? 'Unblocking...' : 'OK (Approve Plan)'}</span>
                   </button>
-                ) : selectedTask?.prUrl ? (
+                ) : selectedSession?.prUrl ? (
                   <a
-                    href={selectedTask.prUrl}
+                    href={selectedSession.prUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="ro-button-cancel flex-1 py-1 px-3 text-xs font-bold text-sky-950 rounded shadow flex items-center justify-center gap-1 text-center active:scale-95"
@@ -773,6 +1002,15 @@ export default function JulesRagnarokWorkshopPage() {
                     <span>🔗</span>
                     <span>View PR on GitHub</span>
                   </a>
+                ) : !isSelectedBound ? (
+                  <button
+                    onClick={() => handleLaunchQuest(selectedSlot.slotId)}
+                    disabled={isDispatching}
+                    className="ro-button-ok flex-1 py-1 px-3 text-xs font-bold text-emerald-950 rounded shadow flex items-center justify-center gap-1 active:scale-95"
+                  >
+                    <span>🚀</span>
+                    <span>{isDispatching ? 'Dispatching...' : `Launch Quest #${selectedSlot.slotId}`}</span>
+                  </button>
                 ) : (
                   <button
                     disabled
@@ -828,8 +1066,10 @@ export default function JulesRagnarokWorkshopPage() {
 
               <button
                 onClick={() => {
-                  if (selectedTask?.state === 'WAITING_FOR_INPUT') {
-                    handleUnblock(selectedTask.id);
+                  if (selectedSlotData.state === 'WAITING_FOR_INPUT' && selectedSession) {
+                    handleUnblock(selectedSession.id);
+                  } else if (!isSelectedBound) {
+                    handleLaunchQuest(selectedSlot.slotId);
                   } else {
                     window.open('https://github.com/kogeki88/or-nav/pulls', '_blank');
                   }

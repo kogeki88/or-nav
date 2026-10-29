@@ -372,3 +372,50 @@ html, body {
 .animate-ro-beam {
   animation: roLevelUpBeam 2.2s ease-in-out infinite;
 }
+
+
+/* ========================================================================= */
+/* 15 Dedicated Static Class Slots Styling                                   */
+/* ========================================================================= */
+
+.class-slot-base {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 4px;
+  transition: all 0.15s ease-in-out;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Security / Crusader Archetypes (Slots 1, 6, 11) */
+.class-slot-1, .class-slot-6, .class-slot-11 {
+  --slot-accent: #2563eb;
+  --slot-bg-tint: rgba(37, 99, 235, 0.04);
+}
+
+/* Performance / Assassin Archetypes (Slots 2, 7, 12) */
+.class-slot-2, .class-slot-7, .class-slot-12 {
+  --slot-accent: #d97706;
+  --slot-bg-tint: rgba(217, 119, 6, 0.04);
+}
+
+/* Testing / Biochemist Archetypes (Slots 3, 8, 13) */
+.class-slot-3, .class-slot-8, .class-slot-13 {
+  --slot-accent: #059669;
+  --slot-bg-tint: rgba(5, 150, 105, 0.04);
+}
+
+/* Clinical / High Priest Archetypes (Slots 4, 9, 14) */
+.class-slot-4, .class-slot-9, .class-slot-14 {
+  --slot-accent: #0284c7;
+  --slot-bg-tint: rgba(2, 132, 199, 0.04);
+}
+
+/* UI/UX / Scholar Archetypes (Slots 5, 10, 15) */
+.class-slot-5, .class-slot-10, .class-slot-15 {
+  --slot-accent: #7c3aed;
+  --slot-bg-tint: rgba(124, 58, 237, 0.04);
+}

@@ -18,10 +18,10 @@
     "spokenTerm": "debakey forceps",
     "displayPreferredName": "Debakey Forceps",
     "canonicalItemName": "DeBakey Vascular Tissue Forceps 12in",
-    "usageCount": 72,
+    "usageCount": 84,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-29T17:21:30Z"
+    "updatedAt": "2026-10-29T23:11:24Z"
   },
   {
     "aliasId": "general_memorial_1793196216_3",
@@ -190,5 +190,17 @@
     "usedByUsers": [],
     "confidence": "facility_consensus",
     "updatedAt": "2026-10-28T19:14:40Z"
+  },
+  {
+    "aliasId": "general_memorial_1793314692_17",
+    "facilityId": "general_memorial",
+    "departmentId": "or",
+    "spokenTerm": "adson with teeth",
+    "displayPreferredName": "Adson With Teeth",
+    "canonicalItemName": "Adson Tissue Forceps 1x2 (Adson Pickups)",
+    "usageCount": 4,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-10-29T23:11:24Z"
   }
 ]

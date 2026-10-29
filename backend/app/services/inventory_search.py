@@ -912,7 +912,19 @@ class InventoryService:
         Return True if the query is a procedural, clinical protocol, or
         surgeon preference question that should bypass Tier 1 and go to Tier 2.
         """
-        return bool(_PROCEDURAL_INDICATORS.search(query))
+        if _PROCEDURAL_INDICATORS.search(query):
+            return True
+        try:
+            from app.services.clinical_query_planner import plan_clinical_query
+            # Only treat surgeon-specific preference card queries as procedural here
+            plan = plan_clinical_query(query)
+            if plan.surgeon is not None and plan.intent == "PREFERENCE_CARD_LOOKUP":
+                return True
+            if plan.surgeon is not None and plan.intent == "PREFERENCE_INVENTORY_JOIN" and not plan.has_explicit_locative:
+                return True
+        except Exception:
+            pass
+        return False
 
     @staticmethod
     def _clean_query(query: str) -> str:
@@ -1597,3 +1609,8 @@ def reset_inventory_services() -> None:
     with _services_lock:
         _services.clear()
         _implicit_verification_cooldown.clear()
+        try:
+            from app.services.clinical_graph import reset_clinical_graphs
+            reset_clinical_graphs()
+        except Exception:
+            pass

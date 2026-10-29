@@ -12,8 +12,8 @@ export interface VersionManifest {
   changelog: string;
 }
 
-export const CURRENT_VERSION = "v0.61";
-export const CURRENT_BUILD_NUMBER = 18;
+export const CURRENT_VERSION = "v0.62";
+export const CURRENT_BUILD_NUMBER = 19;
 export const CURRENT_RELEASE_DATE = "2026-10-29";
 
 export const GITHUB_REPO_OWNER = "kogeki88";
@@ -29,7 +29,7 @@ export const LOCAL_VERSION_MANIFEST: VersionManifest = {
   apk_download_url: CLOUD_APK_DOWNLOAD_URL,
   min_supported_version: "v0.1",
   changelog:
-    "v0.61 (Build 18): Full system verification audit, RO Character Select Workshop with pre-loaded Veo 3.1 motion loops verified, and production APK published.",
+    "v0.62 (Build 19): Unified 3-Layer Clinical Query Planner & Relational Graph Engine — auto-compiled clinical vocabulary index, deterministic surgeon/procedure/facet decomposition, and relational preference-to-inventory coordinate joins.",
 };
 
 /**
@@ -65,4 +65,3 @@ export function isNewerVersion(
   if (rMinor !== lMinor) return rMinor > lMinor;
   return rPatch > lPatch;
 }
-

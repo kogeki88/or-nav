@@ -1,8 +1,8 @@
 {
-  "version": "v0.61",
-  "build_number": 18,
+  "version": "v0.62",
+  "build_number": 19,
   "release_date": "2026-10-29",
   "apk_download_url": "https://github.com/kogeki88/or-nav/releases/latest/download/or-nav.apk",
   "min_supported_version": "v0.1",
-  "changelog": "v0.61 (Build 18): Full system verification audit, RO Character Select Workshop with pre-loaded Veo 3.1 motion loops verified, and production APK published."
+  "changelog": "v0.62 (Build 19): Unified 3-Layer Clinical Query Planner & Relational Graph Engine — auto-compiled clinical vocabulary index, deterministic surgeon/procedure/facet decomposition, and relational preference-to-inventory coordinate joins."
 }

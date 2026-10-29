@@ -25,17 +25,17 @@ export function diffRecords<T extends Record<string, unknown>>(base: T, modified
 
     if (!(key in base)) {
       // Key was added
-      delta[key as keyof T] = modVal;
+      delta[key as keyof T] = modVal as T[keyof T];
       continue;
     }
 
     if (baseVal !== modVal) {
       if (typeof baseVal === 'object' && typeof modVal === 'object' && baseVal !== null && modVal !== null) {
         if (JSON.stringify(baseVal) !== JSON.stringify(modVal)) {
-          delta[key as keyof T] = modVal;
+          delta[key as keyof T] = modVal as T[keyof T];
         }
       } else {
-        delta[key as keyof T] = modVal;
+        delta[key as keyof T] = modVal as T[keyof T];
       }
     }
   }

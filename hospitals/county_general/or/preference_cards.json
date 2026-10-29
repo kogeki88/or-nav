@@ -5,18 +5,19 @@
     "specialty": "General Surgery",
     "surgeon": "Dr. Elena Rodriguez, MD",
     "room": "OR 12",
-    "position": "Supine, Reverse Trendelenburg 15\u00b0, Left Tilt 10\u00b0",
+    "gloves": "Biogel Eclipse Indicator 6.5 under / 6.0 over",
+    "position": "Supine, Reverse Trendelenburg 15°, Left Tilt 10°",
     "prep": "ChloraPrep (2% CHG / 70% IPA) - abdomen from xiphoid to pubis, bilaterally to midaxillary lines. Timed 3-minute dry.",
     "instrumentation": [
       "Lap Chole Set 1",
-      "Karl Storz 10mm 30\u00b0 Laparoscope",
+      "Karl Storz 10mm 30° Laparoscope",
       "LigaSure Maryland 5mm Sealer / Divider",
       "Endo Catch 10mm Specimen Bag",
       "Ethicon 5mm Medium-Large Clip Applier"
     ],
     "sutures": [
       "0 Polysorb UR-6 on fascial closure",
-      "4-0 Monocryl PS-2 for subcuticular skin closure",
+      "3-0 Monocryl Suture on PS-2 for subcuticular skin closure",
       "Endoloop 0 Vicryl (on standby for cystic duct)"
     ],
     "implants": "None",
@@ -28,6 +29,7 @@
     "specialty": "Orthopedic Surgery",
     "surgeon": "Dr. Marcus Chen, MD",
     "room": "OR 18",
+    "gloves": "Biogel Ortho 8.0 under / 7.5 over (double-glove mandatory)",
     "position": "Supine with lateral leg positioner, thigh tourniquet, foot of bed dropped",
     "prep": "DuraPrep 2-layer, foot isolated with sterile impervious stockinette and Coban wrap",
     "instrumentation": [
@@ -38,32 +40,86 @@
     ],
     "sutures": [
       "#1 Stratafix Spiral PDS for arthrotomy capsule",
-      "2-0 Monocryl SH for subcutaneous tissue",
+      "2-0 Vicryl on SH for subcutaneous tissue",
       "Ethicon Proximate 35W Skin Stapler"
     ],
     "implants": "Zimmer Persona Modular Cruciate Retaining (CR) Component",
     "notes": "Tourniquet inflated to 250 mmHg prior to skin incision. Vancomycin cement mixed at 14 minutes. Tranexamic acid (TXA) 1g IV given at start and deflation."
   },
   {
+    "id": "cabg_chen",
+    "procedure": "Coronary Artery Bypass Graft (CABG) & Saphenous Vein Harvest",
+    "specialty": "Cardiovascular OR (CVOR)",
+    "surgeon": "Dr. Sarah Chen, MD",
+    "room": "OR 21",
+    "gloves": "Biogel Surgeons 6.5 (micro-textured)",
+    "position": "Supine with shoulder roll, bilateral legs frog-legged on gel pads for saphenous vein harvest, arms tucked at sides",
+    "prep": "ChloraPrep chin-to-ankles circumferentially. 3-minute dry time strictly timed.",
+    "instrumentation": [
+      "Saphenous Vein Retractor (Weitlaner 3x4 Sharp)",
+      "DeBakey Vascular Tissue Forceps 8in",
+      "Castroviejo Micro Needle Holder",
+      "Potts-Smith Vascular Scissors 45°",
+      "Bulldog Vascular Clamp Straight"
+    ],
+    "sutures": [
+      "7-0 Prolene Suture on BV-1 for distal LAD and circumflex anastomoses",
+      "6-0 Prolene Suture on C-1 for proximal aortic anastomoses",
+      "4-0 Prolene Suture on RB-1 for cannulation repair and vein graft side-branches",
+      "2-0 Prolene Suture on SH for aortic root purse-strings",
+      "3-0 Silk Suture for venous cannulation tie-down"
+    ],
+    "implants": "Hemashield 8mm vascular graft on standby",
+    "notes": "Dr. Sarah Chen wants 2 sharp Weitlaner retractors for vein harvest. Uses 3-0 Silk for venous cannulation tie-down and 7-0/6-0/4-0 Prolene for coronary grafting."
+  },
+  {
+    "id": "patel_cvor",
+    "procedure": "Carotid Endarterectomy & Peripheral Vascular Bypass (CABG / Vascular)",
+    "specialty": "Cardiovascular & Vascular Surgery",
+    "surgeon": "Dr. Raj Patel, MD",
+    "room": "OR 21",
+    "gloves": "Biogel Eclipse Indicator 7.5 under / 7.0 over",
+    "position": "Supine with shoulder roll, head extended and rotated 30° away from operative side on gel donut",
+    "prep": "ChloraPrep neck from jawline to nipples and ipsilateral groin prepped in field for vein harvest",
+    "instrumentation": [
+      "DeBakey Vascular Tissue Forceps 12in",
+      "Castroviejo Micro Needle Holder",
+      "Potts-Smith Vascular Scissors 45°",
+      "Satinsky Atraumatic Vascular Clamp",
+      "Custom Vascular Stapler"
+    ],
+    "sutures": [
+      "3-0 Silk Suture loaded on DeBakey for venous branch ligations",
+      "6-0 Prolene Suture on C-1 for bovine pericardial patch angioplasty",
+      "4-0 Prolene Suture on RB-1 for femoral and carotid arteriotomies",
+      "7-0 Prolene Suture on BV-1 for distal micro-vascular anastomosis",
+      "3-0 Monocryl Suture on PS-2 for subcuticular neck closure"
+    ],
+    "implants": "Bovine Pericardial Patch (1cm x 6cm) & Pruitt-Inahara Carotid Shunt on standby",
+    "notes": "Dr. Patel prefers 3-0 Silk ties loaded directly on 12in DeBakey pickups. Heparin 5000 units IV given 3 minutes prior to carotid cross-clamp. Keep Custom Vascular Stapler in room."
+  },
+  {
     "id": "cabg",
     "procedure": "Coronary Artery Bypass Graft (CABG x3)",
     "specialty": "Cardiovascular OR (CVOR)",
-    "surgeon": "Dr. Arthur Vance, MD",
+    "surgeon": "Dr. Marcus Vance, MD (Dr. Arthur Vance, MD)",
     "room": "OR 21",
+    "gloves": "Biogel Surgeons 7.5 under / 7.5 over",
     "position": "Supine with chest roll, bilateral legs externally rotated (frog-leg) with knee rolls",
     "prep": "ChloraPrep chin-to-ankles circumferentially. 3-minute dry time strictly timed.",
     "instrumentation": [
       "Cardiovascular Major Sternotomy Set",
       "Vascular Peripheral Micro Instruments",
-      "Castroviejo Micro Needle Holders",
-      "DeBakey 1.5mm & 2.0mm Pickups",
-      "Internal Defibrillator Paddles (Charge to 20J)"
+      "Castroviejo Micro Needle Holder",
+      "DeBakey Vascular Tissue Forceps 12in",
+      "Satinsky Atraumatic Vascular Clamp"
     ],
     "sutures": [
-      "7-0 Prolene BV-1 for distal coronary anastomoses",
-      "6-0 Prolene C-1 for proximal aortic anastomoses",
-      "#5 Ethibond sternal closure wires (x6 or x8)",
-      "3-0 Silk ties on DeBakey for venous branch ligations"
+      "7-0 Prolene Suture on BV-1 for distal coronary anastomoses",
+      "6-0 Prolene Suture on C-1 for proximal aortic anastomoses",
+      "2-0 Prolene Suture on SH double-armed for aortic root purse-strings",
+      "#5 Ethibond Sternal Closure Wires (x6 or x8)",
+      "3-0 Silk Suture on DeBakey for venous branch ligations"
     ],
     "implants": "Hemashield 8mm vascular graft on standby",
     "notes": "Heparin 300 units/kg prior to cannulation; Target ACT > 480 sec. Cool chest with sterile saline slush. Have Protamine ready for pump separation."
@@ -74,20 +130,20 @@
     "specialty": "Urology / Robotic Surgery",
     "surgeon": "Dr. Sanjay Gupta, MD",
     "room": "OR 16 (Robotic Suite)",
-    "position": "Steep Trendelenburg (28\u00b0), Lithotomy with Allen Yellofin stirrups, arms tucked securely with foam pads",
+    "gloves": "Biogel Indicator Underglove 7.5 / Encore Latex-Free 7.0",
+    "position": "Steep Trendelenburg (28°), Lithotomy with Allen Yellofin stirrups, arms tucked securely with foam pads",
     "prep": "ChloraPrep abdomen from nipples to mid-thighs, including genitalia. 3-minute dry.",
     "instrumentation": [
       "Da Vinci Xi Robotic System",
-      "8mm Monopolar Curved Scissors",
-      "8mm Fenestrated Bipolar Forceps",
-      "8mm ProGrasp Forceps",
-      "8mm Large Needle Driver",
-      "AirSeal Insufflation System (target 12 mmHg)"
+      "Da Vinci Xi 8mm Curved Scissors",
+      "Da Vinci Xi 8mm Bipolar Forceps",
+      "Da Vinci Xi 8mm ProGrasp Forceps",
+      "Da Vinci Xi 8mm Large Needle Driver"
     ],
     "sutures": [
       "3-0 V-Loc 180 barbed suture for vesicourethral anastomosis",
-      "2-0 Vicryl CT-1 for dorsal venous complex ligation",
-      "4-0 Monocryl for port sites"
+      "2-0 Vicryl on SH for dorsal venous complex ligation",
+      "3-0 Monocryl Suture on PS-2 for port sites"
     ],
     "implants": "None",
     "notes": "Verify zero pressure on brachial plexus before docking. Confirm bladder integrity with 200 mL sterile saline instillation via 3-way Foley."
@@ -98,19 +154,20 @@
     "specialty": "Neurosurgery / Spine",
     "surgeon": "Dr. Sarah Jenkins, MD",
     "room": "OR 14",
+    "gloves": "Biogel Micro 7.0",
     "position": "Prone on Wilson frame or Jackson table, abdomen completely hanging free to minimize epidural venous pressure",
     "prep": "Betadine scrub & paint (or ChloraPrep) - lower thoracic to sacrum",
     "instrumentation": [
       "Spine Microdiscectomy Tray",
-      "Zeiss OPMI Surgical Microscope",
-      "McCulloch Retractor System with Micro Blades",
-      "Kerrison Rongeurs 2mm, 3mm, 4mm (Up-biting & Down-biting)",
-      "Woodson Dural Separator"
+      "Kerrison Rongeur 2mm 40° Up-Bite",
+      "Kerrison Rongeur 3mm 40° Up-Bite",
+      "Kerrison Rongeur 4mm 40° Up-Bite",
+      "Pituitary Rongeur Straight 7in"
     ],
     "sutures": [
-      "0 Vicryl CT-1 for lumbodorsal fascia",
-      "2-0 Vicryl SH for subcutaneous layer",
-      "4-0 Monocryl PS-2 for subcuticular skin closure"
+      "0 Vicryl (Polysorb UR-6 Suture) for lumbodorsal fascia",
+      "2-0 Vicryl on SH for subcutaneous layer",
+      "3-0 Monocryl Suture on PS-2 for subcuticular skin closure"
     ],
     "implants": "None",
     "notes": "Have Surgicel and thrombin-soaked Gelfoam patties ready for epidural bleeding. Microscope brought in from patient right side."
@@ -121,23 +178,24 @@
     "specialty": "Trauma / Acute Care Surgery",
     "surgeon": "Dr. Karen O'Connor, MD",
     "room": "OR 1 (Trauma Dedicated)",
-    "position": "Supine with arms out on armboards at 90\u00b0 for rapid bilateral vascular access",
+    "gloves": "Biogel Ortho 7.0 double-gloved",
+    "position": "Supine with arms out on armboards at 90° for rapid bilateral vascular access",
     "prep": "Rapid ChloraPrep or Betadine paint - chin to mid-thighs bilaterally",
     "instrumentation": [
-      "Trauma Laparotomy Major Tray",
-      "Balfour Retractor with deep blades",
-      "Bookwalter Abdominal Retractor",
-      "Poole Suction Tips (x2 connected to dual canisters)",
-      "Satinsky & DeBakey Vascular Clamps"
+      "Balfour Abdominal Retractor",
+      "Bookwalter Retractor System",
+      "Poole Suction Tube with Guard",
+      "Satinsky Atraumatic Vascular Clamp",
+      "Laparotomy Sponges 18x18 with Blue Loop"
     ],
     "sutures": [
-      "#1 PDS Loop on CTX needle for mass abdominal closure",
-      "2-0 Silk ties on passers",
-      "3-0 Silk on SH for bowel oversewing",
-      "Skin stapler (x2)"
+      "0 Vicryl (Polysorb UR-6 Suture) for mass abdominal closure",
+      "0 Silk Suture on CT-1 for heavy pedicle ligation",
+      "3-0 Silk Suture for bowel oversewing",
+      "Ethicon Proximate 35W Skin Stapler"
     ],
     "implants": "Bogota bag / ABThera Open Abdomen VAC dressing ready on standby",
-    "notes": "Warm room to 78\u00b0F. Level 1 rapid infuser primed. Count softs by 10s. Four quadrants packed with laparotomy sponges immediately upon entry."
+    "notes": "Warm room to 78°F. Level 1 rapid infuser primed. Count softs by 10s. Four quadrants packed with laparotomy sponges immediately upon entry."
   },
   {
     "id": "evar",
@@ -145,18 +203,18 @@
     "specialty": "Vascular Surgery",
     "surgeon": "Dr. Tariq Al-Mansoor, MD",
     "room": "Hybrid OR 2",
+    "gloves": "Biogel Surgeons 7.5 with radiation attenuation overgloves",
     "position": "Supine on radiolucent carbon fiber fluoroscopy table",
     "prep": "ChloraPrep bilateral groins and entire abdomen to knees",
     "instrumentation": [
       "EVAR Endovascular Cut-Down / Percutaneous Tray",
-      "GE Discovery IGS Hybrid Angiography System",
-      "0.035in Lunderquist Extra-Stiff Wire",
-      "Perclose ProGlide Suture-Mediated Closure Devices (x4)",
-      "Gore C3 Excluder or Medtronic Endurant Stent Graft System"
+      "DeBakey Vascular Tissue Forceps 8in",
+      "Satinsky Atraumatic Vascular Clamp",
+      "Weitlaner Retractor 3x4 Dull 6.5in"
     ],
     "sutures": [
-      "4-0 Prolene RB-1 for femoral transverse arteriotomy",
-      "3-0 Monocryl for groin cutdowns"
+      "4-0 Prolene Suture on RB-1 for femoral transverse arteriotomy",
+      "3-0 Monocryl Suture on PS-2 for groin cutdowns"
     ],
     "implants": "Bifurcated Aortic Endograft + Contralateral Iliac Limb",
     "notes": "Systemic heparinization 100 units/kg prior to sheath insertion. Target ACT > 250 sec. Power injector filled with Isovue-370 contrast."
