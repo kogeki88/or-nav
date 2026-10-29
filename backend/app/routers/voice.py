@@ -10,10 +10,11 @@ import io
 import os
 import re
 from typing import Optional
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Request, Response
 from pydantic import BaseModel
 from app.services.surgical_ontology import normalize_acoustic_speech, normalize_or_lingo
 from app.scrubber import scrub_phi
+from app.limiter import limiter
 
 router = APIRouter()
 
@@ -65,7 +66,8 @@ def is_livekit_configured() -> bool:
 
 
 @router.get("/api/voice/status", response_model=VoiceStatusResponse)
-async def get_voice_status():
+@limiter.limit("60/minute")
+async def get_voice_status(request: Request, response: Response):
     """
     Check if LiveKit WebRTC credentials are configured.
     Enables dual-mode operation:
@@ -84,7 +86,8 @@ async def get_voice_status():
 
 
 @router.post("/api/voice/token", response_model=VoiceTokenResponse)
-async def mint_voice_token(req: VoiceTokenRequest):
+@limiter.limit("60/minute")
+async def mint_voice_token(request: Request, response: Response, req: VoiceTokenRequest):
     """
     Mint a short-lived JWT Access Token for joining the CVOR LiveKit Room.
 
@@ -147,7 +150,10 @@ async def mint_voice_token(req: VoiceTokenRequest):
 
 
 @router.post("/api/voice/transcribe", response_model=VoiceTranscribeResponse)
+@limiter.limit("60/minute")
 async def transcribe_surgical_audio(
+    request: Request,
+    response: Response,
     file: UploadFile = File(...),
     tenant_id: str = Form(default="sacred_heart::or"),
     transcript_hint: Optional[str] = Form(default=None),
