@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert";
-import { scrubPhi, REDACTION } from "./scrubClient.ts";
+import { scrubPhi, REDACTION } from "./scrubClient";
 
 describe("scrubPhi adversarial stress tests", () => {
   test("obfuscated MRNs", () => {
