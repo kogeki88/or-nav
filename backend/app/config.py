@@ -25,8 +25,11 @@ def validate_tenant_id(tenant_id: str) -> str:
     Rejects directory traversal (../, ..\\) and special characters.
     Normalizes double-colon notation (e.g. sacred_heart::or -> sacred_heart/or).
     """
-    clean = (tenant_id or "").strip().replace("::", "/")
-    if not clean or not _VALID_TENANT_ID_PATTERN.match(clean) or ".." in clean:
+    if not tenant_id or not tenant_id.strip():
+        return 'or_main'
+
+    clean = tenant_id.strip().replace("::", "/")
+    if not _VALID_TENANT_ID_PATTERN.match(clean) or ".." in clean:
         raise ValueError(
             f"Invalid tenant_id '{tenant_id}'. Must be non-empty alphanumeric with underscores only."
         )
