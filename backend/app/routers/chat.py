@@ -18,12 +18,13 @@ import io
 import re
 import time
 from datetime import datetime, timezone
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
-from app.config import get_tenant, settings, DEPARTMENTS, TenantConfig
+from app.config import get_tenant, settings, TenantConfig
 from app.scrubber import scrub_phi
 from app.intent_parser import parse_clinical_intent, ClinicalIntent
 from app.services.governance import get_governance_service
@@ -41,11 +42,12 @@ from app.services.lexicon_learning import (
     get_facility_id_from_tenant,
     learn_alias,
     title_case_term,
-    get_all_aliases_for_item,
 )
 
 # In-memory session tracker for Pathway B implicit search reformulation learning
 _session_zero_matches: dict[str, dict] = {}
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(prefix="/api", tags=["chat"])
