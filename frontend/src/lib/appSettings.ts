@@ -6,11 +6,17 @@
 export interface AppSettings {
   autoUpdateEnabled: boolean; // default: true
   autoSyncEnabled: boolean;   // default: true
+  darkMode: boolean;          // default: false
+  voiceSettings: string;      // default: 'default'
+  fontScaling: number;        // default: 1.0
 }
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   autoUpdateEnabled: true,
   autoSyncEnabled: true,
+  darkMode: false,
+  voiceSettings: "default",
+  fontScaling: 1.0,
 };
 
 export const APP_SETTINGS_STORAGE_KEY = "ornav_app_settings";
@@ -31,6 +37,18 @@ export function getAppSettings(): AppSettings {
           typeof parsed.autoSyncEnabled === "boolean"
             ? parsed.autoSyncEnabled
             : DEFAULT_APP_SETTINGS.autoSyncEnabled,
+        darkMode:
+          typeof parsed.darkMode === "boolean"
+            ? parsed.darkMode
+            : DEFAULT_APP_SETTINGS.darkMode,
+        voiceSettings:
+          typeof parsed.voiceSettings === "string"
+            ? parsed.voiceSettings
+            : DEFAULT_APP_SETTINGS.voiceSettings,
+        fontScaling:
+          typeof parsed.fontScaling === "number"
+            ? parsed.fontScaling
+            : DEFAULT_APP_SETTINGS.fontScaling,
       };
     }
   } catch (e) {
@@ -52,6 +70,18 @@ export function saveAppSettings(settings: Partial<AppSettings>): AppSettings {
         typeof settings.autoSyncEnabled === "boolean"
           ? settings.autoSyncEnabled
           : current.autoSyncEnabled,
+      darkMode:
+        typeof settings.darkMode === "boolean"
+          ? settings.darkMode
+          : current.darkMode,
+      voiceSettings:
+        typeof settings.voiceSettings === "string"
+          ? settings.voiceSettings
+          : current.voiceSettings,
+      fontScaling:
+        typeof settings.fontScaling === "number"
+          ? settings.fontScaling
+          : current.fontScaling,
     };
     localStorage.setItem(APP_SETTINGS_STORAGE_KEY, JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent(APP_SETTINGS_EVENT, { detail: updated }));
