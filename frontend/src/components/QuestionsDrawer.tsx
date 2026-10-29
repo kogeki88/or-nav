@@ -107,6 +107,7 @@ export default function QuestionsDrawer({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
