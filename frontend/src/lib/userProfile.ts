@@ -107,15 +107,6 @@ export function getRoleScope(departmentId: string, roleNameOrId: string): RoleSc
   };
 }
 
-export function isNursingRole(role?: string): boolean {
-  if (!role) return true;
-  const r = role.toLowerCase();
-  return (
-    (r.includes("rn") || r.includes("nurse") || r.includes("circulat") || r.includes("charge")) &&
-    !r.includes("scrub")
-  );
-}
-
 export function isAnesthesiaRole(role?: string): boolean {
   if (!role) return false;
   const r = role.toLowerCase();
@@ -124,12 +115,17 @@ export function isAnesthesiaRole(role?: string): boolean {
 
 export function isScrubRole(role?: string): boolean {
   if (!role) return false;
+  if (isAnesthesiaRole(role)) return false;
   const r = role.toLowerCase();
-  return (
-    (r.includes("scrub") || r.includes("tech") || r.includes("cst")) &&
-    !isAnesthesiaRole(role) &&
-    !isNursingRole(role)
-  );
+  return r.includes("scrub") || r.includes("tech") || r.includes("cst");
+}
+
+export function isNursingRole(role?: string): boolean {
+  if (!role) return true;
+  if (isAnesthesiaRole(role)) return false;
+  if (isScrubRole(role)) return false;
+  const r = role.toLowerCase();
+  return r.includes("rn") || r.includes("nurse") || r.includes("circulat") || r.includes("charge");
 }
 
 /**
