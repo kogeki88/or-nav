@@ -297,7 +297,7 @@ export function normalizeLocationCoordinate(locRaw: string): string | null {
 
   // Phrased format: Bay 2 Cart A Shelf 1 Bin B / room 21 cabinet b shelf 1 bin a
   const nat = text.match(
-    /(?:(trauma\s+bay|trauma|bay|pod|icu(?:\s+supply)?|er|ed|pacu(?:\s+med\s+room)?|or|room)(?:\s*(\d+))?|(core\s+supply)|(pump\s+room))\s*(?:cart|cabinet|cab|rack|pyxis|alcove)?\s*([a-zA-Z])\s*(?:shelf|drawer)?\s*(\d+)\s*(?:bin|container)?\s*([a-zA-Z])/i
+    /(?:(trauma\s+bay|trauma|bay|pod|icu(?:\s+supply)?|er|ed|pacu(?:\s+med\s+room)?|or|room)(?:[\s\-\•]*(\d+))?|(core\s+supply)|(pump\s+room))[\s\-\•]*(?:cart|cabinet|cab|rack|pyxis|alcove)?[\s\-\•]*([a-zA-Z])[\s\-\•]*(?:shelf|drawer)?[\s\-\•]*(\d+)[\s\-\•]*(?:bin|container)?[\s\-\•]*([a-zA-Z])/i
   );
   if (nat) {
     const [, u, num, core, pump, cab, shelf, binLetter] = nat;
@@ -307,7 +307,7 @@ export function normalizeLocationCoordinate(locRaw: string): string | null {
 
   // Standard format: Bay 2 A 1 B / OR 21 B 1 A / ICU A 2 B
   const std = text.match(
-    /(?:(trauma\s+bay|trauma|bay|pod|icu(?:\s+supply)?|er|ed|pacu(?:\s+med\s+room)?|or|room)(?:\s*(\d+))?|(core\s+supply)|(pump\s+room))\s+([a-zA-Z])\s+(\d+)\s+([a-zA-Z])/i
+    /(?:(trauma\s+bay|trauma|bay|pod|icu(?:\s+supply)?|er|ed|pacu(?:\s+med\s+room)?|or|room)(?:[\s\-\•]*(\d+))?|(core\s+supply)|(pump\s+room))[\s\-\•]+([a-zA-Z])[\s\-\•]+(\d+)[\s\-\•]+([a-zA-Z])/i
   );
   if (std) {
     const [, u, num, core, pump, cab, shelf, binLetter] = std;
