@@ -30,21 +30,21 @@ interface ScrubResult {
 
 // --- Pattern definitions ---
 
-// MRN: "MRN 1234567", "MRN: 12345678", "MRN#1234567890"
-const MRN_PATTERN = /\bMRN\s*[#:]?\s*\d{6,10}\b/gi;
+// MRN: "MRN 1234567", "MRN: 12345678", "MRN#1234567890", "M.R.N. 998877", "MRN# 12-34-56"
+const MRN_PATTERN = /\bM\.?R\.?N\.?\s*[#:]?\s*\d{2,10}(?:[-.]\d{2,10})*\b/gi;
 
 // SSN: 123-45-6789 or 123 45 6789
 const SSN_PATTERN = /\b\d{3}[-\s]\d{2}[-\s]\d{4}\b/g;
 
-// DOB: "DOB 01/15/1980", "DOB: 1-15-1980", "date of birth 12/25/90"
-const DOB_PATTERN = /(?:DOB|date\s+of\s+birth)\s*[:\s]\s*\d{1,2}[-/]\d{1,2}[-/]\d{2,4}/gi;
+// DOB: "DOB 01/15/1980", "DOB: 1-15-1980", "date of birth 12/25/90", "born on March 4th 1982"
+const DOB_PATTERN = /(?:DOB|date\s+of\s+birth|born\s+on)\s*[:\s]\s*(?:\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?\s*\d{4})/gi;
 
 // External phone: (555) 123-4567, 555-123-4567, 555.123.4567
 // Does NOT match internal extensions like x4-25663
 const PHONE_PATTERN = /(?<!\w)(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}(?!\w)/g;
 
-// Patient names: "patient John Smith", "patient named Sarah Connor", "pt Jane Doe", "pt. Mary Johnson"
-const PATIENT_NAME_PATTERN = /\b(?:patient|pt\.?)\s+(?:named\s+|called\s+)?([A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+)/g;
+// Patient names: "patient John Smith", "patient named Sarah Connor", "pt Jane Doe", "pt. Mary Johnson", "patient Mary-Jane Parker"
+const PATIENT_NAME_PATTERN = /\b(?:patient|pt\.?)\s+(?:named\s+|called\s+)?([A-Z][a-z]+(?:-[A-Z][a-z]+)?(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+(?:-[A-Z][a-z]+)?)/g;
 
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
