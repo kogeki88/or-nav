@@ -37,3 +37,9 @@ Rate limiting is critical to protect public endpoints (like `/api/chat` and `/ap
 ## 2023-10-29 - [Security Fix: Error Leakage Sanitization]
 Implemented a global `Exception` handler in `backend/app/main.py` using FastAPI's `@app.exception_handler(Exception)` mechanism. This ensures that any unexpected runtime errors fail securely, returning a generic `500 Internal Server Error` response instead of a raw Python traceback.
 This prevents the exposure of critical filesystem paths and environment variables (such as API keys and credentials) in publicly facing endpoints, addressing a critical vulnerability and ensuring robust information sanitization in the API responses.
+## 2026-10-31 - OTA Package Integrity Tests
+
+Implemented validation and unit tests to ensure over-the-air (OTA) package integrity. Key prevention strategies included:
+1. Validating the presence and format of SHA-256 hashes to prevent corrupted or malicious updates.
+2. Preventing downgrade attacks by cross-referencing build numbers and semantic versions against the currently running version using monotonic build numbering and fallback semver.
+3. Ensuring APK download URLs are strictly bounded to trusted GitHub releases assets via careful `URL` API hostname and pathname checks.
