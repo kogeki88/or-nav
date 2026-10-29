@@ -34,7 +34,7 @@ beforeEach(() => {
   global.fetch = mock.fn(async () => ({
     ok: true,
     json: async () => ([])
-  }));
+  } as unknown as Response));
 });
 
 afterEach(() => {
@@ -79,7 +79,7 @@ test('lists unanswered questions and respects department filtering', async () =>
     global.fetch = mock.fn(async () => ({
         ok: true,
         json: async () => questions
-    }));
+    } as unknown as Response));
 
     render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="er_trauma" userProfile={dummyProfile} />);
 
@@ -131,12 +131,12 @@ test('submitting an answer with clinical role', async () => {
                         isVerifiedConsensus: false
                     }]
                 })
-            };
+            } as unknown as Response;
         }
         return {
             ok: true,
             json: async () => questions
-        };
+        } as unknown as Response;
     });
 
     render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="er_trauma" userProfile={dummyProfile} />);
@@ -179,7 +179,7 @@ test('verify touch targets and accessibility', async () => {
     global.fetch = mock.fn(async () => ({
         ok: true,
         json: async () => questions
-    }));
+    } as unknown as Response));
 
     render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="er_trauma" userProfile={dummyProfile} />);
 

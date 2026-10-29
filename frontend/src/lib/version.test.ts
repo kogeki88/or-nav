@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import { isNewerVersion } from './version.ts';
+import { isNewerVersion } from './version';
 
 test('isNewerVersion', async (t) => {
   await t.test('higher major version is true', () => {
