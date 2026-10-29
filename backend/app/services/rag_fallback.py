@@ -26,7 +26,7 @@ from app.config import TenantConfig, HOSPITALS_DIR
 
 
 # Max cache entries for normalized query → (response, is_educational_baseline) mapping.
-_MAX_CACHE_SIZE = 256
+_MAX_CACHE_SIZE = 1024
 
 _BASELINE_PATH = HOSPITALS_DIR / "GLOBAL_BASELINE" / "baseline.md"
 
