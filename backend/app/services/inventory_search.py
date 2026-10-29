@@ -383,12 +383,14 @@ def split_compound_query(query: str) -> list[str]:
         c_curr = cleaned_chunks[i]
         c_next = cleaned_chunks[i + 1]
         if _BARE_SIZE_REGEX.match(c_curr):
-            noun_match = re.search(
-                r"^(?:#?\d+[-/](?:0|zero|oh)|#?\d{2}|\d+\s*(?:fr|french|in|mm|gauge|g))\s+(.+)$",
+            match = re.match(
+                r"^(?:#?\d+[-/](?:0|zero|oh)|\d+(?:\.\d+)?\s*(?:fr|french|in|mm|gauge|g)|#?\d{2}|(?:0|zero|aught))",
                 c_next,
                 re.IGNORECASE,
             )
-            noun_part = noun_match.group(1).strip() if noun_match else ""
+            noun_part = ""
+            if match:
+                noun_part = c_next[match.end():].strip()
             if not noun_part and not _BARE_SIZE_REGEX.match(c_next):
                 noun_part = c_next
             if noun_part:
@@ -399,12 +401,14 @@ def split_compound_query(query: str) -> list[str]:
         c_curr = cleaned_chunks[i]
         c_prev = cleaned_chunks[i - 1]
         if _BARE_SIZE_REGEX.match(c_curr):
-            noun_match = re.search(
-                r"^(?:#?\d+[-/](?:0|zero|oh)|#?\d{2}|\d+\s*(?:fr|french|in|mm|gauge|g))\s+(.+)$",
+            match = re.match(
+                r"^(?:#?\d+[-/](?:0|zero|oh)|\d+(?:\.\d+)?\s*(?:fr|french|in|mm|gauge|g)|#?\d{2}|(?:0|zero|aught))",
                 c_prev,
                 re.IGNORECASE,
             )
-            noun_part = noun_match.group(1).strip() if noun_match else ""
+            noun_part = ""
+            if match:
+                noun_part = c_prev[match.end():].strip()
             if noun_part:
                 cleaned_chunks[i] = f"{c_curr} {noun_part}"
 
