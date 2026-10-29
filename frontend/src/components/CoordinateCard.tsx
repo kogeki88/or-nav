@@ -33,7 +33,7 @@ function isOlderThan90Days(isoDate?: string): boolean {
   return diffDays > 90;
 }
 
-export default function CoordinateCard({
+const CoordinateCard = React.memo(function CoordinateCard({
   card,
   onVerifyPendingMove,
   onFlagWrong,
@@ -472,4 +472,17 @@ export default function CoordinateCard({
       </div>
     </div>
   );
-}
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.card.item === nextProps.card.item &&
+    prevProps.card.room === nextProps.card.room &&
+    prevProps.card.cabinet === nextProps.card.cabinet &&
+    prevProps.card.shelf === nextProps.card.shelf &&
+    prevProps.card.container === nextProps.card.container &&
+    prevProps.departmentId === nextProps.departmentId &&
+    prevProps.facilityId === nextProps.facilityId &&
+    prevProps.defaultExpanded === nextProps.defaultExpanded
+  );
+});
+
+export default CoordinateCard;

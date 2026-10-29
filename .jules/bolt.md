@@ -1,0 +1,3 @@
+## 2024-05-18 - Bypassing unstable callbacks in React.memo
+**Learning:** In complex chat interfaces, historical components often receive new callback references on every render, defeating `React.memo`. If these callbacks only close over state that is already passed as a primitive prop (like `tenantId` mapping to `departmentId`), you can bypass the callback comparison entirely using a custom equality function.
+**Action:** When memoizing list items with unstable callbacks, use a custom `areEqual` function that shallow-compares the stable data props and ignores the callbacks, provided the callbacks do not rely on rapidly changing closed-over state.
