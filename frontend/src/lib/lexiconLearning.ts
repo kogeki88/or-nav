@@ -165,30 +165,47 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
 };
 
 export function getFacilityIdFromTenant(tenantId: string): { facilityId: string; departmentId: string } {
-  const clean = (tenantId || "").trim().toLowerCase();
+  // If the string starts/ends with colons/slashes, handle it cleanly
+  let clean = (tenantId || "").trim().toLowerCase();
+  clean = clean.replace(/\/+$/, '');
+
   if (clean.includes("::")) {
-    const [fac, dept] = clean.split("::");
-    return { facilityId: fac.trim(), departmentId: dept.trim() };
+    const parts = clean.split("::");
+    const fac = parts[0].trim();
+    const dept = (parts[1] || "").trim();
+    return { facilityId: fac || "sacred_heart", departmentId: dept || "or" };
   }
+
   if (clean.startsWith("sacred_heart")) {
-    return { facilityId: "sacred_heart", departmentId: clean.replace("sacred_heart_", "") || "or" };
+    const dept = clean === "sacred_heart" ? "or" : clean.replace("sacred_heart_", "");
+    return { facilityId: "sacred_heart", departmentId: dept || "or" };
   }
   if (clean.startsWith("princeton_plainsboro")) {
-    return { facilityId: "princeton_plainsboro", departmentId: clean.replace("princeton_plainsboro_", "") || "or" };
+    const dept = clean === "princeton_plainsboro" ? "or" : clean.replace("princeton_plainsboro_", "");
+    return { facilityId: "princeton_plainsboro", departmentId: dept || "or" };
   }
   if (clean.startsWith("county_general")) {
-    return { facilityId: "county_general", departmentId: clean.replace("county_general_", "") || "or" };
+    const dept = clean === "county_general" ? "or" : clean.replace("county_general_", "");
+    return { facilityId: "county_general", departmentId: dept || "or" };
   }
   if (clean.startsWith("duke_regional")) {
-    return { facilityId: "duke_regional", departmentId: clean.replace("duke_regional_", "") || "or" };
+    const dept = clean === "duke_regional" ? "or" : clean.replace("duke_regional_", "");
+    return { facilityId: "duke_regional", departmentId: dept || "or" };
   }
   if (clean.startsWith("metro_medical")) {
-    return { facilityId: "metro_medical", departmentId: clean.replace("metro_medical_", "") || "or" };
+    const dept = clean === "metro_medical" ? "or" : clean.replace("metro_medical_", "");
+    return { facilityId: "metro_medical", departmentId: dept || "or" };
   }
-  if (["general_memorial_cvor", "or_main", "pacu_periop", "er_trauma", "icu_critical_care"].includes(clean)) {
+  if (clean.startsWith("general_memorial")) {
+    const dept = clean === "general_memorial" ? "or" : clean.replace("general_memorial_", "");
+    return { facilityId: "general_memorial", departmentId: dept || "or" };
+  }
+
+  if (["or_main", "pacu_periop", "er_trauma", "icu_critical_care"].includes(clean)) {
     const dept = clean.split("_")[0];
     return { facilityId: "general_memorial", departmentId: dept };
   }
+
   return { facilityId: clean || "sacred_heart", departmentId: "or" };
 }
 
