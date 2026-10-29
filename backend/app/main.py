@@ -110,13 +110,10 @@ class GeminiKeyRequest(BaseModel):
     api_key: str
 
 
-def _mask_api_key(key: str) -> str | None:
-    clean = key.strip()
-    if not clean or clean == "your-api-key-here":
-        return None
-    if len(clean) >= 8:
-        return f"{clean[:4]}...{clean[-4:]}"
-    return f"{clean[:4]}..."
+def _mask_api_key(key: str) -> str:
+    if not key or len(key) < 8:
+        return '***'
+    return key[:4] + '...' + key[-4:]
 
 
 @app.get("/api/config/gemini-status")

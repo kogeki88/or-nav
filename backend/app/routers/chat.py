@@ -23,7 +23,7 @@ from typing import Optional
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
-from app.config import get_tenant, settings, DEPARTMENTS
+from app.config import get_tenant, settings, DEPARTMENTS, TenantConfig
 from app.scrubber import scrub_phi
 from app.intent_parser import parse_clinical_intent, ClinicalIntent
 from app.services.governance import get_governance_service
