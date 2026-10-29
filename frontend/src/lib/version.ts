@@ -12,9 +12,9 @@ export interface VersionManifest {
   changelog: string;
 }
 
-export const CURRENT_VERSION = "v0.60";
-export const CURRENT_BUILD_NUMBER = 17;
-export const CURRENT_RELEASE_DATE = "2026-10-28";
+export const CURRENT_VERSION = "v0.61";
+export const CURRENT_BUILD_NUMBER = 18;
+export const CURRENT_RELEASE_DATE = "2026-10-29";
 
 export const GITHUB_REPO_OWNER = "kogeki88";
 export const GITHUB_REPO_NAME = "or-nav";
@@ -29,7 +29,7 @@ export const LOCAL_VERSION_MANIFEST: VersionManifest = {
   apk_download_url: CLOUD_APK_DOWNLOAD_URL,
   min_supported_version: "v0.1",
   changelog:
-    "v0.60 (Build 17): Sidebar declutter, unified clinician profile card, split audio and pairing settings, and streamlined system info.",
+    "v0.61 (Build 18): Full system verification audit, RO Character Select Workshop with pre-loaded Veo 3.1 motion loops verified, and production APK published.",
 };
 
 /**

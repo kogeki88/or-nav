@@ -1,0 +1,11 @@
+{
+  "success": true,
+  "availableVideos": {
+    "crusader": "/sprites/videos/crusader_idle.webm",
+    "assassin": "/sprites/videos/assassin_idle.webm",
+    "alchemist": "/sprites/videos/alchemist_idle.webm",
+    "highpriest": "/sprites/videos/highpriest_idle.webm",
+    "scholar": "/sprites/videos/scholar_idle.webm"
+  },
+  "veoModel": "veo-3.1-generate-preview"
+}

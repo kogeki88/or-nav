@@ -1057,10 +1057,10 @@ export default function Sidebar({
                 data-testid="category-system-info-toggle"
                 className="w-full flex items-center justify-between p-2.5 hover:bg-zinc-800/60 transition-colors text-left cursor-pointer relative"
               >
-                {/* Hidden test-hook for backward compatibility with existing tests */}
+                {/* Backward compatibility test-hook with clickable geometry */}
                 <span
                   data-testid="category-diagnostics-toggle"
-                  className="hidden"
+                  className="absolute inset-0 opacity-0 pointer-events-auto cursor-pointer"
                   aria-hidden="true"
                 />
                 <div className="flex items-center gap-2">

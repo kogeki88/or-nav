@@ -22,6 +22,7 @@ from app.peer_qna import router as peer_qna_router
 from app.auth import router as auth_router
 from app.feedback import router as feedback_router
 from app.routers.lexicon import router as lexicon_router
+from app.routers.jules_pool import router as jules_pool_router
 from app.services.rag_fallback import reset_rag_services
 from app.services.tunnel import start_tunnel_background, stop_tunnel, get_tunnel_url
 
@@ -37,7 +38,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="HIPAA-compliant, voice-first CVOR clinical assistant",
-    version="0.60.0",
+    version="0.61.0",
     lifespan=lifespan,
 )
 
@@ -66,6 +67,7 @@ app.include_router(peer_qna_router)
 app.include_router(auth_router)
 app.include_router(feedback_router)
 app.include_router(lexicon_router)
+app.include_router(jules_pool_router)
 
 
 def get_lan_ip() -> str:
@@ -178,12 +180,12 @@ async def get_version(response: Response):
             pass
 
     return {
-        "version": "v0.60",
-        "build_number": 17,
-        "release_date": "2026-10-28",
+        "version": "v0.61",
+        "build_number": 18,
+        "release_date": "2026-10-29",
         "apk_download_url": f"http://{lan_ip or '192.168.1.217'}:8000/api/download-apk",
         "min_supported_version": "v0.1",
-        "changelog": "v0.60 (Build 17): Sidebar declutter, unified clinician profile card, split audio and pairing settings, and streamlined system info.",
+        "changelog": "v0.61 (Build 18): Full system verification audit, RO Character Select Workshop with pre-loaded Veo 3.1 motion loops verified, and production APK published.",
     }
 
 

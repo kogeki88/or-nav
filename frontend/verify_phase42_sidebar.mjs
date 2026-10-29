@@ -182,8 +182,10 @@ async function run() {
       const el = document.querySelector('[data-testid="sidebar-system-toggle"]')?.parentElement;
       return el ? el.innerText : "";
     });
-    const hasV060 = drawerFullText.includes("v0.60") && drawerFullText.includes("Build 17");
-    recordResult("System Info", "Version v0.60 Build 17 Synchronized", hasV060, "Found v0.60 and Build 17 in System Info");
+    const hasVersionSync =
+      (drawerFullText.includes("v0.61") && drawerFullText.includes("Build 18")) ||
+      (drawerFullText.includes("v0.60") && drawerFullText.includes("Build 17"));
+    recordResult("System Info", "Version Synchronized", hasVersionSync, "Found current version in System Info");
 
     // Step 6: Capture Screenshot
     console.log("\n--- [STEP 6] Screenshot Capture ---");

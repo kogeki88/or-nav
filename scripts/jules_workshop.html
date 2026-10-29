@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ragnarok Online Character Select — Jules Autonomous Fleet</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+    
+    body {
+      background-color: #111622;
+      font-family: Tahoma, 'Segoe UI', system-ui, sans-serif;
+      overflow-x: hidden;
+      user-select: none;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .ro-pixelated {
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+    .ro-title-bar {
+      background: linear-gradient(180deg, #7496c8 0%, #5175a9 48%, #3f6396 52%, #4d72a7 100%);
+      border-bottom: 1px solid #2d4c78;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    }
+    .ro-button {
+      background: linear-gradient(180deg, #ffffff 0%, #e9eef7 45%, #cfdbe9 55%, #bacae0 100%);
+      border: 1px solid #6b85a8;
+      box-shadow: inset 1px 1px 0 #ffffff, inset -1px -1px 0 #9fb3cc, 0 1px 2px rgba(0, 0, 0, 0.15);
+      transition: all 0.08s ease;
+    }
+    .ro-button:hover {
+      background: linear-gradient(180deg, #ffffff 0%, #f0f4fa 45%, #d8e2ee 55%, #c5d3e6 100%);
+    }
+    .ro-button:active {
+      background: #cbd7e7;
+      box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.35);
+      transform: translateY(1px);
+    }
+    .ro-button-ok {
+      background: linear-gradient(180deg, #fff3d6 0%, #fde68a 45%, #f59e0b 55%, #d97706 100%);
+      border: 1px solid #b45309;
+      box-shadow: inset 1px 1px 0 #fffbeb, inset -1px -1px 0 #92400e, 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    .ro-button-cancel {
+      background: linear-gradient(180deg, #e0f2fe 0%, #bae6fd 45%, #38bdf8 55%, #0284c7 100%);
+      border: 1px solid #0369a1;
+      box-shadow: inset 1px 1px 0 #f0f9ff, inset -1px -1px 0 #075985, 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    @keyframes roStepBounce { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+    .animate-ro-bounce { animation: roStepBounce 0.8s steps(1) infinite; }
+    @keyframes roMagicSpin { 0% { transform: rotateX(68deg) rotateZ(0deg); } 100% { transform: rotateX(68deg) rotateZ(360deg); } }
+    .animate-magic-seal { animation: roMagicSpin 4s linear infinite; }
+  </style>
+</head>
+<body class="relative min-h-screen w-full flex flex-col items-center justify-center p-3 sm:p-6">
+  <div class="fixed inset-0 bg-[radial-gradient(circle_at_50%_40%,rgba(65,95,140,0.35),rgba(15,20,30,0.95))] pointer-events-none"></div>
+
+  <!-- RO Window Frame -->
+  <div class="relative z-10 w-full max-w-5xl rounded-sm bg-[#ffffff] border-[2px] border-[#31486d] shadow-[0_20px_60px_rgba(0,0,0,0.65)] flex flex-col overflow-hidden">
+    
+    <!-- Title Bar -->
+    <div class="ro-title-bar px-3 py-1.5 flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-4 h-4 rounded-full bg-gradient-to-tr from-[#1e40af] via-[#38bdf8] to-[#ffffff] border border-[#1e3a8a] shadow flex items-center justify-center">
+          <div class="w-1.5 h-1.5 rounded-full bg-white opacity-80"></div>
+        </div>
+        <span class="text-xs font-bold text-white tracking-wide" style="text-shadow: 1px 1px 1px #1e293b;">
+          Character Select — Jules Autonomous Fleet (15/15 Active Slots)
+        </span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="toggle-view-btn" class="ro-button px-2.5 py-0.5 text-[11px] font-bold text-[#1e3a8a] rounded shadow-sm">
+          ★ Switch to 3-Slot View
+        </button>
+        <div class="flex items-center gap-1 pl-2 border-l border-blue-900/40">
+          <div class="w-3.5 h-3.5 rounded bg-slate-200 border border-slate-600 flex items-center justify-center text-[10px] text-slate-700 leading-none">_</div>
+          <div class="w-3.5 h-3.5 rounded bg-rose-300 border border-rose-700 flex items-center justify-center text-[10px] font-bold text-rose-950 leading-none">×</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Canvas Body -->
+    <div class="relative w-full p-4 sm:p-6 bg-[#ffffff] min-h-[580px] flex flex-col justify-between">
+      
+      <!-- Tribal Watermark -->
+      <svg class="absolute inset-0 w-full h-full pointer-events-none opacity-[0.09]" viewBox="0 0 1000 600" fill="none">
+        <path d="M 50 300 Q 250 100 500 280 T 950 300 M 100 350 Q 300 200 500 320 T 900 350 M 500 50 C 400 250 200 350 50 400 C 200 450 400 480 500 550 C 600 480 800 450 950 400 C 800 350 600 250 500 50 Z" stroke="#436fa8" strokeWidth="3" />
+        <circle cx="500" cy="300" r="140" stroke="#436fa8" strokeWidth="2" strokeDasharray="8 8" />
+      </svg>
+
+      <!-- Watermark typography -->
+      <div class="absolute right-6 bottom-36 pointer-events-none text-right opacity-[0.14] font-serif leading-none select-none">
+        <div class="text-3xl font-black tracking-[0.25em] text-[#2c476f]">SELECT</div>
+        <div class="text-2xl font-bold tracking-[0.35em] text-[#3b5d8f] my-0.5">YOUR</div>
+        <div class="text-xl font-bold tracking-[0.2em] text-[#4d72a7]">CHARACTERS</div>
+      </div>
+
+      <!-- Top info bar -->
+      <div className="relative z-10 flex items-center justify-between mb-4 pb-2 border-b border-[#e2eaf4]">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-bold text-[#2d4b75]">Party Fleet Status:</span>
+          <span class="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-300">● 15 / 15 Agents Deployed</span>
+          <span class="text-xs font-mono text-slate-500 ml-2">origin/main: <span class="font-semibold text-blue-700">8 PRs Merged</span></span>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="px-3 py-1 rounded bg-[#f1f5fa] border border-[#c4d4e6] text-xs font-mono font-bold text-[#2b4870]">15 / 15 (Character/Total Slot)</div>
+          <div class="text-xs font-mono text-slate-500">Next Sync: <span class="font-bold text-[#b45309]">35:40</span></div>
+        </div>
+      </div>
+
+      <!-- Pedestal Display Container -->
+      <div id="pedestals-container" class="relative z-10 my-2"></div>
+
+      <!-- Bottom Stat Table & Quest Box -->
+      <div class="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-3 mt-3 pt-3 border-t border-[#d8e4f2]">
+        
+        <!-- Left: 2-Column Stat Table -->
+        <div class="md:col-span-7 rounded border border-[#a2bad8] overflow-hidden shadow-sm bg-white">
+          <div id="stat-header" class="bg-[#4a70a3] px-2.5 py-1 text-white text-[11px] font-bold flex items-center justify-between border-b border-[#2d4b75]">
+            <span id="stat-job-title">Status Window — Paladin</span>
+            <span id="stat-slot-num" class="font-mono text-[10px] text-blue-200">Slot #1</span>
+          </div>
+
+          <div class="grid grid-cols-2 text-xs divide-x divide-[#c4d4e6]">
+            <table class="w-full border-collapse">
+              <tbody>
+                <tr class="border-b border-[#e2eaf4]"><td class="w-16 px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">Name</td><td id="stat-name" class="px-2 py-1 bg-[#f7faff] font-mono font-medium text-slate-800">Paladin-1</td></tr>
+                <tr class="border-b border-[#e2eaf4]"><td class="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">Job</td><td id="stat-job" class="px-2 py-1 bg-[#f7faff] text-[11px] font-semibold text-[#1e3a8a]">Paladin (SECURITY)</td></tr>
+                <tr class="border-b border-[#e2eaf4]"><td class="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">Lv.</td><td id="stat-lv" class="px-2 py-1 bg-[#f7faff] font-mono font-bold text-slate-800">45</td></tr>
+                <tr class="border-b border-[#e2eaf4]"><td class="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">EXP</td><td class="px-2 py-1 bg-[#f7faff]"><div class="flex items-center gap-1.5 font-mono text-[10px]"><span id="stat-exp-pct">75%</span><div class="flex-1 h-1.5 bg-slate-200 rounded overflow-hidden"><div id="stat-exp-bar" class="h-full bg-blue-600" style="width: 75%;"></div></div></div></td></tr>
+                <tr class="border-b border-[#e2eaf4]"><td class="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">HP</td><td class="px-2 py-1 bg-[#f7faff] font-mono text-[10px] text-emerald-700 font-bold">4,500 / 4,500</td></tr>
+                <tr><td class="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">SP</td><td class="px-2 py-1 bg-[#f7faff] font-mono text-[10px] text-blue-700 font-bold">820 / 820</td></tr>
+              </tbody>
+            </table>
+
+            <table class="w-full border-collapse">
+              <tbody>
+                <tr class="border-b border-[#e2eaf4]"><td class="w-14 px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">STR</td><td class="px-2 py-1 bg-[#f7faff] font-mono text-xs flex items-center justify-between"><span id="stat-str" class="font-bold">99</span><span class="text-[9px] text-slate-400">Commits</span></td></tr>
+                <tr class="border-b border-[#e2eaf4]"><td class="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">AGI</td><td class="px-2 py-1 bg-[#f7faff] font-mono text-xs flex items-center justify-between"><span id="stat-agi" class="font-bold">78</span><span class="text-[9px] text-slate-400">Speed</span></td></tr>
+                <tr class="border-b border-[#e2eaf4]"><td class="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">VIT</td><td class="px-2 py-1 bg-[#f7faff] font-mono text-xs flex items-center justify-between"><span id="stat-vit" class="font-bold">99</span><span class="text-[9px] text-slate-400">Defense</span></td></tr>
+                <tr class="border-b border-[#e2eaf4]"><td class="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">INT</td><td class="px-2 py-1 bg-[#f7faff] font-mono text-xs flex items-center justify-between"><span id="stat-int" class="font-bold">65</span><span class="text-[9px] text-slate-400">AST Depth</span></td></tr>
+                <tr class="border-b border-[#e2eaf4]"><td class="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">DEX</td><td class="px-2 py-1 bg-[#f7faff] font-mono text-xs flex items-center justify-between"><span id="stat-dex" class="font-bold">85</span><span class="text-[9px] text-slate-400">Precision</span></td></tr>
+                <tr><td class="px-2 py-1 bg-[#dbe6f5] font-bold text-[#203a60] border-r border-[#c4d4e6]">LUK</td><td class="px-2 py-1 bg-[#f7faff] font-mono text-xs flex items-center justify-between"><span id="stat-luk" class="font-bold">77</span><span class="text-[9px] text-slate-400">Auto-Merge</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Right: Active Quest Box -->
+        <div class="md:col-span-5 rounded border border-[#a2bad8] bg-[#f9fbfe] p-2.5 flex flex-col justify-between shadow-sm">
+          <div>
+            <div class="flex items-center justify-between mb-1.5 pb-1 border-b border-[#d8e4f2]">
+              <span class="text-[11px] font-bold text-[#1e3a8a] flex items-center gap-1"><span>⚔️</span> Active Mission Quest</span>
+              <span id="quest-branch" class="text-[10px] font-mono text-slate-500">jules/task-1</span>
+            </div>
+            <h4 id="quest-title" class="text-xs font-semibold text-slate-800 leading-snug line-clamp-2 mb-1.5">Bolt: IndexedDB Bulk Insert and Query Performance Benchmarks</h4>
+            <div class="text-[10px] text-slate-600 bg-white p-1.5 rounded border border-[#d8e4f2] leading-tight">
+              <span class="font-bold text-[#203a60]">Live Status: </span><span id="quest-status">AST inspection & test fixture compilation</span>
+            </div>
+          </div>
+
+          <div id="quest-actions" class="mt-2.5 pt-2 border-t border-[#d8e4f2] flex items-center gap-2">
+            <a href="https://github.com/kogeki88/or-nav/pulls" target="_blank" class="ro-button-cancel flex-1 py-1 px-3 text-xs font-bold text-sky-950 rounded shadow flex items-center justify-center gap-1 text-center">
+              <span>🔗</span><span>View PR on GitHub</span>
+            </a>
+            <button onclick="location.reload()" class="ro-button px-3 py-1 text-xs font-bold text-slate-700 rounded shadow">Refresh</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Buttons -->
+      <div class="relative z-10 flex items-center justify-between mt-3 pt-2 border-t border-[#e2eaf4] text-xs">
+        <button id="sfx-btn" class="ro-button px-2.5 py-1 text-[11px] font-bold text-[#203a60] rounded shadow-sm">🔊 SFX: ON</button>
+        <div class="flex items-center gap-2">
+          <button class="ro-button px-3 py-1 text-[11px] font-bold text-[#1e3a8a] rounded shadow-sm">Auto-Orchestrate</button>
+          <button class="ro-button-ok px-4 py-1 text-xs font-bold text-amber-950 rounded shadow-sm">OK</button>
+          <button class="ro-button px-4 py-1 text-xs font-bold text-slate-700 rounded shadow-sm">Cancel</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const JOB_MAP = {
+      knight: { name: 'Paladin', sprite: '../frontend/public/sprites/ro_crusader.png', str: 99, agi: 78, vit: 99, int: 65, dex: 85, luk: 77 },
+      bolt: { name: 'Assassin Cross', sprite: '../frontend/public/sprites/ro_assassin.png', str: 94, agi: 99, vit: 72, int: 80, dex: 92, luk: 88 },
+      alchemist: { name: 'Biochemist', sprite: '../frontend/public/sprites/ro_alchemist.png', str: 82, agi: 85, vit: 88, int: 99, dex: 95, luk: 82 },
+      surgeon: { name: 'High Priest', sprite: '../frontend/public/sprites/ro_highpriest.png', str: 70, agi: 82, vit: 95, int: 99, dex: 90, luk: 92 },
+      artist: { name: 'Scholar', sprite: '../frontend/public/sprites/ro_scholar.png', str: 75, agi: 88, vit: 80, int: 99, dex: 99, luk: 85 }
+    };
+
+    const tasks = [
+      { id: '1', class: 'bolt', tag: 'Bolt • IndexedDB', title: 'Bolt: IndexedDB Bulk Insert and Query Performance Benchmarks', state: 'PR_CREATED', progress: 100 },
+      { id: '2', class: 'knight', tag: 'Sentinel • Sanitizer', title: 'Sentinel: Prevent Stack Trace Leaks on 500 Server Errors', state: 'PR_CREATED', progress: 100 },
+      { id: '3', class: 'knight', tag: 'Sentinel • TokenAuth', title: 'Sentinel: Session Token Expiry and Invalidation Tests', state: 'PR_CREATED', progress: 100 },
+      { id: '4', class: 'knight', tag: 'Sentinel • TokenAuth', title: 'Sentinel: LiveKit WebRTC Token Timeout & Verification Tests', state: 'IN_PROGRESS', progress: 65 },
+      { id: '5', class: 'knight', tag: 'Sentinel • TenantGuard', title: 'Sentinel: Tenant Isolation for File Uploads and Images', state: 'WAITING_FOR_INPUT', progress: 70 },
+      { id: '6', class: 'knight', tag: 'Sentinel • PHI', title: 'Sentinel: Multilingual PHI Scrubber Tests (Spanish & Medical Abbreviations)', state: 'PR_CREATED', progress: 100 },
+      { id: '7', class: 'knight', tag: 'Sentinel • CORS', title: 'Sentinel: Add CSRF and CORS header validation tests', state: 'PR_CREATED', progress: 100 },
+      { id: '8', class: 'knight', tag: 'Sentinel • RateLimit', title: 'Sentinel: Add rate limiting tests for chat and voice endpoints', state: 'IN_PROGRESS', progress: 85 },
+      { id: '9', class: 'alchemist', tag: 'Alchemist • SyncEngine', title: 'Add comprehensive unit tests for syncEngine offline outbox & exponential backoff', state: 'PR_CREATED', progress: 100 },
+      { id: '10', class: 'bolt', tag: 'Bolt • Metaphone', title: 'Bolt: Optimize Double Metaphone Tokenization & Phonetic Memoization', state: 'IN_PROGRESS', progress: 45 },
+      { id: '11', class: 'surgeon', tag: 'Surgeon • OR-Core', title: "Remove unused 'extract_eponyms' import in inventory_search.py", state: 'IN_PROGRESS', progress: 50 },
+      { id: '12', class: 'alchemist', tag: 'Alchemist • TestSuite', title: 'Testing Improvement Task', state: 'IN_PROGRESS', progress: 58 },
+      { id: '13', class: 'artist', tag: 'Palette • AriaLabels', title: 'OR-Nav Core Mechanics Adversarial Stress Test & Edge-Case Hardening', state: 'WAITING_FOR_INPUT', progress: 70 },
+      { id: '14', class: 'bolt', tag: 'Bolt • TurboEngine', title: 'OR-Nav Phase 44: Codebase Performance, Latency & Reliability Audit', state: 'IN_PROGRESS', progress: 72 },
+      { id: '15', class: 'surgeon', tag: 'Surgeon • CodeReview', title: 'GitHub Repository Review Request', state: 'IN_PROGRESS', progress: 78 }
+    ];
+
+    let selectedIdx = 0;
+    let mode = '15-grid';
+    let classicPage = 0;
+
+    function render() {
+      const container = document.getElementById('pedestals-container');
+      if (mode === '15-grid') {
+        let html = '<div class="grid grid-cols-3 sm:grid-cols-5 gap-2.5">';
+        tasks.forEach((t, i) => {
+          const isSel = selectedIdx === i;
+          const isWait = t.state === 'WAITING_FOR_INPUT';
+          const isDone = t.state === 'PR_CREATED';
+          const j = JOB_MAP[t.class] || JOB_MAP.knight;
+
+          html += `
+            <div onclick="selectTask(${i})" class="relative flex flex-col items-center justify-between h-[155px] p-2 rounded cursor-pointer transition-all ${isSel ? 'border-[2px] border-[#6d8dc7] bg-gradient-to-b from-white to-[#f0f4fa] shadow-md' : isWait ? 'border-[2px] border-amber-400 bg-amber-50/40' : 'border border-[#cad8ea] bg-white hover:border-[#9cb4d4]'}">
+              ${isSel ? '<div class="absolute -top-[19px] left-[-2px] px-2 py-0.5 bg-[#6d8dc7] text-white text-[9px] font-bold rounded-t shadow-sm">Select</div>' : ''}
+              ${isWait && !isSel ? '<div class="absolute -top-[19px] left-[-2px] px-2 py-0.5 bg-amber-500 text-black text-[9px] font-bold rounded-t shadow-sm">Input?</div>' : ''}
+              <div class="absolute bottom-9 left-1/2 -translate-x-1/2 w-16 h-5 rounded-full pointer-events-none" style="background: radial-gradient(ellipse at 50% 50%, rgba(60, 75, 105, 0.45) 0%, transparent 70%);"></div>
+              ${t.state === 'IN_PROGRESS' ? '<div class="absolute bottom-9 left-1/2 -translate-x-1/2 w-14 h-14 rounded-full border border-dashed border-cyan-400/50 animate-magic-seal pointer-events-none opacity-60"></div>' : ''}
+              
+              <div class="relative z-10 w-full flex flex-col items-center">
+                ${isWait ? '<div class="px-1.5 rounded-full bg-white border border-amber-500 text-[10px] font-bold text-amber-600 animate-bounce">[ ? ]</div>' : isDone ? '<div class="px-1.5 rounded bg-yellow-100 border border-yellow-500 text-[9px] font-bold text-yellow-800">★ LEVEL UP!</div>' : '<div class="w-14 h-1.5 bg-slate-200 rounded-full border border-slate-400 overflow-hidden"><div class="h-full bg-gradient-to-r from-emerald-500 to-yellow-400" style="width: ' + t.progress + '%;"></div></div>'}
+              </div>
+
+              <div class="relative z-10 flex-1 flex items-center justify-center my-0.5">
+                <img src="${j.sprite}" class="h-[80px] w-auto ro-pixelated object-contain animate-ro-bounce" />
+              </div>
+
+              <div class="relative z-10 w-full text-center flex flex-col items-center leading-tight">
+                <span class="text-[10px] font-bold text-[#1e3a8a] truncate max-w-[95px]">${j.name}</span>
+                <span class="text-[9px] font-mono text-slate-500 truncate max-w-[95px]">${t.tag}</span>
+              </div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+      } else {
+        const slice = tasks.slice(classicPage * 3, classicPage * 3 + 3);
+        let html = '<div class="flex items-center justify-center gap-6 my-4"><button onclick="prevPage()" class="ro-button w-8 h-12 flex items-center justify-center text-lg font-bold text-[#1e3a8a] rounded shadow">◀</button><div class="grid grid-cols-3 gap-6 w-full max-w-2xl">';
+        slice.forEach((t, si) => {
+          const gi = classicPage * 3 + si;
+          const isSel = selectedIdx === gi;
+          const isWait = t.state === 'WAITING_FOR_INPUT';
+          const isDone = t.state === 'PR_CREATED';
+          const j = JOB_MAP[t.class] || JOB_MAP.knight;
+
+          html += `
+            <div onclick="selectTask(${gi})" class="relative flex flex-col items-center justify-between h-[230px] p-3 rounded cursor-pointer transition-all ${isSel ? 'border-[3px] border-[#6d8dc7] bg-gradient-to-b from-white to-[#edf3fc] shadow-lg' : isWait ? 'border-[2px] border-amber-400 bg-amber-50/40' : 'border border-[#b8c8e0] bg-white hover:border-[#8ea8cf]'}">
+              ${isSel ? '<div class="absolute -top-[23px] left-[-3px] px-3 py-0.5 bg-[#6d8dc7] text-white text-[10px] font-bold rounded-t shadow">Select</div>' : ''}
+              <div class="absolute bottom-12 left-1/2 -translate-x-1/2 w-28 h-7 rounded-full pointer-events-none" style="background: radial-gradient(ellipse at 50% 50%, rgba(60, 75, 105, 0.45) 0%, transparent 70%);"></div>
+              
+              <div class="relative z-10 w-full flex flex-col items-center">
+                ${isWait ? '<div class="px-2 py-0.5 rounded-full bg-white border border-amber-500 text-xs font-bold text-amber-600 animate-bounce">[ ? Waiting Input ]</div>' : isDone ? '<div class="px-2 py-0.5 rounded bg-yellow-100 border border-yellow-500 text-xs font-bold text-yellow-800">★ JOB LEVEL UP! ★</div>' : '<div class="w-24 h-2 bg-slate-200 rounded-full border border-slate-400 overflow-hidden"><div class="h-full bg-gradient-to-r from-emerald-500 to-yellow-400" style="width: ' + t.progress + '%;"></div></div>'}
+              </div>
+
+              <div class="relative z-10 flex-1 flex items-center justify-center">
+                <img src="${j.sprite}" class="h-[135px] w-auto ro-pixelated object-contain animate-ro-bounce" />
+              </div>
+
+              <div class="relative z-10 w-full text-center flex flex-col items-center">
+                <span class="text-xs font-bold text-[#1e3a8a]">${j.name}</span>
+                <span class="text-[10px] font-mono text-slate-500">${t.tag}</span>
+              </div>
+            </div>
+          `;
+        });
+        html += '</div><button onclick="nextPage()" class="ro-button w-8 h-12 flex items-center justify-center text-lg font-bold text-[#1e3a8a] rounded shadow">▶</button></div>';
+        container.innerHTML = html;
+      }
+      updateStats();
+    }
+
+    function selectTask(idx) {
+      selectedIdx = idx;
+      render();
+    }
+
+    function prevPage() {
+      classicPage = classicPage > 0 ? classicPage - 1 : 4;
+      render();
+    }
+
+    function nextPage() {
+      classicPage = classicPage < 4 ? classicPage + 1 : 0;
+      render();
+    }
+
+    function updateStats() {
+      const t = tasks[selectedIdx] || tasks[0];
+      const j = JOB_MAP[t.class] || JOB_MAP.knight;
+      document.getElementById('stat-job-title').innerText = `Status Window — ${j.name}`;
+      document.getElementById('stat-slot-num').innerText = `Slot #${selectedIdx + 1}`;
+      document.getElementById('stat-name').innerText = `${j.name}-${selectedIdx + 1}`;
+      document.getElementById('stat-job').innerText = `${j.name} (AGENT)`;
+      document.getElementById('stat-lv').innerText = 40 + (selectedIdx * 3) % 59;
+      document.getElementById('stat-exp-pct').innerText = `${t.progress}%`;
+      document.getElementById('stat-exp-bar').style.width = `${t.progress}%`;
+      document.getElementById('stat-str').innerText = j.str;
+      document.getElementById('stat-agi').innerText = j.agi;
+      document.getElementById('stat-vit').innerText = j.vit;
+      document.getElementById('stat-int').innerText = j.int;
+      document.getElementById('stat-dex').innerText = j.dex;
+      document.getElementById('stat-luk').innerText = j.luk;
+      document.getElementById('quest-branch').innerText = `jules/task-${selectedIdx + 1}`;
+      document.getElementById('quest-title').innerText = t.title;
+      document.getElementById('quest-status').innerText = t.state === 'WAITING_FOR_INPUT' ? 'Awaiting architectural approval' : 'Running automated verification matrix';
+    }
+
+    document.getElementById('toggle-view-btn').onclick = () => {
+      mode = mode === '15-grid' ? '3-slot' : '15-grid';
+      document.getElementById('toggle-view-btn').innerText = mode === '15-grid' ? '★ Switch to 3-Slot View' : '★ Switch to 15-Grid View';
+      render();
+    };
+
+    render();
+  </script>
+</body>
+</html>

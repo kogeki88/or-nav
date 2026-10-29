@@ -1,8 +1,8 @@
 {
-  "version": "v0.60",
-  "build_number": 17,
-  "release_date": "2026-10-28",
+  "version": "v0.61",
+  "build_number": 18,
+  "release_date": "2026-10-29",
   "apk_download_url": "https://github.com/kogeki88/or-nav/releases/latest/download/or-nav.apk",
   "min_supported_version": "v0.1",
-  "changelog": "v0.60 (Build 17): Sidebar declutter, unified clinician profile card, split audio and pairing settings, and streamlined system info."
+  "changelog": "v0.61 (Build 18): Full system verification audit, RO Character Select Workshop with pre-loaded Veo 3.1 motion loops verified, and production APK published."
 }

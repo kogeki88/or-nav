@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark h-full antialiased">
+    <html lang="en" className="dark h-full antialiased" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} h-full bg-[#090d16] text-slate-100`}>
         {children}
       </body>

@@ -1,0 +1,268 @@
+[
+  {
+    "id": "backlog-01",
+    "title": "Sentinel: Add rate limiting tests for chat and voice endpoints",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: API Rate Limiting\n\n## Task Details\n**File:** `backend/tests/test_rate_limiting.py`\n**Issue:** Add rate limiting tests for `/api/chat` and `/api/voice` endpoints to protect against DoS attacks in hospital networks.\n\n## Objective:\n1. Create `backend/tests/test_rate_limiting.py`.\n2. Verify that exceeding 60 requests per minute from a single client returns HTTP 429 Too Many Requests.\n3. Verify rate limit headers (Retry-After) are provided.\n4. When complete, create a pull request.",
+    "sessionId": "10757327915331612143",
+    "dispatchedAt": "2026-10-29T15:06:34.777Z"
+  },
+  {
+    "id": "backlog-02",
+    "title": "Sentinel: Add CSRF and CORS header validation tests",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: CSRF and CORS Header Validation\n\n## Task Details\n**File:** `backend/tests/test_security_headers.py`\n**Issue:** Ensure CORS origins and security headers strictly enforce hospital domain boundaries.\n\n## Objective:\n1. Create `backend/tests/test_security_headers.py`.\n2. Test that cross-origin requests from untrusted origins are rejected.\n3. Verify presence of X-Content-Type-Options, X-Frame-Options, and Content-Security-Policy headers.\n4. When complete, create a pull request.",
+    "sessionId": "11630179678445886044",
+    "dispatchedAt": "2026-10-29T15:06:37.004Z"
+  },
+  {
+    "id": "backlog-03",
+    "title": "Sentinel: Multilingual PHI Scrubber Tests (Spanish & Medical Abbreviations)",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: Multilingual PHI Scrubber\n\n## Task Details\n**File:** `frontend/src/lib/scrubClientMultilingual.test.ts`\n**Issue:** Expand client-side PHI scrubbing tests to handle Spanish clinical keywords and international patient records.\n\n## Objective:\n1. Create `frontend/src/lib/scrubClientMultilingual.test.ts`.\n2. Test patient identifiers in Spanish (e.g., 'Paciente: Juan Perez', 'Historial Medico: 9876543').\n3. Ensure zero medical terminology is falsely redacted.\n4. When complete, create a pull request.",
+    "sessionId": "15824805541286658452",
+    "dispatchedAt": "2026-10-29T15:06:38.349Z"
+  },
+  {
+    "id": "backlog-04",
+    "title": "Sentinel: Tenant Isolation for File Uploads and Images",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: Tenant Isolation for Uploads\n\n## Task Details\n**File:** `backend/tests/test_upload_isolation.py`\n**Issue:** Ensure uploaded images and attachments are strictly scoped to the reporting tenant directory.\n\n## Objective:\n1. Create `backend/tests/test_upload_isolation.py`.\n2. Test uploading item photos and verify files cannot be read across tenant boundaries.\n3. Test path traversal prevention in filenames.\n4. When complete, create a pull request.",
+    "sessionId": "7342763983114699083",
+    "dispatchedAt": "2026-10-29T15:06:39.678Z"
+  },
+  {
+    "id": "backlog-05",
+    "title": "Sentinel: Session Token Expiry and Invalidation Tests",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: Auth Token Lifecycle\n\n## Task Details\n**File:** `backend/tests/test_auth_tokens.py`\n**Issue:** Add unit tests verifying token expiration and logout invalidation.\n\n## Objective:\n1. Create `backend/tests/test_auth_tokens.py`.\n2. Test token verification, expired token rejection (HTTP 401), and logout revoking active tokens.\n3. When complete, create a pull request.",
+    "sessionId": "7115722261075429940",
+    "dispatchedAt": "2026-10-29T15:06:40.962Z"
+  },
+  {
+    "id": "backlog-06",
+    "title": "Sentinel: LiveKit WebRTC Token Timeout & Verification Tests",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: Voice Token Verification\n\n## Task Details\n**File:** `backend/tests/test_voice_security.py`\n**Issue:** Validate LiveKit voice room tokens have strictly enforced time-to-live and identity claims.\n\n## Objective:\n1. Create `backend/tests/test_voice_security.py`.\n2. Test room token minting, verifying tenant_id claims, and rejecting expired voice tokens.\n3. When complete, create a pull request.",
+    "sessionId": "15275742522089676005",
+    "dispatchedAt": "2026-10-29T15:06:42.604Z"
+  },
+  {
+    "id": "backlog-07",
+    "title": "Sentinel: Prevent Stack Trace Leaks on 500 Server Errors",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: Error Sanitization\n\n## Task Details\n**File:** `backend/tests/test_error_leakage.py`\n**Issue:** Ensure unexpected exceptions return generic sanitized messages without leaking filesystem paths or credentials.\n\n## Objective:\n1. Create `backend/tests/test_error_leakage.py`.\n2. Simulate server exceptions and verify responses do not expose python stack traces or environment variables.\n3. When complete, create a pull request.",
+    "sessionId": "2509777658992603418",
+    "dispatchedAt": "2026-10-29T15:06:44.546Z"
+  },
+  {
+    "id": "backlog-08",
+    "title": "Bolt: IndexedDB Bulk Insert and Query Performance Benchmarks",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: Dexie Bulk Operation Benchmarks\n\n## Task Details\n**File:** `frontend/src/lib/offlineDbBench.test.ts`\n**Issue:** Ensure hydrating 500+ inventory items into Dexie finishes in under 200ms on mobile devices.\n\n## Objective:\n1. Create `frontend/src/lib/offlineDbBench.test.ts`.\n2. Benchmark `bulkPut` operations and compound index queries `[tenant_id+status]`.\n3. Assert operations finish within performance thresholds.\n4. When complete, create a pull request.",
+    "sessionId": "11010760498715445120",
+    "dispatchedAt": "2026-10-29T15:06:46.851Z"
+  },
+  {
+    "id": "backlog-09",
+    "title": "Bolt: Debounce and Batch Rapid Move Verification Reports",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: Move Report Debouncing\n\n## Task Details\n**File:** `frontend/src/lib/moveDebouncer.test.ts`\n**Issue:** Add unit tests for batching rapid item move reports from multiple clinicians.\n\n## Objective:\n1. Create `frontend/src/lib/moveDebouncer.test.ts`.\n2. Test that rapid consecutive clicks or voice inputs debounce gracefully before triggering network sync.\n3. When complete, create a pull request.",
+    "sessionId": "6763403261481690907",
+    "dispatchedAt": "2026-10-29T16:06:55.153Z"
+  },
+  {
+    "id": "backlog-10",
+    "title": "Bolt: Delta Sync Optimization for Dexie Offline Outbox",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: Delta Sync Optimization\n\n## Task Details\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Issue:** Optimize offline sync payload sizes by transferring only modified fields rather than full item records.\n\n## Objective:\n1. Create `frontend/src/lib/deltaSync.test.ts`.\n2. Test diffing local vs remote revisions and sending minimal JSON patches.\n3. When complete, create a pull request.",
+    "sessionId": "7799230962467877830",
+    "dispatchedAt": "2026-10-29T16:06:57.359Z"
+  },
+  {
+    "id": "backlog-11",
+    "title": "Bolt: Gemini RAG In-Memory Cache Eviction Tests",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: RAG Cache Eviction\n\n## Task Details\n**File:** `backend/tests/test_rag_cache.py`\n**Issue:** Test LRU cache sizing and eviction policies in rag_fallback.py to prevent memory bloat.\n\n## Objective:\n1. Create `backend/tests/test_rag_cache.py`.\n2. Verify cached Gemini embeddings are evicted when cache capacity exceeds 1024 items.\n3. When complete, create a pull request.",
+    "sessionId": "12607924073299185406",
+    "dispatchedAt": "2026-10-29T16:06:59.511Z"
+  },
+  {
+    "id": "backlog-12",
+    "title": "Bolt: Virtualized Search List Tests for ChatCanvas",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: Search List Virtualization\n\n## Task Details\n**File:** `frontend/src/components/ChatCanvasVirtual.test.tsx`\n**Issue:** Test rendering large search result sets without UI thread stutter in ChatCanvas.\n\n## Objective:\n1. Create `frontend/src/components/ChatCanvasVirtual.test.tsx`.\n2. Assert that only visible cards in viewport are rendered to DOM.\n3. When complete, create a pull request.",
+    "sessionId": "5747846671001798924",
+    "dispatchedAt": "2026-10-29T16:07:01.354Z"
+  },
+  {
+    "id": "backlog-13",
+    "title": "Bolt: Streaming CSV Reader Benchmarks in Inventory Search",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: CSV Streaming\n\n## Task Details\n**File:** `backend/tests/test_csv_streaming.py`\n**Issue:** Benchmark memory footprint and parse speed when loading multi-megabyte hospital inventory files.\n\n## Objective:\n1. Create `backend/tests/test_csv_streaming.py`.\n2. Verify parsing executes with minimal allocations and constant memory usage.\n3. When complete, create a pull request.",
+    "sessionId": "15866431802433937836",
+    "dispatchedAt": "2026-10-29T16:07:03.402Z"
+  },
+  {
+    "id": "backlog-14",
+    "title": "Code Health: Dead Import Cleanup in backend/app/routers/chat.py",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: Clean up imports in chat.py\n\n## Task Details\n**File:** `backend/app/routers/chat.py`\n**Issue:** Audit and remove all unused imports, redundant type declarations, and dead helper references.\n\n## Objective:\n1. Inspect `backend/app/routers/chat.py`.\n2. Remove any unused imports.\n3. Verify all pytest test suites continue passing with 100% success.\n4. When complete, create a pull request.",
+    "sessionId": "18189642773123328552",
+    "dispatchedAt": "2026-10-29T16:07:04.835Z"
+  },
+  {
+    "id": "backlog-15",
+    "title": "Code Health: TypeScript Strict Null Narrowing in frontend/src/lib/api.ts",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: Type Narrowing in api.ts\n\n## Task Details\n**File:** `frontend/src/lib/api.ts`\n**Issue:** Refactor API client return types to eliminate `any` casts and ensure strict null checks.\n\n## Objective:\n1. Update `frontend/src/lib/api.ts` to provide strict interfaces for all API endpoints.\n2. Handle HTTP network failure errors with type-safe Result or error wrappers.\n3. Ensure build and frontend tests pass.\n4. When complete, create a pull request.",
+    "sessionId": "2589486796619977214",
+    "dispatchedAt": "2026-10-29T16:07:06.269Z"
+  },
+  {
+    "id": "backlog-16",
+    "title": "Code Health: globals.css Dead Utility Class Pruning",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: CSS Cleanup\n\n## Task Details\n**File:** `frontend/src/app/globals.css`\n**Issue:** Audit CSS custom properties and remove redundant classes, preserving high-contrast surgical scrub themes.\n\n## Objective:\n1. Inspect `frontend/src/app/globals.css`.\n2. Remove unused custom CSS rules while keeping high-contrast dark mode classes.\n3. Verify frontend builds cleanly with `npm run build`.\n4. When complete, create a pull request.",
+    "sessionId": "7516386853086655688",
+    "dispatchedAt": "2026-10-29T16:07:07.704Z"
+  },
+  {
+    "id": "backlog-17",
+    "title": "Code Health: Hospital Code Normalization Tests",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: Hospital Code Normalizer\n\n## Task Details\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Issue:** Standardize facility ID resolution (e.g. 'general_memorial_cvor' vs 'general_memorial::cvor').\n\n## Objective:\n1. Create `frontend/src/lib/hospitalMapping.test.ts`.\n2. Verify canonical normalization functions handle edge cases (extra colons, trailing slashes, uppercase).\n3. When complete, create a pull request.",
+    "sessionId": "3707764815243808626",
+    "dispatchedAt": "2026-10-29T17:06:54.126Z"
+  },
+  {
+    "id": "backlog-18",
+    "title": "Code Health: Python Flake8 Linter & Formatting Script",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: Backend Linting\n\n## Task Details\n**File:** `backend/.flake8`\n**Issue:** Add standard linting configuration to prevent formatting regressions.\n\n## Objective:\n1. Create `backend/.flake8` configured for max line length 120 and ignored virtualenv paths.\n2. Verify backend code passes linting without errors.\n3. When complete, create a pull request.",
+    "sessionId": "11185650047220908571",
+    "dispatchedAt": "2026-10-29T17:06:57.239Z"
+  },
+  {
+    "id": "backlog-19",
+    "title": "Testing: Standalone Offline Matching Engine Unit Tests",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: Standalone Engine\n\n## Task Details\n**File:** `frontend/src/lib/standaloneEngine.test.ts`\n**Issue:** Add comprehensive tests for standaloneEngine.ts in-browser fuzzy matching.\n\n## Objective:\n1. Create `frontend/src/lib/standaloneEngine.test.ts`.\n2. Test matching items by item name, aliases, surgeon notes, and coordinate tokens without backend connection.\n3. Ensure tests pass with 100% success and create a pull request.",
+    "sessionId": "2906486755327250710",
+    "dispatchedAt": "2026-10-29T17:06:58.584Z"
+  },
+  {
+    "id": "backlog-20",
+    "title": "Testing: App Settings Storage and Theme Persistence Unit Tests",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: App Settings\n\n## Task Details\n**File:** `frontend/src/lib/appSettings.test.ts`\n**Issue:** Test local storage persistence for dark mode, voice settings, and font scaling.\n\n## Objective:\n1. Create `frontend/src/lib/appSettings.test.ts`.\n2. Test saving and reading settings with fallback defaults when localStorage is empty.\n3. When complete, create a pull request.",
+    "sessionId": "996561658400004185",
+    "dispatchedAt": "2026-10-29T17:07:00.003Z"
+  },
+  {
+    "id": "backlog-21",
+    "title": "Testing: Resource Pack Manifest Hydration Unit Tests",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: Resource Pack Hydration\n\n## Task Details\n**File:** `frontend/src/lib/resourceManager.test.ts`\n**Issue:** Test downloading and caching facility orientation cards and clinical guidelines in IndexedDB.\n\n## Objective:\n1. Create `frontend/src/lib/resourceManager.test.ts`.\n2. Mock manifest fetching and test pack installation, activation, and removal.\n3. When complete, create a pull request.",
+    "sessionId": "2747363253031246387",
+    "dispatchedAt": "2026-10-29T17:07:01.439Z"
+  },
+  {
+    "id": "backlog-22",
+    "title": "Testing: Semantic Clinical Query Parser Unit Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: Semantic Query Parser\n\n## Task Details\n**File:** `frontend/src/lib/semanticParser.test.ts`\n**Issue:** Test extracting clinical intent (locate item, report move, ask protocol, report shortage) from raw voice text.\n\n## Objective:\n1. Create `frontend/src/lib/semanticParser.test.ts`.\n2. Test intent classification across varied surgeon phrasings.\n3. When complete, create a pull request."
+  },
+  {
+    "id": "backlog-23",
+    "title": "Testing: User Profile and Clinical Role Switcher Unit Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: User Profile\n\n## Task Details\n**File:** `frontend/src/lib/userProfile.test.ts`\n**Issue:** Test switching clinical roles (Circulator, Scrub Tech, Perfusionist) and saving user preferences.\n\n## Objective:\n1. Create `frontend/src/lib/userProfile.test.ts`.\n2. Test role switching, badge display, and role-specific voice prompt generation.\n3. When complete, create a pull request."
+  },
+  {
+    "id": "backlog-24",
+    "title": "Testing: Sidebar Navigation and Hospital Switcher Component Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: Sidebar Component\n\n## Task Details\n**File:** `frontend/src/components/Sidebar.test.tsx`\n**Issue:** Implement component tests for Sidebar.tsx verifying department switching and accessibility.\n\n## Objective:\n1. Create `frontend/src/components/Sidebar.test.tsx` using React Testing Library.\n2. Verify department list renders, click events update active tenant, and minimum touch target size (44px) is respected.\n3. When complete, create a pull request."
+  },
+  {
+    "id": "backlog-25",
+    "title": "Testing: FeedbackModal Clinician Rating Component Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: FeedbackModal Component\n\n## Task Details\n**File:** `frontend/src/components/FeedbackModal.test.tsx`\n**Issue:** Test surgeon feedback dialog, thumbs up/down interaction, and text comments submission.\n\n## Objective:\n1. Create `frontend/src/components/FeedbackModal.test.tsx`.\n2. Test opening modal, selecting feedback type, submitting payload, and closing on backdrop click.\n3. When complete, create a pull request."
+  },
+  {
+    "id": "backlog-26",
+    "title": "Testing: AutoUpdateModal OTA Progress Component Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: AutoUpdateModal Component\n\n## Task Details\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Issue:** Test rendering OTA APK update progress bar and release notes.\n\n## Objective:\n1. Create `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Test progress percentage rendering, install button click handler, and dismiss behavior.\n3. When complete, create a pull request."
+  },
+  {
+    "id": "backlog-27",
+    "title": "Testing: QuestionsDrawer Filter and Answer Component Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: QuestionsDrawer Component\n\n## Task Details\n**File:** `frontend/src/components/QuestionsDrawer.test.tsx`\n**Issue:** Test QuestionsDrawer list of pending questions and answer submission form.\n\n## Objective:\n1. Create `frontend/src/components/QuestionsDrawer.test.tsx`.\n2. Test filtering questions by department, typing answer, and dispatching answer submission.\n3. When complete, create a pull request."
+  },
+  {
+    "id": "backlog-28",
+    "title": "Testing: Omnibar Push-to-Talk and Text Input Component Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: Omnibar Component\n\n## Task Details\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Issue:** Test Omnibar voice microphone button and Enter key form submission.\n\n## Objective:\n1. Create `frontend/src/components/Omnibar.test.tsx`.\n2. Test text input, submit button, microphone button touch events, and loading indicator state.\n3. When complete, create a pull request."
+  },
+  {
+    "id": "backlog-29",
+    "title": "Testing: Multi-Clause Spoken Query Discourse Decomposer Adversarial Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: Discourse Decomposer\n\n## Task Details\n**File:** `backend/tests/test_multi_clause.py`\n**Issue:** Test separating compound surgical queries (e.g. 'Give me 3-0 silk, and also where is the bovie?').\n\n## Objective:\n1. Create `backend/tests/test_multi_clause.py`.\n2. Test splitting compound sentences by conjunctions and commas without mangling item numbers or gauges.\n3. When complete, create a pull request."
+  },
+  {
+    "id": "backlog-30",
+    "title": "Testing: Spoken Disfluency and Vocal Filler Filter Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: Disfluency Filter\n\n## Task Details\n**File:** `backend/tests/test_disfluency.py`\n**Issue:** Test removing speech hesitation tokens ('um', 'uh', 'you know', 'please find me') before search.\n\n## Objective:\n1. Create `backend/tests/test_disfluency.py`.\n2. Test stripping vocal fillers while strictly preserving critical medical tokens (e.g. '4-0', 'no. 10 blade').\n3. When complete, create a pull request."
+  },
+  {
+    "id": "backlog-31",
+    "title": "Testing: Packed Coordinate Parser Tests (Room, Cart, Shelf, Bin)",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: Coordinate Parser\n\n## Task Details\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Issue:** Test parsing shorthand location strings (e.g. 'OR 21 A 2 C' -> Room: OR 21, Cart: A, Shelf: 2, Bin: C).\n\n## Objective:\n1. Create `frontend/src/lib/coordinateParser.test.ts`.\n2. Test variations in spacing, dashes, and bullet points.\n3. When complete, create a pull request."
+  },
+  {
+    "id": "backlog-32",
+    "title": "Testing: Direct Gemini Fallback When LiveKit Server Disconnects",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: Direct Gemini Fallback\n\n## Task Details\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Issue:** Test direct HTTP Gemini API fallback when LiveKit voice server is down or unreachable.\n\n## Objective:\n1. Create `frontend/src/lib/directGemini.test.ts`.\n2. Mock LiveKit failure and verify automatic fallback query execution directly to backend Gemini endpoint.\n3. When complete, create a pull request."
+  }
+]

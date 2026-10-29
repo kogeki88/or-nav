@@ -1,5 +1,23 @@
 [
   {
+    "id": "q-73f5af31",
+    "hospital_id": "pacu_periop",
+    "question_text": "Where are pediatric suction catheters kept during overnight shift 1793294494349?",
+    "asked_by_role": "Night Nurse",
+    "status": "answered_confident",
+    "created_at": "2026-10-29T17:21:34Z",
+    "verified_at": null,
+    "answers": [
+      {
+        "id": "ans-e02954",
+        "responder_role": "Charge Nurse Sarah",
+        "answer_text": "In Supply Room B, Shelf 2 Bin 4 labeled 'Pediatric Airway'",
+        "confidence": "confident",
+        "created_at": "2026-10-29T17:21:34Z"
+      }
+    ]
+  },
+  {
     "id": "q-e8091ada",
     "hospital_id": "pacu_periop",
     "question_text": "Where are pediatric suction catheters kept during overnight shift 1793214906972?",
