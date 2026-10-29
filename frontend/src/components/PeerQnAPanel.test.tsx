@@ -31,7 +31,7 @@ const PeerQnAPanelMod = proxyquire('./PeerQnAPanel', {
 const PeerQnAPanel = PeerQnAPanelMod.default;
 
 beforeEach(() => {
-  global.fetch = mock.fn(async () => ({
+  global.fetch = mock.fn<any>(async () => ({
     ok: true,
     json: async () => ([])
   }));
@@ -76,7 +76,7 @@ test('lists unanswered questions and respects department filtering', async () =>
         }
     ];
 
-    global.fetch = mock.fn(async () => ({
+    global.fetch = mock.fn<any>(async () => ({
         ok: true,
         json: async () => questions
     }));
@@ -117,7 +117,7 @@ test('submitting an answer with clinical role', async () => {
         }
     ];
 
-    global.fetch = mock.fn(async (url, options) => {
+    global.fetch = mock.fn<any>(async (url: any, options: any) => {
         if (options && options.method === 'POST') {
             return {
                 ok: true,
@@ -176,7 +176,7 @@ test('verify touch targets and accessibility', async () => {
         }
     ];
 
-    global.fetch = mock.fn(async () => ({
+    global.fetch = mock.fn<any>(async () => ({
         ok: true,
         json: async () => questions
     }));
