@@ -20,8 +20,9 @@ import time
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, Request, Response
 from pydantic import BaseModel, Field
+from app.limiter import limiter
 
 from app.config import get_tenant, settings, DEPARTMENTS, TenantConfig
 from app.scrubber import scrub_phi
@@ -235,7 +236,8 @@ def check_tenant(tenant_id: str) -> TenantConfig:
 # ---------------------------------------------------------------------------
 
 @router.post("/chat", response_model=ChatResponse)
-async def handle_chat(req: ChatRequest):
+@limiter.limit("60/minute")
+async def handle_chat(request: Request, response: Response, req: ChatRequest):
     """
     Hybrid query router:
       1. Scrub PHI from incoming message before any processing.
