@@ -281,8 +281,8 @@ function formatRoomCanonical(
 }
 
 export function normalizeLocationCoordinate(locRaw: string): string | null {
+  if (!locRaw || typeof locRaw !== 'string' || !locRaw.trim()) return null;
   let text = (locRaw || "").trim().replace(/\.+$/, "");
-  if (!text) return null;
 
   // First try packed or spaced coordinate extraction
   const unpacked = extractAndNormalizeCoordinateClient(text);
