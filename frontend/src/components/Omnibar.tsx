@@ -471,6 +471,7 @@ export default function Omnibar({
             onClick={() => fileInputRef.current?.click()}
             disabled={disabled}
             title="Upload Inventory CSV or Orientation Markdown (.csv, .md)"
+            aria-label="Upload file"
             data-testid="paperclip-upload-btn"
             className="p-1.5 sm:p-2 text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
           >
@@ -519,6 +520,13 @@ export default function Omnibar({
                 ? "Initializing microphone..."
                 : "Tap to record or hold to speak (Spacebar on desktop)"
             }
+            aria-label={
+              micStatus === "recording"
+                ? "Stop recording and send voice query"
+                : micStatus === "requesting"
+                ? "Initializing microphone"
+                : "Start recording voice query"
+            }
             className={`p-2 rounded-lg transition-all shrink-0 cursor-pointer select-none touch-none ${
               micStatus === "recording"
                 ? "bg-rose-600 text-white animate-pulse shadow-sm"
@@ -537,6 +545,7 @@ export default function Omnibar({
           <button
             type="submit"
             data-testid="omnibar-submit-btn"
+            aria-label="Send message"
             disabled={disabled || isTranscribingState || (!input.trim() && !activeListening && micStatus !== "requesting")}
             className="p-2 rounded-lg bg-zinc-100 hover:bg-white text-zinc-950 transition-colors shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
           >
