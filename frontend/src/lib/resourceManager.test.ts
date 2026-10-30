@@ -204,6 +204,75 @@ describe("ResourceManagerChecksum", () => {
     assert.strictEqual(packs[0].facilityId, "fac2");
   });
 
+  test("ResourceManagerChecksum ensures multi-tenant isolation and data consistency", async () => {
+    // 1. Setup multi-tenant data
+    const csvContentFac1 = "item,room,cabinet,shelf,container,full_code\nScalpel,Main OR,A,1,A,Main OR A 1 A\n";
+    const csvContentFac2 = "item,room,cabinet,shelf,container,full_code\nForceps,ER,B,2,C,ER B 2 C\n";
+
+    // Install pack for Facility 1 (v1)
+    mock.method(global, 'fetch', async () => ({
+      ok: true,
+      status: 200,
+      text: async () => csvContentFac1
+    }));
+    await resourceManager.installPack({
+      packId: "pack_fac1", facilityId: "fac1", departmentId: "or", title: "Test Pack 1", category: "department", filePath: "fac1/or/inventory.csv", sizeBytes: 100, versionHash: "v1", updatedAt: "2023-01-01T00:00:00Z",
+    });
+
+    mock.restoreAll();
+
+    // Install pack for Facility 2 (v1)
+    mock.method(global, 'fetch', async () => ({
+      ok: true,
+      status: 200,
+      text: async () => csvContentFac2
+    }));
+    await resourceManager.installPack({
+      packId: "pack_fac2", facilityId: "fac2", departmentId: "er", title: "Test Pack 2", category: "department", filePath: "fac2/er/inventory.csv", sizeBytes: 100, versionHash: "v1", updatedAt: "2023-01-01T00:00:00Z",
+    });
+
+    // 2. Verify multi-tenant isolation invariant (items for one tenant don't leak to another)
+    let itemsFac1 = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    let itemsFac2 = await offlineDb?.inventoryItems.where("tenant_id").equals("fac2::er").toArray();
+
+    assert.ok(itemsFac1 && itemsFac1.some(i => i.item === "Scalpel"));
+    assert.ok(itemsFac1 && !itemsFac1.some(i => i.item === "Forceps")); // No Fac2 data
+
+    assert.ok(itemsFac2 && itemsFac2.some(i => i.item === "Forceps"));
+    assert.ok(itemsFac2 && !itemsFac2.some(i => i.item === "Scalpel")); // No Fac1 data
+
+    mock.restoreAll();
+
+    // 3. Verify Checksum/versionHash update logic
+    // Update Facility 1 pack to v2 with new content (adding Retractor)
+    const csvContentFac1_v2 = "item,room,cabinet,shelf,container,full_code\nScalpel,Main OR,A,1,A,Main OR A 1 A\nRetractor,Main OR,A,1,B,Main OR A 1 B\n";
+    mock.method(global, 'fetch', async () => ({
+      ok: true,
+      status: 200,
+      text: async () => csvContentFac1_v2
+    }));
+
+    await resourceManager.installPack({
+      packId: "pack_fac1", facilityId: "fac1", departmentId: "or", title: "Test Pack 1", category: "department", filePath: "fac1/or/inventory.csv", sizeBytes: 100, versionHash: "v2", updatedAt: "2023-01-02T00:00:00Z",
+    });
+
+    // Verify v2 is active and replaces v1 data
+    itemsFac1 = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    assert.ok(itemsFac1 && itemsFac1.some(i => i.item === "Scalpel"));
+    assert.ok(itemsFac1 && itemsFac1.some(i => i.item === "Retractor"));
+
+    // Verify Fac2 data is still isolated and untouched
+    itemsFac2 = await offlineDb?.inventoryItems.where("tenant_id").equals("fac2::er").toArray();
+    assert.ok(itemsFac2 && itemsFac2.some(i => i.item === "Forceps"));
+    assert.ok(itemsFac2 && !itemsFac2.some(i => i.item === "Retractor"));
+
+    // Verify installed packs check
+    const packs = await resourceManager.getInstalledPacks();
+    const fac1Pack = packs.find(p => p.packId === "pack_fac1");
+    assert.strictEqual(fac1Pack?.versionHash, "v2");
+    assert.strictEqual(fac1Pack?.content, csvContentFac1_v2);
+  });
+
   test("getResourceStorageSummary calculates total size correctly", async () => {
     mock.method(global, 'fetch', async (url: string) => {
       return {
