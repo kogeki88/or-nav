@@ -40,3 +40,6 @@ Benchmarked compound queries on IndexedDB `[facility_id+dept_id]` using Dexie.
 A bulk insertion of 10,000 items and 2,000 queries were performed to simulate real-world conditions.
 By utilizing compound indices appropriately (`.where("[facility_id+dept_id]").equals(["fac_1", dept])`), IndexedDB can achieve sub-millisecond query latency (averaging ~0.26ms).
 This optimization ensures robust performance for the multi-tenant architecture under heavy local query loads.
+## 2024-10-30 - LiveKit WebRTC Audio Visualizer Cleanup
+- Implemented robust `requestAnimationFrame` cleanup on WebRTC audio track unmount for `LiveKitAudioVisualizer`.
+- Ensured zero lingering event listeners on `dispose()` to prevent memory leaks in the browser.
