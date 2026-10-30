@@ -16,6 +16,7 @@ export interface FeedbackItem {
   source: "chat_auto_detected" | "manual_submission";
   category: "bug_friction" | "feature_request" | "data_inventory" | "ui_ux";
   severity: "low" | "medium" | "high";
+  sentimentScore?: number;    // -1 to 1 based on text
   rawText: string;            // The user's chat complaint or submitted feedback
   aiRecommendation: string;   // Synthesized dev recommendation (e.g. "Add dark-mode contrast toggle to CoordinateCard")
   suggestedFixPrompt: string; // Ready-to-copy prompt for Antigravity to implement the fix!
@@ -26,6 +27,7 @@ export interface FeedbackItem {
 
 export const FEEDBACK_STORAGE_KEY = "ornav_feedback_store";
 export const FEEDBACK_EVENT_NAME = "ornav-feedback-updated";
+export const FEEDBACK_OFFLINE_QUEUE_KEY = "ornav_feedback_sync_queue";
 
 export function getFeedbackApiUrl(path: string): string {
   if (typeof window !== "undefined") {
@@ -48,6 +50,7 @@ export const SEED_FEEDBACK_ITEMS: FeedbackItem[] = [
     source: "chat_auto_detected",
     category: "ui_ux",
     severity: "high",
+    sentimentScore: -0.8,
     rawText: "The screen is way too bright during laparoscopic cholecystectomy in OR 4. We dim the room lights and the white background causes glare on the monitor.",
     aiRecommendation: "Add surgical dark-mode toggle and low-glare high-contrast theme for dimmed laparoscopic suites.",
     suggestedFixPrompt: "ANTIGRAVITY DIRECTIVE: Implement a high-contrast Surgical Night Mode toggle in the header and system drawer. In low light, invert bright backgrounds and enhance bin coordinate legibility without glare.",
@@ -63,6 +66,7 @@ export const SEED_FEEDBACK_ITEMS: FeedbackItem[] = [
     source: "manual_submission",
     category: "data_inventory",
     severity: "medium",
+    sentimentScore: -0.2,
     rawText: "We moved the pediatric vascular bulldog clamps from Cart V to Cart P Shelf 2, but the app still says Cart V.",
     aiRecommendation: "Trigger instant discrepancy audit in department inventory catalog and prompt senior circulator verification.",
     suggestedFixPrompt: "ANTIGRAVITY DIRECTIVE: Update vascular clamp bin coordinates in Sacred Heart OR inventory and prompt preceptors to verify.",
@@ -78,6 +82,7 @@ export const SEED_FEEDBACK_ITEMS: FeedbackItem[] = [
     source: "manual_submission",
     category: "feature_request",
     severity: "medium",
+    sentimentScore: 0.5,
     rawText: "Would love a quick timer on screen for bone cement curing (Simplex P) during total knees so we don't have to look at the wall clock.",
     aiRecommendation: "Add a sterile OR countdown timer utility (e.g. Bone Cement / Ischemia timer) accessible directly from omnibar quick actions.",
     suggestedFixPrompt: "ANTIGRAVITY DIRECTIVE: Build a quick OR countdown timer tool in the omnibar for bone cement curing and tourniquet times.",
@@ -93,6 +98,7 @@ export const SEED_FEEDBACK_ITEMS: FeedbackItem[] = [
     source: "chat_auto_detected",
     category: "bug_friction",
     severity: "low",
+    sentimentScore: -0.4,
     rawText: "Voice input sometimes cuts off early if monitor alarms are beeping loudly in Trauma Bay 1.",
     aiRecommendation: "Adjust Web Speech recognition silence debounce threshold and add speech volume/rate sliders in Audio drawer.",
     suggestedFixPrompt: "ANTIGRAVITY DIRECTIVE: Optimize voice recognition noise filter for loud OR environments and increase debounce timeout from 800ms to 1500ms.",
@@ -125,6 +131,7 @@ export function isComplaintOrFeatureWish(text: string): boolean {
 export function classifyText(text: string): {
   category: "bug_friction" | "feature_request" | "data_inventory" | "ui_ux";
   severity: "low" | "medium" | "high";
+  sentimentScore: number;
 } {
   let category: "bug_friction" | "feature_request" | "data_inventory" | "ui_ux" = "feature_request";
   if (BUG_REGEX.test(text)) category = "bug_friction";
@@ -137,7 +144,27 @@ export function classifyText(text: string): {
   else if (MEDIUM_SEVERITY_REGEX.test(text)) severity = "medium";
   else if (category === "bug_friction" || category === "data_inventory") severity = "medium";
 
-  return { category, severity };
+  let sentimentScore = 0;
+  const lower = text.toLowerCase();
+
+  const negativeWords = [
+    "broken", "hate", "frustrating", "annoying", "painful", "awful",
+    "terrible", "worst", "crash", "crashed", "slow", "lag", "glitch"
+  ];
+  const positiveWords = [
+    "love", "great", "awesome", "perfect", "good", "nice", "helpful", "thanks"
+  ];
+
+  for (const word of negativeWords) {
+    if (lower.includes(word)) sentimentScore -= 0.3;
+  }
+  for (const word of positiveWords) {
+    if (lower.includes(word)) sentimentScore += 0.3;
+  }
+  // Clamp between -1 and 1
+  sentimentScore = Math.max(-1, Math.min(1, sentimentScore));
+
+  return { category, severity, sentimentScore };
 }
 
 export function synthesizeDevPrompt(
@@ -234,6 +261,99 @@ function wordsOverlap(s1: string, s2: string): boolean {
     if (w2.has(w)) match++;
   }
   return match >= 3 || (match >= 2 && w1.size <= 4);
+}
+
+// --- Offline Queueing ---
+
+export interface OfflineSyncTask {
+  id: string;
+  type: "CREATE" | "UPVOTE" | "UPDATE_STATUS";
+  endpoint: string;
+  method: string;
+  payload?: any;
+  retryCount: number;
+  lastAttempt?: number;
+}
+
+export function getOfflineQueue(): OfflineSyncTask[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(FEEDBACK_OFFLINE_QUEUE_KEY);
+    if (raw) return JSON.parse(raw) as OfflineSyncTask[];
+  } catch (e) {
+    console.warn("Could not read feedback offline queue:", e);
+  }
+  return [];
+}
+
+export function saveOfflineQueue(queue: OfflineSyncTask[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(FEEDBACK_OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+  } catch (e) {
+    console.error("Could not save feedback offline queue:", e);
+  }
+}
+
+export function enqueueOfflineSync(task: Omit<OfflineSyncTask, "id" | "retryCount">): void {
+  const queue = getOfflineQueue();
+  queue.push({
+    ...task,
+    id: `sync-${Math.random().toString(36).substring(2, 10)}`,
+    retryCount: 0,
+  });
+  saveOfflineQueue(queue);
+  if (typeof window !== "undefined" && navigator.onLine) {
+    // Attempt to drain immediately if online
+    setTimeout(() => drainFeedbackQueue(), 500);
+  }
+}
+
+export async function drainFeedbackQueue(): Promise<void> {
+  if (typeof window === "undefined" || !navigator.onLine) return;
+  const queue = getOfflineQueue();
+  if (queue.length === 0) return;
+
+  const now = Date.now();
+  const nextQueue: OfflineSyncTask[] = [];
+
+  for (const task of queue) {
+    // Exponential backoff logic: 2^retryCount * 1000ms
+    const backoffMs = Math.min(Math.pow(2, task.retryCount) * 1000, 60000); // max 1min backoff
+    if (task.lastAttempt && now - task.lastAttempt < backoffMs) {
+      nextQueue.push(task); // wait for backoff
+      continue;
+    }
+
+    try {
+      const res = await fetch(task.endpoint, {
+        method: task.method,
+        headers: task.payload ? { "Content-Type": "application/json" } : undefined,
+        body: task.payload ? JSON.stringify(task.payload) : undefined,
+        signal: AbortSignal.timeout(2000),
+      });
+
+      if (!res.ok && res.status >= 500) {
+        // Retryable error
+        throw new Error(`Server error ${res.status}`);
+      }
+      // If success or 4xx error (client error, not retryable), drop from queue
+    } catch (e) {
+      // Retry
+      nextQueue.push({
+        ...task,
+        retryCount: task.retryCount + 1,
+        lastAttempt: now,
+      });
+    }
+  }
+
+  saveOfflineQueue(nextQueue);
+}
+
+// Ensure the queue drains when coming back online
+if (typeof window !== "undefined") {
+  window.addEventListener("online", () => drainFeedbackQueue());
 }
 
 // --- Local Storage Management ---
@@ -354,7 +474,7 @@ export async function interceptChatComplaint(
   const dept = session?.profile?.departmentId || userProfile?.departmentId || "or";
   const tenantId = `${fac}::${dept}`;
 
-  const { category, severity } = classifyText(rawText);
+  const { category, severity, sentimentScore } = classifyText(rawText);
   const { aiRecommendation, suggestedFixPrompt } = synthesizeDevPrompt(rawText, category, severity);
 
   const localItems = getLocalFeedback();
@@ -366,10 +486,17 @@ export async function interceptChatComplaint(
       saveLocalFeedback(localItems);
       // Sync to backend asynchronously
       if (typeof window !== "undefined") {
-        fetch(getFeedbackApiUrl(`/api/feedback/${item.id}/upvote`), {
+        const endpoint = getFeedbackApiUrl(`/api/feedback/${item.id}/upvote`);
+        fetch(endpoint, {
           method: "POST",
           signal: AbortSignal.timeout(1500),
-        }).catch(() => {});
+        }).catch(() => {
+          enqueueOfflineSync({
+            type: "UPVOTE",
+            endpoint,
+            method: "POST",
+          });
+        });
       }
       return item;
     }
@@ -384,6 +511,7 @@ export async function interceptChatComplaint(
     source: "chat_auto_detected",
     category,
     severity,
+    sentimentScore,
     rawText: rawText.trim(),
     aiRecommendation,
     suggestedFixPrompt,
@@ -397,12 +525,20 @@ export async function interceptChatComplaint(
 
   // Sync to backend asynchronously
   if (typeof window !== "undefined") {
-    fetch(getFeedbackApiUrl("/api/feedback"), {
+    const endpoint = getFeedbackApiUrl("/api/feedback");
+    fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newItem),
       signal: AbortSignal.timeout(2000),
-    }).catch(() => {});
+    }).catch(() => {
+      enqueueOfflineSync({
+        type: "CREATE",
+        endpoint,
+        method: "POST",
+        payload: newItem,
+      });
+    });
   }
 
   return newItem;
@@ -425,6 +561,7 @@ export async function submitManualFeedback(data: {
   const auto = classifyText(raw);
   const category = data.category || auto.category;
   const severity = data.severity || auto.severity;
+  const sentimentScore = auto.sentimentScore;
   const { aiRecommendation, suggestedFixPrompt } = synthesizeDevPrompt(raw, category, severity);
 
   const localItems = getLocalFeedback();
@@ -438,6 +575,7 @@ export async function submitManualFeedback(data: {
     source: "manual_submission",
     category,
     severity,
+    sentimentScore,
     rawText: raw,
     aiRecommendation,
     suggestedFixPrompt,
@@ -451,12 +589,20 @@ export async function submitManualFeedback(data: {
 
   // Sync to backend
   if (typeof window !== "undefined") {
-    fetch(getFeedbackApiUrl("/api/feedback"), {
+    const endpoint = getFeedbackApiUrl("/api/feedback");
+    fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newItem),
       signal: AbortSignal.timeout(2000),
-    }).catch(() => {});
+    }).catch(() => {
+      enqueueOfflineSync({
+        type: "CREATE",
+        endpoint,
+        method: "POST",
+        payload: newItem,
+      });
+    });
   }
 
   return newItem;
@@ -475,10 +621,17 @@ export async function upvoteFeedback(id: string): Promise<FeedbackItem | null> {
   if (updated) {
     saveLocalFeedback(localItems);
     if (typeof window !== "undefined") {
-      fetch(getFeedbackApiUrl(`/api/feedback/${id}/upvote`), {
+      const endpoint = getFeedbackApiUrl(`/api/feedback/${id}/upvote`);
+      fetch(endpoint, {
         method: "POST",
         signal: AbortSignal.timeout(1500),
-      }).catch(() => {});
+      }).catch(() => {
+        enqueueOfflineSync({
+          type: "UPVOTE",
+          endpoint,
+          method: "POST",
+        });
+      });
     }
   }
   return updated;
@@ -500,12 +653,20 @@ export async function updateFeedbackStatus(
   if (updated) {
     saveLocalFeedback(localItems);
     if (typeof window !== "undefined") {
-      fetch(getFeedbackApiUrl(`/api/feedback/${id}/status`), {
+      const endpoint = getFeedbackApiUrl(`/api/feedback/${id}/status`);
+      fetch(endpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
         signal: AbortSignal.timeout(1500),
-      }).catch(() => {});
+      }).catch(() => {
+        enqueueOfflineSync({
+          type: "UPDATE_STATUS",
+          endpoint,
+          method: "PATCH",
+          payload: { status },
+        });
+      });
     }
   }
   return updated;
