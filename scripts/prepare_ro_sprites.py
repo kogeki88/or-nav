@@ -14,11 +14,21 @@ BRAIN_DIR = Path(r"C:\Users\igles\.gemini\antigravity\brain\c7b8346c-72d6-4e0f-8
 DEST_DIR = Path(r"C:\Users\igles\.gemini\antigravity\scratch\or-nav\frontend\public\sprites")
 
 SPRITE_MAP = {
-    "ro_crusader.png": "ro_crusader_png_*.jpg",
-    "ro_assassin.png": "ro_assassin_png_*.jpg",
-    "ro_alchemist.png": "ro_alchemist_png_*.jpg",
+    "ro_paladin.png": "ro_crusader_png_*.jpg",
+    "ro_assassin_cross.png": "ro_assassin_png_*.jpg",
+    "ro_biochemist.png": "ro_alchemist_png_*.jpg",
     "ro_highpriest.png": "ro_highpriest_png_*.jpg",
     "ro_scholar.png": "ro_scholar_png_*.jpg",
+    "ro_grand_crusader.png": "ro_grand_crusader_png_*.jpg",
+    "ro_templar.png": "ro_templar_png_*.jpg",
+    "ro_shadow_chaser.png": "ro_shadow_chaser_png_*.jpg",
+    "ro_wind_walker.png": "ro_wind_walker_png_*.jpg",
+    "ro_gene_synthesizer.png": "ro_gene_synthesizer_png_*.jpg",
+    "ro_apothecary.png": "ro_apothecary_png_*.jpg",
+    "ro_archbishop.png": "ro_archbishop_png_*.jpg",
+    "ro_cardinal.png": "ro_cardinal_png_*.jpg",
+    "ro_professor.png": "ro_professor_png_*.jpg",
+    "ro_chronomancer.png": "ro_chronomancer_png_*.jpg",
     "ro_novice.png": "ro_novice_png_*.jpg"
 }
 

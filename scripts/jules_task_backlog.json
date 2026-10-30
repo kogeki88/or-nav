@@ -192,77 +192,324 @@
     "id": "backlog-22",
     "title": "Testing: Semantic Clinical Query Parser Unit Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: Semantic Query Parser\n\n## Task Details\n**File:** `frontend/src/lib/semanticParser.test.ts`\n**Issue:** Test extracting clinical intent (locate item, report move, ask protocol, report shortage) from raw voice text.\n\n## Objective:\n1. Create `frontend/src/lib/semanticParser.test.ts`.\n2. Test intent classification across varied surgeon phrasings.\n3. When complete, create a pull request."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: Semantic Query Parser\n\n## Task Details\n**File:** `frontend/src/lib/semanticParser.test.ts`\n**Issue:** Test extracting clinical intent (locate item, report move, ask protocol, report shortage) from raw voice text.\n\n## Objective:\n1. Create `frontend/src/lib/semanticParser.test.ts`.\n2. Test intent classification across varied surgeon phrasings.\n3. When complete, create a pull request.",
+    "sessionId": "2341005055768901794",
+    "dispatchedAt": "2026-10-29T18:06:43.572Z"
   },
   {
     "id": "backlog-23",
     "title": "Testing: User Profile and Clinical Role Switcher Unit Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: User Profile\n\n## Task Details\n**File:** `frontend/src/lib/userProfile.test.ts`\n**Issue:** Test switching clinical roles (Circulator, Scrub Tech, Perfusionist) and saving user preferences.\n\n## Objective:\n1. Create `frontend/src/lib/userProfile.test.ts`.\n2. Test role switching, badge display, and role-specific voice prompt generation.\n3. When complete, create a pull request."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: User Profile\n\n## Task Details\n**File:** `frontend/src/lib/userProfile.test.ts`\n**Issue:** Test switching clinical roles (Circulator, Scrub Tech, Perfusionist) and saving user preferences.\n\n## Objective:\n1. Create `frontend/src/lib/userProfile.test.ts`.\n2. Test role switching, badge display, and role-specific voice prompt generation.\n3. When complete, create a pull request.",
+    "sessionId": "9332963507799608526",
+    "dispatchedAt": "2026-10-29T18:06:44.426Z"
   },
   {
     "id": "backlog-24",
     "title": "Testing: Sidebar Navigation and Hospital Switcher Component Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: Sidebar Component\n\n## Task Details\n**File:** `frontend/src/components/Sidebar.test.tsx`\n**Issue:** Implement component tests for Sidebar.tsx verifying department switching and accessibility.\n\n## Objective:\n1. Create `frontend/src/components/Sidebar.test.tsx` using React Testing Library.\n2. Verify department list renders, click events update active tenant, and minimum touch target size (44px) is respected.\n3. When complete, create a pull request."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: Sidebar Component\n\n## Task Details\n**File:** `frontend/src/components/Sidebar.test.tsx`\n**Issue:** Implement component tests for Sidebar.tsx verifying department switching and accessibility.\n\n## Objective:\n1. Create `frontend/src/components/Sidebar.test.tsx` using React Testing Library.\n2. Verify department list renders, click events update active tenant, and minimum touch target size (44px) is respected.\n3. When complete, create a pull request.",
+    "sessionId": "15677278552791463160",
+    "dispatchedAt": "2026-10-29T18:06:45.338Z"
   },
   {
     "id": "backlog-25",
     "title": "Testing: FeedbackModal Clinician Rating Component Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: FeedbackModal Component\n\n## Task Details\n**File:** `frontend/src/components/FeedbackModal.test.tsx`\n**Issue:** Test surgeon feedback dialog, thumbs up/down interaction, and text comments submission.\n\n## Objective:\n1. Create `frontend/src/components/FeedbackModal.test.tsx`.\n2. Test opening modal, selecting feedback type, submitting payload, and closing on backdrop click.\n3. When complete, create a pull request."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: FeedbackModal Component\n\n## Task Details\n**File:** `frontend/src/components/FeedbackModal.test.tsx`\n**Issue:** Test surgeon feedback dialog, thumbs up/down interaction, and text comments submission.\n\n## Objective:\n1. Create `frontend/src/components/FeedbackModal.test.tsx`.\n2. Test opening modal, selecting feedback type, submitting payload, and closing on backdrop click.\n3. When complete, create a pull request.",
+    "sessionId": "14758626514546274955",
+    "dispatchedAt": "2026-10-29T18:06:46.576Z"
   },
   {
     "id": "backlog-26",
     "title": "Testing: AutoUpdateModal OTA Progress Component Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: AutoUpdateModal Component\n\n## Task Details\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Issue:** Test rendering OTA APK update progress bar and release notes.\n\n## Objective:\n1. Create `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Test progress percentage rendering, install button click handler, and dismiss behavior.\n3. When complete, create a pull request."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: AutoUpdateModal Component\n\n## Task Details\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Issue:** Test rendering OTA APK update progress bar and release notes.\n\n## Objective:\n1. Create `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Test progress percentage rendering, install button click handler, and dismiss behavior.\n3. When complete, create a pull request.",
+    "sessionId": "16811820466125073570",
+    "dispatchedAt": "2026-10-29T18:06:47.498Z"
   },
   {
     "id": "backlog-27",
     "title": "Testing: QuestionsDrawer Filter and Answer Component Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: QuestionsDrawer Component\n\n## Task Details\n**File:** `frontend/src/components/QuestionsDrawer.test.tsx`\n**Issue:** Test QuestionsDrawer list of pending questions and answer submission form.\n\n## Objective:\n1. Create `frontend/src/components/QuestionsDrawer.test.tsx`.\n2. Test filtering questions by department, typing answer, and dispatching answer submission.\n3. When complete, create a pull request."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: QuestionsDrawer Component\n\n## Task Details\n**File:** `frontend/src/components/QuestionsDrawer.test.tsx`\n**Issue:** Test QuestionsDrawer list of pending questions and answer submission form.\n\n## Objective:\n1. Create `frontend/src/components/QuestionsDrawer.test.tsx`.\n2. Test filtering questions by department, typing answer, and dispatching answer submission.\n3. When complete, create a pull request.",
+    "sessionId": "16193521478970924328",
+    "dispatchedAt": "2026-10-29T18:06:48.751Z"
   },
   {
     "id": "backlog-28",
     "title": "Testing: Omnibar Push-to-Talk and Text Input Component Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: Omnibar Component\n\n## Task Details\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Issue:** Test Omnibar voice microphone button and Enter key form submission.\n\n## Objective:\n1. Create `frontend/src/components/Omnibar.test.tsx`.\n2. Test text input, submit button, microphone button touch events, and loading indicator state.\n3. When complete, create a pull request."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: Omnibar Component\n\n## Task Details\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Issue:** Test Omnibar voice microphone button and Enter key form submission.\n\n## Objective:\n1. Create `frontend/src/components/Omnibar.test.tsx`.\n2. Test text input, submit button, microphone button touch events, and loading indicator state.\n3. When complete, create a pull request.",
+    "sessionId": "9782004067598731193",
+    "dispatchedAt": "2026-10-29T19:07:03.902Z"
   },
   {
     "id": "backlog-29",
     "title": "Testing: Multi-Clause Spoken Query Discourse Decomposer Adversarial Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: Discourse Decomposer\n\n## Task Details\n**File:** `backend/tests/test_multi_clause.py`\n**Issue:** Test separating compound surgical queries (e.g. 'Give me 3-0 silk, and also where is the bovie?').\n\n## Objective:\n1. Create `backend/tests/test_multi_clause.py`.\n2. Test splitting compound sentences by conjunctions and commas without mangling item numbers or gauges.\n3. When complete, create a pull request."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: Discourse Decomposer\n\n## Task Details\n**File:** `backend/tests/test_multi_clause.py`\n**Issue:** Test separating compound surgical queries (e.g. 'Give me 3-0 silk, and also where is the bovie?').\n\n## Objective:\n1. Create `backend/tests/test_multi_clause.py`.\n2. Test splitting compound sentences by conjunctions and commas without mangling item numbers or gauges.\n3. When complete, create a pull request.",
+    "sessionId": "9515254580711111158",
+    "dispatchedAt": "2026-10-29T19:07:05.927Z"
   },
   {
     "id": "backlog-30",
     "title": "Testing: Spoken Disfluency and Vocal Filler Filter Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: Disfluency Filter\n\n## Task Details\n**File:** `backend/tests/test_disfluency.py`\n**Issue:** Test removing speech hesitation tokens ('um', 'uh', 'you know', 'please find me') before search.\n\n## Objective:\n1. Create `backend/tests/test_disfluency.py`.\n2. Test stripping vocal fillers while strictly preserving critical medical tokens (e.g. '4-0', 'no. 10 blade').\n3. When complete, create a pull request."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: Disfluency Filter\n\n## Task Details\n**File:** `backend/tests/test_disfluency.py`\n**Issue:** Test removing speech hesitation tokens ('um', 'uh', 'you know', 'please find me') before search.\n\n## Objective:\n1. Create `backend/tests/test_disfluency.py`.\n2. Test stripping vocal fillers while strictly preserving critical medical tokens (e.g. '4-0', 'no. 10 blade').\n3. When complete, create a pull request.",
+    "sessionId": "8673664340923117219",
+    "dispatchedAt": "2026-10-29T19:07:08.078Z"
   },
   {
     "id": "backlog-31",
     "title": "Testing: Packed Coordinate Parser Tests (Room, Cart, Shelf, Bin)",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: Coordinate Parser\n\n## Task Details\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Issue:** Test parsing shorthand location strings (e.g. 'OR 21 A 2 C' -> Room: OR 21, Cart: A, Shelf: 2, Bin: C).\n\n## Objective:\n1. Create `frontend/src/lib/coordinateParser.test.ts`.\n2. Test variations in spacing, dashes, and bullet points.\n3. When complete, create a pull request."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: Coordinate Parser\n\n## Task Details\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Issue:** Test parsing shorthand location strings (e.g. 'OR 21 A 2 C' -> Room: OR 21, Cart: A, Shelf: 2, Bin: C).\n\n## Objective:\n1. Create `frontend/src/lib/coordinateParser.test.ts`.\n2. Test variations in spacing, dashes, and bullet points.\n3. When complete, create a pull request.",
+    "sessionId": "6645039828212228401",
+    "dispatchedAt": "2026-10-29T19:07:10.228Z"
   },
   {
     "id": "backlog-32",
     "title": "Testing: Direct Gemini Fallback When LiveKit Server Disconnects",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: Direct Gemini Fallback\n\n## Task Details\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Issue:** Test direct HTTP Gemini API fallback when LiveKit voice server is down or unreachable.\n\n## Objective:\n1. Create `frontend/src/lib/directGemini.test.ts`.\n2. Mock LiveKit failure and verify automatic fallback query execution directly to backend Gemini endpoint.\n3. When complete, create a pull request."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: Direct Gemini Fallback\n\n## Task Details\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Issue:** Test direct HTTP Gemini API fallback when LiveKit voice server is down or unreachable.\n\n## Objective:\n1. Create `frontend/src/lib/directGemini.test.ts`.\n2. Mock LiveKit failure and verify automatic fallback query execution directly to backend Gemini endpoint.\n3. When complete, create a pull request.",
+    "sessionId": "9534191990685362776",
+    "dispatchedAt": "2026-10-29T19:07:11.764Z"
+  },
+  {
+    "id": "backlog-33",
+    "title": "Sentinel: AuthScreen JWT Refresh & Expiry Tests",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: AuthScreen JWT Refresh & Expiry\n\n**File:** `frontend/src/components/AuthScreen.test.tsx`\n**Issue:** Add unit tests validating JWT refresh token rotation and rejection of expired authentication credentials.\n\n**Objective:**\n1. Create `frontend/src/components/AuthScreen.test.tsx` using Vitest / Testing Library.\n2. Verify expired token redirects to login prompt.\n3. Verify valid credentials store access tokens in secure session storage.\n4. Ensure zero new regressions on existing tests and submit PR immediately upon verification.",
+    "sessionId": "3552205061614141530",
+    "dispatchedAt": "2026-10-30T13:37:11.304Z"
+  },
+  {
+    "id": "backlog-34",
+    "title": "Sentinel: Prevent SQL & Query Injection in Dexie Full-Text Search",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: Prevent Query Injection in Dexie Search\n\n**File:** `frontend/src/lib/standaloneEngine.test.ts`\n**Issue:** Ensure clinical full-text search sanitizes regex metacharacters and prevents ReDoS or Dexie query injection.\n\n**Objective:**\n1. Update `frontend/src/lib/standaloneEngine.test.ts` with adversarial query inputs (e.g. `.*`, `[a-z]+(a+)+$`, quotes, SQL fragments).\n2. Verify search returns safely without freezing or crashing the worker.\n3. Submit PR immediately upon verification.",
+    "sessionId": "16937849696672631880",
+    "dispatchedAt": "2026-10-30T13:37:13.327Z"
+  },
+  {
+    "id": "backlog-35",
+    "title": "Sentinel: Strict Tenant Isolation on Preference Card Mutations",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: Preference Card Tenant Isolation\n\n**File:** `backend/tests/test_preference_card_tenant_isolation.py`\n**Issue:** Verify that preference card updates cannot leak or overwrite cards across `facility_id::dept_id` boundaries.\n\n**Objective:**\n1. Create `backend/tests/test_preference_card_tenant_isolation.py`.\n2. Attempt cross-tenant preference card update and verify HTTP 403 / 404 response.\n3. Verify multi-tenant database isolation invariant.\n4. Submit PR immediately upon verification.",
+    "sessionId": "12845394224063801037",
+    "dispatchedAt": "2026-10-30T13:37:14.761Z"
+  },
+  {
+    "id": "backlog-36",
+    "title": "Sentinel: Enforce Content-Security-Policy & Media Frame Protection",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: CSP and Camera Media Protection\n\n**File:** `backend/tests/test_csp_media_policy.py`\n**Issue:** Verify backend security headers restrict camera, microphone, and WebRTC origins to authorized hostnames.\n\n**Objective:**\n1. Create `backend/tests/test_csp_media_policy.py`.\n2. Test that response headers include Content-Security-Policy with strict media-src and frame-ancestors.\n3. Submit PR immediately upon verification.",
+    "sessionId": "15305561372576690926",
+    "dispatchedAt": "2026-10-30T13:37:16.037Z"
+  },
+  {
+    "id": "backlog-37",
+    "title": "Sentinel: User Profile Modal Role Switching Audit Tests",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: UserProfileModal Role Switching\n\n**File:** `frontend/src/components/UserProfileModal.test.tsx`\n**Issue:** Test clinical role switching in UserProfileModal to ensure unauthenticated privilege escalation is blocked.\n\n**Objective:**\n1. Create `frontend/src/components/UserProfileModal.test.tsx`.\n2. Verify role switching dispatches audit events and persists only authorized permissions.\n3. Submit PR immediately upon verification.",
+    "sessionId": "5436209392655878095",
+    "dispatchedAt": "2026-10-30T13:37:17.423Z"
+  },
+  {
+    "id": "backlog-38",
+    "title": "Bolt: ClinicalGraph Traversal Performance & Cycle Benchmarks",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: ClinicalGraph Traversal Benchmarks\n\n**File:** `frontend/src/lib/clinicalGraph.test.ts`\n**Issue:** Add performance benchmarks for graph pathfinding across 1,000+ items, rooms, and surgeons.\n\n**Objective:**\n1. Add benchmark tests in `frontend/src/lib/clinicalGraph.test.ts` verifying shortest-path queries resolve in < 5ms.\n2. Verify cycle detection handles malformed relation graphs without infinite loops.\n3. Submit PR immediately upon verification.",
+    "sessionId": "8881527444260797958",
+    "dispatchedAt": "2026-10-30T13:37:18.857Z"
+  },
+  {
+    "id": "backlog-39",
+    "title": "Bolt: ClinicalQueryPlanner Heavy Multi-Clause Execution Benchmarks",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: ClinicalQueryPlanner Multi-Clause Benchmarks\n\n**File:** `frontend/src/lib/clinicalQueryPlanner.test.ts`\n**Issue:** Verify ClinicalQueryPlanner resolves complex multi-clause compound queries within 10ms.\n\n**Objective:**\n1. Create `frontend/src/lib/clinicalQueryPlanner.test.ts`.\n2. Benchmark 5-clause compound sentences (e.g. \"Find laparoscope in room 4, check mesh in cart 2, and page scrub nurse\").\n3. Verify parser execution time remains under 10ms with zero memory leaks.\n4. Submit PR immediately upon verification.",
+    "sessionId": "17442566310250268835",
+    "dispatchedAt": "2026-10-30T13:37:20.173Z"
+  },
+  {
+    "id": "backlog-40",
+    "title": "Bolt: LiveKit WebRTC Audio Visualizer Canvas Memory Leak Tests",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: Audio Visualizer Canvas Cleanup\n\n**File:** `frontend/src/lib/livekitClient.test.ts`\n**Issue:** Ensure WebRTC audio visualizer canvas context and event listeners are properly disposed on unmount.\n\n**Objective:**\n1. Create unit tests in `frontend/src/lib/livekitClient.test.ts` validating audio track disconnect and canvas requestAnimationFrame cleanup.\n2. Ensure zero lingering intervals or listeners.\n3. Submit PR immediately upon verification.",
+    "sessionId": "9868944695655279023",
+    "dispatchedAt": "2026-10-30T13:37:21.709Z"
+  },
+  {
+    "id": "backlog-41",
+    "title": "Bolt: Dexie Bulk Seed Hydration Batch Optimization Benchmarks",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: Seed Hydration Batching Benchmarks\n\n**File:** `frontend/src/lib/seedHydrationBench.test.ts`\n**Issue:** Benchmark Dexie bulkPut vs sequential put for 5,000 inventory items.\n\n**Objective:**\n1. Create `frontend/src/lib/seedHydrationBench.test.ts`.\n2. Assert bulkPut batches items in chunks of 500 to keep IndexedDB lock duration under 50ms.\n3. Submit PR immediately upon verification.",
+    "sessionId": "6162911584899860752",
+    "dispatchedAt": "2026-10-30T13:37:22.993Z"
+  },
+  {
+    "id": "backlog-42",
+    "title": "Bolt: Compress & Cache Surgical Ontology Synonym Resolution",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: Surgical Ontology Cache\n\n**File:** `frontend/src/lib/surgicalOntology.test.ts`\n**Issue:** Optimize surgical synonym lookups by caching canonical gauge and instrument mappings.\n\n**Objective:**\n1. Create unit tests in `frontend/src/lib/surgicalOntology.test.ts` testing 10,000 rapid lookup iterations.\n2. Verify cache hit rate > 95% on repetitive clinical terms.\n3. Submit PR immediately upon verification.",
+    "sessionId": "8590460125439552884",
+    "dispatchedAt": "2026-10-30T13:37:24.386Z"
+  },
+  {
+    "id": "backlog-43",
+    "title": "Code Health: CoordinateCard Component Rendering & A11y Tests",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: CoordinateCard Component Tests\n\n**File:** `frontend/src/components/CoordinateCard.test.tsx`\n**Issue:** Add component unit tests for CoordinateCard verifying Room, Cart, Shelf, Bin badge rendering and accessibility.\n\n**Objective:**\n1. Create `frontend/src/components/CoordinateCard.test.tsx`.\n2. Test rendering with full coordinates and partial coordinates.\n3. Verify accessible aria labels on coordinate indicators.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1875926509002304035",
+    "dispatchedAt": "2026-10-30T13:37:25.709Z"
+  },
+  {
+    "id": "backlog-44",
+    "title": "Code Health: QRPairModal Device Pairing Flow Unit Tests",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: QRPairModal Unit Tests\n\n**File:** `frontend/src/components/QRPairModal.test.tsx`\n**Issue:** Add unit tests for QRPairModal verifying QR rendering, pairing secret generation, and expiration timer.\n\n**Objective:**\n1. Create `frontend/src/components/QRPairModal.test.tsx`.\n2. Verify modal opens, displays pairing code, and handles dismiss actions.\n3. Submit PR immediately upon verification.",
+    "sessionId": "11597514395274965855",
+    "dispatchedAt": "2026-10-30T13:37:27.254Z"
+  },
+  {
+    "id": "backlog-45",
+    "title": "Code Health: ResourceManagerModal Package Import & Export Tests",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: ResourceManagerModal Package Tests\n\n**File:** `frontend/src/components/ResourceManagerModal.test.tsx`\n**Issue:** Test clinical resource pack import, export, and checksum verification in ResourceManagerModal.\n\n**Objective:**\n1. Create `frontend/src/components/ResourceManagerModal.test.tsx`.\n2. Test uploading valid and invalid JSON resource packs.\n3. Ensure proper error banners display on malformed schemas.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11315782332993819719",
+    "dispatchedAt": "2026-10-30T13:37:29.326Z"
+  },
+  {
+    "id": "backlog-46",
+    "title": "Code Health: Lexicon Learning Feedback Loop Type Narrowing",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: Lexicon Learning Type Narrowing\n\n**File:** `frontend/src/lib/lexiconLearning.test.ts`\n**Issue:** Ensure adaptive feedback loop in lexiconLearning enforces strict TypeScript narrowing on clinician corrections.\n\n**Objective:**\n1. Create `frontend/src/lib/lexiconLearning.test.ts`.\n2. Test recording phonetic corrections and verify storage format.\n3. Assert zero null pointer errors on unseeded terms.\n4. Submit PR immediately upon verification.",
+    "sessionId": "10393924713812252325",
+    "dispatchedAt": "2026-10-30T13:37:30.735Z"
+  },
+  {
+    "id": "backlog-47",
+    "title": "Code Health: Speech Synthesis Queue & Audio Context State Tests",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: Speech Synthesis Queue Tests\n\n**File:** `frontend/src/lib/speechSynthesis.test.ts`\n**Issue:** Add unit tests for speech synthesis voice queue, interruption handling, and mute persistence.\n\n**Objective:**\n1. Create `frontend/src/lib/speechSynthesis.test.ts`.\n2. Test queue prioritization of urgent clinical alerts over regular queries.\n3. Verify mute state prevents utterance execution.\n4. Submit PR immediately upon verification.",
+    "sessionId": "6432958125228456258",
+    "dispatchedAt": "2026-10-30T14:02:31.647Z"
+  },
+  {
+    "id": "backlog-48",
+    "title": "Testing: ChatCanvas Multi-Item Clinical Display Component Tests",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: ChatCanvas Multi-Item Display Tests\n\n**File:** `frontend/src/components/ChatCanvas.test.tsx`\n**Issue:** Add unit tests for ChatCanvas verifying rendering of message bubbles, preference card carousels, and action buttons.\n\n**Objective:**\n1. Create `frontend/src/components/ChatCanvas.test.tsx`.\n2. Test empty state, user message, agent clinical response, and structured card list rendering.\n3. Submit PR immediately upon verification.",
+    "sessionId": "1042474179380775814",
+    "dispatchedAt": "2026-10-30T14:02:33.695Z"
+  },
+  {
+    "id": "backlog-49",
+    "title": "Testing: Backend Clinical Graph Service Relationship Query Tests",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Clinical Graph Service Tests\n\n**File:** `backend/tests/test_clinical_graph_service.py`\n**Issue:** Add unit tests for `backend/app/services/clinical_graph.py` verifying multi-tenant relationship queries.\n\n**Objective:**\n1. Create `backend/tests/test_clinical_graph_service.py`.\n2. Test node addition, edge connections, and BFS path queries.\n3. Verify isolation between different facility graphs.\n4. Submit PR immediately upon verification.",
+    "sessionId": "7096849452163088310",
+    "dispatchedAt": "2026-10-30T14:02:35.026Z"
+  },
+  {
+    "id": "backlog-50",
+    "title": "Testing: Clinical Query Planner Ambiguous Gauge & Size Resolution",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Clinical Query Planner Gauge Resolution\n\n**File:** `backend/tests/test_planner_gauge_resolution.py`\n**Issue:** Test clinical query planner disambiguation between needle gauge (e.g. 22G), suture size (e.g. 2-0, 3-0), and catheter Fr.\n\n**Objective:**\n1. Create `backend/tests/test_planner_gauge_resolution.py`.\n2. Test queries like \"22 gauge spinal needle vs 2-0 prolene vs 16 Fr foley\".\n3. Verify extraction maps correctly to item attributes.\n4. Submit PR immediately upon verification.",
+    "sessionId": "7747422632784925010",
+    "dispatchedAt": "2026-10-30T14:02:38.934Z"
+  },
+  {
+    "id": "backlog-51",
+    "title": "Testing: Offline Outbox Replay Idempotency After Network Drop",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Offline Outbox Replay Idempotency\n\n**File:** `frontend/src/lib/outboxReplay.test.ts`\n**Issue:** Ensure offline outbox actions (e.g. move item, mark verified) are idempotent when replayed multiple times.\n\n**Objective:**\n1. Create `frontend/src/lib/outboxReplay.test.ts`.\n2. Simulate duplicate mutation replay and assert final state matches single application.\n3. Submit PR immediately upon verification.",
+    "sessionId": "15789404962642358727",
+    "dispatchedAt": "2026-10-30T14:02:41.079Z"
+  },
+  {
+    "id": "backlog-52",
+    "title": "Testing: Hospital Manifest Validation & Department Hierarchy Tests",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Hospital Manifest Validation\n\n**File:** `backend/tests/test_manifest_validation.py`\n**Issue:** Test hospital manifest.json parsing and department schema integrity.\n\n**Objective:**\n1. Create `backend/tests/test_manifest_validation.py`.\n2. Verify loading all configured hospitals (County General, Memorial, etc.) without missing key errors.\n3. Submit PR immediately upon verification.",
+    "sessionId": "18083198064056896974",
+    "dispatchedAt": "2026-10-30T14:02:42.627Z"
+  },
+  {
+    "id": "backlog-53",
+    "title": "Testing: Clinical Inventory Parity Tests for county_general",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for county_general\n\n**File:** `backend/tests/test_parity_county_general.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `county_general`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_county_general.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
+    "sessionId": "4497919058689179368",
+    "dispatchedAt": "2026-10-30T14:02:44.754Z"
+  },
+  {
+    "id": "backlog-54",
+    "title": "Testing: Clinical Inventory Parity Tests for er_trauma",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for er_trauma\n\n**File:** `backend/tests/test_parity_er_trauma.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `er_trauma`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_er_trauma.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
+    "sessionId": "17256728637334105042",
+    "dispatchedAt": "2026-10-30T14:02:47.819Z"
+  },
+  {
+    "id": "backlog-55",
+    "title": "Testing: Clinical Inventory Parity Tests for icu_critical_care",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for icu_critical_care\n\n**File:** `backend/tests/test_parity_icu_critical_care.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `icu_critical_care`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_icu_critical_care.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
+    "sessionId": "14832828852507232836",
+    "dispatchedAt": "2026-10-30T14:02:49.559Z"
+  },
+  {
+    "id": "backlog-56",
+    "title": "Testing: Clinical Inventory Parity Tests for pacu_periop",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for pacu_periop\n\n**File:** `backend/tests/test_parity_pacu_periop.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `pacu_periop`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_pacu_periop.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
+    "sessionId": "4384818841219868223",
+    "dispatchedAt": "2026-10-30T14:02:51.590Z"
+  },
+  {
+    "id": "backlog-57",
+    "title": "Testing: Clinical Inventory Parity Tests for sacred_heart",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for sacred_heart\n\n**File:** `backend/tests/test_parity_sacred_heart.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `sacred_heart`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_sacred_heart.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
+    "sessionId": "12102987441822020789",
+    "dispatchedAt": "2026-10-30T14:02:52.948Z"
   }
 ]

@@ -1,0 +1,3 @@
+# Custom merge driver for Jules autonomous agent devlogs and journals
+.jules/*.md merge=union
+.jules/**/*.md merge=union
