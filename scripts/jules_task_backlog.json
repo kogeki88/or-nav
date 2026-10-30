@@ -516,10 +516,11 @@
     "id": "backlog-058",
     "title": "Sentinel: Rate Limiter Middleware and IP Throttling Tests",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: Rate Limiter Middleware\n\n**File:** `backend/tests/test_rate_limiter_service.py`\n**Issue:** Verify rate limiting middleware on `/api/chat` and `/api/voice/token` returns HTTP 429 when thresholds are exceeded.\n\n**Objective:**\n1. Create `backend/tests/test_rate_limiter_service.py`.\n2. Simulate rapid consecutive requests exceeding limits and assert HTTP 429 Too Many Requests response.\n3. Verify Retry-After header presence.\n4. Submit PR immediately upon verification.",
     "sessionId": "3376099546900016595",
-    "dispatchedAt": "2026-10-30T14:40:08.836Z"
+    "dispatchedAt": "2026-10-30T14:40:08.836Z",
+    "completedAt": "2026-10-30T18:24:31.479Z"
   },
   {
     "id": "backlog-059",
@@ -804,10 +805,11 @@
     "id": "backlog-090",
     "title": "Testing: Rigorous Unit & Regression Tests for PushToTalkHook",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for PushToTalkHook\n\n**File:** `frontend/src/hooks/usePushToTalk.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/hooks/usePushToTalk.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "13015966510018875924",
-    "dispatchedAt": "2026-10-30T16:05:55.591Z"
+    "sessionId": "3700760011629749940",
+    "dispatchedAt": "2026-10-30T18:07:03.948Z",
+    "completedAt": "2026-10-30T18:37:44.574Z"
   },
   {
     "id": "backlog-091",
@@ -860,9 +862,9 @@
     "category": "Performance",
     "status": "completed",
     "prompt": "# 🚀 Performance Task (Phase 1): Rigorous Unit & Regression Tests for SyncEngineOutbox\n\n**File:** `frontend/src/lib/syncEngine.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/syncEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "748073862146067006",
-    "dispatchedAt": "2026-10-30T16:06:05.388Z",
-    "completedAt": "2026-10-30T17:36:46.603Z"
+    "sessionId": "9482232311245276184",
+    "dispatchedAt": "2026-10-30T18:07:05.792Z",
+    "completedAt": "2026-10-30T18:23:48.015Z"
   },
   {
     "id": "backlog-097",
@@ -870,9 +872,9 @@
     "category": "Security",
     "status": "completed",
     "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for ResourceManagerChecksum\n\n**File:** `frontend/src/lib/resourceManager.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/resourceManager.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "4327818795841525023",
-    "dispatchedAt": "2026-10-30T17:07:42.072Z",
-    "completedAt": "2026-10-30T17:37:48.620Z"
+    "sessionId": "5016624439347330007",
+    "dispatchedAt": "2026-10-30T18:07:07.123Z",
+    "completedAt": "2026-10-30T18:23:53.536Z"
   },
   {
     "id": "backlog-098",
@@ -889,9 +891,9 @@
     "category": "Performance",
     "status": "completed",
     "prompt": "# 🚀 Bolt Task (Phase 1): Rigorous Unit & Regression Tests for SurgicalOntologyService\n\n**File:** `backend/tests/test_surgical_ontology.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_surgical_ontology.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "12998096228223455360",
-    "dispatchedAt": "2026-10-30T17:07:43.388Z",
-    "completedAt": "2026-10-30T17:37:47.934Z"
+    "sessionId": "16495057806898274491",
+    "dispatchedAt": "2026-10-30T18:07:09.171Z",
+    "completedAt": "2026-10-30T18:23:42.390Z"
   },
   {
     "id": "backlog-100",
@@ -899,9 +901,9 @@
     "category": "Security",
     "status": "completed",
     "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for ScrubberService\n\n**File:** `backend/tests/test_scrubber_service.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_scrubber_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "8986701616699721884",
-    "dispatchedAt": "2026-10-30T17:07:47.795Z",
-    "completedAt": "2026-10-30T17:36:52.497Z"
+    "sessionId": "16355060773078794764",
+    "dispatchedAt": "2026-10-30T18:07:10.808Z",
+    "completedAt": "2026-10-30T18:37:36.180Z"
   },
   {
     "id": "backlog-101",
@@ -909,9 +911,9 @@
     "category": "Security",
     "status": "dispatched",
     "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "2395754246140705604",
-    "dispatchedAt": "2026-10-30T17:07:50.762Z",
-    "completedAt": "2026-10-30T17:06:56.863Z"
+    "completedAt": "2026-10-30T17:06:56.863Z",
+    "sessionId": "2174550398611475473",
+    "dispatchedAt": "2026-10-30T18:07:12.139Z"
   },
   {
     "id": "backlog-102",
@@ -1037,5 +1039,103 @@
     "category": "Performance",
     "status": "pending",
     "prompt": "# 🚀 Bolt Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-116",
+    "title": "Code Health: Invariant, Fuzzing & Boundary Hardening for LexiconLearningService",
+    "category": "Code Health",
+    "status": "pending",
+    "prompt": "# 🚀 Code Health Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for LexiconLearningService\n\n**File:** `backend/tests/test_lexicon_service.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_lexicon_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-117",
+    "title": "Testing: Invariant, Fuzzing & Boundary Hardening for VoiceWorker",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-118",
+    "title": "Testing: Invariant, Fuzzing & Boundary Hardening for PushToTalkHook",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for PushToTalkHook\n\n**File:** `frontend/src/hooks/usePushToTalk.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/hooks/usePushToTalk.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-119",
+    "title": "Code Health: Invariant, Fuzzing & Boundary Hardening for WakeLockHook",
+    "category": "Code Health",
+    "status": "pending",
+    "prompt": "# 🚀 Code Health Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for WakeLockHook\n\n**File:** `frontend/src/hooks/useWakeLock.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/hooks/useWakeLock.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-120",
+    "title": "Testing: Invariant, Fuzzing & Boundary Hardening for UserProfileHook",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for UserProfileHook\n\n**File:** `frontend/src/hooks/useUserProfile.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/hooks/useUserProfile.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-121",
+    "title": "Code Health: Invariant, Fuzzing & Boundary Hardening for AutoUpdateModal",
+    "category": "Code Health",
+    "status": "pending",
+    "prompt": "# 🚀 Code Health Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for AutoUpdateModal\n\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-122",
+    "title": "Bolt: Invariant, Fuzzing & Boundary Hardening for OmnibarSearch",
+    "category": "Performance",
+    "status": "pending",
+    "prompt": "# 🚀 Bolt Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for OmnibarSearch\n\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/components/Omnibar.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-123",
+    "title": "Testing: Invariant, Fuzzing & Boundary Hardening for PeerQnAPanel",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for PeerQnAPanel\n\n**File:** `frontend/src/components/PeerQnAPanel.test.tsx`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/components/PeerQnAPanel.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-124",
+    "title": "Performance: Invariant, Fuzzing & Boundary Hardening for SyncEngineOutbox",
+    "category": "Performance",
+    "status": "pending",
+    "prompt": "# 🚀 Performance Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for SyncEngineOutbox\n\n**File:** `frontend/src/lib/syncEngine.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/lib/syncEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-125",
+    "title": "Sentinel: Invariant, Fuzzing & Boundary Hardening for ResourceManagerChecksum",
+    "category": "Security",
+    "status": "pending",
+    "prompt": "# 🚀 Sentinel Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for ResourceManagerChecksum\n\n**File:** `frontend/src/lib/resourceManager.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/lib/resourceManager.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-126",
+    "title": "Bolt: Invariant, Fuzzing & Boundary Hardening for ClinicalQueryPlannerService",
+    "category": "Performance",
+    "status": "pending",
+    "prompt": "# 🚀 Bolt Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for ClinicalQueryPlannerService\n\n**File:** `backend/tests/test_clinical_query_planner.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_clinical_query_planner.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-127",
+    "title": "Bolt: Invariant, Fuzzing & Boundary Hardening for SurgicalOntologyService",
+    "category": "Performance",
+    "status": "pending",
+    "prompt": "# 🚀 Bolt Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for SurgicalOntologyService\n\n**File:** `backend/tests/test_surgical_ontology.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_surgical_ontology.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-128",
+    "title": "Sentinel: Invariant, Fuzzing & Boundary Hardening for ScrubberService",
+    "category": "Security",
+    "status": "pending",
+    "prompt": "# 🚀 Sentinel Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for ScrubberService\n\n**File:** `backend/tests/test_scrubber_service.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_scrubber_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-129",
+    "title": "Sentinel: Invariant, Fuzzing & Boundary Hardening for ChatRouterMultiTenant",
+    "category": "Security",
+    "status": "pending",
+    "prompt": "# 🚀 Sentinel Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]
