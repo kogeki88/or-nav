@@ -130,6 +130,10 @@ export function evaluateContext(extracted) {
   const isAmbiguous =
     /unclear|conflicting|which file|which tenant|which department/i.test(q);
 
+  // Detect inquiries about missing features or unrequested scope expansion
+  const asksAboutMissingFeature =
+    /should I add|can you advise|how should I|does not exist|doesn't explicitly exist|not present in|should I implement/i.test(q);
+
   return {
     ...extracted,
     inspectedFiles,
@@ -138,6 +142,7 @@ export function evaluateContext(extracted) {
     asksTechnicalCode,
     isPlanApproval,
     isAmbiguous,
+    asksAboutMissingFeature,
     hasRecentQuery: !!latestAgentQuery
   };
 }
@@ -147,7 +152,7 @@ export function evaluateContext(extracted) {
  * Eliminates generic fallbacks. Determines the exact operational pathway.
  */
 export function decideAction(evaluated) {
-  const { title, latestAgentQuery, asksAboutPreExistingTests, offersOptions, asksTechnicalCode, isPlanApproval, isAmbiguous, inspectedFiles } = evaluated;
+  const { title, latestAgentQuery, asksAboutPreExistingTests, asksAboutMissingFeature, offersOptions, asksTechnicalCode, isPlanApproval, isAmbiguous, inspectedFiles } = evaluated;
   const targetFile = inspectedFiles[0]?.path || 'the modified codebase files';
 
   // Branch 1: Pre-existing test failures on main vs PR scope
@@ -161,6 +166,21 @@ export function decideAction(evaluated) {
     return {
       intent: 'TEST_REGRESSION_VS_SCOPE_QUERY',
       strategy: 'ENFORCE_SCOPED_PR_ZERO_NEW_REGRESSIONS',
+      responsePayload: decisionText,
+      needsApprovePlan: evaluated.state === 'AWAITING_PLAN_APPROVAL'
+    };
+  }
+
+  // Branch 1b: Missing feature or scope clarification
+  if (asksAboutMissingFeature) {
+    const decisionText =
+      `Clarification for '${title}': Do not implement new unrequested UI mechanisms if not already present in ${targetFile}. ` +
+      `Stick strictly to verifying the existing features, exports, and functions in ${targetFile}. ` +
+      `Ensure unit tests pass with zero new regressions compared to 'main', and submit the pull request immediately.`;
+
+    return {
+      intent: 'FEATURE_SCOPE_CLARIFICATION',
+      strategy: 'PRUNE_EXTRA_SCOPE_AND_SUBMIT',
       responsePayload: decisionText,
       needsApprovePlan: evaluated.state === 'AWAITING_PLAN_APPROVAL'
     };

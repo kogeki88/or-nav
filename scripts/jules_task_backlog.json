@@ -511,5 +511,157 @@
     "prompt": "# 🧪 Testing Task: Inventory Parity for sacred_heart\n\n**File:** `backend/tests/test_parity_sacred_heart.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `sacred_heart`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_sacred_heart.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
     "sessionId": "12102987441822020789",
     "dispatchedAt": "2026-10-30T14:02:52.948Z"
+  },
+  {
+    "id": "backlog-058",
+    "title": "Sentinel: Rate Limiter Middleware and IP Throttling Tests",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: Rate Limiter Middleware\n\n**File:** `backend/tests/test_rate_limiter_service.py`\n**Issue:** Verify rate limiting middleware on `/api/chat` and `/api/voice/token` returns HTTP 429 when thresholds are exceeded.\n\n**Objective:**\n1. Create `backend/tests/test_rate_limiter_service.py`.\n2. Simulate rapid consecutive requests exceeding limits and assert HTTP 429 Too Many Requests response.\n3. Verify Retry-After header presence.\n4. Submit PR immediately upon verification.",
+    "sessionId": "3376099546900016595",
+    "dispatchedAt": "2026-10-30T14:40:08.836Z"
+  },
+  {
+    "id": "backlog-059",
+    "title": "Sentinel: OTA Package Cryptographic Checksum Verification Tests",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: OTA Cryptographic Verification\n\n**File:** `backend/tests/test_ota_crypto_verification.py`\n**Issue:** Verify that over-the-air package installation verifies SHA-256 checksums and rejects corrupted payloads.\n\n**Objective:**\n1. Create `backend/tests/test_ota_crypto_verification.py`.\n2. Test OTA bundle verification with valid checksum and mismatched hash.\n3. Assert invalid packages are immediately rejected without touching filesystem.\n4. Submit PR immediately upon verification.",
+    "sessionId": "13211154333456479486",
+    "dispatchedAt": "2026-10-30T14:40:10.370Z"
+  },
+  {
+    "id": "backlog-060",
+    "title": "Sentinel: Strict Tenant Boundary Isolation on Inventory CSV Import",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🛡️ Sentinel Security Task: Inventory CSV Tenant Boundary\n\n**File:** `backend/tests/test_inventory_tenant_boundary.py`\n**Issue:** Ensure CSV inventory imports cannot overwrite or inject records into other hospital facility tenants.\n\n**Objective:**\n1. Create `backend/tests/test_inventory_tenant_boundary.py`.\n2. Test importing CSV records with cross-facility IDs and assert rejection.\n3. Verify tenant isolation invariant is preserved.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1848906239998182975",
+    "dispatchedAt": "2026-10-30T14:40:11.784Z"
+  },
+  {
+    "id": "backlog-061",
+    "title": "Bolt: Dexie Compound Index Query Latency Benchmarks",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: Dexie Compound Index Latency\n\n**File:** `frontend/src/lib/dexieIndexBench.test.ts`\n**Issue:** Benchmark compound queries on IndexedDB [facility_id+dept_id] ensuring queries complete in < 2ms.\n\n**Objective:**\n1. Create `frontend/src/lib/dexieIndexBench.test.ts`.\n2. Benchmark 2,000 indexed queries against Dexie database.\n3. Assert average lookup latency remains under 2ms.\n4. Submit PR immediately upon verification.",
+    "sessionId": "7425910620353210241",
+    "dispatchedAt": "2026-10-30T14:40:13.547Z"
+  },
+  {
+    "id": "backlog-062",
+    "title": "Bolt: Offline Delta Sync Payload Compression Benchmarks",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: Delta Sync Payload Sizing\n\n**File:** `frontend/src/lib/deltaSyncPayload.test.ts`\n**Issue:** Benchmark offline delta sync payload compression and compact representation for low-bandwidth OR networks.\n\n**Objective:**\n1. Create `frontend/src/lib/deltaSyncPayload.test.ts`.\n2. Verify compact JSON serializes 50 offline mutations into < 10KB.\n3. Verify deserialization restores 100% of mutation records.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1662461055517157612",
+    "dispatchedAt": "2026-10-30T14:40:15.050Z"
+  },
+  {
+    "id": "backlog-063",
+    "title": "Bolt: Client-Side PHI Scrubber High-Throughput Benchmarks",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# ⚡ Bolt Performance Task: PHI Scrubber High-Throughput Benchmark\n\n**File:** `frontend/src/lib/scrubBenchmark.test.ts`\n**Issue:** Benchmark client-side PHI scrubber across 10,000 words of clinical dictation.\n\n**Objective:**\n1. Create `frontend/src/lib/scrubBenchmark.test.ts`.\n2. Benchmark redaction of MRNs, clinician names, and dates of birth in < 15ms.\n3. Verify zero memory leaks across 500 benchmark iterations.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1788050447228348902",
+    "dispatchedAt": "2026-10-30T14:40:16.504Z"
+  },
+  {
+    "id": "backlog-064",
+    "title": "Code Health: MoveVerifyWidget Drag and Drop Interaction Tests",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: MoveVerifyWidget Interaction Tests\n\n**File:** `frontend/src/components/MoveVerifyWidget.test.tsx`\n**Issue:** Add unit tests for MoveVerifyWidget verifying drag-and-drop state transitions, target drop zone validation, and item move confirmation.\n\n**Objective:**\n1. Create `frontend/src/components/MoveVerifyWidget.test.tsx`.\n2. Test drag start, hover over valid target shelf, drop event, and cancel action.\n3. Verify ARIA attributes on draggable items.\n4. Submit PR immediately upon verification.",
+    "sessionId": "18370608393784658147",
+    "dispatchedAt": "2026-10-30T14:40:17.784Z"
+  },
+  {
+    "id": "backlog-065",
+    "title": "Code Health: Sidebar Responsive Navigation and Collapse Tests",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: Sidebar Navigation Tests\n\n**File:** `frontend/src/components/Sidebar.test.tsx`\n**Issue:** Add unit tests for Sidebar component verifying drawer collapse, active link highlighting, and keyboard focus.\n\n**Objective:**\n1. Create `frontend/src/components/Sidebar.test.tsx`.\n2. Test expanding/collapsing sidebar and active route state.\n3. Verify accessible role=\"navigation\" and aria-expanded attributes.\n4. Submit PR immediately upon verification.",
+    "sessionId": "6203981994282232939",
+    "dispatchedAt": "2026-10-30T14:40:20.201Z"
+  },
+  {
+    "id": "backlog-066",
+    "title": "Code Health: FeedbackModal Submission & Telemetry Tests",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: FeedbackModal Submission Tests\n\n**File:** `frontend/src/components/FeedbackModal.test.tsx`\n**Issue:** Add unit tests for FeedbackModal verifying star rating selection, comment limits, and offline queueing.\n\n**Objective:**\n1. Create `frontend/src/components/FeedbackModal.test.tsx`.\n2. Test submitting feedback with and without network connectivity.\n3. Verify error and success banners render properly.\n4. Submit PR immediately upon verification.",
+    "sessionId": "18016701108829833859",
+    "dispatchedAt": "2026-10-30T14:40:22.366Z"
+  },
+  {
+    "id": "backlog-067",
+    "title": "Code Health: QuestionsDrawer Filter & Search Tests",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: QuestionsDrawer Filter Tests\n\n**File:** `frontend/src/components/QuestionsDrawer.test.tsx`\n**Issue:** Add unit tests for QuestionsDrawer verifying unanswered question filtering and surgeon tag matching.\n\n**Objective:**\n1. Create `frontend/src/components/QuestionsDrawer.test.tsx`.\n2. Test filtering by department, search term input, and empty state display.\n3. Verify keyboard accessibility.\n4. Submit PR immediately upon verification.",
+    "sessionId": "4371897876956200424",
+    "dispatchedAt": "2026-10-30T14:40:24.502Z"
+  },
+  {
+    "id": "backlog-068",
+    "title": "Code Health: Modal Dialog Keyboard Focus Trapping & ESC Tests",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: Modal Keyboard Focus Trapping\n\n**File:** `frontend/src/components/ModalA11yFocus.test.tsx`\n**Issue:** Ensure clinical dialog modals trap keyboard focus within modal boundaries and dismiss on Escape key press.\n\n**Objective:**\n1. Create `frontend/src/components/ModalA11yFocus.test.tsx`.\n2. Test Tab cycle stays within modal and Shift+Tab wraps to last focusable element.\n3. Test pressing Escape closes modal.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11318586863312649482",
+    "dispatchedAt": "2026-10-30T14:40:25.833Z"
+  },
+  {
+    "id": "backlog-069",
+    "title": "Code Health: Gamification Mastery Engine Progression Tests",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: Gamification Mastery Progression\n\n**File:** `frontend/src/lib/gamification.test.ts`\n**Issue:** Test clinical mastery gamification engine for XP calculation, level-up triggers, and streak tracking.\n\n**Objective:**\n1. Create `frontend/src/lib/gamification.test.ts`.\n2. Test awarding points on item verification, streak increments, and badge achievements.\n3. Verify serialization to Dexie storage.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11341849629061237559",
+    "dispatchedAt": "2026-10-30T14:40:27.779Z"
+  },
+  {
+    "id": "backlog-070",
+    "title": "Code Health: FeedbackEngine Offline Queue & Sentiment Tests",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: FeedbackEngine Offline Queue\n\n**File:** `frontend/src/lib/feedbackEngine.test.ts`\n**Issue:** Test FeedbackEngine offline queueing, retry with exponential backoff, and sentiment scoring.\n\n**Objective:**\n1. Create `frontend/src/lib/feedbackEngine.test.ts`.\n2. Test enqueueing feedback while offline, persisting to storage, and draining queue on reconnect.\n3. Submit PR immediately upon verification.",
+    "sessionId": "14326632065011309977",
+    "dispatchedAt": "2026-10-30T14:40:29.274Z"
+  },
+  {
+    "id": "backlog-071",
+    "title": "Code Health: VeoMotion Animation Transitions and Fallback Tests",
+    "category": "Code Health",
+    "status": "pending",
+    "prompt": "# 🧹 Code Health Task: VeoMotion Animation Fallbacks\n\n**File:** `frontend/src/lib/veoMotion.test.ts`\n**Issue:** Add unit tests verifying VeoMotion graceful degradation when prefers-reduced-motion is enabled.\n\n**Objective:**\n1. Create `frontend/src/lib/veoMotion.test.ts`.\n2. Test reduced motion media query detection and fallback instant transitions.\n3. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-072",
+    "title": "Testing: Governance Service Policy Enforcement Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: Governance Service Policy Enforcement\n\n**File:** `backend/tests/test_governance_service.py`\n**Issue:** Add unit tests for `backend/app/services/governance.py` verifying clinical policy verification and audit trails.\n\n**Objective:**\n1. Create `backend/tests/test_governance_service.py`.\n2. Test policy enforcement on critical surgeon preference updates and inventory adjustments.\n3. Assert audit records are created with timestamp and facility ID.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-073",
+    "title": "Testing: Peer QnA Service Message Routing & Persistence Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: Peer QnA Service Message Routing\n\n**File:** `backend/tests/test_peer_qna_service.py`\n**Issue:** Add unit tests for `backend/app/peer_qna.py` testing question broadcast, answer threading, and tenant scoping.\n\n**Objective:**\n1. Create `backend/tests/test_peer_qna_service.py`.\n2. Test posting a question, adding an answer, and asserting isolation across departments.\n3. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-074",
+    "title": "Testing: Cloudflare Tunnel Service Status & Health Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: Cloudflare Tunnel Service Resilience\n\n**File:** `backend/tests/test_tunnel_service.py`\n**Issue:** Add unit tests for `backend/app/services/tunnel.py` testing tunnel healthcheck, retry, and URL retrieval.\n\n**Objective:**\n1. Create `backend/tests/test_tunnel_service.py`.\n2. Test tunnel URL extraction and graceful fallback when tunnel daemon is unavailable.\n3. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-075",
+    "title": "Testing: RAG Fallback Service Cache & Scoring Tests",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: RAG Fallback Service Cache\n\n**File:** `backend/tests/test_rag_fallback_service.py`\n**Issue:** Add unit tests for `backend/app/services/rag_fallback.py` testing semantic cache hits and relevance scoring.\n\n**Objective:**\n1. Create `backend/tests/test_rag_fallback_service.py`.\n2. Test query caching, similarity threshold checks, and empty fallback handling.\n3. Submit PR immediately upon verification."
   }
 ]

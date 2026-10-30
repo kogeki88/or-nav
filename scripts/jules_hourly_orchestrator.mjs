@@ -86,7 +86,7 @@ async function checkAndMergePRs() {
   let openPRs = [];
   try {
     const raw = execSync(
-      `${GH_PATH} pr list --repo ${REPO_NAME} --json number,title,headRefName,url,isDraft,mergeable`,
+      `${GH_PATH} pr list --repo ${REPO_NAME} --json number,title,headRefName,url,isDraft,mergeable,mergeStateStatus`,
       { encoding: 'utf8', timeout: 15000 }
     );
     openPRs = JSON.parse(raw || '[]');
@@ -104,19 +104,43 @@ async function checkAndMergePRs() {
     evaluatedCount++;
 
     try {
-      // Check if PR is conflicting; if so, attempt a rebase update from base branch
-      if (pr.mergeable === 'CONFLICTING') {
-        log(`[PR #${pr.number}] CONFLICTING: Attempting 'gh pr update-branch --rebase'...`);
+      let mergeableStatus = pr.mergeable;
+      let mergeState = pr.mergeStateStatus;
+
+      // If status is UNKNOWN, fetch explicit view from GitHub to trigger computation
+      if (mergeableStatus === 'UNKNOWN' || !mergeableStatus) {
+        try {
+          const detailRaw = execSync(
+            `${GH_PATH} pr view ${pr.number} --repo ${REPO_NAME} --json mergeable,mergeStateStatus`,
+            { encoding: 'utf8', timeout: 10000 }
+          );
+          const detail = JSON.parse(detailRaw || '{}');
+          mergeableStatus = detail.mergeable || mergeableStatus;
+          mergeState = detail.mergeStateStatus || mergeState;
+        } catch (viewErr) {
+          log(`[PR #${pr.number}] Warning: Could not refresh mergeable status: ${viewErr.message}`);
+        }
+      }
+
+      // Check if PR is conflicting or dirty; if so, attempt a rebase update from base branch
+      if (mergeableStatus === 'CONFLICTING' || mergeState === 'DIRTY') {
+        log(`[PR #${pr.number}] CONFLICTING/DIRTY: Attempting 'gh pr update-branch --rebase'...`);
         try {
           execSync(`${GH_PATH} pr update-branch ${pr.number} --rebase --repo ${REPO_NAME}`, {
             encoding: 'utf8',
-            timeout: 15000
+            timeout: 20000
           });
           log(`[PR #${pr.number}] Rebase update succeeded.`);
+          mergeableStatus = 'MERGEABLE';
         } catch (updateErr) {
           log(`[PR #${pr.number}] SKIPPED: Cannot merge due to unresolved merge conflicts with main.`);
           continue;
         }
+      }
+
+      if (mergeableStatus !== 'MERGEABLE') {
+        log(`[PR #${pr.number}] SKIPPED: PR mergeable status is ${mergeableStatus} (${mergeState}).`);
+        continue;
       }
 
       const diff = execSync(
@@ -408,12 +432,120 @@ const HIGH_IMPACT_CATALOG = [
     category: 'Testing',
     title: 'Testing: Hospital Manifest Validation & Department Hierarchy Tests',
     prompt: '# 🧪 Testing Task: Hospital Manifest Validation\n\n**File:** `backend/tests/test_manifest_validation.py`\n**Issue:** Test hospital manifest.json parsing and department schema integrity.\n\n**Objective:**\n1. Create `backend/tests/test_manifest_validation.py`.\n2. Verify loading all configured hospitals (County General, Memorial, etc.) without missing key errors.\n3. Submit PR immediately upon verification.'
+  },
+
+  // Additional Security
+  {
+    category: 'Security',
+    title: 'Sentinel: Rate Limiter Middleware and IP Throttling Tests',
+    prompt: '# 🛡️ Sentinel Security Task: Rate Limiter Middleware\n\n**File:** `backend/tests/test_rate_limiter_service.py`\n**Issue:** Verify rate limiting middleware on `/api/chat` and `/api/voice/token` returns HTTP 429 when thresholds are exceeded.\n\n**Objective:**\n1. Create `backend/tests/test_rate_limiter_service.py`.\n2. Simulate rapid consecutive requests exceeding limits and assert HTTP 429 Too Many Requests response.\n3. Verify Retry-After header presence.\n4. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Security',
+    title: 'Sentinel: OTA Package Cryptographic Checksum Verification Tests',
+    prompt: '# 🛡️ Sentinel Security Task: OTA Cryptographic Verification\n\n**File:** `backend/tests/test_ota_crypto_verification.py`\n**Issue:** Verify that over-the-air package installation verifies SHA-256 checksums and rejects corrupted payloads.\n\n**Objective:**\n1. Create `backend/tests/test_ota_crypto_verification.py`.\n2. Test OTA bundle verification with valid checksum and mismatched hash.\n3. Assert invalid packages are immediately rejected without touching filesystem.\n4. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Security',
+    title: 'Sentinel: Strict Tenant Boundary Isolation on Inventory CSV Import',
+    prompt: '# 🛡️ Sentinel Security Task: Inventory CSV Tenant Boundary\n\n**File:** `backend/tests/test_inventory_tenant_boundary.py`\n**Issue:** Ensure CSV inventory imports cannot overwrite or inject records into other hospital facility tenants.\n\n**Objective:**\n1. Create `backend/tests/test_inventory_tenant_boundary.py`.\n2. Test importing CSV records with cross-facility IDs and assert rejection.\n3. Verify tenant isolation invariant is preserved.\n4. Submit PR immediately upon verification.'
+  },
+
+  // Additional Performance
+  {
+    category: 'Performance',
+    title: 'Bolt: Dexie Compound Index Query Latency Benchmarks',
+    prompt: '# ⚡ Bolt Performance Task: Dexie Compound Index Latency\n\n**File:** `frontend/src/lib/dexieIndexBench.test.ts`\n**Issue:** Benchmark compound queries on IndexedDB [facility_id+dept_id] ensuring queries complete in < 2ms.\n\n**Objective:**\n1. Create `frontend/src/lib/dexieIndexBench.test.ts`.\n2. Benchmark 2,000 indexed queries against Dexie database.\n3. Assert average lookup latency remains under 2ms.\n4. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Performance',
+    title: 'Bolt: Offline Delta Sync Payload Compression Benchmarks',
+    prompt: '# ⚡ Bolt Performance Task: Delta Sync Payload Sizing\n\n**File:** `frontend/src/lib/deltaSyncPayload.test.ts`\n**Issue:** Benchmark offline delta sync payload compression and compact representation for low-bandwidth OR networks.\n\n**Objective:**\n1. Create `frontend/src/lib/deltaSyncPayload.test.ts`.\n2. Verify compact JSON serializes 50 offline mutations into < 10KB.\n3. Verify deserialization restores 100% of mutation records.\n4. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Performance',
+    title: 'Bolt: Client-Side PHI Scrubber High-Throughput Benchmarks',
+    prompt: '# ⚡ Bolt Performance Task: PHI Scrubber High-Throughput Benchmark\n\n**File:** `frontend/src/lib/scrubBenchmark.test.ts`\n**Issue:** Benchmark client-side PHI scrubber across 10,000 words of clinical dictation.\n\n**Objective:**\n1. Create `frontend/src/lib/scrubBenchmark.test.ts`.\n2. Benchmark redaction of MRNs, clinician names, and dates of birth in < 15ms.\n3. Verify zero memory leaks across 500 benchmark iterations.\n4. Submit PR immediately upon verification.'
+  },
+
+  // Additional Code Health & A11y
+  {
+    category: 'Code Health',
+    title: 'Code Health: MoveVerifyWidget Drag and Drop Interaction Tests',
+    prompt: '# 🧹 Code Health Task: MoveVerifyWidget Interaction Tests\n\n**File:** `frontend/src/components/MoveVerifyWidget.test.tsx`\n**Issue:** Add unit tests for MoveVerifyWidget verifying drag-and-drop state transitions, target drop zone validation, and item move confirmation.\n\n**Objective:**\n1. Create `frontend/src/components/MoveVerifyWidget.test.tsx`.\n2. Test drag start, hover over valid target shelf, drop event, and cancel action.\n3. Verify ARIA attributes on draggable items.\n4. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Code Health',
+    title: 'Code Health: Sidebar Responsive Navigation and Collapse Tests',
+    prompt: '# 🧹 Code Health Task: Sidebar Navigation Tests\n\n**File:** `frontend/src/components/Sidebar.test.tsx`\n**Issue:** Add unit tests for Sidebar component verifying drawer collapse, active link highlighting, and keyboard focus.\n\n**Objective:**\n1. Create `frontend/src/components/Sidebar.test.tsx`.\n2. Test expanding/collapsing sidebar and active route state.\n3. Verify accessible role="navigation" and aria-expanded attributes.\n4. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Code Health',
+    title: 'Code Health: FeedbackModal Submission & Telemetry Tests',
+    prompt: '# 🧹 Code Health Task: FeedbackModal Submission Tests\n\n**File:** `frontend/src/components/FeedbackModal.test.tsx`\n**Issue:** Add unit tests for FeedbackModal verifying star rating selection, comment limits, and offline queueing.\n\n**Objective:**\n1. Create `frontend/src/components/FeedbackModal.test.tsx`.\n2. Test submitting feedback with and without network connectivity.\n3. Verify error and success banners render properly.\n4. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Code Health',
+    title: 'Code Health: QuestionsDrawer Filter & Search Tests',
+    prompt: '# 🧹 Code Health Task: QuestionsDrawer Filter Tests\n\n**File:** `frontend/src/components/QuestionsDrawer.test.tsx`\n**Issue:** Add unit tests for QuestionsDrawer verifying unanswered question filtering and surgeon tag matching.\n\n**Objective:**\n1. Create `frontend/src/components/QuestionsDrawer.test.tsx`.\n2. Test filtering by department, search term input, and empty state display.\n3. Verify keyboard accessibility.\n4. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Code Health',
+    title: 'Code Health: Modal Dialog Keyboard Focus Trapping & ESC Tests',
+    prompt: '# 🧹 Code Health Task: Modal Keyboard Focus Trapping\n\n**File:** `frontend/src/components/ModalA11yFocus.test.tsx`\n**Issue:** Ensure clinical dialog modals trap keyboard focus within modal boundaries and dismiss on Escape key press.\n\n**Objective:**\n1. Create `frontend/src/components/ModalA11yFocus.test.tsx`.\n2. Test Tab cycle stays within modal and Shift+Tab wraps to last focusable element.\n3. Test pressing Escape closes modal.\n4. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Code Health',
+    title: 'Code Health: Gamification Mastery Engine Progression Tests',
+    prompt: '# 🧹 Code Health Task: Gamification Mastery Progression\n\n**File:** `frontend/src/lib/gamification.test.ts`\n**Issue:** Test clinical mastery gamification engine for XP calculation, level-up triggers, and streak tracking.\n\n**Objective:**\n1. Create `frontend/src/lib/gamification.test.ts`.\n2. Test awarding points on item verification, streak increments, and badge achievements.\n3. Verify serialization to Dexie storage.\n4. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Code Health',
+    title: 'Code Health: FeedbackEngine Offline Queue & Sentiment Tests',
+    prompt: '# 🧹 Code Health Task: FeedbackEngine Offline Queue\n\n**File:** `frontend/src/lib/feedbackEngine.test.ts`\n**Issue:** Test FeedbackEngine offline queueing, retry with exponential backoff, and sentiment scoring.\n\n**Objective:**\n1. Create `frontend/src/lib/feedbackEngine.test.ts`.\n2. Test enqueueing feedback while offline, persisting to storage, and draining queue on reconnect.\n3. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Code Health',
+    title: 'Code Health: VeoMotion Animation Transitions and Fallback Tests',
+    prompt: '# 🧹 Code Health Task: VeoMotion Animation Fallbacks\n\n**File:** `frontend/src/lib/veoMotion.test.ts`\n**Issue:** Add unit tests verifying VeoMotion graceful degradation when prefers-reduced-motion is enabled.\n\n**Objective:**\n1. Create `frontend/src/lib/veoMotion.test.ts`.\n2. Test reduced motion media query detection and fallback instant transitions.\n3. Submit PR immediately upon verification.'
+  },
+
+  // Additional Testing & Services
+  {
+    category: 'Testing',
+    title: 'Testing: Governance Service Policy Enforcement Tests',
+    prompt: '# 🧪 Testing Task: Governance Service Policy Enforcement\n\n**File:** `backend/tests/test_governance_service.py`\n**Issue:** Add unit tests for `backend/app/services/governance.py` verifying clinical policy verification and audit trails.\n\n**Objective:**\n1. Create `backend/tests/test_governance_service.py`.\n2. Test policy enforcement on critical surgeon preference updates and inventory adjustments.\n3. Assert audit records are created with timestamp and facility ID.\n4. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Testing',
+    title: 'Testing: Peer QnA Service Message Routing & Persistence Tests',
+    prompt: '# 🧪 Testing Task: Peer QnA Service Message Routing\n\n**File:** `backend/tests/test_peer_qna_service.py`\n**Issue:** Add unit tests for `backend/app/peer_qna.py` testing question broadcast, answer threading, and tenant scoping.\n\n**Objective:**\n1. Create `backend/tests/test_peer_qna_service.py`.\n2. Test posting a question, adding an answer, and asserting isolation across departments.\n3. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Testing',
+    title: 'Testing: Cloudflare Tunnel Service Status & Health Tests',
+    prompt: '# 🧪 Testing Task: Cloudflare Tunnel Service Resilience\n\n**File:** `backend/tests/test_tunnel_service.py`\n**Issue:** Add unit tests for `backend/app/services/tunnel.py` testing tunnel healthcheck, retry, and URL retrieval.\n\n**Objective:**\n1. Create `backend/tests/test_tunnel_service.py`.\n2. Test tunnel URL extraction and graceful fallback when tunnel daemon is unavailable.\n3. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Testing',
+    title: 'Testing: RAG Fallback Service Cache & Scoring Tests',
+    prompt: '# 🧪 Testing Task: RAG Fallback Service Cache\n\n**File:** `backend/tests/test_rag_fallback_service.py`\n**Issue:** Add unit tests for `backend/app/services/rag_fallback.py` testing semantic cache hits and relevance scoring.\n\n**Objective:**\n1. Create `backend/tests/test_rag_fallback_service.py`.\n2. Test query caching, similarity threshold checks, and empty fallback handling.\n3. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Testing',
+    title: 'Testing: Clinical Inventory Parity Tests for pacu_periop',
+    prompt: '# 🧪 Testing Task: Inventory Parity for pacu_periop\n\n**File:** `backend/tests/test_parity_pacu_periop.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `pacu_periop`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_pacu_periop.py`.\n2. Assert all items referenced in preference cards exist in `hospitals/pacu_periop/inventory.csv`.\n3. Submit PR immediately upon verification.'
+  },
+  {
+    category: 'Testing',
+    title: 'Testing: Clinical Inventory Parity Tests for sacred_heart',
+    prompt: '# 🧪 Testing Task: Inventory Parity for sacred_heart\n\n**File:** `backend/tests/test_parity_sacred_heart.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `sacred_heart`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_sacred_heart.py`.\n2. Assert all items referenced in preference cards exist in `hospitals/sacred_heart/inventory.csv`.\n3. Submit PR immediately upon verification.'
   }
 ];
 
 function ensureBacklogCapacity(backlog, needed) {
   const pendingCount = backlog.filter(t => t.status !== 'dispatched').length;
-  if (pendingCount >= needed) {
+  if (pendingCount >= needed + 5) {
     return backlog;
   }
 
@@ -423,7 +555,7 @@ function ensureBacklogCapacity(backlog, needed) {
   let nextId = backlog.length + 1;
   for (const catTask of HIGH_IMPACT_CATALOG) {
     if (!existingTitles.has(catTask.title.toLowerCase().trim())) {
-      const paddedId = String(nextId++).padStart(2, '0');
+      const paddedId = String(nextId++).padStart(3, '0');
       backlog.push({
         id: `backlog-${paddedId}`,
         title: catTask.title,
@@ -435,19 +567,35 @@ function ensureBacklogCapacity(backlog, needed) {
     }
   }
 
-  // If still need more, generate variations for untested components
-  if (backlog.filter(t => t.status !== 'dispatched').length < needed) {
-    const departments = ['county_general', 'er_trauma', 'icu_critical_care', 'pacu_periop', 'sacred_heart'];
-    for (const dept of departments) {
-      const title = `Testing: Clinical Inventory Parity Tests for ${dept}`;
+  // Infinite synthesizer: dynamically generate specialized tasks if still below needed + 5
+  if (backlog.filter(t => t.status !== 'dispatched').length < needed + 5) {
+    const modules = [
+      { name: 'DirectGemini', path: 'frontend/src/lib/directGemini.test.ts', cat: 'Testing' },
+      { name: 'SemanticParser', path: 'frontend/src/lib/semanticParser.test.ts', cat: 'Bolt' },
+      { name: 'AppSettings', path: 'frontend/src/lib/appSettings.test.ts', cat: 'Code Health' },
+      { name: 'HospitalMapping', path: 'frontend/src/lib/hospitalMapping.test.ts', cat: 'Testing' },
+      { name: 'CoordinateParser', path: 'frontend/src/lib/coordinateParser.test.ts', cat: 'Bolt' },
+      { name: 'MoveDebouncer', path: 'frontend/src/lib/moveDebouncer.test.ts', cat: 'Bolt' },
+      { name: 'OfflineDb', path: 'frontend/src/lib/offlineDbBench.test.ts', cat: 'Performance' },
+      { name: 'DeltaSync', path: 'frontend/src/lib/deltaSync.test.ts', cat: 'Testing' },
+      { name: 'AuthTokenRotation', path: 'backend/tests/test_auth_token_rotation.py', cat: 'Sentinel' },
+      { name: 'FeedbackPipeline', path: 'backend/tests/test_feedback_pipeline.py', cat: 'Testing' },
+      { name: 'IntentParser', path: 'backend/tests/test_intent_parser.py', cat: 'Testing' },
+      { name: 'InventorySearch', path: 'backend/tests/test_inventory_search.py', cat: 'Bolt' },
+      { name: 'LexiconLearningService', path: 'backend/tests/test_lexicon_service.py', cat: 'Code Health' },
+      { name: 'VoiceWorker', path: 'backend/tests/test_voice_worker.py', cat: 'Testing' }
+    ];
+
+    for (const m of modules) {
+      const title = `${m.cat}: Rigorous Unit & Regression Tests for ${m.name}`;
       if (!existingTitles.has(title.toLowerCase().trim())) {
-        const paddedId = String(nextId++).padStart(2, '0');
+        const paddedId = String(nextId++).padStart(3, '0');
         backlog.push({
           id: `backlog-${paddedId}`,
           title: title,
-          category: 'Testing',
+          category: m.cat === 'Sentinel' ? 'Security' : m.cat === 'Bolt' ? 'Performance' : m.cat,
           status: 'pending',
-          prompt: `# 🧪 Testing Task: Inventory Parity for ${dept}\n\n**File:** \`backend/tests/test_parity_${dept}.py\`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant \`${dept}\`.\n\n**Objective:**\n1. Create \`backend/tests/test_parity_${dept}.py\`.\n2. Assert all items referenced in preference cards exist in \`inventory.csv\`.\n3. Submit PR immediately upon verification.`
+          prompt: `# 🚀 ${m.cat} Task: Unit & Invariant Tests for ${m.name}\n\n**File:** \`${m.path}\`\n**Objective:**\n1. Create or extend unit tests in \`${m.path}\`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.`
         });
         existingTitles.add(title.toLowerCase().trim());
       }
