@@ -22,6 +22,70 @@ class TestScrubberServiceCoreContract:
         assert result.text == text
         assert result.redaction_count == 0
 
+    def test_scrub_phi_ssn(self):
+        text = "Patient SSN is 123-45-6789 and another one 987 65 4321."
+        result = scrub_phi(text)
+        assert "123-45-6789" not in result.text
+        assert "987 65 4321" not in result.text
+        assert result.redaction_count == 2
+        assert result.text.count(REDACTION) == 2
+
+    def test_scrub_phi_dob(self):
+        text = "DOB 01/15/1980 for the patient, also date of birth 12-31-99"
+        result = scrub_phi(text)
+        assert "01/15/1980" not in result.text
+        assert "12-31-99" not in result.text
+        assert result.redaction_count == 2
+        assert result.text.count(REDACTION) == 2
+
+    def test_scrub_phi_phone(self):
+        text = "Call me at (555) 123-4567 or 555-123-4567."
+        result = scrub_phi(text)
+        assert "(555) 123-4567" not in result.text
+        assert "555-123-4567" not in result.text
+        assert result.redaction_count == 2
+        assert result.text.count(REDACTION) == 2
+
+    def test_scrub_phi_phone_whitelist(self):
+        text = "MH Hotline 1-800-644-9737 is public."
+        result = scrub_phi(text)
+        assert "1-800-644-9737" in result.text
+        assert result.redaction_count == 0
+
+    def test_scrub_phi_patient_name(self):
+        text = "Patient John Smith needs surgery, pt Jane Doe also."
+        result = scrub_phi(text)
+        assert "John Smith" not in result.text
+        assert "Jane Doe" not in result.text
+        assert result.redaction_count == 2
+        assert result.text.count(REDACTION) == 2
+        assert "Patient" in result.text
+        assert "pt" in result.text
+
+    def test_scrub_phi_patient_name_preserves_surgeons(self):
+        text = "Dr. Patel and Doctor Chen are operating."
+        result = scrub_phi(text)
+        assert "Dr. Patel" in result.text
+        assert "Doctor Chen" in result.text
+        assert result.redaction_count == 0
+
+    def test_scrub_phi_patient_name_preserves_eponymous_instruments(self):
+        text = "Pass the mayo scissors and debakey forceps."
+        result = scrub_phi(text)
+        assert "mayo scissors" in result.text
+        assert "debakey forceps" in result.text
+        assert result.redaction_count == 0
+
+    def test_scrub_phi_preserves_clinical_terms(self):
+        text = "Patient John Doe needs 3-0 silk, #10 blade, 32Fr tube, OR 21 A 2 C."
+        result = scrub_phi(text)
+        assert "John Doe" not in result.text
+        assert "3-0 silk" in result.text
+        assert "#10 blade" in result.text
+        assert "32Fr tube" in result.text
+        assert "OR 21 A 2 C" in result.text
+        assert result.redaction_count == 1
+
 
 class TestScrubberServiceOfflineFirst:
     def test_scrub_phi_no_network_calls(self, monkeypatch):
