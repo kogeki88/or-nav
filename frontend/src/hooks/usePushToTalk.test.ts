@@ -4,7 +4,7 @@ import * as assert from 'node:assert';
 import { renderHook, waitFor, act } from '@testing-library/react';
 
 // Use proxyquire to mock livekit-client and api
-import proxyquire from 'proxyquire';
+const proxyquire = require('proxyquire');
 
 const mockMicrophoneEnabled = mock.fn(async () => {});
 let mockRoomConnect = mock.fn(async () => {});
@@ -215,5 +215,62 @@ describe('usePushToTalk', () => {
 
     assert.strictEqual(onDataChannelSync.mock.calls.length, 1);
     assert.deepStrictEqual(onDataChannelSync.mock.calls[0].arguments[0], payloadData);
+  });
+
+  test('offline-first invariant: falls back to BROWSER_WEB_SPEECH when fetchVoiceStatus fails', async () => {
+    mockFetchVoiceStatus = mock.fn(async () => {
+      throw new Error('Network offline');
+    });
+
+    const { result } = renderHook(() => usePushToTalk({ tenantId: 'test' }));
+
+    assert.strictEqual(result.current.voiceMode, 'BROWSER_WEB_SPEECH');
+
+    await waitFor(() => {
+      assert.strictEqual(result.current.voiceMode, 'BROWSER_WEB_SPEECH');
+      assert.strictEqual(result.current.livekitConfigured, false);
+    });
+  });
+
+  test('offline-first invariant: falls back to BROWSER_WEB_SPEECH when fetchVoiceToken fails', async () => {
+    mockFetchVoiceToken = mock.fn(async () => {
+      throw new Error('Network offline');
+    });
+
+    const { result } = renderHook(() => usePushToTalk({ tenantId: 'test' }));
+
+    await waitFor(() => {
+      assert.strictEqual(result.current.livekitConfigured, true);
+    });
+
+    await waitFor(() => {
+      assert.strictEqual(result.current.roomError, 'Network offline');
+    });
+
+    assert.strictEqual(result.current.voiceMode, 'BROWSER_WEB_SPEECH');
+  });
+
+  test('multi-tenant isolation: changing tenantId disconnects old room and reconnects to new room', async () => {
+    const { result, rerender } = renderHook((props: { tenantId: string }) => usePushToTalk(props), {
+      initialProps: { tenantId: 'tenant-a' },
+    });
+
+    await waitFor(() => {
+      assert.strictEqual(result.current.isConnected, true);
+    });
+
+    assert.strictEqual(mockRoomConnect.mock.calls.length, 1);
+    assert.deepStrictEqual(mockFetchVoiceToken.mock.calls[0].arguments, ['tenant-a']);
+
+    // Change tenant
+    rerender({ tenantId: 'tenant-b' });
+
+    await waitFor(() => {
+      // It should disconnect and reconnect, fetch token should be called with tenant-b
+      assert.strictEqual(mockRoomDisconnect.mock.calls.length, 1);
+      assert.strictEqual(mockFetchVoiceToken.mock.calls.length, 2);
+      assert.deepStrictEqual(mockFetchVoiceToken.mock.calls[1].arguments, ['tenant-b']);
+      assert.strictEqual(mockRoomConnect.mock.calls.length, 2);
+    });
   });
 });
