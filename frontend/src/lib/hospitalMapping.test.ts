@@ -107,4 +107,68 @@ test("getFacilityIdFromTenant normalizes facility ID resolution", async (t) => {
         // execution should be synchronously extremely fast
         assert.ok((end - start) < 5, "Execution must be under 5ms, proving synchronous offline-first nature");
     });
+
+    await t.test("Fuzzing & Boundaries: handles massive strings, emojis, and deeply nested colons", () => {
+        const massiveFacility = "a".repeat(10000);
+        const massiveDept = "b".repeat(10000);
+        assert.deepStrictEqual(getFacilityIdFromTenant(`${massiveFacility}::${massiveDept}`), {
+            facilityId: massiveFacility,
+            departmentId: massiveDept
+        });
+
+        assert.deepStrictEqual(getFacilityIdFromTenant("🏥hospital::🩺dept"), {
+            facilityId: "🏥hospital",
+            departmentId: "🩺dept"
+        });
+
+        assert.deepStrictEqual(getFacilityIdFromTenant("a::b::c::d::e::f"), {
+            facilityId: "a",
+            departmentId: "b"
+        });
+
+        assert.deepStrictEqual(getFacilityIdFromTenant("::"), {
+            facilityId: "sacred_heart",
+            departmentId: "or"
+        });
+
+        assert.deepStrictEqual(getFacilityIdFromTenant("::cvor"), {
+            facilityId: "sacred_heart",
+            departmentId: "cvor"
+        });
+
+        assert.deepStrictEqual(getFacilityIdFromTenant("sacred_heart::"), {
+            facilityId: "sacred_heart",
+            departmentId: "or"
+        });
+
+        assert.deepStrictEqual(getFacilityIdFromTenant("   ::   "), {
+            facilityId: "sacred_heart",
+            departmentId: "or"
+        });
+    });
+
+    await t.test("Malformed payload resilience: gracefully handles non-string inputs", () => {
+        // Casting to any to simulate JS runtime from malformed API payload
+        assert.deepStrictEqual(getFacilityIdFromTenant(null as any), { facilityId: "sacred_heart", departmentId: "or" });
+        assert.deepStrictEqual(getFacilityIdFromTenant(undefined as any), { facilityId: "sacred_heart", departmentId: "or" });
+        assert.deepStrictEqual(getFacilityIdFromTenant(12345 as any), { facilityId: "12345", departmentId: "or" });
+        assert.deepStrictEqual(getFacilityIdFromTenant({} as any), { facilityId: "[object object]", departmentId: "or" });
+    });
+
+    await t.test("Multi-tenant isolation: strict path traversals and encoded attempts", () => {
+        assert.deepStrictEqual(getFacilityIdFromTenant("%2e%2e%2fetc%2fpasswd::or"), {
+            facilityId: "%2e%2e%2fetc%2fpasswd",
+            departmentId: "or"
+        });
+
+        assert.deepStrictEqual(getFacilityIdFromTenant("/etc/passwd::or"), {
+            facilityId: "/etc/passwd",
+            departmentId: "or"
+        });
+
+        assert.deepStrictEqual(getFacilityIdFromTenant("C:\\Windows\\System32::or"), {
+            facilityId: "c:\\windows\\system32",
+            departmentId: "or"
+        });
+    });
 });

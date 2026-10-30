@@ -166,7 +166,7 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
 
 export function getFacilityIdFromTenant(tenantId: string): { facilityId: string; departmentId: string } {
   // If the string starts/ends with colons/slashes, handle it cleanly
-  let clean = (tenantId || "").trim().toLowerCase();
+  let clean = String(tenantId ?? "").trim().toLowerCase();
   clean = clean.replace(/\/+$/, '');
 
   if (clean.includes("::")) {
