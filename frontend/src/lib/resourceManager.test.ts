@@ -227,4 +227,97 @@ describe("ResourceManagerChecksum", () => {
     assert.strictEqual(summary.totalSizeBytes, 10);
     assert.strictEqual(summary.formattedSize, "10 B");
   });
+
+  test("deletePack removes pack from IndexedDB and offline inventory", async () => {
+    const csvContent = "item,room,cabinet,shelf,container,full_code\nScalpel,Main OR,A,1,A,Main OR A 1 A\n";
+    mock.method(global, 'fetch', async () => ({
+      ok: true,
+      status: 200,
+      text: async () => csvContent
+    }));
+
+    await resourceManager.installPack({
+      packId: "pack_del_1",
+      facilityId: "fac_del",
+      departmentId: "or",
+      title: "Test Delete Pack",
+      category: "department",
+      filePath: "fac_del/or/inventory.csv",
+      sizeBytes: 100,
+      versionHash: "v1",
+      updatedAt: "2023-01-01T00:00:00Z",
+    });
+
+    let installed = await resourceManager.getInstalledPacks();
+    assert.strictEqual(installed.length, 1);
+
+    let items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac_del::or").toArray();
+    assert.ok(items && items.length > 0);
+
+    // We expect 1 item (Scalpel) from the CSV, plus whatever getSeedInventoryItems returned (143 items in or_main)
+    const scalpel = items?.find(i => i.item === "Scalpel");
+    assert.ok(scalpel);
+
+    await resourceManager.deletePack("pack_del_1");
+
+    installed = await resourceManager.getInstalledPacks();
+    assert.strictEqual(installed.length, 0);
+
+    items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac_del::or").toArray();
+
+    // Since we delete all tenant items in deletePack and rehydrate, it'll rehydrate from seeds (no scalpel)
+    const scalpelAfter = items?.find(i => i.item === "Scalpel");
+    assert.strictEqual(scalpelAfter, undefined);
+  });
+
+  test("downloadPackContent throws error on fetch failure", async () => {
+    mock.method(global, 'fetch', async () => {
+      throw new Error("Network offline");
+    });
+
+    await assert.rejects(
+      async () => {
+        await resourceManager.downloadPackContent("test/path.md");
+      },
+      /Failed to download pack file: test\/path\.md/
+    );
+  });
+
+  test("unpackInstalledPacksToDexie hydrates inventory successfully", async () => {
+    const csvContent = "item,room,cabinet,shelf,container,full_code\nForceps,Main OR,B,2,C,Main OR B 2 C\n";
+    mock.method(global, 'fetch', async () => ({
+      ok: true,
+      status: 200,
+      text: async () => csvContent
+    }));
+
+    // First, install the pack which hydrates it.
+    await resourceManager.installPack({
+      packId: "pack_unpack_1",
+      facilityId: "fac_unpack",
+      departmentId: "or",
+      title: "Test Unpack",
+      category: "department",
+      filePath: "fac_unpack/or/inventory.csv",
+      sizeBytes: 100,
+      versionHash: "v1",
+      updatedAt: "2023-01-01T00:00:00Z",
+    });
+
+    // Clear the inventory items to simulate app restart without hydration
+    await offlineDb?.inventoryItems.clear();
+    let items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac_unpack::or").toArray();
+    assert.strictEqual(items?.length, 0);
+
+    // Call unpack to re-hydrate from installed pack (which overlays over base seed data)
+    const count = await resourceManager.unpackInstalledPacksToDexie("fac_unpack", "or");
+
+    // Check that we got the overlayed item
+    items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac_unpack::or").toArray();
+    assert.ok(items && items.length > 0);
+    assert.strictEqual(count, items!.length);
+
+    const forceps = items?.find(i => i.item === "Forceps");
+    assert.ok(forceps);
+  });
 });
