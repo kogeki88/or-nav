@@ -34,3 +34,6 @@ Rate limiting is critical to protect public endpoints (like `/api/chat` and `/ap
 ## 2024-10-24 - [LiveKit JWT Voice Token Security]
 - **Vulnerability**: JWT voice tokens lacked time-to-live enforcement (TTL).
 - **Prevention**: Added a strictly enforced time-to-live to minted token (`.with_ttl(datetime.timedelta(minutes=10))`). Verified metadata and identity mappings using standard claims.
+## 2023-10-29 - [Security Fix: Error Leakage Sanitization]
+Implemented a global `Exception` handler in `backend/app/main.py` using FastAPI's `@app.exception_handler(Exception)` mechanism. This ensures that any unexpected runtime errors fail securely, returning a generic `500 Internal Server Error` response instead of a raw Python traceback.
+This prevents the exposure of critical filesystem paths and environment variables (such as API keys and credentials) in publicly facing endpoints, addressing a critical vulnerability and ensuring robust information sanitization in the API responses.
