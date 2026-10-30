@@ -819,10 +819,11 @@
     "id": "backlog-091",
     "title": "Code Health: Rigorous Unit & Regression Tests for WakeLockHook",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Code Health Task (Phase 1): Rigorous Unit & Regression Tests for WakeLockHook\n\n**File:** `frontend/src/hooks/useWakeLock.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/hooks/useWakeLock.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "1137575827368924097",
-    "dispatchedAt": "2026-10-30T16:05:57.025Z"
+    "dispatchedAt": "2026-10-30T16:05:57.025Z",
+    "completedAt": "2026-10-30T22:10:48.478Z"
   },
   {
     "id": "backlog-092",
