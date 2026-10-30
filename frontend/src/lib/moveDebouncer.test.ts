@@ -90,4 +90,31 @@ describe("moveDebouncer", () => {
     await sleep(80);
     assert.strictEqual(callbackTriggered, 1);
   });
+
+  test("preserves multi-tenant identifiers and offline-first data structure without modification", async () => {
+    let receivedItems: any[] = [];
+
+    const debouncer = createMoveDebouncer((items: any[]) => {
+      receivedItems = items;
+    }, 50);
+
+    const payload1 = {
+      tenant_id: "sacred_heart::or",
+      offline_sync: { keys: ["id", "val"], data: [1, "test"] }
+    };
+
+    const payload2 = {
+      tenant_id: "sacred_heart::icu",
+      offline_sync: { keys: ["id", "val"], data: [2, null] }
+    };
+
+    debouncer(payload1);
+    debouncer(payload2);
+
+    await sleep(80);
+
+    assert.strictEqual(receivedItems.length, 2);
+    assert.deepStrictEqual(receivedItems[0], payload1);
+    assert.deepStrictEqual(receivedItems[1], payload2);
+  });
 });
