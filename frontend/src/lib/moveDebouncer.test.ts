@@ -54,7 +54,7 @@ describe("moveDebouncer", () => {
 
   test("triggers multiple times if delay passes between batches", async () => {
     let callbackTriggered = 0;
-    let receivedBatches: any[][] = [];
+    const receivedBatches: any[][] = [];
 
     const debouncer = createMoveDebouncer((items: any[]) => {
       callbackTriggered++;

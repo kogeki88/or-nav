@@ -137,7 +137,7 @@ describe('directGemini', () => {
 
   test('sendVoiceAudioQuery falls back to direct Gemini API on LiveKit / backend failure', async () => {
     setClientGeminiApiKey("test-api-key");
-    let calledEndpoints: string[] = [];
+    const calledEndpoints: string[] = [];
 
     // We mock fetch to record calls and fail on the API base but succeed on Gemini
     const mockFetch = async (input: RequestInfo | URL, init?: RequestInit) => {

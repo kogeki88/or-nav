@@ -224,7 +224,7 @@ const CoordinateCard = React.memo(function CoordinateCard({
 
       {/* Coordinate Strip: Unified 4-column divider grid */}
       <div className="grid grid-cols-4 divide-x divide-zinc-800 bg-zinc-950 rounded-lg border border-zinc-800/80 py-3 mt-3 mb-2 text-center">
-        <div>
+        <div aria-label={`Room ${card.room}`}>
           <div className="text-[10px] font-mono font-medium tracking-wider text-zinc-500 uppercase">
             Room
           </div>
@@ -232,7 +232,7 @@ const CoordinateCard = React.memo(function CoordinateCard({
             {card.room}
           </div>
         </div>
-        <div>
+        <div aria-label={`Cabinet ${card.cabinet}`}>
           <div className="text-[10px] font-mono font-medium tracking-wider text-zinc-500 uppercase">
             Cab
           </div>
@@ -240,7 +240,7 @@ const CoordinateCard = React.memo(function CoordinateCard({
             {card.cabinet}
           </div>
         </div>
-        <div>
+        <div aria-label={`Shelf ${card.shelf}`}>
           <div className="text-[10px] font-mono font-medium tracking-wider text-zinc-500 uppercase">
             Shelf
           </div>
@@ -248,7 +248,7 @@ const CoordinateCard = React.memo(function CoordinateCard({
             {card.shelf}
           </div>
         </div>
-        <div>
+        <div aria-label={`Bin ${card.container}`}>
           <div className="text-[10px] font-mono font-medium tracking-wider text-zinc-500 uppercase">
             Bin
           </div>
