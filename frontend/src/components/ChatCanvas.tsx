@@ -67,7 +67,7 @@ const STARTER_PROMPTS = [
   { label: "Report an item moved", prompt: "The 3-0 silk moved to OR 21 B 1 A" },
 ];
 
-function InlineQuickAddCard({
+const InlineQuickAddCard = React.memo(function InlineQuickAddCard({
   item,
   tenantId,
   initialNotes = "",
@@ -171,7 +171,7 @@ function InlineQuickAddCard({
       </button>
     </div>
   );
-}
+});
 
 export default function ChatCanvas({
   messages,
