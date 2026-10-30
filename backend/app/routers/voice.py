@@ -6,6 +6,7 @@ Endpoints:
     POST /api/voice/token  — Generates short-lived WebRTC room token for clinicians.
 """
 
+import datetime
 import io
 import os
 import re
@@ -137,6 +138,7 @@ async def mint_voice_token(request: Request, response: Response, req: VoiceToken
         .with_grants(grant)
         .with_identity(req.participant_name)
         .with_metadata(metadata)
+        .with_ttl(datetime.timedelta(minutes=10))
     )
 
     jwt_string = token.to_jwt()

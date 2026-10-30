@@ -26,3 +26,11 @@ When modifying FastAPI security headers to strictly enforce Content-Security-Pol
 ## 2026-10-30 - [Rate Limiter Middleware]
 
 Rate limiting is critical to protect public endpoints (like `/api/chat` and `/api/voice/token`) against DoS and brute-force attacks. The slowapi package allows decorators like `@limiter.limit("60/minute")` to easily enforce these limits on FastAPI routers. Testing entails iterating over the threshold and asserting the `429 Too Many Requests` status code and the presence of a `retry-after` header in the response.
+## 2026-10-29 - [Path Traversal in API]
+**Vulnerability:** Path traversal in `get_pack_file` endpoint due to insufficient validation of the target path.
+**Learning:** Checking for `..` is not sufficient, as absolute paths or normalized strings can bypass this logic, allowing arbitrary file reading (e.g. source code, `.env`).
+**Prevention:** Always use `pathlib.Path.resolve()` and `Path.is_relative_to()` to strictly bound the target path to an allowed base directory.
+
+## 2024-10-24 - [LiveKit JWT Voice Token Security]
+- **Vulnerability**: JWT voice tokens lacked time-to-live enforcement (TTL).
+- **Prevention**: Added a strictly enforced time-to-live to minted token (`.with_ttl(datetime.timedelta(minutes=10))`). Verified metadata and identity mappings using standard claims.
