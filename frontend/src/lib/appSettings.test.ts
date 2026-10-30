@@ -30,9 +30,16 @@ class LocalStorageMock {
 
 describe('appSettings', () => {
   let originalWindow: unknown;
+  let originalFetch: typeof fetch;
 
   beforeEach(() => {
     originalWindow = global.window;
+    originalFetch = global.fetch;
+
+    // Poison global.fetch to strictly enforce offline-first and pure local invariants
+    global.fetch = () => {
+      throw new Error("Network call detected! appSettings must remain offline-first and fully local.");
+    };
 
     // Mock window and localStorage
     const mockLocalStorage = new LocalStorageMock();
@@ -43,6 +50,7 @@ describe('appSettings', () => {
   });
 
   afterEach(() => {
+    global.fetch = originalFetch;
     (global as { window?: unknown }).window = originalWindow;
     if (originalWindow === undefined) {
       delete (global as { localStorage?: unknown }).localStorage;
@@ -123,6 +131,105 @@ describe('appSettings', () => {
     assert.strictEqual(settings.darkMode, DEFAULT_APP_SETTINGS.darkMode);
     assert.strictEqual(settings.fontScaling, DEFAULT_APP_SETTINGS.fontScaling);
     assert.strictEqual(settings.voiceSettings, DEFAULT_APP_SETTINGS.voiceSettings);
+  });
+
+  test('resists malformed JSON payloads in localStorage', () => {
+    localStorage.clear();
+
+    const malformedPayloads = [
+      '{',
+      'undefined',
+      'null',
+      '""',
+      '123',
+      '{"darkMode": true',
+      '[1, 2, 3]',
+      '{"__proto__": {"malicious": "yes"}}'
+    ];
+
+    for (const payload of malformedPayloads) {
+      localStorage.setItem(APP_SETTINGS_STORAGE_KEY, payload);
+      const settings = getAppSettings();
+      assert.deepStrictEqual(settings, DEFAULT_APP_SETTINGS, `Failed on payload: ${payload}`);
+    }
+  });
+
+  test('fuzzing saveAppSettings with malicious or malformed inputs', () => {
+    localStorage.clear();
+
+    const maliciousInputs: any[] = [
+      null,
+      undefined,
+      "string_instead_of_object",
+      123,
+      [],
+      { __proto__: { evil: true } },
+      { constructor: { prototype: { evil: true } } },
+      { autoUpdateEnabled: null },
+      { darkMode: undefined },
+      { fontScaling: "1.0" },
+      { voiceSettings: { complex: 'object' } },
+      { autoSyncEnabled: [true] }
+    ];
+
+    for (const input of maliciousInputs) {
+      try {
+        saveAppSettings(input);
+      } catch (e) {
+        // Just verify it doesn't crash on any weird input
+      }
+      // Ensure we don't accidentally merge these bad types over defaults
+      const current = getAppSettings();
+      assert.strictEqual(typeof current.autoUpdateEnabled, 'boolean');
+      assert.strictEqual(typeof current.autoSyncEnabled, 'boolean');
+      assert.strictEqual(typeof current.darkMode, 'boolean');
+      assert.strictEqual(typeof current.fontScaling, 'number');
+      assert.strictEqual(typeof current.voiceSettings, 'string');
+    }
+  });
+
+  test('handles boundary inputs for numeric and string values', () => {
+    localStorage.clear();
+
+    // Test numbers
+    const boundaryNumbers = [
+      0,
+      -1,
+      Number.MAX_SAFE_INTEGER,
+      Number.MIN_SAFE_INTEGER,
+      NaN,
+      Infinity,
+      -Infinity,
+      0.000000001
+    ];
+
+    for (const num of boundaryNumbers) {
+      saveAppSettings({ fontScaling: num });
+      const current = getAppSettings();
+      // Implementation uses generic typeof number, so NaN/Infinity might be preserved if they are stored as numbers,
+      // but JSON.stringify converts NaN and Infinity to null.
+      if (Number.isNaN(num) || !Number.isFinite(num)) {
+         assert.strictEqual(current.fontScaling, DEFAULT_APP_SETTINGS.fontScaling);
+      } else {
+         assert.strictEqual(current.fontScaling, num);
+      }
+    }
+
+    // Test strings
+    const boundaryStrings = [
+      "",
+      "a".repeat(10000), // Huge string
+      "   ",
+      "\0\0\0\0",
+      "🤖👾", // Unicode emojis
+      "<script>alert('xss')</script>" // XSS attempts
+    ];
+
+    for (const str of boundaryStrings) {
+      saveAppSettings({ voiceSettings: str });
+      const current = getAppSettings();
+      assert.strictEqual(current.voiceSettings, str);
+    }
   });
 
   test('getAppSettings returns default settings when window is undefined', () => {
