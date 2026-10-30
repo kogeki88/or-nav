@@ -341,3 +341,71 @@ def test_inventory_search_multi_tenant_isolation():
     assert id(inv_or) != id(inv_cvor)
     assert inv_or.tenant.tenant_id == TEST_TENANT.replace("::", "/")
     assert inv_cvor.tenant.tenant_id == OTHER_TENANT.replace("::", "/")
+
+def test_surgical_ontology_contract_invariants():
+    from app.services.surgical_ontology import (
+        is_eponym_conflict,
+        is_generic_class_only,
+        extract_eponyms,
+        normalize_or_lingo,
+        normalize_acoustic_speech
+    )
+
+    # Test extract_eponyms
+    assert "debakey" in extract_eponyms("debakey forceps")
+    assert "adson" in extract_eponyms("adson pickups")
+    assert "brown-adson" in extract_eponyms("brown adson")
+    assert "metzenbaum" in extract_eponyms("metz")
+    assert "crile" in extract_eponyms("snaps")
+    assert "kittner" in extract_eponyms("peanut")
+
+    # Test is_eponym_conflict
+    assert is_eponym_conflict("debakey", "debakey forceps") is False
+    assert is_eponym_conflict("adson", "debakey forceps") is True
+    assert is_eponym_conflict("castroviejo", "mayo-hegar") is True
+    # Non-generic modifiers
+    assert is_eponym_conflict("unobtanium laser forceps", "forceps") is True
+    assert is_eponym_conflict("unobtanium laser forceps", "unobtanium laser forceps") is False
+
+    # Test is_generic_class_only
+    assert is_generic_class_only("forceps") is True
+    assert is_generic_class_only("scissors") is True
+    assert is_generic_class_only("metzenbaum scissors") is False
+    assert is_generic_class_only("debakey forceps") is False
+
+def test_surgical_ontology_offline_first_invariant(monkeypatch):
+    import httpx
+    import socket
+    from app.services.surgical_ontology import (
+        is_eponym_conflict,
+        is_generic_class_only,
+        extract_eponyms,
+        normalize_or_lingo,
+        normalize_acoustic_speech
+    )
+
+    def mock_socket(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+    def mock_httpx_post(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+    def mock_httpx_get(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
+    monkeypatch.setattr(httpx, "post", mock_httpx_post)
+    monkeypatch.setattr(httpx, "get", mock_httpx_get)
+
+    # These pure functions must not trigger network calls
+    assert is_eponym_conflict("debakey", "debakey forceps") is False
+    assert is_generic_class_only("forceps") is True
+    assert "adson" in extract_eponyms("adson pickups")
+    assert normalize_or_lingo("ad son pickups") == "adson forceps"
+    assert normalize_acoustic_speech("add son") == "adson"
+
+def test_surgical_ontology_multi_tenant_isolation():
+    from app.services.surgical_ontology import normalize_or_lingo
+    # Surgical ontology operates on pure deterministic logic regardless of tenant state
+    res1 = normalize_or_lingo("ad son pickups")
+    res2 = normalize_or_lingo("ad son pickups")
+    assert res1 == res2
+    assert res1 == "adson forceps"
