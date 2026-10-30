@@ -910,9 +910,9 @@
     "id": "backlog-101",
     "title": "Sentinel: Rigorous Unit & Regression Tests for ChatRouterMultiTenant",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "completedAt": "2026-10-30T17:06:56.863Z",
+    "completedAt": "2026-10-30T21:53:48.274Z",
     "sessionId": "2174550398611475473",
     "dispatchedAt": "2026-10-30T18:07:12.139Z"
   },
@@ -1188,5 +1188,12 @@
     "category": "Code Health",
     "status": "pending",
     "prompt": "# 🚀 Code Health Task (Phase 3): High-Concurrency & Stress Benchmarks for AppSettings\n\n**File:** `frontend/src/lib/appSettings.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/appSettings.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-135",
+    "title": "Testing: High-Concurrency & Stress Benchmarks for HospitalMapping",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for HospitalMapping\n\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/hospitalMapping.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]
