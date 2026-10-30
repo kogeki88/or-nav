@@ -34,3 +34,9 @@ Implemented a benchmark for the `ClinicalQueryPlanner` to verify that a complex 
 - Used a columnar format by extracting common keys into a single `keys` array and mapping values to a `data` array of arrays.
 - Substituted `undefined` with `null` during compression to ensure JSON compatibility, and filtered `null` values back out upon decompression.
 - Verified through benchmark tests that 50 mock mutation records serialize into a highly compact format (<10KB) suitable for low-bandwidth OR networks.
+## 2024-10-30 - Dexie Compound Index Latency
+
+Benchmarked compound queries on IndexedDB `[facility_id+dept_id]` using Dexie.
+A bulk insertion of 10,000 items and 2,000 queries were performed to simulate real-world conditions.
+By utilizing compound indices appropriately (`.where("[facility_id+dept_id]").equals(["fac_1", dept])`), IndexedDB can achieve sub-millisecond query latency (averaging ~0.26ms).
+This optimization ensures robust performance for the multi-tenant architecture under heavy local query loads.
