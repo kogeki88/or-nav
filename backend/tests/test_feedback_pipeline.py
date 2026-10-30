@@ -1,5 +1,6 @@
 import json
 import pytest
+import httpx
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -30,21 +31,44 @@ def test_feedback_pipeline_multi_tenant_isolation():
     # List feedback for specific tenant
     res_sh = client.get("/api/feedback?tenantId=sacred_heart::or")
     assert res_sh.status_code == 200
+    initial_sh_count = len(res_sh.json()["items"])
     for item in res_sh.json()["items"]:
         assert item["tenantId"].startswith("sacred_heart")
 
     res_pp = client.get("/api/feedback?tenantId=princeton_plainsboro::or")
     assert res_pp.status_code == 200
+    initial_pp_count = len(res_pp.json()["items"])
     for item in res_pp.json()["items"]:
         assert item["tenantId"].startswith("princeton_plainsboro")
+
+    # Create a new item for Sacred Heart to ensure it doesn't leak
+    payload = {
+        "tenantId": "sacred_heart::or",
+        "rawText": "Isolated test complaint"
+    }
+    client.post("/api/feedback", json=payload)
+
+    # Assert Sacred Heart count increased, PP count remained same
+    res_sh_new = client.get("/api/feedback?tenantId=sacred_heart::or")
+    assert len(res_sh_new.json()["items"]) == initial_sh_count + 1
+
+    res_pp_new = client.get("/api/feedback?tenantId=princeton_plainsboro::or")
+    assert len(res_pp_new.json()["items"]) == initial_pp_count
 
     res_cg = client.get("/api/feedback?tenantId=county_general::er")
     assert res_cg.status_code == 200
     for item in res_cg.json()["items"]:
         assert item["tenantId"].startswith("county_general")
 
-def test_offline_first_invariants():
+def test_offline_first_invariants(monkeypatch):
     """Ensure that the feedback pipeline operations maintain the offline-first data structure and constraints."""
+    def block_network(*args, **kwargs):
+        raise RuntimeError("Network access is strictly forbidden in offline-first mode")
+
+    monkeypatch.setattr(httpx, "get", block_network)
+    monkeypatch.setattr(httpx, "post", block_network)
+    monkeypatch.setattr(httpx, "request", block_network)
+
     res = client.get("/api/feedback")
     assert res.status_code == 200
     data = res.json()
@@ -90,3 +114,32 @@ def test_similarity_deduplication():
     """Test duplicate similarity logic."""
     assert is_similar("This screen is too bright", "The screen is way too bright")
     assert not is_similar("This screen is too bright", "Where are the bandages")
+
+def test_fuzzing_and_boundary_conditions():
+    """Fuzzing and boundary tests for malformed payload resilience and strict schema validation."""
+
+    # 1. Missing required field 'rawText'
+    res = client.post("/api/feedback", json={"tenantId": "sacred_heart::or"})
+    assert res.status_code in [400, 422]
+
+    # 2. Empty rawText
+    res = client.post("/api/feedback", json={"rawText": "   "})
+    assert res.status_code == 400
+
+    # 3. Malformed payload type for rawText
+    res = client.post("/api/feedback", json={"rawText": {"object": "instead_of_string"}})
+    assert res.status_code == 422
+
+    # 4. Very long rawText (boundary)
+    long_text = "A" * 10000
+    res = client.post("/api/feedback", json={"rawText": long_text})
+    assert res.status_code == 200
+    assert res.json()["rawText"] == long_text
+
+    # 5. Invalid status transition
+    res = client.patch(f"/api/feedback/{res.json()['id']}/status", json={"status": "invalid_status"})
+    assert res.status_code == 400
+
+    # 6. Random non-existent endpoint or malformed id
+    res = client.patch("/api/feedback/non_existent_id_123/status", json={"status": "resolved"})
+    assert res.status_code == 404
