@@ -110,6 +110,49 @@ export interface ClinicalEntityGraph {
   protocolTopics: Set<string>;
 }
 
+export function findShortestPath(
+  adjacencyList: Record<string, string[]>,
+  startNode: string,
+  endNode: string
+): string[] | null {
+  if (startNode === endNode) return [startNode];
+  if (!adjacencyList[startNode]) return null;
+
+  // Use a map to track parents to avoid recreating arrays for every node
+  const parentMap = new Map<string, string>();
+  const queue: string[] = [startNode];
+  let head = 0;
+
+  const visited = new Set<string>([startNode]);
+
+  while (head < queue.length) {
+    const currentNode = queue[head++];
+    const neighbors = adjacencyList[currentNode] || [];
+
+    for (const neighbor of neighbors) {
+      if (neighbor === endNode) {
+        // Reconstruct path
+        const path = [endNode];
+        let current = currentNode;
+        while (current !== startNode) {
+          path.push(current);
+          current = parentMap.get(current)!;
+        }
+        path.push(startNode);
+        return path.reverse();
+      }
+
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        parentMap.set(neighbor, currentNode);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return null;
+}
+
 export function normalizeGraphText(text: string): string {
   return (text || "")
     .toLowerCase()
