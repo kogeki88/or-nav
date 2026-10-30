@@ -1,4 +1,4 @@
-import 'jsdom-global/register';
+import 'jsdom-global/register.js';
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
@@ -145,4 +145,200 @@ test('microphone button touch events and loading indicator state', async () => {
       "Didn't catch that — try speaking closer to the mic"
     );
   });
+});
+
+
+test('file upload button triggers onFileUpload', async () => {
+  const onFileUpload = mock.fn();
+
+  render(
+    <Omnibar
+      onSendMessage={() => {}}
+      onFileUpload={onFileUpload}
+    />
+  );
+
+  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+  assert.ok(fileInput);
+
+  const file = new File(['hello'], 'hello.png', { type: 'image/png' });
+  fireEvent.change(fileInput, { target: { files: [file] } });
+
+  assert.strictEqual(onFileUpload.mock.calls.length, 1);
+  assert.strictEqual(onFileUpload.mock.calls[0].arguments[0], file);
+});
+
+test('empty input submission is ignored', async () => {
+  const onSendMessage = mock.fn();
+
+  render(
+    <Omnibar
+      onSendMessage={onSendMessage}
+      onFileUpload={() => {}}
+    />
+  );
+
+  const input = screen.getByTestId('omnibar-input');
+  const submitBtn = screen.getByTestId('omnibar-submit-btn');
+
+  fireEvent.click(submitBtn);
+  assert.strictEqual(onSendMessage.mock.calls.length, 0);
+
+  fireEvent.change(input, { target: { value: '   ' } });
+  fireEvent.click(submitBtn);
+  assert.strictEqual(onSendMessage.mock.calls.length, 0);
+});
+
+test('2000 character limit enforcement', async () => {
+  const onSendMessage = mock.fn();
+
+  render(
+    <Omnibar
+      onSendMessage={onSendMessage}
+      onFileUpload={() => {}}
+    />
+  );
+
+  const input = screen.getByTestId('omnibar-input');
+  const longText = 'a'.repeat(2001);
+
+  fireEvent.change(input, { target: { value: longText } });
+  const submitBtn = screen.getByTestId('omnibar-submit-btn');
+  fireEvent.click(submitBtn);
+
+  assert.strictEqual(onSendMessage.mock.calls.length, 0);
+
+  // Checking that it shows the flash placeholder
+  await waitFor(() => {
+    assert.strictEqual(
+      (input as HTMLInputElement).placeholder,
+      'Query exceeds 2,000 character limit'
+    );
+  });
+});
+
+test('disabled state blocks interaction', async () => {
+  const onSendMessage = mock.fn();
+  const onFileUpload = mock.fn();
+
+  render(
+    <Omnibar
+      onSendMessage={onSendMessage}
+      onFileUpload={onFileUpload}
+      disabled={true}
+    />
+  );
+
+  const input = screen.getByTestId('omnibar-input') as HTMLInputElement;
+  const submitBtn = screen.getByTestId('omnibar-submit-btn') as HTMLButtonElement;
+  const micBtn = screen.getByTestId('ptt-mic-btn') as HTMLButtonElement;
+  const uploadBtn = screen.getByTestId('paperclip-upload-btn') as HTMLButtonElement;
+
+  assert.strictEqual(input.disabled, true);
+  assert.strictEqual(submitBtn.disabled, true);
+  assert.strictEqual(micBtn.disabled, true);
+  assert.strictEqual(uploadBtn.disabled, true);
+
+  fireEvent.click(submitBtn);
+  assert.strictEqual(onSendMessage.mock.calls.length, 0);
+});
+
+test('spacebar Push-To-Talk logic on desktop', async () => {
+  const onSendMessage = mock.fn();
+
+  render(
+    <Omnibar
+      onSendMessage={onSendMessage}
+      onFileUpload={() => {}}
+    />
+  );
+
+  const input = screen.getByTestId('omnibar-input');
+
+  // Press spacebar (target body, not an input)
+  fireEvent.keyDown(window, { code: 'Space', repeat: false });
+
+  await waitFor(() => {
+    assert.strictEqual(
+      (input as HTMLInputElement).placeholder,
+      '🎙️ Starting mic...'
+    );
+  });
+
+  // Release spacebar
+  fireEvent.keyUp(window, { code: 'Space' });
+
+  await waitFor(() => {
+    assert.strictEqual(
+      (input as HTMLInputElement).placeholder,
+      'Transcribing audio clip...'
+    );
+  });
+});
+
+test('enforce offline-first invariant (no global.fetch calls)', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = mock.fn(() => {
+    throw new Error('Network request blocked by offline-first invariant');
+  });
+
+  try {
+    const onSendMessage = mock.fn();
+
+    render(
+      <Omnibar
+        onSendMessage={onSendMessage}
+        onFileUpload={() => {}}
+      />
+    );
+
+    const input = screen.getByTestId('omnibar-input');
+    fireEvent.change(input, { target: { value: 'Offline message' } });
+
+    const submitBtn = screen.getByTestId('omnibar-submit-btn');
+    fireEvent.click(submitBtn);
+
+    assert.strictEqual(onSendMessage.mock.calls.length, 1);
+    assert.strictEqual(onSendMessage.mock.calls[0].arguments[0], 'Offline message');
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test('enforce multi-tenant isolation invariant (stateless)', async () => {
+  const onSendMessage = mock.fn();
+
+  // The component should NOT hold any internal tenant state.
+  // We can render two independent instances and prove they fire events independently without cross-talk
+  const { unmount } = render(
+    <div>
+      <div data-testid="tenant-1-container">
+        <Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />
+      </div>
+      <div data-testid="tenant-2-container">
+        <Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />
+      </div>
+    </div>
+  );
+
+  const inputs = screen.getAllByTestId('omnibar-input');
+  const submitBtns = screen.getAllByTestId('omnibar-submit-btn');
+
+  assert.strictEqual(inputs.length, 2);
+
+  // Interact with first instance
+  fireEvent.change(inputs[0], { target: { value: 'tenant 1 message' } });
+  fireEvent.click(submitBtns[0]);
+
+  assert.strictEqual(onSendMessage.mock.calls.length, 1);
+  assert.strictEqual(onSendMessage.mock.calls[0].arguments[0], 'tenant 1 message');
+
+  // Interact with second instance
+  fireEvent.change(inputs[1], { target: { value: 'tenant 2 message' } });
+  fireEvent.click(submitBtns[1]);
+
+  assert.strictEqual(onSendMessage.mock.calls.length, 2);
+  assert.strictEqual(onSendMessage.mock.calls[1].arguments[0], 'tenant 2 message');
+
+  unmount();
 });
