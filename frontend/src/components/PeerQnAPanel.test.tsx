@@ -19,19 +19,43 @@ const dummyProfile = {
   yearsExperience: 5
 };
 
+let mockOfflineQuestions: any[] = [];
+let mockSaveOfflinePeerQuestionCalls: any[] = [];
+
+const mockGetOfflinePeerQuestions = mock.fn(async (tenantId: string) => {
+    return mockOfflineQuestions.filter(q => q.tenantId === tenantId);
+});
+
+const mockSaveOfflinePeerQuestion = mock.fn(async (q: any) => {
+    mockSaveOfflinePeerQuestionCalls.push(q);
+});
+
+const mockSaveOfflinePeerQuestions = mock.fn(async () => {});
+
 const PeerQnAPanelMod = proxyquire('./PeerQnAPanel', {
     '@/lib/gamification': {
         awardClinicalXP: mock.fn()
     },
     '@/lib/auth': {
         createTimeoutSignal: mock.fn(() => new AbortController().signal)
+    },
+    '@/lib/offlineDb': {
+        getOfflinePeerQuestions: mockGetOfflinePeerQuestions,
+        saveOfflinePeerQuestion: mockSaveOfflinePeerQuestion,
+        saveOfflinePeerQuestions: mockSaveOfflinePeerQuestions
     }
 });
 
 const PeerQnAPanel = PeerQnAPanelMod.default;
 
 beforeEach(() => {
-  global.fetch = mock.fn<any>(async () => ({
+  mockOfflineQuestions = [];
+  mockSaveOfflinePeerQuestionCalls = [];
+  mockGetOfflinePeerQuestions.mock.resetCalls();
+  mockSaveOfflinePeerQuestion.mock.resetCalls();
+  mockSaveOfflinePeerQuestions.mock.resetCalls();
+
+  global.fetch = mock.fn(async () => ({
     ok: true,
     json: async () => ([])
   } as unknown as Response));
@@ -39,7 +63,6 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  mock.reset();
 });
 
 test('lists unanswered questions and respects department filtering', async () => {
@@ -76,7 +99,7 @@ test('lists unanswered questions and respects department filtering', async () =>
         }
     ];
 
-    global.fetch = mock.fn<any>(async () => ({
+    global.fetch = mock.fn(async () => ({
         ok: true,
         json: async () => questions
     } as unknown as Response));
@@ -117,7 +140,7 @@ test('submitting an answer with clinical role', async () => {
         }
     ];
 
-    global.fetch = mock.fn<any>(async (url: any, options: any) => {
+    global.fetch = mock.fn(async (url: any, options: any) => {
         if (options && options.method === 'POST') {
             return {
                 ok: true,
@@ -176,7 +199,7 @@ test('verify touch targets and accessibility', async () => {
         }
     ];
 
-    global.fetch = mock.fn<any>(async () => ({
+    global.fetch = mock.fn(async () => ({
         ok: true,
         json: async () => questions
     } as unknown as Response));
@@ -197,5 +220,128 @@ test('verify touch targets and accessibility', async () => {
     await waitFor(() => {
         const badge = screen.getByTestId('badge-unverified');
         assert.ok(badge.className.includes('px-2.5') && badge.className.includes('py-0.5'));
+    });
+});
+
+test('enforces multi-tenant isolation in network requests', async () => {
+    let fetchUrl = '';
+    global.fetch = mock.fn(async (url: any) => {
+        fetchUrl = url;
+        return { ok: true, json: async () => [] } as unknown as Response;
+    });
+
+    render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="sacred_heart::or" userProfile={dummyProfile} />);
+
+    await waitFor(() => {
+        assert.ok(fetchUrl.includes('tenant_id=sacred_heart%3A%3Aor'), 'Fetch URL should contain correctly encoded tenant_id');
+    });
+});
+
+test('offline-first fallback when network fails', async () => {
+    mockOfflineQuestions = [
+        {
+            id: 'offline-q1',
+            tenantId: 'er_trauma',
+            questionText: 'Offline Question?',
+            askedBy: 'Dr. Offline',
+            role: 'Attending',
+            createdAt: new Date().toISOString(),
+            answers: [],
+            status: 'unverified',
+            verificationsCount: 0
+        }
+    ];
+
+    global.fetch = mock.fn(async () => {
+        throw new Error('Network offline');
+    });
+
+    render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="er_trauma" userProfile={dummyProfile} />);
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('Offline Question?'));
+    });
+});
+
+test('offline submission fallback handles tenant isolation', async () => {
+    global.fetch = mock.fn(async () => {
+        throw new Error('Network error');
+    });
+
+    render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="isolated_tenant" userProfile={dummyProfile} />);
+
+    const askTab = screen.getByText('Ask Department Peers');
+    fireEvent.click(askTab);
+
+    const textarea = screen.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+    fireEvent.change(textarea, { target: { value: 'Where is the secret stash?' } });
+
+    const submitBtn = screen.getByText('Broadcast Question');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('Where is the secret stash?'));
+    });
+
+    assert.strictEqual(mockSaveOfflinePeerQuestionCalls.length, 1);
+    assert.strictEqual(mockSaveOfflinePeerQuestionCalls[0].tenantId, 'isolated_tenant');
+    assert.strictEqual(mockSaveOfflinePeerQuestionCalls[0].questionText, 'Where is the secret stash?');
+});
+
+test('verify answer updates local and remote state', async () => {
+    const questions = [
+        {
+            id: 'q1',
+            tenantId: 'er_trauma',
+            questionText: 'What is the standard procedure?',
+            askedBy: 'Dr. Smith',
+            role: 'Attending',
+            createdAt: new Date().toISOString(),
+            answers: [
+                {
+                    answerId: 'a1',
+                    answeredBy: 'Nurse A',
+                    answerText: 'Standard protocol.',
+                    verifiedBy: [],
+                    isVerifiedConsensus: false
+                }
+            ],
+            status: 'unverified',
+            verificationsCount: 0
+        }
+    ];
+
+    global.fetch = mock.fn(async (url: any, options: any) => {
+        if (options && options.method === 'POST' && url.includes('/verify')) {
+            return {
+                ok: true,
+                json: async () => ({
+                    ...questions[0],
+                    answers: [{
+                        ...questions[0].answers[0],
+                        verifiedBy: ['Test Nurse (Circulating RN)'],
+                        isVerifiedConsensus: false
+                    }],
+                    verificationsCount: 1
+                })
+            } as unknown as Response;
+        }
+        return {
+            ok: true,
+            json: async () => questions
+        } as unknown as Response;
+    });
+
+    render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="er_trauma" userProfile={dummyProfile} />);
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('What is the standard procedure?'));
+    });
+
+    const verifyBtn = screen.getByText('[✓ Verify Answer]');
+    fireEvent.click(verifyBtn);
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('✓ Verified by You'));
     });
 });
