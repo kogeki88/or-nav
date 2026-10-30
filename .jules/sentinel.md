@@ -22,3 +22,7 @@ When modifying FastAPI security headers to strictly enforce Content-Security-Pol
 ## 2024-11-20 - Enforcing Authorized Clinical Roles in Profile Update Modal
 - Ensure UI inputs selecting authorization roles are strictly validated against the server-authorized (or pre-defined mapping) roles to prevent unauthenticated privilege escalation via DOM manipulation.
 - Verify authorization changes successfully dispatch relevant audit logs/events to monitor for role tampering.
+
+## 2026-10-30 - [Rate Limiter Middleware]
+
+Rate limiting is critical to protect public endpoints (like `/api/chat` and `/api/voice/token`) against DoS and brute-force attacks. The slowapi package allows decorators like `@limiter.limit("60/minute")` to easily enforce these limits on FastAPI routers. Testing entails iterating over the threshold and asserting the `429 Too Many Requests` status code and the presence of a `retry-after` header in the response.
