@@ -10,8 +10,6 @@ import {
 } from './directGemini';
 import { sendVoiceAudioQuery } from './api';
 import 'jsdom-global/register';
-import { scrubPhi } from './scrubClient';
-import { normalizeAcousticSpeech } from './surgicalOntology';
 
 class LocalStorageMock {
   private store: Record<string, string> = {};
@@ -139,18 +137,15 @@ describe('directGemini', () => {
     setClientGeminiApiKey("test-api-key");
     const calledEndpoints: string[] = [];
 
-    // We mock fetch to record calls and fail on the API base but succeed on Gemini
     const mockFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = input.toString();
       calledEndpoints.push(url);
 
       if (url.includes('/api/v1/voice-query')) {
-        // Simulate backend / LiveKit server being unreachable
         throw new TypeError('Failed to fetch');
       }
 
       if (url.includes('generativelanguage.googleapis.com')) {
-        // Simulate Gemini API success
         return {
           ok: true,
           json: async () => ({
@@ -168,13 +163,52 @@ describe('directGemini', () => {
     const blob = new Blob(["test audio"], { type: "audio/webm" });
     const response = await sendVoiceAudioQuery(blob, "tenant-123");
 
-    // The primary backend call should have been attempted
     assert.ok(calledEndpoints.some(e => e.includes('/api/v1/voice-query')), 'Should try backend first');
-
-    // The Gemini fallback call should have been attempted
     assert.ok(calledEndpoints.some(e => e.includes('generativelanguage.googleapis.com')), 'Should fallback to direct Gemini API');
 
     assert.strictEqual(response.safe_transcript, "Mocked fallback transcript");
     assert.strictEqual(response.silence, false);
+  });
+
+  test('Multi-tenant isolation: directGeminiRAG yields different context for different departments', async () => {
+    setClientGeminiApiKey("test-api-key");
+    const capturedPayloads: any[] = [];
+
+    global.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init && init.body) {
+        capturedPayloads.push(JSON.parse(init.body as string));
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: "Mock response" }] } }]
+        })
+      } as unknown as Response;
+    };
+
+    await directGeminiRAG("query", undefined, undefined, "or_main");
+    await directGeminiRAG("query", undefined, undefined, "icu_critical_care");
+
+    assert.strictEqual(capturedPayloads.length, 2);
+
+    const orPrompt = capturedPayloads[0].contents[0].parts[0].text;
+    const icuPrompt = capturedPayloads[1].contents[0].parts[0].text;
+
+    assert.match(orPrompt, /Operating Room \(OR\)/);
+    assert.match(icuPrompt, /ICU \/ Critical Care/);
+    assert.notStrictEqual(orPrompt, icuPrompt);
+  });
+
+  test('Offline-first invariant: directGeminiRAG throws when offline', async () => {
+    setClientGeminiApiKey("test-key");
+
+    global.fetch = async () => {
+      throw new Error("Network offline");
+    };
+
+    await assert.rejects(
+      () => directGeminiRAG("test query"),
+      /Network offline/
+    );
   });
 });
