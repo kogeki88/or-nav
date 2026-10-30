@@ -45,13 +45,24 @@ export async function readAndExtractSession(sessionId, apiKey) {
   }
   const session = await sessionRes.json();
 
-  // 2. Fetch Session Activities
+  // 2. Fetch Session Activities (with pagination)
   let activities = [];
   try {
-    const actRes = await fetch(`${JULES_API_URL}/${sessionId}/activities`, { headers });
-    if (actRes.ok) {
+    let pageToken = '';
+    let pages = 0;
+    while (pages < 5) {
+      const url = pageToken
+        ? `${JULES_API_URL}/${sessionId}/activities?pageSize=100&pageToken=${encodeURIComponent(pageToken)}`
+        : `${JULES_API_URL}/${sessionId}/activities?pageSize=100`;
+      const actRes = await fetch(url, { headers });
+      if (!actRes.ok) break;
       const actData = await actRes.json();
-      activities = actData.activities || [];
+      if (actData.activities) {
+        activities.push(...actData.activities);
+      }
+      if (!actData.nextPageToken) break;
+      pageToken = actData.nextPageToken;
+      pages++;
     }
   } catch (err) {
     console.warn(`[Jules Manager] Activities fetch warning: ${err.message}`);
@@ -115,7 +126,7 @@ export function evaluateContext(extracted) {
     /pre-existing|already fail|failing tests?|failures? on `?main`?|independent of the changes|should i attempt to fix|should i:?\s*a\)|scope to fix/i.test(q);
 
   // Detect option choices (A vs B)
-  const offersOptions = /should i:?\s*(option\s*)?a\)|or would you prefer|proceed with creating the pull request/i.test(q);
+  const offersOptions = /should i:?\s*(option\s*)?a\)|or would you prefer|proceed with creating the pull request|shall i open the pr|do you want me to|open the pr/i.test(q);
 
   // Detect technical questions about code or imports
   const asksTechnicalCode =
