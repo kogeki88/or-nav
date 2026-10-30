@@ -40,6 +40,7 @@ class GovernanceService:
         self.questions_path: Path = HOSPITALS_DIR / self.tenant.tenant_id / "unanswered_questions.json"
         self._lock = threading.RLock()
         self._questions: list[dict] = []
+        self._audit_log: list[dict] = []
         self._load()
 
     def _load(self) -> None:
@@ -208,6 +209,35 @@ class GovernanceService:
             get_rag_service(self.tenant.tenant_id).reload()
         except Exception:
             pass
+
+    def verify_policy(self, action: str, role: str) -> bool:
+        """Enforces clinical policies based on user roles."""
+        authorized_roles = {"Circulating RN", "Charge RN", "CRNA", "ICU RN", "ER RN", "PACU RN"}
+        if action in ("surgeon_preference_update", "inventory_adjustment"):
+            if role in authorized_roles:
+                return True
+            return False
+        return True
+
+    def log_audit_event(self, action: str, details: str, user_role: str) -> dict:
+        """Creates an audit record containing a timestamp and the facility ID."""
+        now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with self._lock:
+            event = {
+                "id": f"audit-{uuid.uuid4().hex[:8]}",
+                "facility_id": self.tenant.tenant_id,
+                "timestamp": now_iso,
+                "action": action,
+                "details": details,
+                "user_role": user_role,
+            }
+            self._audit_log.append(event)
+        return event
+
+    def get_audit_trail(self) -> list[dict]:
+        """Retrieves logged events."""
+        with self._lock:
+            return list(self._audit_log)
 
 
 _gov_services: dict[str, GovernanceService] = {}
