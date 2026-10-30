@@ -783,11 +783,19 @@ export function extractSurgeonName(text: string): string | null {
 export function highlightSurgeonNote(surgeon: string | null, notes: string | null): string | null {
   if (!surgeon || !notes) return null;
   const sLast = surgeon.replace(/^(?:dr\.?|doctor)\s*/i, "").trim();
+  const escapedLast = sLast.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
   // Safe sentence split: preserves "Dr." honorifics
-  const clauses = notes.split(/(?:;|(?:(?<!\bDr)(?<!\bdr)\.)\s+)/i);
+  // If the notes contain the surgeon name explicitly with a semicolon, don't split that surgeon name
+  let safeNotes = notes;
+  if (safeNotes.toLowerCase().includes(surgeon.toLowerCase())) {
+    safeNotes = safeNotes.replace(new RegExp(`(${escapedLast})`, "gi"), (match) => match.replace(/;/g, "__SEMICOLON__"));
+  }
+
+  const clauses = safeNotes.split(/(?:;|(?:(?<!\bDr)(?<!\bdr)\.)\s+)/i);
   const matching = clauses
-    .map((c) => c.trim())
-    .filter((c) => new RegExp(`\\b${sLast}\\b`, "i").test(c));
+    .map((c) => c.replace(/__SEMICOLON__/g, ";").trim())
+    .filter((c) => new RegExp(`(?<!\\w)${escapedLast}(?!\\w)`, "i").test(c));
 
   return matching.length > 0 ? matching.join("; ") : null;
 }
