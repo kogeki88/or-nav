@@ -786,14 +786,134 @@
     "id": "backlog-088",
     "title": "Code Health: Rigorous Unit & Regression Tests for LexiconLearningService",
     "category": "Code Health",
-    "status": "pending",
-    "prompt": "# 🚀 Code Health Task: Unit & Invariant Tests for LexiconLearningService\n\n**File:** `backend/tests/test_lexicon_service.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_lexicon_service.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Code Health Task: Unit & Invariant Tests for LexiconLearningService\n\n**File:** `backend/tests/test_lexicon_service.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_lexicon_service.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "12504136809546719786",
+    "dispatchedAt": "2026-10-30T15:38:24.666Z"
   },
   {
     "id": "backlog-089",
     "title": "Testing: Rigorous Unit & Regression Tests for VoiceWorker",
     "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "6871699830430204456",
+    "dispatchedAt": "2026-10-30T15:38:26.010Z"
+  },
+  {
+    "id": "backlog-090",
+    "title": "Testing: Rigorous Unit & Regression Tests for PushToTalkHook",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for PushToTalkHook\n\n**File:** `frontend/src/hooks/usePushToTalk.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/hooks/usePushToTalk.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "13015966510018875924",
+    "dispatchedAt": "2026-10-30T16:05:55.591Z"
+  },
+  {
+    "id": "backlog-091",
+    "title": "Code Health: Rigorous Unit & Regression Tests for WakeLockHook",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🚀 Code Health Task (Phase 1): Rigorous Unit & Regression Tests for WakeLockHook\n\n**File:** `frontend/src/hooks/useWakeLock.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/hooks/useWakeLock.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1137575827368924097",
+    "dispatchedAt": "2026-10-30T16:05:57.025Z"
+  },
+  {
+    "id": "backlog-092",
+    "title": "Testing: Rigorous Unit & Regression Tests for UserProfileHook",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for UserProfileHook\n\n**File:** `frontend/src/hooks/useUserProfile.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/hooks/useUserProfile.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "2364139248011174946",
+    "dispatchedAt": "2026-10-30T16:05:58.355Z"
+  },
+  {
+    "id": "backlog-093",
+    "title": "Code Health: Rigorous Unit & Regression Tests for AutoUpdateModal",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🚀 Code Health Task (Phase 1): Rigorous Unit & Regression Tests for AutoUpdateModal\n\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "14253794340098960211",
+    "dispatchedAt": "2026-10-30T16:05:59.893Z"
+  },
+  {
+    "id": "backlog-094",
+    "title": "Bolt: Rigorous Unit & Regression Tests for OmnibarSearch",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Phase 1): Rigorous Unit & Regression Tests for OmnibarSearch\n\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/Omnibar.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1918550171522922353",
+    "dispatchedAt": "2026-10-30T16:06:02.352Z"
+  },
+  {
+    "id": "backlog-095",
+    "title": "Testing: Rigorous Unit & Regression Tests for PeerQnAPanel",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for PeerQnAPanel\n\n**File:** `frontend/src/components/PeerQnAPanel.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/PeerQnAPanel.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "14431969618540875393",
+    "dispatchedAt": "2026-10-30T16:06:03.971Z"
+  },
+  {
+    "id": "backlog-096",
+    "title": "Performance: Rigorous Unit & Regression Tests for SyncEngineOutbox",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Performance Task (Phase 1): Rigorous Unit & Regression Tests for SyncEngineOutbox\n\n**File:** `frontend/src/lib/syncEngine.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/syncEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "748073862146067006",
+    "dispatchedAt": "2026-10-30T16:06:05.388Z"
+  },
+  {
+    "id": "backlog-097",
+    "title": "Sentinel: Rigorous Unit & Regression Tests for ResourceManagerChecksum",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for ResourceManagerChecksum\n\n**File:** `frontend/src/lib/resourceManager.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/resourceManager.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "8707539698957005109",
+    "dispatchedAt": "2026-10-30T16:06:06.958Z"
+  },
+  {
+    "id": "backlog-098",
+    "title": "Bolt: Rigorous Unit & Regression Tests for ClinicalQueryPlannerService",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Phase 1): Rigorous Unit & Regression Tests for ClinicalQueryPlannerService\n\n**File:** `backend/tests/test_clinical_query_planner.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_clinical_query_planner.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "8198720888367577026",
+    "dispatchedAt": "2026-10-30T16:06:08.491Z"
+  },
+  {
+    "id": "backlog-099",
+    "title": "Bolt: Rigorous Unit & Regression Tests for SurgicalOntologyService",
+    "category": "Performance",
     "status": "pending",
-    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "prompt": "# 🚀 Bolt Task (Phase 1): Rigorous Unit & Regression Tests for SurgicalOntologyService\n\n**File:** `backend/tests/test_surgical_ontology.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_surgical_ontology.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-100",
+    "title": "Sentinel: Rigorous Unit & Regression Tests for ScrubberService",
+    "category": "Security",
+    "status": "pending",
+    "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for ScrubberService\n\n**File:** `backend/tests/test_scrubber_service.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_scrubber_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-101",
+    "title": "Sentinel: Rigorous Unit & Regression Tests for ChatRouterMultiTenant",
+    "category": "Security",
+    "status": "pending",
+    "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-102",
+    "title": "Testing: Rigorous Unit & Regression Tests for VoiceRouterLiveKit",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for VoiceRouterLiveKit\n\n**File:** `backend/tests/test_voice_router.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_voice_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-103",
+    "title": "Sentinel: Rigorous Unit & Regression Tests for LimiterConcurrencyThrottling",
+    "category": "Security",
+    "status": "pending",
+    "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for LimiterConcurrencyThrottling\n\n**File:** `backend/tests/test_limiter_concurrency.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_limiter_concurrency.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]

@@ -589,21 +589,48 @@ function ensureBacklogCapacity(backlog, needed) {
       { name: 'IntentParser', path: 'backend/tests/test_intent_parser.py', cat: 'Testing' },
       { name: 'InventorySearch', path: 'backend/tests/test_inventory_search.py', cat: 'Bolt' },
       { name: 'LexiconLearningService', path: 'backend/tests/test_lexicon_service.py', cat: 'Code Health' },
-      { name: 'VoiceWorker', path: 'backend/tests/test_voice_worker.py', cat: 'Testing' }
+      { name: 'VoiceWorker', path: 'backend/tests/test_voice_worker.py', cat: 'Testing' },
+      { name: 'PushToTalkHook', path: 'frontend/src/hooks/usePushToTalk.test.ts', cat: 'Testing' },
+      { name: 'WakeLockHook', path: 'frontend/src/hooks/useWakeLock.test.ts', cat: 'Code Health' },
+      { name: 'UserProfileHook', path: 'frontend/src/hooks/useUserProfile.test.ts', cat: 'Testing' },
+      { name: 'AutoUpdateModal', path: 'frontend/src/components/AutoUpdateModal.test.tsx', cat: 'Code Health' },
+      { name: 'OmnibarSearch', path: 'frontend/src/components/Omnibar.test.tsx', cat: 'Bolt' },
+      { name: 'PeerQnAPanel', path: 'frontend/src/components/PeerQnAPanel.test.tsx', cat: 'Testing' },
+      { name: 'SyncEngineOutbox', path: 'frontend/src/lib/syncEngine.test.ts', cat: 'Performance' },
+      { name: 'ResourceManagerChecksum', path: 'frontend/src/lib/resourceManager.test.ts', cat: 'Sentinel' },
+      { name: 'ClinicalQueryPlannerService', path: 'backend/tests/test_clinical_query_planner.py', cat: 'Bolt' },
+      { name: 'SurgicalOntologyService', path: 'backend/tests/test_surgical_ontology.py', cat: 'Bolt' },
+      { name: 'ScrubberService', path: 'backend/tests/test_scrubber_service.py', cat: 'Sentinel' },
+      { name: 'ChatRouterMultiTenant', path: 'backend/tests/test_chat_router.py', cat: 'Sentinel' },
+      { name: 'VoiceRouterLiveKit', path: 'backend/tests/test_voice_router.py', cat: 'Testing' },
+      { name: 'LimiterConcurrencyThrottling', path: 'backend/tests/test_limiter_concurrency.py', cat: 'Sentinel' }
     ];
 
-    for (const m of modules) {
-      const title = `${m.cat}: Rigorous Unit & Regression Tests for ${m.name}`;
-      if (!existingTitles.has(title.toLowerCase().trim())) {
-        const paddedId = String(nextId++).padStart(3, '0');
-        backlog.push({
-          id: `backlog-${paddedId}`,
-          title: title,
-          category: m.cat === 'Sentinel' ? 'Security' : m.cat === 'Bolt' ? 'Performance' : m.cat,
-          status: 'pending',
-          prompt: `# 🚀 ${m.cat} Task: Unit & Invariant Tests for ${m.name}\n\n**File:** \`${m.path}\`\n**Objective:**\n1. Create or extend unit tests in \`${m.path}\`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.`
-        });
-        existingTitles.add(title.toLowerCase().trim());
+    const phases = [
+      { tag: 'Phase 1', suffix: 'Rigorous Unit & Regression Tests', desc: 'unit tests verifying core logic and contract invariants' },
+      { tag: 'Phase 2', suffix: 'Invariant, Fuzzing & Boundary Hardening', desc: 'fuzzing, boundary inputs, malformed payload resilience, and strict schema validation' },
+      { tag: 'Phase 3', suffix: 'High-Concurrency & Stress Benchmarks', desc: 'concurrent burst execution, race condition resistance, and latency benchmarks' },
+      { tag: 'Phase 4', suffix: 'Offline Partition & Multi-Tenant Isolation Verification', desc: 'multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency' }
+    ];
+
+    for (const phase of phases) {
+      if (backlog.filter(t => t.status !== 'dispatched').length >= needed + 5) break;
+
+      for (const m of modules) {
+        if (backlog.filter(t => t.status !== 'dispatched').length >= needed + 5) break;
+
+        const title = `${m.cat}: ${phase.suffix} for ${m.name}`;
+        if (!existingTitles.has(title.toLowerCase().trim())) {
+          const paddedId = String(nextId++).padStart(3, '0');
+          backlog.push({
+            id: `backlog-${paddedId}`,
+            title: title,
+            category: m.cat === 'Sentinel' ? 'Security' : m.cat === 'Bolt' ? 'Performance' : m.cat,
+            status: 'pending',
+            prompt: `# 🚀 ${m.cat} Task (${phase.tag}): ${phase.suffix} for ${m.name}\n\n**File:** \`${m.path}\`\n**Objective:**\n1. Create or extend ${phase.desc} in \`${m.path}\`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.`
+          });
+          existingTitles.add(title.toLowerCase().trim());
+        }
       }
     }
   }
