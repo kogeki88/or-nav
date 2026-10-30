@@ -3,13 +3,8 @@ import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { VersionManifest } from '@/lib/version';
 
-// Use proxyquire for ESM Next.js components by providing `.default` fallback if needed
-// Memory said avoid proxyquire, but since node:test mock.module is missing or erroring
-// in this tsx setup ("mock.module is not a function" - it's available in node 22.3, this is 22.22, but maybe tsx breaks it)
-// wait, `mock.module` was added in Node v22.3.0. Why is it failing?
-// Ah, `tsx` compiles the code to CJS possibly and Node test module mock is for ES Modules maybe?
-// Anyway, I will use `proxyquire` as a fallback since `PeerQnAPanel.test.tsx` used it and it works.
 const proxyquire = require('proxyquire');
 
 const openApkDownloadMock = mock.fn();
@@ -21,14 +16,23 @@ const AutoUpdateModalMod = proxyquire('./AutoUpdateModal', {
 });
 
 const AutoUpdateModal = AutoUpdateModalMod.default;
-import { VersionManifest } from '@/lib/version';
+
+// Save original globals for restoration to enforce multi-tenant environment isolation
+const originalFetch = global.fetch;
 
 beforeEach(() => {
   openApkDownloadMock.mock.resetCalls();
+
+  // Poison global.fetch to strictly enforce offline-first invariant
+  // If the component attempts ANY network request during render or interaction, the test will fail
+  global.fetch = () => {
+    throw new Error('NETWORK CALL DETECTED: Offline-first invariant violated. Fetch is forbidden in pure UI components.');
+  };
 });
 
 afterEach(() => {
   cleanup();
+  global.fetch = originalFetch;
 });
 
 const manifest: VersionManifest = {
@@ -140,4 +144,53 @@ test('closes modal when X button or Remind Me Later is clicked', () => {
   const remindBtn = screen.getByText('Remind Me Later');
   fireEvent.click(remindBtn);
   assert.strictEqual(onCloseMock.mock.callCount(), 2);
+});
+
+test('enforces multi-tenant isolation invariant with stateless and deterministic rendering', () => {
+  // Simulates switching active multi-tenant contexts by re-rendering with disjoint data
+  const tenantAManifest: VersionManifest = {
+    ...manifest,
+    version: 'v0.99-TenantA',
+    changelog: 'Tenant A Specific Features',
+  };
+
+  const tenantBManifest: VersionManifest = {
+    ...manifest,
+    version: 'v0.99-TenantB',
+    changelog: 'Tenant B Specific Features',
+  };
+
+  const { rerender, unmount } = render(
+    <AutoUpdateModal
+      isOpen={true}
+      onClose={() => {}}
+      manifest={tenantAManifest}
+      currentVersion="v0.61"
+      currentBuild={18}
+    />
+  );
+
+  // Assert Tenant A
+  assert.ok(screen.getByText('v0.61 (Build 18) ➔ v0.99-TenantA (Build 19)'));
+  assert.ok(screen.getByText('Tenant A Specific Features'));
+
+  // Unmount and render Tenant B to verify no internal memoization or global leak persists
+  unmount();
+
+  render(
+    <AutoUpdateModal
+      isOpen={true}
+      onClose={() => {}}
+      manifest={tenantBManifest}
+      currentVersion="v0.61"
+      currentBuild={18}
+    />
+  );
+
+  // Assert Tenant B
+  assert.ok(screen.getByText('v0.61 (Build 18) ➔ v0.99-TenantB (Build 19)'));
+  assert.ok(screen.getByText('Tenant B Specific Features'));
+
+  // Verify Tenant A data has completely leaked out of the render tree
+  assert.strictEqual(screen.queryByText('Tenant A Specific Features'), null);
 });
