@@ -7,3 +7,14 @@ Fix applied:
 - Addressed boundary matching for escaped strings (which may fail `\b` assertions if they end in non-word characters) by switching to negative lookarounds `(?<!\w)` and `(?!\w)`.
 - Protected intentional splitting logic (which splits on `;`) by ensuring that if a user's input legitimately contains `;`, it won't inadvertently break the phrase matching via premature splitting.
 - Added comprehensive unit tests in `frontend/src/lib/standaloneEngine.test.ts` to assert that injection attempts (`.*`, `[a-z]+(a+)+$`, `' DROP TABLE items; --`) are handled securely and literally.
+
+## 2024-10-29 - Strict CORS & Security Headers Validation
+
+When securing FastAPI applications, it's essential to:
+1. Prevent permissive CORS configurations like `allow_origins=["*"]`. Instead, use `allow_origin_regex` to restrict origins to expected local development addresses and explicitly allowed external domains (like `trycloudflare.com` for local dev tunnels).
+2. Explicitly define security headers via a custom middleware. Important headers include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Content-Security-Policy: default-src 'self'`.
+3. Validate CORS restrictions in automated tests by sending an OPTIONS request with an untrusted Origin header, ensuring the API responds with a `400 Bad Request`.
+4. Validate header presence and exact configuration values in tests to prevent future regressions.
+
+## 2024-10-31 - [Enforcing Strict CSP Media Policies]
+When modifying FastAPI security headers to strictly enforce Content-Security-Policy (CSP) for media and iframes, ensure that the policy explicitly includes `media-src 'self' mediastream:;` and `frame-ancestors 'none';`. This prevents unauthorized external sources from embedding the application or interacting with camera and microphone media APIs.
