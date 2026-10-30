@@ -18,6 +18,8 @@ export default function MoveVerifyWidget({
   const [currentCount, setCurrentCount] = useState<number>(widget.verify_count);
   const [isCommitted, setIsCommitted] = useState<boolean>(widget.committed);
   const [loading, setLoading] = useState<boolean>(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const lastTapRef = useRef<number>(0);
 
   const handleVerify = async () => {
@@ -45,9 +47,46 @@ export default function MoveVerifyWidget({
     <div className="mt-2.5 w-full max-w-md rounded-xl bg-zinc-900/90 border border-zinc-800 p-3.5 text-zinc-100 shadow-sm">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-1.5 text-xs sm:text-sm font-medium text-zinc-200">
-          <span>{widget.item}</span>
+          <span
+            draggable
+            role="button"
+            aria-grabbed={isDragging}
+            onDragStart={(e) => {
+              setIsDragging(true);
+              e.dataTransfer.setData("text/plain", widget.item);
+              e.dataTransfer.effectAllowed = "move";
+            }}
+            onDragEnd={() => {
+              setIsDragging(false);
+              setIsDragOver(false);
+            }}
+            className={`cursor-grab active:cursor-grabbing px-1.5 py-0.5 rounded transition-colors ${
+              isDragging ? "bg-zinc-800 text-zinc-100" : "hover:bg-zinc-800/50"
+            }`}
+          >
+            {widget.item}
+          </span>
           <ArrowRight className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-          <span className="font-mono font-semibold text-zinc-100 bg-zinc-950 px-2 py-0.5 rounded border border-zinc-800">
+          <span
+            className={`font-mono font-semibold text-zinc-100 bg-zinc-950 px-2 py-0.5 rounded border transition-colors ${
+              isDragOver ? "border-emerald-500 bg-emerald-950/30" : "border-zinc-800"
+            }`}
+            aria-dropeffect="move"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "move";
+              setIsDragOver(true);
+            }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragOver(false);
+              const data = e.dataTransfer.getData("text/plain");
+              if (data === widget.item) {
+                handleVerify();
+              }
+            }}
+          >
             {widget.new_location}
           </span>
         </div>
