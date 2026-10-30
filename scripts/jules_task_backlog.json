@@ -545,10 +545,11 @@
     "id": "backlog-061",
     "title": "Bolt: Dexie Compound Index Query Latency Benchmarks",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: Dexie Compound Index Latency\n\n**File:** `frontend/src/lib/dexieIndexBench.test.ts`\n**Issue:** Benchmark compound queries on IndexedDB [facility_id+dept_id] ensuring queries complete in < 2ms.\n\n**Objective:**\n1. Create `frontend/src/lib/dexieIndexBench.test.ts`.\n2. Benchmark 2,000 indexed queries against Dexie database.\n3. Assert average lookup latency remains under 2ms.\n4. Submit PR immediately upon verification.",
     "sessionId": "7425910620353210241",
-    "dispatchedAt": "2026-10-30T14:40:13.547Z"
+    "dispatchedAt": "2026-10-30T14:40:13.547Z",
+    "completedAt": "2026-10-30T22:07:04.226Z"
   },
   {
     "id": "backlog-062",
@@ -590,10 +591,11 @@
     "id": "backlog-066",
     "title": "Code Health: FeedbackModal Submission & Telemetry Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: FeedbackModal Submission Tests\n\n**File:** `frontend/src/components/FeedbackModal.test.tsx`\n**Issue:** Add unit tests for FeedbackModal verifying star rating selection, comment limits, and offline queueing.\n\n**Objective:**\n1. Create `frontend/src/components/FeedbackModal.test.tsx`.\n2. Test submitting feedback with and without network connectivity.\n3. Verify error and success banners render properly.\n4. Submit PR immediately upon verification.",
     "sessionId": "18016701108829833859",
-    "dispatchedAt": "2026-10-30T14:40:22.366Z"
+    "dispatchedAt": "2026-10-30T14:40:22.366Z",
+    "completedAt": "2026-10-30T22:06:58.848Z"
   },
   {
     "id": "backlog-067",
