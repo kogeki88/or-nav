@@ -124,4 +124,84 @@ describe('appSettings', () => {
     assert.strictEqual(settings.fontScaling, DEFAULT_APP_SETTINGS.fontScaling);
     assert.strictEqual(settings.voiceSettings, DEFAULT_APP_SETTINGS.voiceSettings);
   });
+
+  test('getAppSettings returns default settings when window is undefined', () => {
+    const originalWindow = (global as { window?: unknown }).window;
+    (global as { window?: unknown }).window = undefined;
+    const settings = getAppSettings();
+    assert.deepStrictEqual(settings, DEFAULT_APP_SETTINGS);
+    (global as { window?: unknown }).window = originalWindow;
+  });
+
+  test('saveAppSettings returns merged settings when window is undefined', () => {
+    const originalWindow = (global as { window?: unknown }).window;
+    (global as { window?: unknown }).window = undefined;
+    const newSettings = { darkMode: true };
+    const settings = saveAppSettings(newSettings);
+    assert.strictEqual(settings.darkMode, true);
+    assert.strictEqual(settings.fontScaling, DEFAULT_APP_SETTINGS.fontScaling);
+    (global as { window?: unknown }).window = originalWindow;
+  });
+
+  test('saveAppSettings dispatches a CustomEvent on window', () => {
+    localStorage.clear();
+    let dispatchedEvent: CustomEvent | null = null;
+
+    const originalWindow = (global as { window?: unknown }).window;
+
+    // Mock the global CustomEvent
+    const OriginalCustomEvent = global.CustomEvent;
+    (global as { CustomEvent?: unknown }).CustomEvent = class MockCustomEvent {
+      type: string;
+      detail: unknown;
+      constructor(type: string, options?: { detail: unknown }) {
+        this.type = type;
+        this.detail = options?.detail;
+      }
+    };
+
+    (global as { window?: unknown }).window = {
+      dispatchEvent: (event: CustomEvent) => {
+        dispatchedEvent = event;
+      },
+    };
+
+    saveAppSettings({ fontScaling: 2.0 });
+
+    assert.ok(dispatchedEvent);
+    assert.strictEqual((dispatchedEvent as CustomEvent).type, 'ornav_app_settings_updated');
+    assert.strictEqual((dispatchedEvent as any).detail.fontScaling, 2.0);
+
+    // Restore OriginalCustomEvent
+    (global as { CustomEvent?: unknown }).CustomEvent = OriginalCustomEvent;
+    // Restore window
+    (global as { window?: unknown }).window = originalWindow;
+  });
+
+  test('getAppSettings returns default settings when localStorage.getItem throws', () => {
+    const originalLocalStorage = (global as { localStorage?: unknown }).localStorage;
+    // Override localStorage mock to throw
+    (global as { localStorage?: unknown }).localStorage = {
+      getItem: () => { throw new Error('Quota exceeded'); },
+    };
+
+    const settings = getAppSettings();
+    assert.deepStrictEqual(settings, DEFAULT_APP_SETTINGS);
+    (global as { localStorage?: unknown }).localStorage = originalLocalStorage;
+  });
+
+  test('saveAppSettings returns merged settings when localStorage.setItem throws', () => {
+    const originalLocalStorage = (global as { localStorage?: unknown }).localStorage;
+    // Override localStorage mock to throw
+    (global as { localStorage?: unknown }).localStorage = {
+      getItem: () => null,
+      setItem: () => { throw new Error('Quota exceeded'); },
+    };
+
+    const newSettings = { darkMode: true };
+    const settings = saveAppSettings(newSettings);
+    assert.strictEqual(settings.darkMode, true);
+    assert.strictEqual(settings.fontScaling, DEFAULT_APP_SETTINGS.fontScaling);
+    (global as { localStorage?: unknown }).localStorage = originalLocalStorage;
+  });
 });
