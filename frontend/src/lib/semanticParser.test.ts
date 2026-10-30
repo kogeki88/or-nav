@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
-import { parseClinicalIntent, ClinicalIntent, extractAndNormalizeCoordinateClient, normalizeClinicalSpeech } from "./frontend/src/lib/semanticParser";
+import { parseClinicalIntent, ClinicalIntent, extractAndNormalizeCoordinateClient, normalizeClinicalSpeech } from "./semanticParser";
 
 test("Semantic Query Parser Intents", async (t) => {
   await t.test("FIND_INVENTORY (locate item)", () => {
@@ -86,6 +86,73 @@ test("Semantic Query Parser Intents", async (t) => {
   });
 });
 
+test("Semantic Query Parser Fuzzing & Boundaries", async (t) => {
+  await t.test("Fuzzing: Empty and whitespace strings", () => {
+    const r1 = parseClinicalIntent("");
+    assert.strictEqual(r1.intent, ClinicalIntent.FIND_INVENTORY);
+    assert.strictEqual(r1.entities.item, "");
+
+    const r2 = parseClinicalIntent("   \t\n  ");
+    assert.strictEqual(r2.intent, ClinicalIntent.FIND_INVENTORY);
+    assert.strictEqual(r2.entities.item, "");
+  });
+
+  await t.test("Fuzzing: Null and undefined payloads", () => {
+    const r1 = parseClinicalIntent(null as any);
+    assert.strictEqual(r1.intent, ClinicalIntent.FIND_INVENTORY);
+    assert.strictEqual(r1.entities.item, "");
+
+    const r2 = parseClinicalIntent(undefined as any);
+    assert.strictEqual(r2.intent, ClinicalIntent.FIND_INVENTORY);
+    assert.strictEqual(r2.entities.item, "");
+  });
+
+  await t.test("Fuzzing: Extremely long payload", () => {
+    const longString = "A".repeat(10000);
+    const r = parseClinicalIntent(`where is the ${longString}`);
+    assert.strictEqual(r.intent, ClinicalIntent.FIND_INVENTORY);
+    assert.ok(r.entities.item === longString || r.entities.item?.includes(longString));
+  });
+
+  await t.test("Fuzzing: Malformed payloads, emojis, XSS, and SQLi vectors", () => {
+    const vectors = [
+      "'; DROP TABLE inventory; --",
+      "<script>alert(1)</script>",
+      "OR 1=1",
+      "🔥🔥🔥",
+      "👨‍⚕️💉",
+      "where is the \x00 null byte",
+      "../../../etc/passwd",
+      "{{7*7}}"
+    ];
+    for (const v of vectors) {
+      assert.doesNotThrow(() => {
+        const r = parseClinicalIntent(v);
+        assert.ok(r.intent);
+      }, `Failed on vector: ${v}`);
+    }
+  });
+
+  await t.test("Schema Integrity: Extraneous properties missing from ParsedIntent", () => {
+    const r = parseClinicalIntent("where is the 3-0 silk");
+    // Verify properties we expect are there, and ensure no unexpected leakage from regex logic
+    const expectedKeys = [
+      "intent",
+      "confidence",
+      "entities",
+      "raw_query",
+      "normalized_query",
+      "spoken_transcript_correction",
+      "disambiguation_options",
+      "user_preferred_term",
+      "search_expanded_query"
+    ];
+    for (const key of Object.keys(r)) {
+      assert.ok(expectedKeys.includes(key), `Unexpected key: ${key}`);
+    }
+  });
+});
+
 test("Semantic Query Parser Normalizations & Invariants", async (t) => {
   await t.test("Phonetic normalization of clinical terms", () => {
     const { normalized } = normalizeClinicalSpeech("four oh viker");
@@ -118,19 +185,40 @@ test("Semantic Query Parser Normalizations & Invariants", async (t) => {
 
   await t.test("Invariant: Offline-first execution", () => {
     // Ensuring the parser runs synchronously without fetching or throwing async errors
-    assert.doesNotThrow(() => {
-      const result = parseClinicalIntent("where is the 2-0 vicryl");
-      assert.strictEqual(result.intent, ClinicalIntent.FIND_INVENTORY);
-    });
+    // Poison global.fetch to strictly assert no network dependency.
+    const originalFetch = global.fetch;
+    global.fetch = () => {
+      throw new Error("Network call detected in offline-first function");
+    };
+
+    try {
+      assert.doesNotThrow(() => {
+        const result = parseClinicalIntent("where is the 2-0 vicryl");
+        assert.strictEqual(result.intent, ClinicalIntent.FIND_INVENTORY);
+      });
+    } finally {
+      // Restore global fetch
+      global.fetch = originalFetch;
+    }
   });
 
   await t.test("Invariant: Multi-tenant isolation (stateless parser)", () => {
     // Parsing should yield same intent regardless of global state leakage
     // since semantic parser acts on local regex/rules and pure functions
     // without reading global tenant context.
+
+    // Simulate concurrent-like requests with disjoint inputs to ensure determinism
     const q1 = parseClinicalIntent("add item");
     const q2 = parseClinicalIntent("add item");
     assert.deepStrictEqual(q1.intent, q2.intent);
     assert.deepStrictEqual(q1.entities, q2.entities);
+
+    const q3 = parseClinicalIntent("remove 3-0 silk");
+    const q4 = parseClinicalIntent("remove 3-0 silk");
+    assert.deepStrictEqual(q3.intent, q4.intent);
+    assert.deepStrictEqual(q3.entities, q4.entities);
+
+    // Check that state doesn't leak between invocations
+    assert.notDeepStrictEqual(q1.entities, q3.entities);
   });
 });
