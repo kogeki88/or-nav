@@ -10,6 +10,8 @@ from app.services.surgical_ontology import (
     is_eponym_conflict,
     is_generic_class_only,
     normalize_acoustic_speech,
+    normalize_or_lingo,
+    extract_eponyms,
 )
 
 TEST_TENANT = "sacred_heart::or"
@@ -36,6 +38,24 @@ def clean_services():
 # ---------------------------------------------------------------------------
 # 1. Core Logic & Eponym Contract Verification
 # ---------------------------------------------------------------------------
+
+def test_extract_eponyms():
+    # Standalone
+    assert extract_eponyms("adson pickups") == {"adson"}
+    assert extract_eponyms("debakey forceps") == {"debakey"}
+    # Compound
+    assert extract_eponyms("mayo-hegar needle driver") == {"mayo-hegar"}
+    assert extract_eponyms("brown adson") == {"brown-adson"}
+    # OR slang
+    assert extract_eponyms("metz") == {"metzenbaum"}
+    assert extract_eponyms("castro") == {"castroviejo"}
+    assert extract_eponyms("peanuts") == {"kittner"}
+    assert extract_eponyms("snaps") == {"crile"}
+    assert extract_eponyms("rich") == {"richardson"}
+    # Multi
+    assert extract_eponyms("get me the metz and rich") == {"metzenbaum", "richardson"}
+    # None
+    assert extract_eponyms("just some forceps") == set()
 
 def test_extract_eponyms_and_conflict_logic():
     # Eponym matching eponym (No conflict)
@@ -202,6 +222,14 @@ def test_normalize_acoustic_speech():
     assert normalize_acoustic_speech("metz in bomb") == "metzenbaum"
     assert normalize_acoustic_speech("casting holder") == "castroviejo holder"
 
+def test_normalize_or_lingo():
+    # Mishearings + Slang -> Canonical
+    assert normalize_or_lingo("uhh get me the metz and snaps") == "get me the metzenbaum scissors and crile hemostat clamp"
+    assert normalize_or_lingo("peanut") == "kittner dissector sponge"
+    assert normalize_or_lingo("add son pickups") == "adson forceps"
+    assert normalize_or_lingo("the bakey pickups") == "debakey forceps"
+    assert normalize_or_lingo("castro") == "castroviejo needle holder"
+
 # ---------------------------------------------------------------------------
 # 5. POST /api/voice/transcribe Endpoint
 # ---------------------------------------------------------------------------
@@ -302,7 +330,10 @@ def test_inventory_search_offline_first_invariant(monkeypatch):
     import httpx
     import socket
 
-    def mock_socket(*args, **kwargs):
+    original_socket = socket.socket
+    def mock_socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0, fileno=None):
+        if family == getattr(socket, "AF_UNIX", -1):
+            return original_socket(family, type, proto, fileno)
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
 
     def mock_httpx_post(*args, **kwargs):
@@ -314,6 +345,7 @@ def test_inventory_search_offline_first_invariant(monkeypatch):
     monkeypatch.setattr(socket, "socket", mock_socket)
     monkeypatch.setattr(httpx, "post", mock_httpx_post)
     monkeypatch.setattr(httpx, "get", mock_httpx_get)
+    monkeypatch.setattr(httpx, "request", mock_httpx_get) # Also mock request to be safe
 
     inv_service = get_inventory_service(TEST_TENANT)
 
