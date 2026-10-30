@@ -43,3 +43,8 @@ Implemented validation and unit tests to ensure over-the-air (OTA) package integ
 1. Validating the presence and format of SHA-256 hashes to prevent corrupted or malicious updates.
 2. Preventing downgrade attacks by cross-referencing build numbers and semantic versions against the currently running version using monotonic build numbering and fallback semver.
 3. Ensuring APK download URLs are strictly bounded to trusted GitHub releases assets via careful `URL` API hostname and pathname checks.
+## 2023-11-20 - Multi-Tenant Upload Isolation & Path Traversal Prevention
+- Implemented secure file uploads for item photos with tenant isolation by scoping write and read paths to `HOSPITALS_DIR / <tenant_id> / "photos"`.
+- Validated filenames to block path traversal sequences (`..`, `/`, `\`).
+- Ensured uploads read asynchronously in chunks (`await file.read(1024 * 1024)`) instead of reading entirely into memory, mitigating OOM DoS vulnerabilities.
+- Hardcoded `media_type` in `FileResponse` and validated file extensions to block executable/HTML uploads and prevent Stored XSS.

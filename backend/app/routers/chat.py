@@ -22,6 +22,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, Request, Response
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from app.limiter import limiter
 
@@ -1056,6 +1057,80 @@ async def answer_department_question(question_id: str, req: AnswerQuestionReques
 
 
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# POST /api/inventory/upload-photo — Upload Item Photo
+# ---------------------------------------------------------------------------
+
+@router.post("/inventory/upload-photo")
+async def handle_upload_photo(
+    tenant_id: str = Form(default=settings.default_tenant),
+    file: UploadFile = File(...),
+):
+    """
+    Upload a photo for an inventory item.
+    """
+    tenant = check_tenant(tenant_id)
+
+    filename = (file.filename or "").lower()
+
+    if not filename:
+        raise HTTPException(status_code=400, detail="Empty filename")
+
+    # Path traversal protection
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    # Enforce safe extensions to prevent Stored XSS
+    if not any(filename.endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".webp")):
+         raise HTTPException(status_code=400, detail="Unsupported file extension. Use .jpg, .png, or .webp.")
+
+    # Ensure photos directory exists
+    photos_dir = tenant.inventory_path.parent / "photos"
+    photos_dir.mkdir(parents=True, exist_ok=True)
+
+    # DoS protection: Spool to a file rather than reading into RAM entirely, or enforce size via content-length if possible
+    # We will read chunks to prevent OOM
+    file_path = photos_dir / filename
+
+    bytes_read = 0
+    with file_path.open("wb") as out_file:
+        while chunk := await file.read(1024 * 1024):
+            bytes_read += len(chunk)
+            if bytes_read > MAX_UPLOAD_SIZE:
+                out_file.close()
+                file_path.unlink()
+                raise HTTPException(status_code=413, detail="Payload too large.")
+            out_file.write(chunk)
+
+    return {
+        "status": "ok",
+        "file_path": f"photos/{filename}"
+    }
+
+@router.get("/inventory/photos/{filename}")
+async def get_item_photo(
+    filename: str,
+    tenant_id: str = Query(default=settings.default_tenant),
+):
+    """
+    Retrieve a photo for an inventory item.
+    """
+    tenant = check_tenant(tenant_id)
+
+    # Path traversal protection
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    photos_dir = tenant.inventory_path.parent / "photos"
+    file_path = photos_dir / filename
+
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Photo not found")
+
+    return FileResponse(file_path, media_type="image/jpeg")
+
+
 # POST /api/ingest — Dynamic CSV / Markdown Upload
 # ---------------------------------------------------------------------------
 
