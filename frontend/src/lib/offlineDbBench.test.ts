@@ -121,4 +121,50 @@ describe("Dexie Benchmarks", () => {
     const count = await db.offlineOutbox.count();
     assert.strictEqual(count, 0);
   });
+
+  test("resilience to fuzzing, boundary inputs, and malformed payloads", async () => {
+    const db = new BenchmarkDB();
+
+    const VERY_LONG_STRING = "A".repeat(100000);
+    const VERY_LONG_TENANT = "tenant_" + "A".repeat(5000);
+
+    const fuzzedItems: any[] = [
+      { id: "fuzz::1", tenant_id: "fuzz_tenant", item: "Valid Item", status: "verified" },
+      { id: "fuzz::2", tenant_id: "fuzz_tenant", item: VERY_LONG_STRING, status: "verified" },
+      { id: "fuzz::3", tenant_id: VERY_LONG_TENANT, item: "Item with long tenant", status: "verified" },
+      // Invalid schemas should be handled by dexie or omitted gracefully when querying
+      { id: "fuzz::4", tenant_id: "fuzz_tenant", item: "Valid Item 2", status: 12345 }, // Wrong type for status, Dexie allows it but queries might fail or skip
+      { id: "fuzz::5", tenant_id: "fuzz_tenant", item: null, status: "verified" },
+      { id: "fuzz::6", tenant_id: "fuzz_tenant", item: undefined, status: "verified" },
+      { id: "fuzz::7", tenant_id: "fuzz_tenant", item: "Malformed", status: "verified", unexpected_field: { deeply: "nested", payload: [1, 2, 3] } },
+    ];
+
+    await db.inventoryItems.bulkPut(fuzzedItems);
+
+    const fuzzedMutations: any[] = [
+      { tenant_id: "fuzz_tenant", type: "verify_move", timestamp: Date.now() },
+      { tenant_id: "fuzz_tenant", type: VERY_LONG_STRING, timestamp: Date.now() },
+      { tenant_id: "fuzz_tenant", type: "verify_move", timestamp: NaN },
+      { tenant_id: "fuzz_tenant", type: "verify_move", timestamp: Date.now(), unexpected_field: VERY_LONG_STRING },
+    ];
+
+    await db.offlineOutbox.bulkAdd(fuzzedMutations);
+
+    // Verify retrieval works despite fuzzing
+    const items = await db.inventoryItems.where("tenant_id").equals("fuzz_tenant").toArray();
+    assert.strictEqual(items.length, 6, "Should retrieve 6 items for fuzz_tenant (excluding VERY_LONG_TENANT)");
+
+    const mutations = await db.offlineOutbox.where("tenant_id").equals("fuzz_tenant").toArray();
+    assert.strictEqual(mutations.length, 4, "Should retrieve 4 mutations for fuzz_tenant");
+    assert.strictEqual(mutations[1].type, VERY_LONG_STRING, "Long string correctly stored in type");
+
+    // Strict Schema Validation: Missing Primary Key
+    try {
+       await db.inventoryItems.put({ tenant_id: "fuzz_tenant", item: "Missing ID", status: "verified" } as any);
+       assert.fail("Should throw an error due to missing primary key (id)");
+    } catch (err: any) {
+       if (err.name === 'AssertionError') throw err;
+       assert.ok(err.name === "DataError", "Error should be DataError due to missing primary key");
+    }
+  });
 });
