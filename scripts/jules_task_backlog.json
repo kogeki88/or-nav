@@ -526,10 +526,11 @@
     "id": "backlog-059",
     "title": "Sentinel: OTA Package Cryptographic Checksum Verification Tests",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: OTA Cryptographic Verification\n\n**File:** `backend/tests/test_ota_crypto_verification.py`\n**Issue:** Verify that over-the-air package installation verifies SHA-256 checksums and rejects corrupted payloads.\n\n**Objective:**\n1. Create `backend/tests/test_ota_crypto_verification.py`.\n2. Test OTA bundle verification with valid checksum and mismatched hash.\n3. Assert invalid packages are immediately rejected without touching filesystem.\n4. Submit PR immediately upon verification.",
     "sessionId": "13211154333456479486",
-    "dispatchedAt": "2026-10-30T14:40:10.370Z"
+    "dispatchedAt": "2026-10-30T14:40:10.370Z",
+    "completedAt": "2026-10-30T20:04:36.785Z"
   },
   {
     "id": "backlog-060",
@@ -1039,10 +1040,11 @@
     "id": "backlog-114",
     "title": "Testing: Invariant, Fuzzing & Boundary Hardening for IntentParser",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "17053529757179662383",
-    "dispatchedAt": "2026-10-30T19:07:20.747Z"
+    "dispatchedAt": "2026-10-30T19:07:20.747Z",
+    "completedAt": "2026-10-30T19:36:57.176Z"
   },
   {
     "id": "backlog-115",
@@ -1171,5 +1173,12 @@
     "category": "Testing",
     "status": "pending",
     "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-133",
+    "title": "Bolt: High-Concurrency & Stress Benchmarks for SemanticParser",
+    "category": "Performance",
+    "status": "pending",
+    "prompt": "# 🚀 Bolt Task (Phase 3): High-Concurrency & Stress Benchmarks for SemanticParser\n\n**File:** `frontend/src/lib/semanticParser.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/semanticParser.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]

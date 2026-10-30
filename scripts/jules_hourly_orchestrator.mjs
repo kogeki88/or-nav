@@ -233,7 +233,7 @@ async function checkAndMergePRs(apiKey) {
       );
 
       // Invariant 1: Never bundle APK binaries into web assets or commit .apk/.exe/.bin files
-      const hasRestrictedBinary = /\.(apk|exe|bin|jar)\b/i.test(diff);
+      const hasRestrictedBinary = /^diff --git a\/.*?\.(apk|exe|bin|jar)\b/im.test(diff) || /^Binary files .* differ$/im.test(diff);
       if (hasRestrictedBinary) {
         log(`[PR #${pr.number}] SKIPPED merge: contains restricted binary file in diff.`);
         continue;
