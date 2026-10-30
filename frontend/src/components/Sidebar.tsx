@@ -316,7 +316,7 @@ export default function Sidebar({
   };
 
   return (
-    <aside className="w-64 sm:w-72 h-full flex flex-col bg-[#121215] border-r border-zinc-800/80 text-zinc-100 shrink-0 select-none">
+    <aside role="navigation" className="w-64 sm:w-72 h-full flex flex-col bg-[#121215] border-r border-zinc-800/80 text-zinc-100 shrink-0 select-none">
       {/* Top Brand & New Case */}
       <div className="p-3.5 border-b border-zinc-800/80">
         <div className="flex items-center justify-between">
@@ -490,6 +490,7 @@ export default function Sidebar({
               type="button"
               onClick={() => setRecentCasesOpen(!recentCasesOpen)}
               data-testid="recent-cases-toggle"
+              aria-expanded={recentCasesOpen}
               className="flex items-center gap-2 flex-1 text-left cursor-pointer"
             >
               <Clock className="w-3.5 h-3.5 text-emerald-400" />
@@ -639,6 +640,7 @@ export default function Sidebar({
         <button
           onClick={() => setSettingsOpen(!settingsOpen)}
           data-testid="sidebar-system-toggle"
+          aria-expanded={settingsOpen}
           className="w-full px-3.5 py-2.5 flex items-center justify-between text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-2">
