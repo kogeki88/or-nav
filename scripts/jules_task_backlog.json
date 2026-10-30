@@ -714,57 +714,73 @@
     "id": "backlog-080",
     "title": "Bolt: Rigorous Unit & Regression Tests for CoordinateParser",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for CoordinateParser\n\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/coordinateParser.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for CoordinateParser\n\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/coordinateParser.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "10770563839746927091",
+    "dispatchedAt": "2026-10-30T15:32:36.911Z"
   },
   {
     "id": "backlog-081",
     "title": "Bolt: Rigorous Unit & Regression Tests for MoveDebouncer",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for MoveDebouncer\n\n**File:** `frontend/src/lib/moveDebouncer.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/moveDebouncer.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for MoveDebouncer\n\n**File:** `frontend/src/lib/moveDebouncer.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/moveDebouncer.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "3399371501568661245",
+    "dispatchedAt": "2026-10-30T15:32:38.959Z"
   },
   {
     "id": "backlog-082",
     "title": "Performance: Rigorous Unit & Regression Tests for OfflineDb",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Performance Task: Unit & Invariant Tests for OfflineDb\n\n**File:** `frontend/src/lib/offlineDbBench.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/offlineDbBench.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Performance Task: Unit & Invariant Tests for OfflineDb\n\n**File:** `frontend/src/lib/offlineDbBench.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/offlineDbBench.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "14247491209558284997",
+    "dispatchedAt": "2026-10-30T15:32:40.290Z"
   },
   {
     "id": "backlog-083",
     "title": "Testing: Rigorous Unit & Regression Tests for DeltaSync",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "39457119043555169",
+    "dispatchedAt": "2026-10-30T15:32:42.441Z"
   },
   {
     "id": "backlog-084",
     "title": "Sentinel: Rigorous Unit & Regression Tests for AuthTokenRotation",
     "category": "Security",
-    "status": "pending",
-    "prompt": "# 🚀 Sentinel Task: Unit & Invariant Tests for AuthTokenRotation\n\n**File:** `backend/tests/test_auth_token_rotation.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_auth_token_rotation.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task: Unit & Invariant Tests for AuthTokenRotation\n\n**File:** `backend/tests/test_auth_token_rotation.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_auth_token_rotation.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "18082631256030502626",
+    "dispatchedAt": "2026-10-30T15:32:44.388Z"
   },
   {
     "id": "backlog-085",
     "title": "Testing: Rigorous Unit & Regression Tests for FeedbackPipeline",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for FeedbackPipeline\n\n**File:** `backend/tests/test_feedback_pipeline.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_feedback_pipeline.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for FeedbackPipeline\n\n**File:** `backend/tests/test_feedback_pipeline.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_feedback_pipeline.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "9147307732730476259",
+    "dispatchedAt": "2026-10-30T15:32:45.820Z"
   },
   {
     "id": "backlog-086",
     "title": "Testing: Rigorous Unit & Regression Tests for IntentParser",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "8339526483909861100",
+    "dispatchedAt": "2026-10-30T15:32:47.970Z"
   },
   {
     "id": "backlog-087",
     "title": "Bolt: Rigorous Unit & Regression Tests for InventorySearch",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "17490573909165173740",
+    "dispatchedAt": "2026-10-30T15:32:49.506Z"
   },
   {
     "id": "backlog-088",
