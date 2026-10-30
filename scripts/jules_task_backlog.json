@@ -633,35 +633,151 @@
     "id": "backlog-071",
     "title": "Code Health: VeoMotion Animation Transitions and Fallback Tests",
     "category": "Code Health",
-    "status": "pending",
-    "prompt": "# 🧹 Code Health Task: VeoMotion Animation Fallbacks\n\n**File:** `frontend/src/lib/veoMotion.test.ts`\n**Issue:** Add unit tests verifying VeoMotion graceful degradation when prefers-reduced-motion is enabled.\n\n**Objective:**\n1. Create `frontend/src/lib/veoMotion.test.ts`.\n2. Test reduced motion media query detection and fallback instant transitions.\n3. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🧹 Code Health Task: VeoMotion Animation Fallbacks\n\n**File:** `frontend/src/lib/veoMotion.test.ts`\n**Issue:** Add unit tests verifying VeoMotion graceful degradation when prefers-reduced-motion is enabled.\n\n**Objective:**\n1. Create `frontend/src/lib/veoMotion.test.ts`.\n2. Test reduced motion media query detection and fallback instant transitions.\n3. Submit PR immediately upon verification.",
+    "sessionId": "15136783699603215112",
+    "dispatchedAt": "2026-10-30T15:04:11.531Z"
   },
   {
     "id": "backlog-072",
     "title": "Testing: Governance Service Policy Enforcement Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: Governance Service Policy Enforcement\n\n**File:** `backend/tests/test_governance_service.py`\n**Issue:** Add unit tests for `backend/app/services/governance.py` verifying clinical policy verification and audit trails.\n\n**Objective:**\n1. Create `backend/tests/test_governance_service.py`.\n2. Test policy enforcement on critical surgeon preference updates and inventory adjustments.\n3. Assert audit records are created with timestamp and facility ID.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Governance Service Policy Enforcement\n\n**File:** `backend/tests/test_governance_service.py`\n**Issue:** Add unit tests for `backend/app/services/governance.py` verifying clinical policy verification and audit trails.\n\n**Objective:**\n1. Create `backend/tests/test_governance_service.py`.\n2. Test policy enforcement on critical surgeon preference updates and inventory adjustments.\n3. Assert audit records are created with timestamp and facility ID.\n4. Submit PR immediately upon verification.",
+    "sessionId": "10620038844160005605",
+    "dispatchedAt": "2026-10-30T15:04:13.067Z"
   },
   {
     "id": "backlog-073",
     "title": "Testing: Peer QnA Service Message Routing & Persistence Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: Peer QnA Service Message Routing\n\n**File:** `backend/tests/test_peer_qna_service.py`\n**Issue:** Add unit tests for `backend/app/peer_qna.py` testing question broadcast, answer threading, and tenant scoping.\n\n**Objective:**\n1. Create `backend/tests/test_peer_qna_service.py`.\n2. Test posting a question, adding an answer, and asserting isolation across departments.\n3. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Peer QnA Service Message Routing\n\n**File:** `backend/tests/test_peer_qna_service.py`\n**Issue:** Add unit tests for `backend/app/peer_qna.py` testing question broadcast, answer threading, and tenant scoping.\n\n**Objective:**\n1. Create `backend/tests/test_peer_qna_service.py`.\n2. Test posting a question, adding an answer, and asserting isolation across departments.\n3. Submit PR immediately upon verification.",
+    "sessionId": "9737939641898306488",
+    "dispatchedAt": "2026-10-30T15:04:14.301Z"
   },
   {
     "id": "backlog-074",
     "title": "Testing: Cloudflare Tunnel Service Status & Health Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: Cloudflare Tunnel Service Resilience\n\n**File:** `backend/tests/test_tunnel_service.py`\n**Issue:** Add unit tests for `backend/app/services/tunnel.py` testing tunnel healthcheck, retry, and URL retrieval.\n\n**Objective:**\n1. Create `backend/tests/test_tunnel_service.py`.\n2. Test tunnel URL extraction and graceful fallback when tunnel daemon is unavailable.\n3. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Cloudflare Tunnel Service Resilience\n\n**File:** `backend/tests/test_tunnel_service.py`\n**Issue:** Add unit tests for `backend/app/services/tunnel.py` testing tunnel healthcheck, retry, and URL retrieval.\n\n**Objective:**\n1. Create `backend/tests/test_tunnel_service.py`.\n2. Test tunnel URL extraction and graceful fallback when tunnel daemon is unavailable.\n3. Submit PR immediately upon verification.",
+    "sessionId": "17095763623289731358",
+    "dispatchedAt": "2026-10-30T15:04:16.856Z"
   },
   {
     "id": "backlog-075",
     "title": "Testing: RAG Fallback Service Cache & Scoring Tests",
     "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: RAG Fallback Service Cache\n\n**File:** `backend/tests/test_rag_fallback_service.py`\n**Issue:** Add unit tests for `backend/app/services/rag_fallback.py` testing semantic cache hits and relevance scoring.\n\n**Objective:**\n1. Create `backend/tests/test_rag_fallback_service.py`.\n2. Test query caching, similarity threshold checks, and empty fallback handling.\n3. Submit PR immediately upon verification.",
+    "sessionId": "13179186059900717121",
+    "dispatchedAt": "2026-10-30T15:04:18.700Z"
+  },
+  {
+    "id": "backlog-076",
+    "title": "Testing: Rigorous Unit & Regression Tests for DirectGemini",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "7478458171901572150",
+    "dispatchedAt": "2026-10-30T15:04:20.851Z"
+  },
+  {
+    "id": "backlog-077",
+    "title": "Bolt: Rigorous Unit & Regression Tests for SemanticParser",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for SemanticParser\n\n**File:** `frontend/src/lib/semanticParser.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/semanticParser.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "14621864455093758685",
+    "dispatchedAt": "2026-10-30T15:04:23.608Z"
+  },
+  {
+    "id": "backlog-078",
+    "title": "Code Health: Rigorous Unit & Regression Tests for AppSettings",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🚀 Code Health Task: Unit & Invariant Tests for AppSettings\n\n**File:** `frontend/src/lib/appSettings.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/appSettings.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "10068198676225253353",
+    "dispatchedAt": "2026-10-30T15:04:25.392Z"
+  },
+  {
+    "id": "backlog-079",
+    "title": "Testing: Rigorous Unit & Regression Tests for HospitalMapping",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for HospitalMapping\n\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/hospitalMapping.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "8799076894571788838",
+    "dispatchedAt": "2026-10-30T15:04:28.223Z"
+  },
+  {
+    "id": "backlog-080",
+    "title": "Bolt: Rigorous Unit & Regression Tests for CoordinateParser",
+    "category": "Performance",
     "status": "pending",
-    "prompt": "# 🧪 Testing Task: RAG Fallback Service Cache\n\n**File:** `backend/tests/test_rag_fallback_service.py`\n**Issue:** Add unit tests for `backend/app/services/rag_fallback.py` testing semantic cache hits and relevance scoring.\n\n**Objective:**\n1. Create `backend/tests/test_rag_fallback_service.py`.\n2. Test query caching, similarity threshold checks, and empty fallback handling.\n3. Submit PR immediately upon verification."
+    "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for CoordinateParser\n\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/coordinateParser.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-081",
+    "title": "Bolt: Rigorous Unit & Regression Tests for MoveDebouncer",
+    "category": "Performance",
+    "status": "pending",
+    "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for MoveDebouncer\n\n**File:** `frontend/src/lib/moveDebouncer.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/moveDebouncer.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-082",
+    "title": "Performance: Rigorous Unit & Regression Tests for OfflineDb",
+    "category": "Performance",
+    "status": "pending",
+    "prompt": "# 🚀 Performance Task: Unit & Invariant Tests for OfflineDb\n\n**File:** `frontend/src/lib/offlineDbBench.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/offlineDbBench.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-083",
+    "title": "Testing: Rigorous Unit & Regression Tests for DeltaSync",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-084",
+    "title": "Sentinel: Rigorous Unit & Regression Tests for AuthTokenRotation",
+    "category": "Security",
+    "status": "pending",
+    "prompt": "# 🚀 Sentinel Task: Unit & Invariant Tests for AuthTokenRotation\n\n**File:** `backend/tests/test_auth_token_rotation.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_auth_token_rotation.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-085",
+    "title": "Testing: Rigorous Unit & Regression Tests for FeedbackPipeline",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for FeedbackPipeline\n\n**File:** `backend/tests/test_feedback_pipeline.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_feedback_pipeline.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-086",
+    "title": "Testing: Rigorous Unit & Regression Tests for IntentParser",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-087",
+    "title": "Bolt: Rigorous Unit & Regression Tests for InventorySearch",
+    "category": "Performance",
+    "status": "pending",
+    "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-088",
+    "title": "Code Health: Rigorous Unit & Regression Tests for LexiconLearningService",
+    "category": "Code Health",
+    "status": "pending",
+    "prompt": "# 🚀 Code Health Task: Unit & Invariant Tests for LexiconLearningService\n\n**File:** `backend/tests/test_lexicon_service.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_lexicon_service.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-089",
+    "title": "Testing: Rigorous Unit & Regression Tests for VoiceWorker",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]
