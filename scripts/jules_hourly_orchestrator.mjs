@@ -107,18 +107,24 @@ async function checkAndMergePRs() {
       let mergeableStatus = pr.mergeable;
       let mergeState = pr.mergeStateStatus;
 
-      // If status is UNKNOWN, fetch explicit view from GitHub to trigger computation
+      // If status is UNKNOWN, fetch explicit view from GitHub to trigger computation (with retry for async calculation)
       if (mergeableStatus === 'UNKNOWN' || !mergeableStatus) {
-        try {
-          const detailRaw = execSync(
-            `${GH_PATH} pr view ${pr.number} --repo ${REPO_NAME} --json mergeable,mergeStateStatus`,
-            { encoding: 'utf8', timeout: 10000 }
-          );
-          const detail = JSON.parse(detailRaw || '{}');
-          mergeableStatus = detail.mergeable || mergeableStatus;
-          mergeState = detail.mergeStateStatus || mergeState;
-        } catch (viewErr) {
-          log(`[PR #${pr.number}] Warning: Could not refresh mergeable status: ${viewErr.message}`);
+        for (let attempt = 0; attempt < 2; attempt++) {
+          if (attempt > 0) {
+            await new Promise(r => setTimeout(r, 1500));
+          }
+          try {
+            const detailRaw = execSync(
+              `${GH_PATH} pr view ${pr.number} --repo ${REPO_NAME} --json mergeable,mergeStateStatus`,
+              { encoding: 'utf8', timeout: 10000 }
+            );
+            const detail = JSON.parse(detailRaw || '{}');
+            mergeableStatus = detail.mergeable || mergeableStatus;
+            mergeState = detail.mergeStateStatus || mergeState;
+            if (mergeableStatus && mergeableStatus !== 'UNKNOWN') break;
+          } catch (viewErr) {
+            log(`[PR #${pr.number}] Warning: Could not refresh mergeable status: ${viewErr.message}`);
+          }
         }
       }
 
