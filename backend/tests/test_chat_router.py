@@ -70,3 +70,31 @@ class TestChatRouterMultiTenant:
         assert resp.status_code in [404, 200]
         if resp.status_code == 404:
             assert "Tenant directory not found" in resp.json()["detail"]
+
+    def test_inventory_sync_tenant_isolation(self):
+        client = TestClient(app)
+        resp = client.get("/api/inventory/sync?tenant_id=general_memorial_cvor")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["tenant_id"] == "general_memorial_cvor"
+        assert "items" in data
+
+    def test_voice_query_silence_fallback(self):
+        client = TestClient(app)
+        # 1-byte file which is < _MIN_AUDIO_BYTES (400)
+        file_content = b"0"
+        files = {"file": ("audio.wav", file_content, "audio/wav")}
+        data = {"tenant_id": "or_main"}
+        resp = client.post("/api/v1/voice-query", files=files, data=data)
+        assert resp.status_code == 200
+        js = resp.json()
+        assert js.get("silence") is True
+        assert js.get("safe_transcript") == ""
+
+    def test_voice_query_invalid_tenant(self):
+        client = TestClient(app)
+        file_content = b"0"
+        files = {"file": ("audio.wav", file_content, "audio/wav")}
+        data = {"tenant_id": "../invalid"}
+        resp = client.post("/api/v1/voice-query", files=files, data=data)
+        assert resp.status_code == 400
