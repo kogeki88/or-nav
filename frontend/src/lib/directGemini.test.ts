@@ -211,4 +211,150 @@ describe('directGemini', () => {
       /Network offline/
     );
   });
+
+  describe('Invariant, Fuzzing & Boundary Hardening', () => {
+    test('getClientGeminiApiKey ignores whitespace-only keys', () => {
+      localStorage.setItem("ornav_gemini_api_key", "   ");
+      assert.strictEqual(getClientGeminiApiKey(), null);
+    });
+
+    test('setClientGeminiApiKey handles extreme boundary inputs and trimming', () => {
+      setClientGeminiApiKey("  \n\t  ");
+      assert.strictEqual(localStorage.getItem("ornav_gemini_api_key"), null);
+
+      const massiveKey = "A".repeat(10000);
+      setClientGeminiApiKey(`  ${massiveKey}  `);
+      assert.strictEqual(localStorage.getItem("ornav_gemini_api_key"), massiveKey);
+    });
+
+    test('directTranscribeAudio resilience: 500 server error', async () => {
+      setClientGeminiApiKey("test");
+      global.fetch = async () => ({
+        ok: false,
+        status: 500,
+        text: async () => "Internal Server Error"
+      } as unknown as Response);
+
+      const blob = new Blob(["audio"], { type: "audio/webm" });
+      await assert.rejects(
+        () => directTranscribeAudio(blob),
+        /Direct Gemini transcription failed \(500\): Internal Server Error/
+      );
+    });
+
+    test('directTranscribeAudio resilience: malformed JSON response', async () => {
+      setClientGeminiApiKey("test");
+      global.fetch = async () => ({
+        ok: true,
+        json: async () => { throw new SyntaxError("Unexpected token"); }
+      } as unknown as Response);
+
+      const blob = new Blob(["audio"], { type: "audio/webm" });
+      await assert.rejects(
+        () => directTranscribeAudio(blob),
+        /Unexpected token/
+      );
+    });
+
+    test('directTranscribeAudio resilience: missing candidate schema', async () => {
+      setClientGeminiApiKey("test");
+      global.fetch = async () => ({
+        ok: true,
+        json: async () => ({}) // missing candidates completely
+      } as unknown as Response);
+
+      const blob = new Blob(["audio"], { type: "audio/webm" });
+      const result = await directTranscribeAudio(blob);
+      assert.strictEqual(result, null);
+    });
+
+    test('directTranscribeAudio handles strange mime types and empty blobs', async () => {
+      setClientGeminiApiKey("test");
+      let capturedMime = "";
+      global.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (init?.body) {
+          const body = JSON.parse(init.body as string);
+          capturedMime = body.contents[0].parts[0].inlineData.mimeType;
+        }
+        return {
+          ok: true,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: "Empty audio" }] } }]
+          })
+        } as unknown as Response;
+      };
+
+      const emptyBlob = new Blob([], { type: "application/octet-stream" });
+      await directTranscribeAudio(emptyBlob);
+      assert.strictEqual(capturedMime, "audio/webm", "Should fallback to audio/webm if type doesn't include audio");
+
+      const weirdAudioBlob = new Blob(["xyz"], { type: "audio/ogg; codecs=opus" });
+      await directTranscribeAudio(weirdAudioBlob);
+      assert.strictEqual(capturedMime, "audio/ogg", "Should split mime type by semicolon");
+    });
+
+    test('directGeminiRAG resilience: malformed payload and empty response body', async () => {
+      setClientGeminiApiKey("test");
+      global.fetch = async () => ({
+        ok: true,
+        json: async () => ({ candidates: [] })
+      } as unknown as Response);
+
+      const response = await directGeminiRAG("test");
+      assert.strictEqual(response.reply_text, "No response generated.");
+    });
+
+    test('directGeminiRAG handles extreme fuzzing queries', async () => {
+      setClientGeminiApiKey("test");
+      global.fetch = async () => ({
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: "handled" }] } }]
+        })
+      } as unknown as Response);
+
+      const massiveQuery = "Q".repeat(50000);
+      const res1 = await directGeminiRAG(massiveQuery);
+      assert.strictEqual(res1.reply_text, "handled");
+
+      const specialCharsQuery = "🤷‍♂️ !@#$%^&*()_+ \n\r\t null undefined NaN <script>alert(1)</script>";
+      const res2 = await directGeminiRAG(specialCharsQuery);
+      assert.strictEqual(res2.reply_text, "handled");
+    });
+
+    test('directGeminiRAG strictly respects custom profile overriding default tenant state', async () => {
+      setClientGeminiApiKey("test-api-key");
+      let capturedPrompt = "";
+
+      global.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (init && init.body) {
+          const body = JSON.parse(init.body as string);
+          capturedPrompt = body.contents[0].parts[0].text;
+        }
+        return {
+          ok: true,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: "Custom isolated response" }] } }]
+          })
+        } as unknown as Response;
+      };
+
+      const customProfile = {
+        userId: "test_user_999",
+        name: "Test User",
+        clinicalRole: "scrub_tech",
+        departmentId: "pediatrics_dept",
+        facilityName: "Isolated Facility 42"
+      };
+
+      await directGeminiRAG("query", "Isolated Orientation", "Isolated Baseline", undefined, customProfile as any);
+
+      assert.match(capturedPrompt, /Isolated Facility 42/);
+      // Fallback is OR (Operating Room (OR)) because pediatrics_dept isn't hardcoded in department mappings,
+      // but it shouldn't crash and should preserve the facility name/orientation.
+      assert.match(capturedPrompt, /Operating Room \(OR\)/i, "Department should map or fallback depending on getDepartment, at minimum should not crash");
+      assert.match(capturedPrompt, /Isolated Orientation/);
+      assert.match(capturedPrompt, /Isolated Baseline/);
+    });
+  });
 });
