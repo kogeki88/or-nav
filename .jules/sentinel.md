@@ -18,3 +18,7 @@ When securing FastAPI applications, it's essential to:
 
 ## 2024-10-31 - [Enforcing Strict CSP Media Policies]
 When modifying FastAPI security headers to strictly enforce Content-Security-Policy (CSP) for media and iframes, ensure that the policy explicitly includes `media-src 'self' mediastream:;` and `frame-ancestors 'none';`. This prevents unauthorized external sources from embedding the application or interacting with camera and microphone media APIs.
+
+## 2024-11-20 - Enforcing Authorized Clinical Roles in Profile Update Modal
+- Ensure UI inputs selecting authorization roles are strictly validated against the server-authorized (or pre-defined mapping) roles to prevent unauthenticated privilege escalation via DOM manipulation.
+- Verify authorization changes successfully dispatch relevant audit logs/events to monitor for role tampering.

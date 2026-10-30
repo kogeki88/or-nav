@@ -76,11 +76,23 @@ export default function UserProfileModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSaveProfile(formData);
+
+    const validRoles = ROLES_BY_DEPARTMENT[formData.departmentId] || ROLES_BY_DEPARTMENT["or_main"];
+    let finalRole = formData.clinicalRole;
+    if (!validRoles.includes(formData.clinicalRole)) {
+      finalRole = validRoles[0];
+      console.warn(`Unauthorized role detected: ${formData.clinicalRole}. Resetting to ${finalRole}.`);
+    }
+
+    const finalData = { ...formData, clinicalRole: finalRole };
+
+    onSaveProfile(finalData);
     setSavedSuccess(true);
-    updateUserAuthProfile(formData).catch(console.warn);
+    updateUserAuthProfile(finalData).catch(console.warn);
+    window.dispatchEvent(new CustomEvent("ornav_user_profile_updated", { detail: finalData }));
+
     // Background provision required 3-tier packs from GitHub
-    ensureProfilePacksInstalled(formData.facilityId, formData.departmentId, formData.clinicalRole).catch(console.warn);
+    ensureProfilePacksInstalled(finalData.facilityId, finalData.departmentId, finalData.clinicalRole).catch(console.warn);
     setTimeout(() => {
       setSavedSuccess(false);
       onClose();
