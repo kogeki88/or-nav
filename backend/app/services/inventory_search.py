@@ -248,7 +248,7 @@ def normalize_location_coordinate(loc_raw: str) -> Optional[str]:
       'icu a 2 b' -> 'ICU A 2 B'
     """
     text = (loc_raw or "").strip().rstrip(".")
-    if not text:
+    if not text or len(text) > 1000:
         return None
 
     # First attempt packed/spaced coordinate unpacker from intent_parser
@@ -356,6 +356,9 @@ def split_compound_query(query: str) -> list[str]:
     preserving medical abbreviations (I&D, D&C) and resolving elliptical shared-noun
     constructions (e.g., 'where is 2-0 and 3-0 prolene' -> ['2-0 prolene', '3-0 prolene']).
     """
+    if not isinstance(query, str):
+        return []
+
     text = preprocess_voice_query(query).strip()
     if not text:
         return []
@@ -1144,6 +1147,9 @@ class InventoryService:
         and promotes to `verified` at 3.0, protected by an optional cooldown
         per item to prevent score inflation from rapid lookups.
         """
+        if not isinstance(query, str):
+            raise TypeError(f"expected string or bytes-like object, got '{type(query).__name__}'")
+
         if self.is_procedural_query(query):
             return None
 
@@ -1407,6 +1413,9 @@ class InventoryService:
         Vector 3: If a different destination is reported while a move is pending,
         resets pending destination and verify_count = 1 to prevent split-brain.
         """
+        if not isinstance(item_query, str) or not isinstance(new_location, str):
+            return None
+
         canonical_loc = normalize_location_coordinate(new_location) or new_location.strip()
         with self._lock:
             matched_row, _ = self._find_matching_row(item_query)
@@ -1438,6 +1447,9 @@ class InventoryService:
             - Sets verification_score = 3.0 and status = 'verified'
             - Invalidates RAG cache so ground truth updates immediately (Vector 4)
         """
+        if not isinstance(item_name, str):
+            return None
+
         with self._lock:
             target_row: Optional[dict] = None
             for row in self._rows:
@@ -1516,6 +1528,9 @@ class InventoryService:
         Parses location into room, cabinet, shelf, container, enriches row, saves CSV,
         and invalidates RAG cache so updates reflect immediately.
         """
+        if not isinstance(item, str) or not isinstance(location_str, str):
+            raise TypeError("Item and location must be strings")
+
         canonical_loc = normalize_location_coordinate(location_str) or location_str.strip()
         tokens = canonical_loc.split()
         if len(tokens) >= 4:
