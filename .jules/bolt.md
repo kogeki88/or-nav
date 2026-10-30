@@ -28,3 +28,9 @@ Implemented a benchmark for the `ClinicalQueryPlanner` to verify that a complex 
 - Used native `node:test` runner.
 - Handled V8 garbage collection programmatically using `v8.setFlagsFromString("--expose_gc")` and `vm.runInNewContext("gc")()` to guarantee consistent memory diff measurements without relying on CI CLI flags.
 - Benchmarked queries correctly resolved below limits (~0.2ms vs 10ms).
+## 2024-10-30 - Delta Sync Payload Sizing Optimization
+
+- Implemented `compressPayload` and `decompressPayload` in `frontend/src/lib/deltaSyncPayload.ts` to reduce JSON payload sizes for offline mutation syncing.
+- Used a columnar format by extracting common keys into a single `keys` array and mapping values to a `data` array of arrays.
+- Substituted `undefined` with `null` during compression to ensure JSON compatibility, and filtered `null` values back out upon decompression.
+- Verified through benchmark tests that 50 mock mutation records serialize into a highly compact format (<10KB) suitable for low-bandwidth OR networks.
