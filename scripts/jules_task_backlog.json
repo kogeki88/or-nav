@@ -354,10 +354,11 @@
     "id": "backlog-40",
     "title": "Bolt: LiveKit WebRTC Audio Visualizer Canvas Memory Leak Tests",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: Audio Visualizer Canvas Cleanup\n\n**File:** `frontend/src/lib/livekitClient.test.ts`\n**Issue:** Ensure WebRTC audio visualizer canvas context and event listeners are properly disposed on unmount.\n\n**Objective:**\n1. Create unit tests in `frontend/src/lib/livekitClient.test.ts` validating audio track disconnect and canvas requestAnimationFrame cleanup.\n2. Ensure zero lingering intervals or listeners.\n3. Submit PR immediately upon verification.",
     "sessionId": "9868944695655279023",
-    "dispatchedAt": "2026-10-30T13:37:21.709Z"
+    "dispatchedAt": "2026-10-30T13:37:21.709Z",
+    "completedAt": "2026-10-30T22:09:02.100Z"
   },
   {
     "id": "backlog-41",
