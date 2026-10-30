@@ -168,7 +168,26 @@ export async function flushOfflineOutbox(apiBase: string = ""): Promise<number> 
   let count = 0;
   try {
     const pending = await activeDb.offlineOutbox.toArray();
+
+    // Deduplicate mutations to make replay idempotent
+    const deduplicatedMutations = new Map<string, typeof pending[0]>();
+    const mutationIdsByKey = new Map<string, number[]>();
+
     for (const mut of pending) {
+      // Build a unique key based on mutation type and its primary subject
+      let deduplicationKey = `${mut.type}::${mut.tenant_id}`;
+      if (mut.item) deduplicationKey += `::${mut.item}`;
+      if (mut.question_id) deduplicationKey += `::${mut.question_id}`;
+      if (mut.question_text) deduplicationKey += `::${mut.question_text}`;
+
+      deduplicatedMutations.set(deduplicationKey, mut);
+
+      const ids = mutationIdsByKey.get(deduplicationKey) || [];
+      if (mut.id) ids.push(mut.id);
+      mutationIdsByKey.set(deduplicationKey, ids);
+    }
+
+    for (const [key, mut] of deduplicatedMutations.entries()) {
       let success = false;
       let delayMs = 150;
 
@@ -243,8 +262,11 @@ export async function flushOfflineOutbox(apiBase: string = ""): Promise<number> 
       }
 
       if (success) {
-        if (mut.id) await activeDb.offlineOutbox.delete(mut.id);
-        count++;
+        const idsToDelete = mutationIdsByKey.get(key) || [];
+        for (const id of idsToDelete) {
+          await activeDb.offlineOutbox.delete(id);
+          count++;
+        }
       }
     }
   } catch (err) {
