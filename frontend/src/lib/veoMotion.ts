@@ -33,6 +33,15 @@ interface ImageInputSource {
 export async function generateSpriteIdleVideo(options: AnimateSpriteOptions): Promise<string> {
   const { spriteName, sourceImagePath, jobClass, currentState, outputPath, modelName = 'veo-3.1-generate-preview' } = options;
 
+  // Graceful degradation for users who prefer reduced motion
+  if (typeof window !== 'undefined' && window.matchMedia) {
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (prefersReducedMotion.matches) {
+      console.log(`[Veo 3.1] prefers-reduced-motion detected. Returning static sprite for ${spriteName}.`);
+      return sourceImagePath;
+    }
+  }
+
   // Build dynamic prompt cues matching the state and RO aesthetic
   let motionPrompt = "Subtle 2D MMORPG idle breathing animation, crisp pixel lines, gentle torso rise and fall, natural hair sway, blinking eyes, loopable motion.";
   
