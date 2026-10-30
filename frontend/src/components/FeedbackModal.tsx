@@ -5,7 +5,6 @@ import {
   FeedbackItem,
   fetchFeedbackItems,
   submitManualFeedback,
-  upvoteFeedback,
   updateFeedbackStatus,
   FEEDBACK_EVENT_NAME,
 } from "@/lib/feedbackEngine";
@@ -44,8 +43,11 @@ export function FeedbackModal({
   // Form State
   const [category, setCategory] = useState<"feature_request" | "bug_friction" | "data_inventory">("feature_request");
   const [rawText, setRawText] = useState("");
+  const [rating, setRating] = useState<number>(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [isOffline, setIsOffline] = useState(false);
 
   // Recommendations / Admin Triage State
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
@@ -65,12 +67,15 @@ export function FeedbackModal({
   useEffect(() => {
     if (isOpen) {
       if (!isAdmin) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setActiveTab("give_feedback");
       } else {
+
         setActiveTab(initialTab);
         reloadFeedback();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, initialTab, isAdmin]);
 
   useEffect(() => {
@@ -78,9 +83,26 @@ export function FeedbackModal({
     const handleUpdated = () => reloadFeedback();
     window.addEventListener(FEEDBACK_EVENT_NAME, handleUpdated);
     return () => window.removeEventListener(FEEDBACK_EVENT_NAME, handleUpdated);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin]);
 
   useModalA11y(isOpen, onClose, modalRef);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setIsOffline(!navigator.onLine);
+      const handleOnline = () => setIsOffline(false);
+      const handleOffline = () => setIsOffline(true);
+      window.addEventListener("online", handleOnline);
+      window.addEventListener("offline", handleOffline);
+      return () => {
+        window.removeEventListener("online", handleOnline);
+        window.removeEventListener("offline", handleOffline);
+      };
+    }
+  }, []);
+
 
   if (!isOpen) return null;
 
@@ -89,12 +111,14 @@ export function FeedbackModal({
     e.preventDefault();
     if (!rawText.trim()) return;
 
+    setErrorMsg("");
     setIsSubmitting(true);
     try {
       await submitManualFeedback({
         rawText,
         category,
         severity: category === "bug_friction" ? "medium" : "low",
+        rating: rating > 0 ? rating : undefined,
         userProfile,
       });
 
@@ -109,24 +133,21 @@ export function FeedbackModal({
 
       setTimeout(() => {
         setSubmitSuccess(false);
+        setRating(0);
         if (isAdmin) {
           setActiveTab("recommendations");
         } else {
           onClose();
         }
-      }, 1200);
+      }, 1500);
     } catch (err) {
       console.error("Submission failed:", err);
+      setErrorMsg("Failed to submit feedback. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Handle Upvote
-  const handleUpvote = async (id: string) => {
-    await upvoteFeedback(id);
-    await reloadFeedback();
-  };
 
   // Handle Mark Done (Resolve)
   const handleToggleResolve = async (id: string, currentStatus: string) => {
@@ -217,6 +238,15 @@ export function FeedbackModal({
             /* MINIMAL MOBILE FORM: CLINICIANS & SUBMIT VIEW                 */
             /* ============================================================ */
             <form onSubmit={handleSubmit} className="space-y-4">
+              {errorMsg && (
+                <div
+                  data-testid="feedback-error-banner"
+                  className="rounded-xl border border-rose-500/30 bg-rose-950/40 p-3 text-rose-300 text-xs animate-fadeIn"
+                >
+                  <p className="font-semibold">❌ {errorMsg}</p>
+                </div>
+              )}
+
               {submitSuccess && (
                 <div
                   data-testid="feedback-success-banner"
@@ -224,7 +254,7 @@ export function FeedbackModal({
                 >
                   <p className="font-semibold">🚀 Feedback Received! (+5 XP)</p>
                   <p className="text-[11px] text-emerald-400/80">
-                    Thank you! We review clinician suggestions every day.
+                    {isOffline ? "Saved offline. Will sync when connected." : "Thank you! We review clinician suggestions every day."}
                   </p>
                 </div>
               )}
@@ -243,7 +273,7 @@ export function FeedbackModal({
                     <button
                       key={cat.id}
                       type="button"
-                      onClick={() => setCategory(cat.id as any)}
+                      onClick={() => setCategory(cat.id as "feature_request" | "bug_friction" | "data_inventory")}
                       className={`rounded-xl border p-2 text-center text-xs font-medium transition-all ${
                         category === cat.id
                           ? "border-indigo-500 bg-indigo-500/10 text-white shadow-sm ring-1 ring-indigo-500/40"
@@ -256,17 +286,45 @@ export function FeedbackModal({
                 </div>
               </div>
 
-              {/* Clean Text Area */}
+              {/* Star Rating */}
               <div>
                 <label className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  Tell us what to improve...
+                  Rating
                 </label>
+                <div className="flex gap-2" data-testid="star-rating">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setRating(star)}
+                      aria-label={`Rate ${star} stars`}
+                      className={`text-2xl transition-transform hover:scale-110 ${
+                        star <= rating ? "text-amber-400" : "text-slate-700"
+                      }`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Clean Text Area */}
+              <div>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    Tell us what to improve...
+                  </label>
+                  <span className={`text-[10px] ${rawText.length >= 500 ? 'text-rose-400 font-bold' : 'text-slate-500'}`}>
+                    {rawText.length}/500
+                  </span>
+                </div>
                 <textarea
                   data-testid="feedback-input-text"
                   value={rawText}
-                  onChange={(e) => setRawText(e.target.value)}
+                  onChange={(e) => setRawText(e.target.value.slice(0, 500))}
                   rows={4}
                   required
+                  maxLength={500}
                   placeholder="Tell us what to improve..."
                   className="w-full rounded-xl border border-slate-800 bg-slate-950/80 p-3 text-xs text-slate-200 placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
@@ -326,7 +384,7 @@ export function FeedbackModal({
 
                           {/* Raw Quote */}
                           <p className="text-[11px] text-slate-400 line-clamp-1 italic pl-4">
-                            "{item.rawText}"
+                            &quot;{item.rawText}&quot;
                           </p>
                         </div>
 

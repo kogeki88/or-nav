@@ -23,6 +23,7 @@ export interface FeedbackItem {
   upvotes: number;            // Increments when multiple users make similar complaints
   status: "open" | "planned" | "resolved";
   createdAt: string;
+  rating?: number;            // Optional 1-5 star rating
 }
 
 export const FEEDBACK_STORAGE_KEY = "ornav_feedback_store";
@@ -548,6 +549,7 @@ export async function submitManualFeedback(data: {
   rawText: string;
   category?: "bug_friction" | "feature_request" | "data_inventory" | "ui_ux";
   severity?: "low" | "medium" | "high";
+  rating?: number;
   userProfile?: { fullName?: string; clinicalRole?: string; facilityId?: string; departmentId?: string };
 }): Promise<FeedbackItem> {
   const session = getCurrentSession();
@@ -582,6 +584,7 @@ export async function submitManualFeedback(data: {
     upvotes: 1,
     status: "open",
     createdAt: new Date().toISOString(),
+    rating: data.rating,
   };
 
   localItems.unshift(newItem);
