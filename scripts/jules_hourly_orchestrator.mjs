@@ -78,15 +78,55 @@ async function julesFetch(url, apiKey, options = {}) {
   return res.json().catch(() => ({}));
 }
 
+
+function requeueTaskBySessionId(sessionId, sessionTitle) {
+  if (!fs.existsSync(BACKLOG_PATH)) return;
+  try {
+    const backlog = JSON.parse(fs.readFileSync(BACKLOG_PATH, 'utf8'));
+    const item = backlog.find(t => 
+      (t.sessionId && String(t.sessionId) === String(sessionId)) || 
+      (sessionTitle && t.title && t.title.toLowerCase().trim() === sessionTitle.toLowerCase().trim())
+    );
+    if (item && item.status !== 'completed') {
+      item.status = 'pending';
+      delete item.sessionId;
+      delete item.dispatchedAt;
+      fs.writeFileSync(BACKLOG_PATH, JSON.stringify(backlog, null, 2), 'utf8');
+      log(`Re-queued backlog task [${item.id}] '${item.title}'`);
+    }
+  } catch (err) {
+    log(`Failed to requeue task for session ${sessionId}: ${err.message}`);
+  }
+}
+
+function markTaskCompletedBySessionId(sessionId, sessionTitle) {
+  if (!fs.existsSync(BACKLOG_PATH)) return;
+  try {
+    const backlog = JSON.parse(fs.readFileSync(BACKLOG_PATH, 'utf8'));
+    const item = backlog.find(t => 
+      (t.sessionId && String(t.sessionId) === String(sessionId)) || 
+      (sessionTitle && t.title && t.title.toLowerCase().trim() === sessionTitle.toLowerCase().trim())
+    );
+    if (item) {
+      item.status = 'completed';
+      item.completedAt = new Date().toISOString();
+      fs.writeFileSync(BACKLOG_PATH, JSON.stringify(backlog, null, 2), 'utf8');
+      log(`Marked backlog task [${item.id}] '${item.title}' as completed.`);
+    }
+  } catch (err) {
+    log(`Failed to mark task completed for session ${sessionId}: ${err.message}`);
+  }
+}
+
 // -----------------------------------------------------------------------------
 // Step 1: Auto-Merge Completed Jules PRs & Sync Local Workspace
 // -----------------------------------------------------------------------------
-async function checkAndMergePRs() {
+async function checkAndMergePRs(apiKey) {
   log('--- Step 1: Checking open Jules PRs for auto-verification and merge ---');
   let openPRs = [];
   try {
     const raw = execSync(
-      `${GH_PATH} pr list --repo ${REPO_NAME} --json number,title,headRefName,url,isDraft,mergeable,mergeStateStatus`,
+      `${GH_PATH} pr list --repo ${REPO_NAME} --limit 100 --json number,title,headRefName,url,isDraft,mergeable,mergeStateStatus`,
       { encoding: 'utf8', timeout: 15000 }
     );
     openPRs = JSON.parse(raw || '[]');
@@ -176,6 +216,17 @@ async function checkAndMergePRs() {
         );
         log(`[PR #${pr.number}] SUCCESS: Merged into main and deleted branch.`);
         mergedCount++;
+        const sessionMatch = pr.headRefName?.match(/([0-9]{17,20})/);
+        if (sessionMatch) {
+          const prSessionId = sessionMatch[1];
+          if (apiKey) {
+            try {
+              await julesFetch(`https://jules.googleapis.com/v1alpha/sessions/${prSessionId}`, apiKey, { method: 'DELETE' });
+              log(`[PR #${pr.number}] Closed completed Jules session ${prSessionId}.`);
+            } catch (e) {}
+          }
+          markTaskCompletedBySessionId(prSessionId, pr.title);
+        }
       } catch (mergeErr) {
         log(`[PR #${pr.number}] Merge command output: ${mergeErr.message.trim()}`);
       }
@@ -188,7 +239,8 @@ async function checkAndMergePRs() {
   let syncStatus = 'SUCCESS';
   try {
     log('Syncing local workspace with origin/main via rebase with autostash...');
-    execSync('git pull --rebase --autostash origin main', { cwd: ROOT_DIR, encoding: 'utf8', timeout: 25000 });
+    execSync('git fetch origin main', { cwd: ROOT_DIR, encoding: 'utf8', timeout: 25000 });
+    execSync('git rebase --autostash origin/main', { cwd: ROOT_DIR, encoding: 'utf8', timeout: 25000 });
     log('Local workspace successfully synchronized.');
   } catch (syncErr) {
     syncStatus = 'FAILED';
@@ -227,7 +279,11 @@ async function auditAndUnblockSessions(apiKey) {
   const nowMs = Date.now();
 
   for (const s of sessions) {
-    if (s.sourceContext?.source !== REPO_SOURCE && !s.title?.includes('OR-Nav') && !s.id) {
+    const isOrNav = s.sourceContext?.source === REPO_SOURCE || 
+                    s.sourceContext?.source?.includes('or-nav') ||
+                    (s.title && s.title.toLowerCase().includes('or-nav')) ||
+                    s.sourceContext?.source?.includes('kogeki88/or-nav');
+    if (!isOrNav) {
       continue;
     }
 
@@ -244,6 +300,7 @@ async function auditAndUnblockSessions(apiKey) {
       } catch (err) {
         log(`Failed to delete session ${s.id}: ${err.message}`);
       }
+      markTaskCompletedBySessionId(s.id, title);
       continue;
     }
 
@@ -254,6 +311,7 @@ async function auditAndUnblockSessions(apiKey) {
         await julesFetch(`https://jules.googleapis.com/v1alpha/sessions/${s.id}`, apiKey, { method: 'DELETE' });
         closedCount++;
       } catch (err) {}
+      requeueTaskBySessionId(s.id, title);
       continue;
     }
 
@@ -264,11 +322,12 @@ async function auditAndUnblockSessions(apiKey) {
         await julesFetch(`https://jules.googleapis.com/v1alpha/sessions/${s.id}`, apiKey, { method: 'DELETE' });
         closedCount++;
       } catch (err) {}
+      requeueTaskBySessionId(s.id, title);
       continue;
     }
 
     // Condition D: Handle AWAITING_USER_FEEDBACK / AWAITING_PLAN_APPROVAL / PAUSED
-    if (s.state === 'AWAITING_USER_FEEDBACK' || s.state === 'AWAITING_PLAN_APPROVAL' || s.state === 'PAUSED') {
+    if (s.state === 'AWAITING_USER_FEEDBACK' || s.state === 'AWAITING_PLAN_APPROVAL' || s.state === 'PAUSED' || s.state === 'WAITING_FOR_INPUT') {
       // Check if session has been stalled in waiting state with repeated unprogressed prompts
       let isStalled = false;
       try {
@@ -286,6 +345,7 @@ async function auditAndUnblockSessions(apiKey) {
           await julesFetch(`https://jules.googleapis.com/v1alpha/sessions/${s.id}`, apiKey, { method: 'DELETE' });
           closedCount++;
         } catch (err) {}
+        requeueTaskBySessionId(s.id, title);
         continue;
       }
 
@@ -690,6 +750,10 @@ async function replenishPool(apiKey, currentActive) {
       log(`Successfully dispatched [${item.id}] -> Jules Session ${resp.id}`);
     } catch (err) {
       log(`Failed to dispatch [${item.id}]: ${err.message}`);
+      if (err.message.includes('FAILED_PRECONDITION') || err.message.includes('429') || err.message.includes('Quota')) {
+        log(`Jules API dispatch capacity or daily task quota reached. Halting replenishment for this cycle.`);
+        break;
+      }
     }
   }
 
@@ -715,7 +779,7 @@ async function run() {
     const apiKey = getApiKey();
 
     // Step 1: Check PRs & Sync Local Git
-    prResults = await checkAndMergePRs();
+    prResults = await checkAndMergePRs(apiKey);
 
     // Step 2: Audit & Unblock Sessions
     auditResults = await auditAndUnblockSessions(apiKey);
@@ -751,4 +815,18 @@ async function run() {
   }
 }
 
-run();
+const args = process.argv.slice(2);
+const isDaemon = args.includes('--daemon');
+const intervalArgIndex = args.indexOf('--interval');
+const intervalMinutes = intervalArgIndex !== -1 && args[intervalArgIndex + 1] 
+  ? parseInt(args[intervalArgIndex + 1], 10) 
+  : 30;
+
+if (isDaemon) {
+  log(`Starting Orchestrator in Autonomous Daemon mode (cadence: every ${intervalMinutes} minutes)...`);
+  run().then(() => {
+    setInterval(run, intervalMinutes * 60 * 1000);
+  });
+} else {
+  run();
+}
