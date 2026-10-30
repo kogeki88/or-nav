@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
-import { parseClinicalIntent, ClinicalIntent, extractAndNormalizeCoordinateClient, normalizeClinicalSpeech } from "./frontend/src/lib/semanticParser";
+import { parseClinicalIntent, ClinicalIntent, extractAndNormalizeCoordinateClient, normalizeClinicalSpeech } from "./semanticParser";
 
 test("Semantic Query Parser Intents", async (t) => {
   await t.test("FIND_INVENTORY (locate item)", () => {
