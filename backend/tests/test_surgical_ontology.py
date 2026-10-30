@@ -441,3 +441,43 @@ def test_surgical_ontology_multi_tenant_isolation():
     res2 = normalize_or_lingo("ad son pickups")
     assert res1 == res2
     assert res1 == "adson forceps"
+
+def test_strip_spoken_disfluencies():
+    from app.services.surgical_ontology import strip_spoken_disfluencies
+    assert strip_spoken_disfluencies("umm uhh get me the metz") == "get me the metz"
+    assert strip_spoken_disfluencies("wait basically actually literally hand me the adson") == "hand me the adson"
+    assert strip_spoken_disfluencies("let's see you know grab the peanuts") == "grab the peanuts"
+    assert strip_spoken_disfluencies("is like the castro here") == "is the castro here"
+    assert strip_spoken_disfluencies("okay ok well so ummm ahh forceps") == "forceps"
+    assert strip_spoken_disfluencies("hey look wait umm scissors") == "scissors"
+    assert strip_spoken_disfluencies("please find me a crile") == "a crile"
+    assert strip_spoken_disfluencies("") == ""
+    assert strip_spoken_disfluencies("   ") == ""
+    assert strip_spoken_disfluencies("umm, uhh, wait,") == ""
+    assert strip_spoken_disfluencies("umm, get me the metz, actually") == "get me the metz"
+
+def test_strip_spoken_disfluencies_offline_first_invariant(monkeypatch):
+    import httpx
+    import socket
+    from app.services.surgical_ontology import strip_spoken_disfluencies
+
+    def mock_socket(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+    def mock_httpx_post(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+    def mock_httpx_get(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
+    monkeypatch.setattr(httpx, "post", mock_httpx_post)
+    monkeypatch.setattr(httpx, "get", mock_httpx_get)
+
+    assert strip_spoken_disfluencies("umm get me the metz") == "get me the metz"
+
+def test_strip_spoken_disfluencies_multi_tenant_isolation():
+    from app.services.surgical_ontology import strip_spoken_disfluencies
+    # Operating on pure deterministic logic
+    res1 = strip_spoken_disfluencies("umm get me the metz")
+    res2 = strip_spoken_disfluencies("umm get me the metz")
+    assert res1 == res2
+    assert res1 == "get me the metz"
