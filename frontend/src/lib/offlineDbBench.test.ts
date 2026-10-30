@@ -51,4 +51,74 @@ describe("Dexie Benchmarks", () => {
     console.log(`Query compound index took ${queryDuration.toFixed(2)}ms`);
     assert.strictEqual(query.length, 250);
   });
+
+  test("multi-tenant isolation invariant", async () => {
+    const db = new BenchmarkDB();
+    const items = [];
+
+    // Add items for tenant_A
+    for (let i = 0; i < 100; i++) {
+      items.push({
+        id: `tenant_A::item_${i}`,
+        tenant_id: "tenant_A",
+        item: `Item A ${i}`,
+        status: "verified",
+      });
+    }
+
+    // Add items for tenant_B
+    for (let i = 0; i < 50; i++) {
+      items.push({
+        id: `tenant_B::item_${i}`,
+        tenant_id: "tenant_B",
+        item: `Item B ${i}`,
+        status: "verified",
+      });
+    }
+
+    await db.inventoryItems.bulkPut(items);
+
+    // Query for tenant_A
+    const queryA = await db.inventoryItems
+      .where("tenant_id")
+      .equals("tenant_A")
+      .toArray();
+    assert.strictEqual(queryA.length, 100, "Should only return tenant_A items");
+    assert.ok(queryA.every(item => item.tenant_id === "tenant_A"), "No leakage from tenant_B");
+
+    // Query for tenant_B
+    const queryB = await db.inventoryItems
+      .where("tenant_id")
+      .equals("tenant_B")
+      .toArray();
+    assert.strictEqual(queryB.length, 50, "Should only return tenant_B items");
+    assert.ok(queryB.every(item => item.tenant_id === "tenant_B"), "No leakage from tenant_A");
+  });
+
+  test("offline-first invariant outbox partitioning", async () => {
+    const db = new BenchmarkDB();
+
+    // Add mutations for different tenants
+    const mutations = [
+      { tenant_id: "tenant_1", type: "verify_move", timestamp: Date.now() },
+      { tenant_id: "tenant_1", type: "create_question", timestamp: Date.now() },
+      { tenant_id: "tenant_2", type: "verify_move", timestamp: Date.now() },
+    ];
+
+    await db.offlineOutbox.bulkAdd(mutations);
+
+    // Get mutations for tenant_1
+    const t1Mutations = await db.offlineOutbox
+      .where("tenant_id")
+      .equals("tenant_1")
+      .toArray();
+
+    assert.strictEqual(t1Mutations.length, 2, "Should retrieve exact outbox mutations for tenant_1");
+    assert.ok(t1Mutations.every(m => m.tenant_id === "tenant_1"), "Outbox partition constraint failed");
+
+    // Clear and verify
+    await db.offlineOutbox.clear();
+    const count = await db.offlineOutbox.count();
+    assert.strictEqual(count, 0);
+  });
 });
