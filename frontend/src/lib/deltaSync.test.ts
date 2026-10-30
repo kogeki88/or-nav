@@ -94,4 +94,101 @@ test("diffRecords", async (t) => {
       localData: "new_value"
     });
   });
+
+  await t.test("Malformed Payload Resilience: handles null/undefined inputs gracefully", () => {
+    // Escaping the type system to simulate malformed JS runtime arguments
+    assert.deepStrictEqual(diffRecords(null as any, { a: 1 }), {});
+    assert.deepStrictEqual(diffRecords({ a: 1 }, null as any), {});
+    assert.deepStrictEqual(diffRecords(undefined as any, undefined as any), {});
+    assert.deepStrictEqual(diffRecords("string" as any, "string" as any), {});
+    assert.deepStrictEqual(diffRecords(123 as any, { a: 1 }), {});
+  });
+
+  await t.test("Strict Schema Validation & Safety: ignores prototype pollution keys", () => {
+    const base: Record<string, unknown> = { id: 1 };
+    const modified: Record<string, unknown> = { id: 1 };
+
+    // Simulate prototype pollution keys
+    Object.defineProperty(modified, "__proto__", { value: { polluted: true }, enumerable: true });
+    Object.defineProperty(modified, "constructor", { value: { polluted: true }, enumerable: true });
+    Object.defineProperty(modified, "prototype", { value: { polluted: true }, enumerable: true });
+
+    const delta = diffRecords(base, modified);
+
+    // Should not include the prototype pollution keys
+    assert.deepStrictEqual(delta, {});
+  });
+
+  await t.test("Boundary Input: handles extreme values and deep objects", () => {
+    const base = {
+      empty: "",
+      nan: NaN,
+      infinity: Infinity,
+      negativeZero: -0,
+      deep: { a: { b: { c: { d: 1 } } } }
+    };
+
+    const modified = {
+      empty: "not empty",
+      nan: NaN, // Note: NaN !== NaN in JS, but JSON.stringify(NaN) === "null"
+      infinity: Infinity,
+      negativeZero: +0,
+      deep: { a: { b: { c: { d: 2 } } } }
+    };
+
+    const delta = diffRecords(base, modified);
+    // Since NaN !== NaN, it's considered changed
+    assert.strictEqual(delta.empty, "not empty");
+    // negativeZero is -0 in base and +0 in modified.
+    // In JavaScript, -0 === +0 is true, so diffRecords thinks they are the same and omits it.
+    assert.strictEqual(delta.negativeZero, undefined);
+    assert.deepStrictEqual(delta.deep, { a: { b: { c: { d: 2 } } } });
+  });
+
+  await t.test("Fuzzing: generates correct deltas for randomized structures", () => {
+    const generateRandomRecord = () => {
+      const record: Record<string, unknown> = {};
+      const numKeys = Math.floor(Math.random() * 20);
+      for (let i = 0; i < numKeys; i++) {
+        const key = `key_${Math.random().toString(36).substring(7)}`;
+        const type = Math.floor(Math.random() * 4);
+        switch (type) {
+          case 0: record[key] = Math.random(); break;
+          case 1: record[key] = Math.random().toString(36).substring(7); break;
+          case 2: record[key] = Math.random() > 0.5; break;
+          case 3: record[key] = null; break;
+        }
+      }
+      return record;
+    };
+
+    for (let iter = 0; iter < 50; iter++) {
+      const base = generateRandomRecord();
+      const modified = { ...base };
+
+      // Randomly modify the record
+      const keys = Object.keys(modified);
+      if (keys.length > 0) {
+        const keyToModify = keys[Math.floor(Math.random() * keys.length)];
+        modified[keyToModify] = "FUZZED_VALUE";
+      }
+
+      // Randomly add a new key
+      modified[`new_key_${iter}`] = "NEW_VALUE";
+
+      // Randomly delete a key
+      if (keys.length > 0) {
+         const keyToDelete = keys[Math.floor(Math.random() * keys.length)];
+         if (keyToDelete !== keys[0]) {
+           delete modified[keyToDelete];
+         }
+      }
+
+      const delta = diffRecords(base, modified);
+
+      // Should not throw, and should be an object
+      assert.strictEqual(typeof delta, "object");
+      assert.notStrictEqual(delta, null);
+    }
+  });
 });

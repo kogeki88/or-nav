@@ -6,6 +6,10 @@
  * here we use `null` to represent a removed field for better JSON compatibility.
  */
 export function diffRecords<T extends Record<string, unknown>>(base: T, modified: T): Partial<T> {
+  if (!base || !modified || typeof base !== 'object' || typeof modified !== 'object') {
+    return {};
+  }
+
   const delta: Partial<T> = {};
 
   const baseKeys = Object.keys(base);
@@ -13,6 +17,10 @@ export function diffRecords<T extends Record<string, unknown>>(base: T, modified
   const allKeys = new Set([...baseKeys, ...modKeys]);
 
   for (const key of allKeys) {
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      continue;
+    }
+
     const baseVal = base[key];
     const modVal = modified[key];
 
