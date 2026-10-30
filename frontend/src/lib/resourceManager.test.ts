@@ -205,6 +205,8 @@ describe("ResourceManagerChecksum", () => {
   });
 
   test("getResourceStorageSummary calculates total size correctly", async () => {
+
+
     mock.method(global, 'fetch', async (url: string) => {
       return {
         ok: true,
@@ -221,10 +223,141 @@ describe("ResourceManagerChecksum", () => {
       packId: "pack_b", facilityId: "fac1", category: "hospital", title: "B", filePath: "b", sizeBytes: 2048, versionHash: "v1", updatedAt: "2023-01-01"
     });
 
-    // Since fetch mock returns "dummy" (length 5), sizeBytes in DB will be 5, overriding the input
     const summary = await resourceManager.getResourceStorageSummary();
     assert.strictEqual(summary.totalPacksCount, 2);
     assert.strictEqual(summary.totalSizeBytes, 10);
     assert.strictEqual(summary.formattedSize, "10 B");
+  });
+
+  test("downloadPackContent throws error when all candidate URLs fail", async () => {
+    mock.method(global, 'fetch', async () => ({
+      ok: false,
+      status: 404,
+      text: async () => ""
+    }));
+
+    await assert.rejects(
+      resourceManager.downloadPackContent("some/file.md"),
+      /Failed to download pack file: some\/file.md/
+    );
+  });
+
+  test("downloadPackContent returns content on successful fetch", async () => {
+    let callCount = 0;
+    mock.method(global, 'fetch', async () => {
+      callCount++;
+      if (callCount === 1) {
+        return { ok: false, status: 404, text: async () => "" };
+      }
+      return { ok: true, status: 200, text: async () => "success content" };
+    });
+
+    const content = await resourceManager.downloadPackContent("some/file.md");
+    assert.strictEqual(content, "success content");
+  });
+
+  test("fetchPacksManifest returns parsed manifest", async () => {
+    const mockManifest = { packs: [{ packId: "1", versionHash: "hash" }] };
+    mock.method(global, 'fetch', async () => ({
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify(mockManifest)
+    }));
+
+    const manifest = await resourceManager.fetchPacksManifest();
+    assert.deepStrictEqual(manifest, mockManifest);
+  });
+
+  test("fetchPacksManifest throws error when fetch fails", async () => {
+    mock.method(global, 'fetch', async () => ({
+      ok: false,
+      status: 404,
+      text: async () => ""
+    }));
+
+    await assert.rejects(
+      resourceManager.fetchPacksManifest(),
+      /Unable to fetch hospital knowledge packs manifest/
+    );
+  });
+
+  test("deletePack removes pack and associated inventory items", async () => {
+    mock.method(global, 'fetch', async () => ({
+      ok: true,
+      status: 200,
+      text: async () => "item,room,cabinet,shelf,container,full_code,phonetic_code,surgeon_notes,category\nTestItem,OR,A,1,A,OR A 1 A,T E S T,None,tools\n"
+    }));
+
+    await resourceManager.installPack({
+      packId: "pack_to_delete",
+      facilityId: "fac3",
+      departmentId: "dept3",
+      title: "Test Delete Pack",
+      category: "department",
+      filePath: "fac3/dept3/inventory.csv",
+      sizeBytes: 100,
+      versionHash: "v1",
+      updatedAt: "2023-01-01T00:00:00Z",
+    });
+
+    let packs = await resourceManager.getInstalledPacks();
+    assert.strictEqual(packs.find(p => p.packId === "pack_to_delete") !== undefined, true);
+
+    let items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac3::dept3").toArray();
+    assert.ok(items && items.length > 0);
+
+    // Delete the pack
+    await resourceManager.deletePack("pack_to_delete");
+
+    packs = await resourceManager.getInstalledPacks();
+    assert.strictEqual(packs.find(p => p.packId === "pack_to_delete") === undefined, true);
+
+    items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac3::dept3").toArray();
+    assert.strictEqual(items?.find(i => i.item === "TestItem") === undefined, true);
+  });
+
+  test("getRequiredPacksForProfile selects correct packs", () => {
+    const manifest = {
+      packs: [
+        { packId: "hb", facilityId: "f1", category: "hospital", filePath: "a", versionHash: "1" },
+        { packId: "d1", facilityId: "f1", departmentId: "or", category: "department", filePath: "b", versionHash: "1" },
+        { packId: "r1", facilityId: "f1", departmentId: "or", roleId: "circulator", category: "role", filePath: "c", versionHash: "1" },
+        { packId: "other", facilityId: "f2", category: "hospital", filePath: "d", versionHash: "1" }
+      ]
+    } as any;
+
+    const required = resourceManager.getRequiredPacksForProfile(manifest, "f1", "or", "Circulator");
+    assert.strictEqual(required.length, 3);
+    const packIds = required.map(p => p.packId);
+    assert.ok(packIds.includes("hb"));
+    assert.ok(packIds.includes("d1"));
+    assert.ok(packIds.includes("r1"));
+  });
+
+  test("unpackInstalledPacksToDexie returns hydrated count", async () => {
+    const res = await resourceManager.unpackInstalledPacksToDexie("f99", "dept99");
+    assert.strictEqual(typeof res, "number");
+  });
+
+  test("purgeUnassignedHospitalPacks keeps assigned and removes unassigned", async () => {
+    mock.method(global, 'fetch', async () => ({
+      ok: true,
+      status: 200,
+      text: async () => "dummy content"
+    }));
+
+    await resourceManager.installPack({
+      packId: "purge_fac1", facilityId: "keep_fac", category: "hospital", title: "K", filePath: "k", sizeBytes: 10, versionHash: "v1", updatedAt: "2023-01-01"
+    });
+    await resourceManager.installPack({
+      packId: "purge_fac2", facilityId: "toss_fac", category: "hospital", title: "T", filePath: "t", sizeBytes: 10, versionHash: "v1", updatedAt: "2023-01-01"
+    });
+
+    const count = await resourceManager.purgeUnassignedHospitalPacks("keep_fac");
+    assert.strictEqual(count, 1);
+
+    const packs = await resourceManager.getInstalledPacks();
+    assert.strictEqual(packs.length, 1);
+    assert.strictEqual(packs[0].facilityId, "keep_fac");
   });
 });
