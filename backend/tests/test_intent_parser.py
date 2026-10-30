@@ -1,4 +1,6 @@
 import pytest
+import socket
+import httpx
 from app.intent_parser import (
     ClinicalIntent,
     parse_clinical_intent,
@@ -45,3 +47,45 @@ def test_tenant_boundary_offline_invariants():
     assert res2.intent == ClinicalIntent.MUTATE_INVENTORY
     assert res2.entities.location.lower() == "rack 4 shelf a"
     assert res2.entities.action == "add"
+
+def test_intent_parser_fuzzing():
+    queries = [
+        "",
+        " ",
+        "  \t\n",
+        "WHERE IS THE !@#$%^&*()",
+        "<script>alert(1)</script>",
+        "add " * 1000,
+        "\x00\x01\x02",
+        "drop table users;",
+        "1=1",
+    ]
+    for q in queries:
+        res = parse_clinical_intent(q)
+        assert res.intent is not None
+        assert res.confidence >= 0
+
+def test_intent_parser_offline_first(monkeypatch):
+    def poison(*args, **kwargs):
+        raise RuntimeError("Network call attempted! Offline invariant violated.")
+
+    monkeypatch.setattr(socket, "socket", poison)
+    monkeypatch.setattr(httpx, "get", poison)
+    monkeypatch.setattr(httpx, "post", poison)
+    monkeypatch.setattr(httpx, "request", poison)
+
+    res = parse_clinical_intent("where is the 3-0 vicryl")
+    assert res.intent == ClinicalIntent.FIND_INVENTORY
+
+def test_intent_parser_multi_tenant_isolation(monkeypatch):
+    # Ensure intent parser is deterministic and acts strictly on query regardless of environment
+    # Setting an arbitrary dummy hospital context
+    monkeypatch.setenv("HOSPITAL_TENANT", "hospital_a")
+    res1 = parse_clinical_intent("move the 3-0 prolene to shelf B")
+
+    monkeypatch.setenv("HOSPITAL_TENANT", "hospital_b")
+    res2 = parse_clinical_intent("move the 3-0 prolene to shelf B")
+
+    assert res1.intent == res2.intent
+    assert res1.entities == res2.entities
+    assert res1.confidence == res2.confidence
