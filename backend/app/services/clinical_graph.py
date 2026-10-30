@@ -121,10 +121,59 @@ class ClinicalEntityGraph:
     inventory_terms: set[str] = field(default_factory=set)
     # Protocol topics extracted from orientation.md / facility_handbook.md
     protocol_topics: set[str] = field(default_factory=set)
+    # Graph structures
+    nodes: dict[str, dict[str, Any]] = field(default_factory=dict)
+    edges: dict[str, list[str]] = field(default_factory=dict)
 
     def get_cards_by_ids(self, card_ids: list[str]) -> list[dict[str, Any]]:
         id_set = set(card_ids)
         return [c for c in self.preference_cards if c.get("id") in id_set]
+
+    def add_node(self, node_id: str, attributes: Optional[dict[str, Any]] = None) -> None:
+        if node_id not in self.nodes:
+            self.nodes[node_id] = attributes or {}
+            self.edges.setdefault(node_id, [])
+        else:
+            if attributes:
+                self.nodes[node_id].update(attributes)
+
+    def add_edge(self, from_node: str, to_node: str) -> None:
+        if from_node not in self.nodes:
+            self.add_node(from_node)
+        if to_node not in self.nodes:
+            self.add_node(to_node)
+        if to_node not in self.edges[from_node]:
+            self.edges[from_node].append(to_node)
+
+    def bfs_path(self, start_node: str, target_node: str) -> list[str]:
+        if start_node not in self.nodes or target_node not in self.nodes:
+            return []
+        if start_node == target_node:
+            return [start_node]
+
+        queue = [start_node]
+        visited = {start_node}
+        parents: dict[str, str] = {}
+
+        while queue:
+            current = queue.pop(0)
+
+            if current == target_node:
+                path = []
+                while current in parents:
+                    path.append(current)
+                    current = parents[current]
+                path.append(start_node)
+                path.reverse()
+                return path
+
+            for neighbor in self.edges.get(current, []):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    parents[neighbor] = current
+                    queue.append(neighbor)
+
+        return []
 
 
 def _normalize_text(text: str) -> str:
