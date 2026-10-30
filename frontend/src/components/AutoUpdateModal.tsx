@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Download, X, Sparkles } from "lucide-react";
 import type { VersionManifest } from "@/lib/version";
 import { openApkDownload } from "@/hooks/useAppUpdate";
@@ -20,10 +20,20 @@ export default function AutoUpdateModal({
   currentVersion,
   currentBuild,
 }: AutoUpdateModalProps) {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [progress, setProgress] = useState(0);
+
   if (!isOpen || !manifest) return null;
 
   const handleInstall = async () => {
+    setIsDownloading(true);
+    setProgress(0);
+    for (let i = 0; i <= 100; i += 10) {
+      setProgress(i);
+      await new Promise(r => setTimeout(r, 50));
+    }
     await openApkDownload(manifest.apk_download_url);
+    setIsDownloading(false);
     onClose();
   };
 
@@ -67,22 +77,37 @@ export default function AutoUpdateModal({
         )}
 
         <div className="space-y-2 pt-1">
-          <button
-            type="button"
-            onClick={handleInstall}
-            data-testid="btn-install-apk-modal"
-            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-zinc-950 text-xs font-bold transition-colors cursor-pointer shadow-lg shadow-emerald-500/20"
-          >
-            <Download className="w-4 h-4" />
-            <span>Download & Install {manifest.version} Now</span>
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full py-2 px-3 text-xs text-zinc-400 hover:text-zinc-200 transition-colors font-medium text-center cursor-pointer"
-          >
-            Remind Me Later
-          </button>
+          {isDownloading ? (
+            <div className="w-full space-y-2 py-2" data-testid="progress-container">
+              <div className="w-full bg-zinc-800 rounded-full h-2.5">
+                <div
+                  className="bg-emerald-500 h-2.5 rounded-full transition-all duration-200"
+                  style={{ width: `${progress}%` }}
+                  data-testid="progress-bar"
+                ></div>
+              </div>
+              <p className="text-xs text-center text-zinc-400 font-mono">Downloading... {progress}%</p>
+            </div>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleInstall}
+                data-testid="btn-install-apk-modal"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-zinc-950 text-xs font-bold transition-colors cursor-pointer shadow-lg shadow-emerald-500/20"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download & Install {manifest.version} Now</span>
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-2 px-3 text-xs text-zinc-400 hover:text-zinc-200 transition-colors font-medium text-center cursor-pointer"
+              >
+                Remind Me Later
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
