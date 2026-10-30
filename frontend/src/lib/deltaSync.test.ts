@@ -64,4 +64,34 @@ test("diffRecords", async (t) => {
     const delta = diffRecords(base, modified);
     assert.deepStrictEqual(delta, { val: "string" });
   });
+
+  await t.test("Multi-tenant isolation invariant: strictly tracks tenant_id modifications", () => {
+    const base = { id: 1, tenant_id: "sacred_heart::or", data: "test" };
+    const modified = { id: 1, tenant_id: "other_hospital::or", data: "test" };
+    const delta = diffRecords(base, modified);
+    assert.deepStrictEqual(delta, { tenant_id: "other_hospital::or" });
+  });
+
+  await t.test("Offline-first invariant: ensures minimal delta payload for sync optimization", () => {
+    const base = {
+      id: 123,
+      tenant_id: "sacred_heart::or",
+      status: "synced",
+      lastModified: "2024-01-01T00:00:00Z",
+      localData: "old_value"
+    };
+    const modified = {
+      id: 123,
+      tenant_id: "sacred_heart::or",
+      status: "pending",
+      lastModified: "2024-01-02T00:00:00Z",
+      localData: "new_value"
+    };
+    const delta = diffRecords(base, modified);
+    assert.deepStrictEqual(delta, {
+      status: "pending",
+      lastModified: "2024-01-02T00:00:00Z",
+      localData: "new_value"
+    });
+  });
 });
