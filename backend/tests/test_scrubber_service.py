@@ -110,6 +110,31 @@ class TestScrubberServiceCoreContract:
         assert "John Smith" not in result.text
         assert result.redaction_count == 1
 
+    def test_scrub_phi_multiline(self):
+        text = "Line 1: MRN 1234567\nLine 2: 3-0 silk\nLine 3: pt Jane Doe"
+        result = scrub_phi(text)
+        assert result.redaction_count == 2
+        assert "1234567" not in result.text
+        assert "Jane Doe" not in result.text
+        assert "3-0 silk" in result.text
+        assert "\n" in result.text
+
+    def test_scrub_phi_unicode(self):
+        text = "Patient übermensch has MRN 1234567 with æøå."
+        result = scrub_phi(text)
+        assert result.redaction_count == 1
+        assert "1234567" not in result.text
+        assert "übermensch" in result.text
+        assert "æøå" in result.text
+
+    def test_scrub_phi_mixed_delimiters(self):
+        text = "Check MRN:1234567, and SSN:(123-45-6789)."
+        result = scrub_phi(text)
+        assert result.redaction_count == 2
+        assert "1234567" not in result.text
+        assert "123-45-6789" not in result.text
+
+
 
 class TestScrubberServiceOfflineFirst:
     def test_scrub_phi_no_network_calls(self, monkeypatch):
@@ -166,3 +191,28 @@ class TestScrubberServiceMultiTenantIsolation:
         assert "1111111" not in result_b1.text
         assert "#10 blade" in result_a1.text
         assert "3-0 silk" in result_b1.text
+
+
+    def test_scrub_phi_concurrent_tenant_requests(self):
+        """
+        Enforce multi-tenant isolation invariant under simulated concurrency.
+        """
+        tenant_c_text = "MRN: 3333333 pt Bob Smith"
+        tenant_d_text = "MRN: 4444444 pt Alice Johnson"
+
+        results_c = [scrub_phi(tenant_c_text) for _ in range(5)]
+        results_d = [scrub_phi(tenant_d_text) for _ in range(5)]
+
+        for r in results_c:
+            assert r.redaction_count == 2
+            assert "3333333" not in r.text
+            assert "Bob Smith" not in r.text
+            assert "4444444" not in r.text
+            assert "Alice Johnson" not in r.text
+
+        for r in results_d:
+            assert r.redaction_count == 2
+            assert "4444444" not in r.text
+            assert "Alice Johnson" not in r.text
+            assert "3333333" not in r.text
+            assert "Bob Smith" not in r.text
