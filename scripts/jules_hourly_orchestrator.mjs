@@ -19,6 +19,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const BACKLOG_PATH = path.join(__dirname, 'jules_task_backlog.json');
 const LOGS_DIR = path.join(ROOT_DIR, 'logs');
 const LOG_FILE = path.join(LOGS_DIR, 'jules_orchestrator.log');
+const LOCK_FILE = path.join(LOGS_DIR, 'orchestrator.lock');
 
 const TARGET_CONCURRENCY = 15;
 const REPO_SOURCE = 'sources/github/kogeki88/or-nav';
@@ -26,6 +27,43 @@ const REPO_NAME = 'kogeki88/or-nav';
 const GH_PATH = fs.existsSync('C:\\Program Files\\GitHub CLI\\gh.exe')
   ? '"C:\\Program Files\\GitHub CLI\\gh.exe"'
   : 'gh';
+
+function acquireLock() {
+  if (fs.existsSync(LOCK_FILE)) {
+    try {
+      const lockData = JSON.parse(fs.readFileSync(LOCK_FILE, 'utf8'));
+      if (lockData.pid) {
+        try {
+          process.kill(lockData.pid, 0);
+          const ageMinutes = (Date.now() - lockData.timestamp) / 60000;
+          if (ageMinutes < 15) {
+            log(`Another orchestrator process (PID ${lockData.pid}) is actively executing (${ageMinutes.toFixed(1)}m old). Skipping.`);
+            return false;
+          } else {
+            log(`Reclaiming stale orchestrator lock from PID ${lockData.pid} (${ageMinutes.toFixed(1)}m old).`);
+          }
+        } catch {
+          // PID not alive
+        }
+      }
+    } catch {
+      // Malformed lock
+    }
+  }
+  if (!fs.existsSync(LOGS_DIR)) {
+    fs.mkdirSync(LOGS_DIR, { recursive: true });
+  }
+  fs.writeFileSync(LOCK_FILE, JSON.stringify({ pid: process.pid, timestamp: Date.now() }), 'utf8');
+  return true;
+}
+
+function releaseLock() {
+  try {
+    if (fs.existsSync(LOCK_FILE)) {
+      fs.unlinkSync(LOCK_FILE);
+    }
+  } catch {}
+}
 
 function log(msg) {
   const ts = new Date().toISOString();
@@ -610,7 +648,7 @@ const HIGH_IMPACT_CATALOG = [
 ];
 
 function ensureBacklogCapacity(backlog, needed) {
-  const pendingCount = backlog.filter(t => t.status !== 'dispatched').length;
+  const pendingCount = backlog.filter(t => t.status === 'pending').length;
   if (pendingCount >= needed + 5) {
     return backlog;
   }
@@ -634,7 +672,7 @@ function ensureBacklogCapacity(backlog, needed) {
   }
 
   // Infinite synthesizer: dynamically generate specialized tasks if still below needed + 5
-  if (backlog.filter(t => t.status !== 'dispatched').length < needed + 5) {
+  if (backlog.filter(t => t.status === 'pending').length < needed + 5) {
     const modules = [
       { name: 'DirectGemini', path: 'frontend/src/lib/directGemini.test.ts', cat: 'Testing' },
       { name: 'SemanticParser', path: 'frontend/src/lib/semanticParser.test.ts', cat: 'Bolt' },
@@ -674,10 +712,10 @@ function ensureBacklogCapacity(backlog, needed) {
     ];
 
     for (const phase of phases) {
-      if (backlog.filter(t => t.status !== 'dispatched').length >= needed + 5) break;
+      if (backlog.filter(t => t.status === 'pending').length >= needed + 5) break;
 
       for (const m of modules) {
-        if (backlog.filter(t => t.status !== 'dispatched').length >= needed + 5) break;
+        if (backlog.filter(t => t.status === 'pending').length >= needed + 5) break;
 
         const title = `${m.cat}: ${phase.suffix} for ${m.name}`;
         if (!existingTitles.has(title.toLowerCase().trim())) {
@@ -722,7 +760,7 @@ async function replenishPool(apiKey, currentActive) {
   let launched = 0;
   for (const item of backlog) {
     if (launched >= needed) break;
-    if (item.status === 'dispatched') continue;
+    if (item.status !== 'pending') continue;
 
     log(`Dispatching [${item.id}] '${item.title}'...`);
     try {
@@ -766,6 +804,10 @@ async function replenishPool(apiKey, currentActive) {
 // Main Orchestration Entry Point
 // -----------------------------------------------------------------------------
 async function run() {
+  if (!acquireLock()) {
+    return;
+  }
+
   log('========================================================================');
   log('   30-MINUTE AUTONOMOUS JULES FLEET ORCHESTRATOR & LOCAL SYNC DAEMON    ');
   log('========================================================================');
@@ -812,6 +854,8 @@ async function run() {
       error: err.message,
       durationMs: Date.now() - startTime
     });
+  } finally {
+    releaseLock();
   }
 }
 
@@ -822,11 +866,23 @@ const intervalMinutes = intervalArgIndex !== -1 && args[intervalArgIndex + 1]
   ? parseInt(args[intervalArgIndex + 1], 10) 
   : 30;
 
+async function startDaemon(intervalMin) {
+  while (true) {
+    try {
+      await run();
+    } catch (err) {
+      log(`[DAEMON ERROR] Unexpected error: ${err.message}`);
+    }
+    log(`Daemon sleeping for ${intervalMin} minutes until next cycle...`);
+    await new Promise(r => setTimeout(r, intervalMin * 60 * 1000));
+  }
+}
+
+process.on('uncaughtException', err => log(`[UNCAUGHT] ${err.message}`));
+process.on('unhandledRejection', r => log(`[UNHANDLED] ${r?.message || r}`));
+
 if (isDaemon) {
-  log(`Starting Orchestrator in Autonomous Daemon mode (cadence: every ${intervalMinutes} minutes)...`);
-  run().then(() => {
-    setInterval(run, intervalMinutes * 60 * 1000);
-  });
+  startDaemon(intervalMinutes);
 } else {
   run();
 }
