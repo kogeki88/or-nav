@@ -520,7 +520,7 @@
     "prompt": "# 🛡️ Sentinel Security Task: Rate Limiter Middleware\n\n**File:** `backend/tests/test_rate_limiter_service.py`\n**Issue:** Verify rate limiting middleware on `/api/chat` and `/api/voice/token` returns HTTP 429 when thresholds are exceeded.\n\n**Objective:**\n1. Create `backend/tests/test_rate_limiter_service.py`.\n2. Simulate rapid consecutive requests exceeding limits and assert HTTP 429 Too Many Requests response.\n3. Verify Retry-After header presence.\n4. Submit PR immediately upon verification.",
     "sessionId": "3376099546900016595",
     "dispatchedAt": "2026-10-30T14:40:08.836Z",
-    "completedAt": "2026-10-30T18:24:31.479Z"
+    "completedAt": "2026-10-30T19:04:34.661Z"
   },
   {
     "id": "backlog-059",
