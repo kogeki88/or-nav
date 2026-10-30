@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   FeedbackItem,
   fetchFeedbackItems,
@@ -11,6 +11,7 @@ import {
 } from "@/lib/feedbackEngine";
 import { awardClinicalXP } from "@/lib/gamification";
 import { isAdminUser, getCurrentSession } from "@/lib/auth";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export function FeedbackModal({
   userProfile,
   initialTab = "give_feedback",
 }: FeedbackModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
   const session = getCurrentSession();
   const isAdmin = isAdminUser(session || userProfile);
 
@@ -77,6 +79,8 @@ export function FeedbackModal({
     window.addEventListener(FEEDBACK_EVENT_NAME, handleUpdated);
     return () => window.removeEventListener(FEEDBACK_EVENT_NAME, handleUpdated);
   }, [isAdmin]);
+
+  useModalA11y(isOpen, onClose, modalRef);
 
   if (!isOpen) return null;
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   X,
   RefreshCw,
@@ -29,6 +29,7 @@ import {
 import { type InstalledResourcePack } from "@/lib/offlineDb";
 import { getUserProfile, type UserProfile } from "@/lib/userProfile";
 import { awardClinicalXP } from "@/lib/gamification";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 interface ResourceManagerModalProps {
   isOpen: boolean;
@@ -43,6 +44,7 @@ export default function ResourceManagerModal({
   activeProfile,
   onPacksUpdated,
 }: ResourceManagerModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
   const [manifest, setManifest] = useState<HospitalPacksManifest | null>(null);
   const [installedPacks, setInstalledPacks] = useState<InstalledResourcePack[]>([]);
   const [storageSummary, setStorageSummary] = useState<ResourceStorageSummary>({
@@ -170,6 +172,8 @@ export default function ResourceManagerModal({
     }
   };
 
+  useModalA11y(isOpen, onClose, modalRef);
+
   return (
     <div
       role="dialog"
@@ -177,7 +181,7 @@ export default function ResourceManagerModal({
       aria-labelledby="resource-manager-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
     >
-      <div className="relative w-full max-w-lg bg-[#121215] border border-zinc-800 rounded-xl shadow-2xl text-zinc-100 overflow-hidden max-h-[90vh] flex flex-col">
+      <div ref={modalRef} className="relative w-full max-w-lg bg-[#121215] border border-zinc-800 rounded-xl shadow-2xl text-zinc-100 overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/80 bg-zinc-950/60">
           <div className="flex items-center gap-2">

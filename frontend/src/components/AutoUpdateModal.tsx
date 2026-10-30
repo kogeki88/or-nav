@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Download, X, Sparkles } from "lucide-react";
 import type { VersionManifest } from "@/lib/version";
 import { openApkDownload } from "@/hooks/useAppUpdate";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 interface AutoUpdateModalProps {
   isOpen: boolean;
@@ -20,8 +21,11 @@ export default function AutoUpdateModal({
   currentVersion,
   currentBuild,
 }: AutoUpdateModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
+
+  useModalA11y(isOpen, onClose, modalRef);
 
   if (!isOpen || !manifest) return null;
 
@@ -40,6 +44,7 @@ export default function AutoUpdateModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div
+        ref={modalRef}
         className="w-full max-w-sm rounded-2xl bg-zinc-950 border border-emerald-500/40 p-5 shadow-2xl space-y-4"
         data-testid="auto-update-modal"
       >
