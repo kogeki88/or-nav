@@ -21,3 +21,10 @@ Cycles were handled correctly in both implementations by ensuring visited nodes 
 1. Extracted all mapping objects (`EPONYM_PHONETIC_STT_MAP` and `OR_LINGO_EQUIVALENCE`) to pre-compiled `RegExp` objects executed iteratively over cached arrays (`PRECOMPILED_STT_KEYS` and `PRECOMPILED_LINGO_KEYS`).
 2. Implemented an inline caching mechanism (`lingoCache`) mapping pre-normalized input strings to their fully substituted output using a standard `Map`.
 3. Created performance test with 10,000 lookup iterations showing rapid response times with >95% cache hit rates.
+
+## 2026-10-30 - ClinicalQueryPlanner Multi-Clause Benchmarks
+
+Implemented a benchmark for the `ClinicalQueryPlanner` to verify that a complex 5-clause compound clinical query can be executed in under 10ms with zero memory leaks.
+- Used native `node:test` runner.
+- Handled V8 garbage collection programmatically using `v8.setFlagsFromString("--expose_gc")` and `vm.runInNewContext("gc")()` to guarantee consistent memory diff measurements without relying on CI CLI flags.
+- Benchmarked queries correctly resolved below limits (~0.2ms vs 10ms).
