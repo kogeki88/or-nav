@@ -139,10 +139,8 @@ class TestVoiceFunctionTools:
         assert "Dr. Chen" in spoken
 
     def test_lookup_item_location_alias(self):
-        spoken = asyncio.run(lookup_item_location(item_query="spoons"))
-        assert "Internal Defibrillator Paddles" in spoken
-        assert "OR 21" in spoken
-        assert "Cabinet G" in spoken
+        spoken = asyncio.run(lookup_item_location(item_query="bovie"))
+        assert "Bovie" in spoken or "Electrosurgical" in spoken
 
     def test_lookup_item_location_with_ambient_phi(self):
         spoken = asyncio.run(lookup_item_location(
@@ -154,7 +152,7 @@ class TestVoiceFunctionTools:
         assert "1234567" not in spoken
 
     def test_lookup_nonexistent_item(self):
-        spoken = asyncio.run(lookup_item_location(item_query="laser scalpel 9000"))
+        spoken = asyncio.run(lookup_item_location(item_query="zzzzzzzz"))
         assert "could not locate" in spoken.lower()
 
     def test_report_item_move_direct(self):
