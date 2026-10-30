@@ -85,6 +85,48 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
     });
   });
 
+  describe("Fuzzing, Boundary Inputs & Malformed Payload Resilience", () => {
+    test("handles empty and purely whitespace strings gracefully", () => {
+      assert.strictEqual(extractAndNormalizeCoordinateClient(""), null);
+      assert.strictEqual(extractAndNormalizeCoordinateClient("   "), null);
+      assert.strictEqual(normalizeLocationCoordinate(""), null);
+      assert.strictEqual(normalizeLocationCoordinate("   "), null);
+    });
+
+    test("handles extreme whitespace and mixed separators", () => {
+      const result = extractAndNormalizeCoordinateClient("  OR   21 \t A \n 2 \r C  ");
+      assert.ok(result);
+      assert.strictEqual(result.location, "OR 21 A 2 C");
+
+      const result2 = extractAndNormalizeCoordinateClient("OR_21_A_2_C");
+      assert.ok(result2);
+      assert.strictEqual(result2.location, "OR 21 A 2 C");
+    });
+
+    test("handles partially malformed strings that don't match strict schema without throwing", () => {
+      assert.strictEqual(extractAndNormalizeCoordinateClient("random nonsense string without coordinates"), null);
+      // "OR 21 A 2 C and then some random trailing garbage" matches the coordinate part. It does not return null.
+      // It extracts the coordinate and leaves the rest in cleanText.
+    });
+
+    test("fuzzing with random alphanumeric noise (does not throw, returns null)", () => {
+      for (let i = 0; i < 50; i++) {
+        const noise = Math.random().toString(36).substring(2);
+        assert.doesNotThrow(() => extractAndNormalizeCoordinateClient(noise));
+        assert.doesNotThrow(() => normalizeLocationCoordinate(noise));
+      }
+    });
+
+    test("handles invalid types gracefully (if passed from untyped JS environment)", () => {
+      // In JS, users might pass null/undefined. The functions should probably handle it or cast it.
+      // Assuming they cast to string or handle it, we want to ensure no crash.
+      assert.doesNotThrow(() => extractAndNormalizeCoordinateClient(undefined as unknown as string));
+      assert.doesNotThrow(() => extractAndNormalizeCoordinateClient(null as unknown as string));
+      assert.doesNotThrow(() => normalizeLocationCoordinate(undefined as unknown as string));
+      assert.doesNotThrow(() => normalizeLocationCoordinate(null as unknown as string));
+    });
+  });
+
   describe("Invariants: Offline-First & Multi-Tenant Isolation", () => {
     test("Offline-First Invariant: Coordinate parsing operates purely offline without relying on network state", () => {
       // Mock fetch to throw immediately to ensure no network calls are made

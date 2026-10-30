@@ -82,10 +82,10 @@ const COMMON_SUTURE_FAMILIES = ["vicryl", "prolene", "silk", "ti-cron", "monocry
 const PEER_BROADCAST_PATTERNS = /\b(?:question\s+for\s+(?:the\s+)?(?:unit|team|peers|nurses|everyone|or|cvor)|can\s+(?:someone|anyone)\s+tell\s+me|(?:orientee|new\s+grad)\s+question|ask\s+(?:the\s+)?(?:unit|peers|team|department)|peer\s+ping|has\s+anyone\s+seen|does\s+anyone\s+know\s+(?:where|what|who|if))\b/i;
 
 // Packed coordinate regex e.g. "or21c1f", "icu2b1", "core1b2c", "or4b2a"
-export const PACKED_COORD_REGEX = /\b(or|room|icu|er|ed|pacu|bay|pod|core|pump)?(?:[\s\-\•]*)(\d{1,2})?(?:[\s\-\•]*)([a-z])(?:[\s\-\•]*)(\d{1,2})(?:[\s\-\•]*)([a-z])\b/i;
+export const PACKED_COORD_REGEX = /\b(or|room|icu|er|ed|pacu|bay|pod|core|pump)?(?:[\s\-\•_]*)(\d{1,2})?(?:[\s\-\•_]*)([a-z])(?:[\s\-\•_]*)(\d{1,2})(?:[\s\-\•_]*)([a-z])\b/i;
 
 // Natural spaced coordinate regex e.g. "OR 21 C 1 F", "Cart A Shelf 1 Bin B"
-export const SPACED_COORD_REGEX = /\b(?:(trauma\s+bay|trauma|bay|pod|icu(?:\s+supply)?|er|ed|pacu(?:\s+med\s+room)?|or|room)(?:[\s\-\•]*(\d+))?|(core\s+supply|core)|(pump\s+room|pump))[\s\-\•]*(?:cart|cabinet|cab|rack|pyxis|alcove)?[\s\-\•]*([a-zA-Z])[\s\-\•]*(?:shelf|drawer)?[\s\-\•]*(\d+)[\s\-\•]*(?:bin|container)?[\s\-\•]*([a-zA-Z])\b/i;
+export const SPACED_COORD_REGEX = /\b(?:(trauma\s+bay|trauma|bay|pod|icu(?:\s+supply)?|er|ed|pacu(?:\s+med\s+room)?|or|room)(?:[\s\-\•_]*(\d+))?|(core\s+supply|core)|(pump\s+room|pump))[\s\-\•_]*(?:cart|cabinet|cab|rack|pyxis|alcove)?[\s\-\•_]*([a-zA-Z])[\s\-\•_]*(?:shelf|drawer)?[\s\-\•_]*(\d+)[\s\-\•_]*(?:bin|container)?[\s\-\•_]*([a-zA-Z])\b/i;
 
 // Secondary alias clause regex e.g. ", theyre also called ribbon", ", also called ribbon"
 export const ALIAS_CLAUSE_REGEX = /(?:,|;|\.|\s+and|\s+also)\s*(?:they(?:'re|\'re|re|\s+are)|it(?:'s|\'s|s|\s+is)|we|people)?\s*(?:also\s+)?(?:called|call\s+them|known\s+as|referred\s+to\s+as|aka)\s+([^,;\.]+)/i;
@@ -98,7 +98,7 @@ export const NOTE_CLAUSE_REGEX = /(?:,|;|\.|\s+and|\s+with)\s*(?:notes?|surgeon\
  * returning the canonical coordinate and the utterance stripped of the coordinate.
  */
 export function extractAndNormalizeCoordinateClient(text: string): { location: string; cleanText: string } | null {
-  if (!text) return null;
+  if (!text || typeof text !== 'string' || !text.trim()) return null;
 
   // 1. Spaced format
   const mSpaced = text.match(SPACED_COORD_REGEX);
