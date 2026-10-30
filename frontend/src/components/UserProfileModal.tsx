@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { X, Check, HardDrive, Award, Trophy, Flame, Target, Sparkles, Lock } from "lucide-react";
 import {
   UserProfile,
@@ -16,6 +16,7 @@ import {
   CLINICAL_BADGES,
   type ClinicianRewards,
 } from "@/lib/gamification";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 interface UserProfileModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export default function UserProfileModal({
   onSignOut,
   initialTab = "assignment",
 }: UserProfileModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<"assignment" | "rewards">(initialTab);
   const [formData, setFormData] = useState<UserProfile>(currentProfile);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -101,6 +103,8 @@ export default function UserProfileModal({
 
   const levelInfo = getLevelInfo(rewards.xp);
 
+  useModalA11y(isOpen, onClose, modalRef);
+
   return (
     <div
       role="dialog"
@@ -109,6 +113,7 @@ export default function UserProfileModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
     >
       <div
+        ref={modalRef}
         data-testid="profile-modal"
         className="relative w-full max-w-md bg-[#121215] border border-zinc-800 rounded-xl shadow-2xl text-zinc-100 overflow-hidden"
       >

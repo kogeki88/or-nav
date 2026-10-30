@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import QRCode from "qrcode";
 import { fetchNetworkInfo, NetworkInfoResponse } from "@/lib/api";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 interface QRPairModalProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface QRPairModalProps {
 }
 
 export function QRPairModal({ isOpen, onClose }: QRPairModalProps) {
+  const modalRef = useRef<HTMLDivElement>(null);
   const [networkInfo, setNetworkInfo] = useState<NetworkInfoResponse | null>(null);
   const [mode, setMode] = useState<"https" | "lan">("https");
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>("");
@@ -109,6 +111,8 @@ export function QRPairModal({ isOpen, onClose }: QRPairModalProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  useModalA11y(isOpen, onClose, modalRef);
+
   return (
     <div
       role="dialog"
@@ -118,6 +122,7 @@ export function QRPairModal({ isOpen, onClose }: QRPairModalProps) {
       onClick={onClose}
     >
       <div
+        ref={modalRef}
         className="relative w-full max-w-sm rounded-xl bg-zinc-900 border border-zinc-800 p-5 shadow-2xl text-zinc-100"
         onClick={(e) => e.stopPropagation()}
       >
