@@ -27,6 +27,7 @@ from app.auth import router as auth_router
 from app.feedback import router as feedback_router
 from app.routers.lexicon import router as lexicon_router
 from app.routers.jules_pool import router as jules_pool_router
+from app.routers.ota import router as ota_router
 from app.services.rag_fallback import reset_rag_services
 from app.services.tunnel import start_tunnel_background, stop_tunnel, get_tunnel_url
 
@@ -74,6 +75,7 @@ app.include_router(auth_router)
 app.include_router(feedback_router)
 app.include_router(lexicon_router)
 app.include_router(jules_pool_router)
+app.include_router(ota_router)
 
 
 def get_lan_ip() -> str:
