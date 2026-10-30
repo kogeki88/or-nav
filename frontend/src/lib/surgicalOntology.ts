@@ -371,27 +371,44 @@ export function normalizeAcousticSpeech(text: string): string {
   return res.replace(/\s+/g, " ").trim();
 }
 
+export const lingoCache = new Map<string, string>();
+export const cacheStats = { hits: 0, misses: 0 };
+
+const PRECOMPILED_STT_KEYS = Object.keys(EPONYM_PHONETIC_STT_MAP).sort((a, b) => b.length - a.length).map(err => ({
+  canonical: EPONYM_PHONETIC_STT_MAP[err],
+  regex: new RegExp(`(?<!\\w)${err.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?!\\w)`, "gi")
+}));
+
+const PRECOMPILED_LINGO_KEYS = Object.keys(OR_LINGO_EQUIVALENCE).sort((a, b) => b.length - a.length).map(slang => ({
+  standard: OR_LINGO_EQUIVALENCE[slang],
+  regex: new RegExp(`(?<!\\w)${slang.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?!\\w)`, "gi")
+}));
+
 export function normalizeOrLingo(text: string): string {
   if (!text) return "";
-  let res = stripSpokenDisfluencies(text.toLowerCase().trim());
+  const rawInput = text.toLowerCase().trim();
+
+  if (lingoCache.has(rawInput)) {
+    cacheStats.hits++;
+    return lingoCache.get(rawInput)!;
+  }
+  cacheStats.misses++;
+
+  let res = stripSpokenDisfluencies(rawInput);
 
   // 1. Phonetic STT Mishearings (longest keys first)
-  const sttKeys = Object.keys(EPONYM_PHONETIC_STT_MAP).sort((a, b) => b.length - a.length);
-  for (const err of sttKeys) {
-    const canonical = EPONYM_PHONETIC_STT_MAP[err];
-    const regex = new RegExp(`(?<!\\w)${err.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?!\\w)`, "gi");
-    res = res.replace(regex, canonical);
+  for (const item of PRECOMPILED_STT_KEYS) {
+    res = res.replace(item.regex, item.canonical);
   }
 
   // 2. OR Lingo / Slang Substitutions (longest keys first)
-  const lingoKeys = Object.keys(OR_LINGO_EQUIVALENCE).sort((a, b) => b.length - a.length);
-  for (const slang of lingoKeys) {
-    const standard = OR_LINGO_EQUIVALENCE[slang];
-    const regex = new RegExp(`(?<!\\w)${slang.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?!\\w)`, "gi");
-    res = res.replace(regex, standard);
+  for (const item of PRECOMPILED_LINGO_KEYS) {
+    res = res.replace(item.regex, item.standard);
   }
 
-  return res.replace(/\s+/g, " ").trim();
+  const finalRes = res.replace(/\s+/g, " ").trim();
+  lingoCache.set(rawInput, finalRes);
+  return finalRes;
 }
 
 export function extractEponyms(text: string): Set<string> {
