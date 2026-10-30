@@ -110,6 +110,17 @@ describe("standaloneEngine", () => {
       assert.strictEqual(highlightSurgeonNote("Dr. Jones", note), "Dr. Jones prefers #15");
       assert.strictEqual(highlightSurgeonNote("Dr. Patel", note), null);
     });
+
+    test("prevents regex injection via metacharacters", () => {
+      const note = "Dr. Smith prefers #11; Dr. .* prefers #15";
+      assert.strictEqual(highlightSurgeonNote("Dr. .*", note), "Dr. .* prefers #15");
+
+      const note2 = "Dr. [a-z]+(a+)+$ prefers #11";
+      assert.strictEqual(highlightSurgeonNote("Dr. [a-z]+(a+)+$", note2), "Dr. [a-z]+(a+)+$ prefers #11");
+
+      const note3 = "Dr. ' DROP TABLE items; -- prefers #11";
+      assert.strictEqual(highlightSurgeonNote("Dr. ' DROP TABLE items; --", note3), "Dr. ' DROP TABLE items; -- prefers #11");
+    });
   });
 
   describe("hasConflictingSpecifications", () => {

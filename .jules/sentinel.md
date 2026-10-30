@@ -1,11 +1,9 @@
-## 2026-10-29 - [Path Traversal in API]
-**Vulnerability:** Path traversal in `get_pack_file` endpoint due to insufficient validation of the target path.
-**Learning:** Checking for `..` is not sufficient, as absolute paths or normalized strings can bypass this logic, allowing arbitrary file reading (e.g. source code, `.env`).
-**Prevention:** Always use `pathlib.Path.resolve()` and `Path.is_relative_to()` to strictly bound the target path to an allowed base directory.
-## 2024-10-29 - Strict CORS & Security Headers Validation
+## 2025-02-14 - Prevent ReDoS and Query Injection via Regex Metacharacters
 
-When securing FastAPI applications, it's essential to:
-1. Prevent permissive CORS configurations like `allow_origins=["*"]`. Instead, use `allow_origin_regex` to restrict origins to expected local development addresses and explicitly allowed external domains (like `trycloudflare.com` for local dev tunnels).
-2. Explicitly define security headers via a custom middleware. Important headers include `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, and `Content-Security-Policy: default-src 'self'`.
-3. Validate CORS restrictions in automated tests by sending an OPTIONS request with an untrusted Origin header, ensuring the API responds with a `400 Bad Request`.
-4. Validate header presence and exact configuration values in tests to prevent future regressions.
+Identified a vulnerability in `frontend/src/lib/standaloneEngine.ts` where unescaped strings were dynamically injected into a `new RegExp` constructor (`highlightSurgeonNote` function). This allowed potential Regular Expression Denial of Service (ReDoS) via adversarial inputs like `.*` or SQL-like fragments.
+
+Fix applied:
+- Implemented `sLast.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')` to escape regex metacharacters.
+- Addressed boundary matching for escaped strings (which may fail `\b` assertions if they end in non-word characters) by switching to negative lookarounds `(?<!\w)` and `(?!\w)`.
+- Protected intentional splitting logic (which splits on `;`) by ensuring that if a user's input legitimately contains `;`, it won't inadvertently break the phrase matching via premature splitting.
+- Added comprehensive unit tests in `frontend/src/lib/standaloneEngine.test.ts` to assert that injection attempts (`.*`, `[a-z]+(a+)+$`, `' DROP TABLE items; --`) are handled securely and literally.
