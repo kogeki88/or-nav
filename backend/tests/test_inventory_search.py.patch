@@ -1,0 +1,40 @@
+<<<<<<< SEARCH
+    # Verify move replay: if we replay an identical verification with an older timestamp,
+    # it should be dropped (LWW) and not increment the count further.
+    # To simulate a true identical replay where the backend processes it again, we just do it.
+    # But wait, verify_move inherently increments verify_count. If we're testing offline mutation
+    # *replay* idempotency in the context of the backend, `report_move` resetting count to 1 is idempotent.
+    # For `verify_move`, the frontend usually debounces/deduplicates, or we use a timestamp to reject older offline replays.
+
+    # Let's test the timestamp-based idempotency (LWW) for verify_move.
+    # Get current timestamp from the row
+    current_state = inv1.search("Suture")
+    last_verified_at = current_state["last_verified_at"]
+
+    # Replay an offline mutation with an older timestamp
+    older_timestamp = "2020-01-01T00:00:00Z"
+    stale_replay = inv1.verify_move("Suture", "R1 C1 S1 C2", timestamp=older_timestamp)
+
+    # Verify count should NOT have incremented, it should be rejected.
+    # The return card has `committed=False` and reflects the state *before* the rejected increment, or it just returns current state.
+    assert stale_replay["committed"] is False
+
+    # Let's check the actual state in the service to ensure verify_count is still 2
+    final_state = inv1.search("Suture")
+    assert final_state["verify_count"] == 2
+=======
+    # Verify move replay: if we replay an identical verification with an older timestamp,
+    # it should be dropped (LWW) and not increment the count further.
+    current_state = inv1.search("Suture")
+    if "last_verified_at" not in current_state:
+        # Initialize if missing
+        inv1.report_move("Suture", "R1 C1 S1 C2")
+        current_state = inv1.search("Suture")
+
+    older_timestamp = "2020-01-01T00:00:00Z"
+    stale_replay = inv1.verify_move("Suture", "R1 C1 S1 C2", timestamp=older_timestamp)
+
+    assert stale_replay["committed"] is False
+    final_state = inv1.search("Suture")
+    assert final_state["verify_count"] == 2
+>>>>>>> REPLACE
