@@ -2,6 +2,9 @@ from hypothesis import given, strategies as st
 import pytest
 from fastapi.testclient import TestClient
 import uuid
+import httpx
+import time
+import concurrent.futures
 import app.auth
 from app.main import app as main_app
 from app.auth import load_users, save_users, DEFAULT_DEMO_USERS
@@ -14,6 +17,14 @@ def clean_auth_state(tmp_path, monkeypatch):
     mock_users_file = tmp_path / "hospitals" / "users.json"
     mock_users_file.parent.mkdir(parents=True, exist_ok=True)
     monkeypatch.setattr(app.auth, "USERS_FILE", mock_users_file)
+
+    # Enforce offline-first constraint
+    def mock_request(*args, **kwargs):
+        raise RuntimeError("Network requests are disabled in this test suite.")
+
+    monkeypatch.setattr("httpx.get", mock_request, raising=False)
+    monkeypatch.setattr("httpx.post", mock_request, raising=False)
+    monkeypatch.setattr("httpx.request", mock_request, raising=False)
 
     # Save the initial demo user state to the tmp_path
     save_users(DEFAULT_DEMO_USERS)
@@ -74,6 +85,34 @@ class TestAuthTokenRotation:
         assert token1 != token2
         assert token1.startswith("token-")
         assert token2.startswith("token-")
+
+    def test_auth_token_rotation_concurrent_burst(self):
+        """Verify race condition resistance and measure latency for concurrent requests."""
+        num_requests = 10
+        start_time = time.time()
+
+        def make_login_request(i):
+            return client.post(
+                "/api/auth/login",
+                json={"email": "sean@sacredheart.org", "password": "password123"}
+            )
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=num_requests) as executor:
+            futures = [executor.submit(make_login_request, i) for i in range(num_requests)]
+            results = [future.result() for future in concurrent.futures.as_completed(futures)]
+
+        latency = time.time() - start_time
+
+        assert latency < 2.0, f"Latency was {latency}s, expected < 2.0s"
+
+        tokens = []
+        for res in results:
+            assert res.status_code == 200
+            token = res.json()["token"]
+            assert token.startswith("token-")
+            tokens.append(token)
+
+        assert len(set(tokens)) == num_requests, "Tokens generated concurrently are not unique."
 
 
 
