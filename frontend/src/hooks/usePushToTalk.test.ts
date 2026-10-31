@@ -451,4 +451,87 @@ describe('usePushToTalk', () => {
       mockFetchVoiceToken = originalMockFetchVoiceToken;
     }
   });
+
+  test("offline mutation replay idempotency and multi-tenant boundary isolation for startPTT", async () => {
+    const originalMockFetchVoiceToken = mockFetchVoiceToken;
+    const originalFetch = global.fetch;
+
+    // To test multi-tenant boundary enforcement and ensure complete isolation
+    // in React hook testing, render the hooks into separate, isolated DOM nodes
+    // configured with data-tenant attributes to mimic boundary enforcement,
+    // ensuring cleanup in a finally block.
+    const root1 = document.createElement("div");
+    root1.setAttribute("data-tenant", "facility_1::dept_A");
+    document.body.appendChild(root1);
+
+    const root2 = document.createElement("div");
+    root2.setAttribute("data-tenant", "facility_2::dept_B");
+    document.body.appendChild(root2);
+
+    try {
+      global.fetch = (() => { throw new Error("Offline fetch"); }) as any;
+      mockFetchVoiceToken = mock.fn(async () => {
+        throw new Error("Network offline");
+      });
+
+      const { result: result1 } = renderHook(() => usePushToTalk({ tenantId: "facility_1::dept_A" }), { container: root1 });
+      const { result: result2 } = renderHook(() => usePushToTalk({ tenantId: "facility_2::dept_B" }), { container: root2 });
+
+      await waitFor(() => {
+        assert.strictEqual(result1.current.voiceMode, "BROWSER_WEB_SPEECH");
+        assert.strictEqual(result2.current.voiceMode, "BROWSER_WEB_SPEECH");
+      });
+
+      // Sequential invocation to assert offline mutation replay idempotency
+      // for startPTT. Assert that the output state remains strictly equal
+      // to the state after the first execution.
+
+      // First execution
+      await act(async () => {
+        await result1.current.startPTT();
+      });
+      const state1 = { ...result1.current };
+      assert.strictEqual(state1.isHoldingPTT, true);
+
+      // Replays
+      for (let i = 0; i < 3; i++) {
+        await act(async () => {
+          await result1.current.startPTT();
+        });
+
+        // Assert output state remains strictly equal to the state after first execution
+        // We omit functions since they might be recreated or irrelevant to pure state checks,
+        // but since we spread, we check values.
+        assert.strictEqual(result1.current.isHoldingPTT, state1.isHoldingPTT);
+        assert.strictEqual(result1.current.voiceMode, state1.voiceMode);
+        assert.strictEqual(result1.current.isConnected, state1.isConnected);
+        assert.strictEqual(result1.current.roomError, state1.roomError);
+      }
+
+      // Stop PTT
+      await act(async () => {
+        await result1.current.stopPTT();
+      });
+      const stateStopped = { ...result1.current };
+      assert.strictEqual(stateStopped.isHoldingPTT, false);
+
+      for (let i = 0; i < 3; i++) {
+        await act(async () => {
+          await result1.current.stopPTT();
+        });
+        assert.strictEqual(result1.current.isHoldingPTT, stateStopped.isHoldingPTT);
+      }
+
+      // Ensure result2 was completely unimpacted by result1's actions
+      assert.strictEqual(result2.current.isHoldingPTT, false);
+      assert.strictEqual(result2.current.voiceMode, "BROWSER_WEB_SPEECH");
+
+    } finally {
+      mockFetchVoiceToken = originalMockFetchVoiceToken;
+      global.fetch = originalFetch;
+
+      document.body.removeChild(root1);
+      document.body.removeChild(root2);
+    }
+  });
 });
