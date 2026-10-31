@@ -417,16 +417,23 @@ def test_surgical_ontology_offline_first_invariant(monkeypatch):
         normalize_acoustic_speech
     )
 
-    def mock_socket(*args, **kwargs):
+    original_socket = socket.socket
+    def mock_socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0, fileno=None):
+        if family == getattr(socket, "AF_UNIX", -1):
+            return original_socket(family, type, proto, fileno)
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
     def mock_httpx_post(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
     def mock_httpx_get(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+    def mock_httpx_request(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
 
     monkeypatch.setattr(socket, "socket", mock_socket)
     monkeypatch.setattr(httpx, "post", mock_httpx_post)
     monkeypatch.setattr(httpx, "get", mock_httpx_get)
+    monkeypatch.setattr(httpx, "request", mock_httpx_request)
 
     # These pure functions must not trigger network calls
     assert is_eponym_conflict("debakey", "debakey forceps") is False
@@ -438,10 +445,18 @@ def test_surgical_ontology_offline_first_invariant(monkeypatch):
 def test_surgical_ontology_multi_tenant_isolation():
     from app.services.surgical_ontology import normalize_or_lingo
     # Surgical ontology operates on pure deterministic logic regardless of tenant state
-    res1 = normalize_or_lingo("ad son pickups")
-    res2 = normalize_or_lingo("ad son pickups")
-    assert res1 == res2
-    assert res1 == "adson forceps"
+    tenant_1 = "facility_id::dept_id_1"
+    tenant_2 = "facility_id::dept_id_2"
+
+    res1 = normalize_or_lingo(f"{tenant_1} ad son pickups")
+    res2 = normalize_or_lingo(f"{tenant_2} ad son pickups")
+
+    assert res1 == f"{tenant_1} adson forceps"
+    assert res2 == f"{tenant_2} adson forceps"
+
+    # Offline mutation replay idempotency
+    assert normalize_or_lingo(res1) == res1
+    assert normalize_or_lingo(res2) == res2
 
 def test_strip_spoken_disfluencies():
     from app.services.surgical_ontology import strip_spoken_disfluencies
@@ -462,26 +477,41 @@ def test_strip_spoken_disfluencies_offline_first_invariant(monkeypatch):
     import socket
     from app.services.surgical_ontology import strip_spoken_disfluencies
 
-    def mock_socket(*args, **kwargs):
+    original_socket = socket.socket
+    def mock_socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0, fileno=None):
+        if family == getattr(socket, "AF_UNIX", -1):
+            return original_socket(family, type, proto, fileno)
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
     def mock_httpx_post(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
     def mock_httpx_get(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+    def mock_httpx_request(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
 
     monkeypatch.setattr(socket, "socket", mock_socket)
     monkeypatch.setattr(httpx, "post", mock_httpx_post)
     monkeypatch.setattr(httpx, "get", mock_httpx_get)
+    monkeypatch.setattr(httpx, "request", mock_httpx_request)
 
     assert strip_spoken_disfluencies("umm get me the metz") == "get me the metz"
 
 def test_strip_spoken_disfluencies_multi_tenant_isolation():
     from app.services.surgical_ontology import strip_spoken_disfluencies
     # Operating on pure deterministic logic
-    res1 = strip_spoken_disfluencies("umm get me the metz")
-    res2 = strip_spoken_disfluencies("umm get me the metz")
-    assert res1 == res2
-    assert res1 == "get me the metz"
+    tenant_1 = "facility_1::dept_1"
+    tenant_2 = "facility_2::dept_2"
+
+    res1 = strip_spoken_disfluencies(f"{tenant_1} umm get me the metz")
+    res2 = strip_spoken_disfluencies(f"{tenant_2} umm get me the metz")
+
+    assert res1 == f"{tenant_1} get me the metz"
+    assert res2 == f"{tenant_2} get me the metz"
+
+    # Offline mutation replay idempotency
+    assert strip_spoken_disfluencies(res1) == res1
+    assert strip_spoken_disfluencies(res2) == res2
 
 # ---------------------------------------------------------------------------
 # 8. Fuzzing & Boundary Hardening
@@ -536,16 +566,23 @@ def test_fuzz_offline_first_invariant(monkeypatch):
     import socket
     import httpx
 
-    def mock_socket(*args, **kwargs):
+    original_socket = socket.socket
+    def mock_socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0, fileno=None):
+        if family == getattr(socket, "AF_UNIX", -1):
+            return original_socket(family, type, proto, fileno)
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
     def mock_httpx_post(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
     def mock_httpx_get(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+    def mock_httpx_request(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
 
     monkeypatch.setattr(socket, "socket", mock_socket)
     monkeypatch.setattr(httpx, "post", mock_httpx_post)
     monkeypatch.setattr(httpx, "get", mock_httpx_get)
+    monkeypatch.setattr(httpx, "request", mock_httpx_request)
 
     from app.services.surgical_ontology import strip_spoken_disfluencies
 
@@ -567,16 +604,23 @@ def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
     import httpx
 
     # 1. Enforce offline-first invariants under load
-    def mock_socket(*args, **kwargs):
+    original_socket = socket.socket
+    def mock_socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0, fileno=None):
+        if family == getattr(socket, "AF_UNIX", -1):
+            return original_socket(family, type, proto, fileno)
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
     def mock_httpx_post(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
     def mock_httpx_get(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+    def mock_httpx_request(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
 
     monkeypatch.setattr(socket, "socket", mock_socket)
     monkeypatch.setattr(httpx, "post", mock_httpx_post)
     monkeypatch.setattr(httpx, "get", mock_httpx_get)
+    monkeypatch.setattr(httpx, "request", mock_httpx_request)
 
     from app.services.surgical_ontology import (
         normalize_or_lingo,
@@ -592,12 +636,15 @@ def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
 
     def worker(payload, idx):
         # 2. Assert multi-tenant isolation and correct returns under load
-        res_lingo = normalize_or_lingo(payload)
-        res_acoust = normalize_acoustic_speech(payload)
-        res_epo = extract_eponyms(payload)
-        res_conf = is_eponym_conflict(payload, payload)
-        res_gen = is_generic_class_only(payload)
-        res_disf = strip_spoken_disfluencies(payload)
+        # Add multi-tenant isolation payload formatting
+        tenant_payload = f"facility_{idx}::dept_{idx} {payload}"
+
+        res_lingo = normalize_or_lingo(tenant_payload)
+        res_acoust = normalize_acoustic_speech(tenant_payload)
+        res_epo = extract_eponyms(tenant_payload)
+        res_conf = is_eponym_conflict(tenant_payload, tenant_payload)
+        res_gen = is_generic_class_only(tenant_payload)
+        res_disf = strip_spoken_disfluencies(tenant_payload)
 
         assert isinstance(res_lingo, str)
         assert isinstance(res_acoust, str)
@@ -608,17 +655,18 @@ def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
 
         return True
 
-    start_time = time.time()
+    def worker_with_timing(payload, idx):
+        start = time.time()
+        worker(payload, idx)
+        end = time.time()
+        return end - start
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=CONCURRENCY) as executor:
-        futures = [executor.submit(worker, payloads[i], i) for i in range(CONCURRENCY)]
-        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+        futures = [executor.submit(worker_with_timing, payloads[i], i) for i in range(CONCURRENCY)]
+        latencies = [f.result() for f in concurrent.futures.as_completed(futures)]
 
-    end_time = time.time()
+    assert len(latencies) == CONCURRENCY
 
-    assert len(results) == CONCURRENCY
-    assert all(results)
-
-    # 3. Assess total average wall latency (< 50ms) to account for GIL inflation
-    avg_latency = (end_time - start_time) / CONCURRENCY
+    # 3. Assess total average wall latency (< 50ms) per individual request
+    avg_latency = sum(latencies) / len(latencies)
     assert avg_latency < 0.05, f"Average latency too high: {avg_latency * 1000:.2f}ms"
