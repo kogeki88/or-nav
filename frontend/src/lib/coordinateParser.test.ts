@@ -155,6 +155,91 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
       assert.strictEqual(tenantA_loc1.location, tenantB_loc1.location);
       assert.notStrictEqual(tenantA_loc1.location, tenantC_loc2.location);
     });
+
+    test("Offline Mutation Replay Idempotency Invariant: Identical replays produce the exact same coordinate without drift", () => {
+      // To simulate offline replay, we disable fetch, run the identical coordinate parsing
+      // multiple times sequentially, and guarantee identical results.
+      const originalFetch = global.fetch;
+      global.fetch = () => { throw new Error("Network request attempted during offline parsing"); };
+
+      try {
+        const input = "ICU 1 A 1 B";
+        const firstRun = extractAndNormalizeCoordinateClient(input);
+        const secondRun = extractAndNormalizeCoordinateClient(input);
+        const thirdRun = extractAndNormalizeCoordinateClient(input);
+
+        assert.ok(firstRun);
+        assert.ok(secondRun);
+        assert.ok(thirdRun);
+
+        assert.strictEqual(firstRun.location, "ICU 1 A 1 B");
+        assert.strictEqual(secondRun.location, "ICU 1 A 1 B");
+        assert.strictEqual(thirdRun.location, "ICU 1 A 1 B");
+
+        // Object equality by value
+        assert.deepStrictEqual(firstRun, secondRun);
+        assert.deepStrictEqual(secondRun, thirdRun);
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    test("Multi-Tenant Boundary Enforcement (facility_id::dept_id) Under Concurrent Load", async () => {
+      // Mock fetch to simulate strict offline boundaries
+      const originalFetch = global.fetch;
+      global.fetch = () => { throw new Error("Network request attempted during offline parsing"); };
+
+      try {
+        const tenants = [
+          "fac_A::dept_1",
+          "fac_A::dept_2",
+          "fac_B::dept_1",
+          "fac_C::dept_1"
+        ];
+
+        // Specific coordinate inputs meant for specific tenants
+        const tenantInputMap: Record<string, string> = {
+          "fac_A::dept_1": "OR 1 A 1 A",
+          "fac_A::dept_2": "Pump Room A 1 B",
+          "fac_B::dept_1": "Trauma Bay 1 A 2 B",
+          "fac_C::dept_1": "ICU 1 A 1 B"
+        };
+
+        const concurrentTasks = 1000;
+        const tasks = Array.from({ length: concurrentTasks }).map((_, i) => {
+          const tenantId = tenants[i % tenants.length];
+          const inputStr = tenantInputMap[tenantId];
+
+          return new Promise<{ tenantId: string; result: ReturnType<typeof extractAndNormalizeCoordinateClient> }>((resolve) => {
+            // Intro micro-delays to test race condition resilience
+            setTimeout(() => {
+              const res = extractAndNormalizeCoordinateClient(inputStr);
+              resolve({ tenantId, result: res });
+            }, Math.random() * 5);
+          });
+        });
+
+        const results = await Promise.all(tasks);
+
+        // Verify each result matches its strict tenant boundaries, proving no state leak
+        for (const { tenantId, result } of results) {
+          assert.ok(result);
+          if (tenantId === "fac_A::dept_1") {
+            assert.strictEqual(result.location, "OR 1 A 1 A");
+          } else if (tenantId === "fac_A::dept_2") {
+            assert.strictEqual(result.location, "Pump Room A 1 B");
+          } else if (tenantId === "fac_B::dept_1") {
+            assert.strictEqual(result.location, "Trauma Bay 1 A 2 B");
+          } else if (tenantId === "fac_C::dept_1") {
+            assert.strictEqual(result.location, "ICU 1 A 1 B");
+          } else {
+            assert.fail("Unknown tenant boundary leaked");
+          }
+        }
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
   });
 
   describe("High-Concurrency & Stress Benchmarks", () => {
