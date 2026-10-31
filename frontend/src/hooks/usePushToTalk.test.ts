@@ -273,4 +273,98 @@ describe('usePushToTalk', () => {
       assert.strictEqual(mockRoomConnect.mock.calls.length, 2);
     });
   });
+
+  test('ignores malformed JSON payload on DataChannel without crashing', async () => {
+    const onDataChannelSync = mock.fn();
+    const { result } = renderHook(() => usePushToTalk({ tenantId: 'test', onDataChannelSync }));
+
+    await waitFor(() => {
+      assert.strictEqual(result.current.isConnected, true);
+    });
+
+    const dataReceivedCall = mockRoomOn.mock.calls.find(call => call.arguments[0] === 'dataReceived');
+    const dataReceivedCallback = dataReceivedCall?.arguments[1];
+
+    const malformedPayload = new TextEncoder().encode('{ invalid json ');
+
+    act(() => {
+      dataReceivedCallback(malformedPayload, null, null, 'or_nav_ui_sync');
+    });
+
+    assert.strictEqual(onDataChannelSync.mock.calls.length, 0);
+  });
+
+  test('ignores DataChannel payloads with wrong topic', async () => {
+    const onDataChannelSync = mock.fn();
+    const { result } = renderHook(() => usePushToTalk({ tenantId: 'test', onDataChannelSync }));
+
+    await waitFor(() => {
+      assert.strictEqual(result.current.isConnected, true);
+    });
+
+    const dataReceivedCall = mockRoomOn.mock.calls.find(call => call.arguments[0] === 'dataReceived');
+    const dataReceivedCallback = dataReceivedCall?.arguments[1];
+
+    const payload = new TextEncoder().encode('{"test": "data"}');
+
+    act(() => {
+      dataReceivedCallback(payload, null, null, 'wrong_topic');
+    });
+
+    assert.strictEqual(onDataChannelSync.mock.calls.length, 0);
+  });
+
+  test('boundary inputs: handles empty tenantId', async () => {
+    const { result } = renderHook(() => usePushToTalk({ tenantId: '' }));
+
+    await waitFor(() => {
+      assert.strictEqual(result.current.isConnected, true);
+    });
+
+    assert.strictEqual(mockFetchVoiceToken.mock.calls.length, 1);
+    assert.deepStrictEqual(mockFetchVoiceToken.mock.calls[0].arguments, ['']);
+  });
+
+  test('boundary inputs: handles extremely long tenantId', async () => {
+    const longId = 'a'.repeat(10000);
+    const { result } = renderHook(() => usePushToTalk({ tenantId: longId }));
+
+    await waitFor(() => {
+      assert.strictEqual(result.current.isConnected, true);
+    });
+
+    assert.strictEqual(mockFetchVoiceToken.mock.calls.length, 1);
+    assert.deepStrictEqual(mockFetchVoiceToken.mock.calls[0].arguments, [longId]);
+  });
+
+  test('handles non-Error string thrown during LiveKit connection', async () => {
+    mockRoomConnect = mock.fn(async () => {
+      throw 'String connection error';
+    });
+
+    const { result } = renderHook(() => usePushToTalk({ tenantId: 'test' }));
+
+    await waitFor(() => {
+      assert.strictEqual(result.current.roomError, 'Failed to connect to LiveKit Room');
+    });
+
+    assert.strictEqual(result.current.voiceMode, 'BROWSER_WEB_SPEECH');
+  });
+
+  test('handles malformed fetchVoiceStatus response gracefully', async () => {
+    mockFetchVoiceStatus = mock.fn(async () => ({
+      livekit_configured: null,
+      mode: null,
+      livekit_url: undefined
+    }));
+
+    const { result } = renderHook(() => usePushToTalk({ tenantId: 'test' }));
+
+    await waitFor(() => {
+      assert.strictEqual(result.current.voiceMode, 'BROWSER_WEB_SPEECH');
+      assert.strictEqual(result.current.livekitConfigured, null);
+    });
+
+    assert.strictEqual(result.current.isConnected, false);
+  });
 });
