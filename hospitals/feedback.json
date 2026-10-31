@@ -1,5 +1,35 @@
 [
   {
+    "id": "fb-cf8df92a",
+    "tenantId": "sacred_heart::icu",
+    "userName": "Staff Clinician",
+    "userRole": "Circulating RN",
+    "source": "manual_submission",
+    "category": "feature_request",
+    "severity": "low",
+    "rawText": "ICU TEST",
+    "aiRecommendation": "Evaluate proposed clinical feature enhancement and design modular component architecture.",
+    "suggestedFixPrompt": "ANTIGRAVITY DIRECTIVE: Implement requested clinical workflow feature: 'ICU TEST'. Integrate cleanly into current perioperative navigation tabs.",
+    "upvotes": 1,
+    "status": "open",
+    "createdAt": "2026-10-31T17:15:03.098547+00:00"
+  },
+  {
+    "id": "fb-4afb790f",
+    "tenantId": "sacred_heart::icu",
+    "userName": "Staff Clinician",
+    "userRole": "Circulating RN",
+    "source": "manual_submission",
+    "category": "feature_request",
+    "severity": "low",
+    "rawText": "ICU TEST",
+    "aiRecommendation": "Evaluate proposed clinical feature enhancement and design modular component architecture.",
+    "suggestedFixPrompt": "ANTIGRAVITY DIRECTIVE: Implement requested clinical workflow feature: 'ICU TEST'. Integrate cleanly into current perioperative navigation tabs.",
+    "upvotes": 1,
+    "status": "open",
+    "createdAt": "2026-10-31T17:12:39.423685+00:00"
+  },
+  {
     "id": "fb-seed-001",
     "tenantId": "sacred_heart::or",
     "userName": "Dr. Christopher Turk",
