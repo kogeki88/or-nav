@@ -2,6 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 import httpx
+from hypothesis import given, settings, strategies as st
+
 
 from app.services.inventory_search import reset_inventory_services
 from app.services.governance import reset_governance_services
@@ -250,3 +252,47 @@ class TestChatRouterMultiTenant:
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
         assert resp.json()["file_type"] == "markdown"
+
+
+    def test_chat_malformed_missing_message(self):
+        client = TestClient(app)
+        resp = client.post("/api/chat", json={
+            "tenant_id": "general_memorial_cvor"
+        })
+        assert resp.status_code == 422
+
+    def test_chat_malformed_invalid_type(self):
+        client = TestClient(app)
+        resp = client.post("/api/chat", json={
+            "message": 12345,
+            "tenant_id": "general_memorial_cvor"
+        })
+        assert resp.status_code == 422
+
+    def test_chat_boundary_empty_string(self):
+        client = TestClient(app)
+        resp = client.post("/api/chat", json={
+            "message": "",
+            "tenant_id": "general_memorial_cvor"
+        })
+        assert resp.status_code == 422
+
+    def test_chat_boundary_very_long_message(self):
+        client = TestClient(app)
+        resp = client.post("/api/chat", json={
+            "message": "a" * 3000,
+            "tenant_id": "general_memorial_cvor"
+        })
+        assert resp.status_code == 422
+
+    @settings(max_examples=50)
+    @given(message=st.text(min_size=1, max_size=2000), tenant_id=st.text(min_size=1, max_size=50))
+    def test_chat_fuzzing(self, message, tenant_id):
+        client = TestClient(app)
+        resp = client.post("/api/chat", json={
+            "message": message,
+            "tenant_id": tenant_id
+        })
+        assert resp.status_code in [200, 400, 404, 409, 422, 500]
+        # In a real app we don't want 500, let's assert it is not 500
+        assert resp.status_code != 500
