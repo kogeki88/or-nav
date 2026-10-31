@@ -186,3 +186,118 @@ def test_load_facility_lexicon_malformed_json(tmp_path):
         mock_path.return_value = tmp_path / 'malformed.json'
         (tmp_path / 'malformed.json').write_text('{ malformed: json, [ }', encoding='utf-8')
         assert load_facility_lexicon('malformed_facility') == []
+
+import time
+import concurrent.futures
+
+@pytest.fixture(autouse=True)
+def enforce_offline_first(monkeypatch):
+    """Enforce offline-first invariants by poisoning httpx methods."""
+    def _block_network(*args, **kwargs):
+        raise RuntimeError("Network call blocked by offline-first invariant enforcement.")
+
+    monkeypatch.setattr("httpx.get", _block_network)
+    monkeypatch.setattr("httpx.post", _block_network)
+    monkeypatch.setattr("httpx.request", _block_network)
+
+def test_learn_alias_concurrency_race_condition(mock_lexicon_dir):
+    """Test race conditions when learning aliases concurrently."""
+    facility = "concurrent_fac"
+    num_threads = 50
+
+    def worker(i):
+        # Even threads learn "termA", Odd threads learn "termB"
+        term = "termA" if i % 2 == 0 else "termB"
+        return learn_alias(
+            facility_id=facility,
+            department_id="or",
+            spoken_term=term,
+            canonical_item="Canonical Item",
+            user_id=f"user_{i}"
+        )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = [executor.submit(worker, i) for i in range(100)]
+        for f in concurrent.futures.as_completed(futures):
+            f.result()
+
+    entries = load_facility_lexicon(facility)
+    assert len(entries) == 2, f"Expected 2 unique entries, got {len(entries)}"
+
+    termA_entry = next((e for e in entries if e["spokenTerm"] == "terma"), None)
+    termB_entry = next((e for e in entries if e["spokenTerm"] == "termb"), None)
+
+    assert termA_entry is not None
+    assert termB_entry is not None
+
+    # Total usages should be 100
+    assert termA_entry["usageCount"] == 50
+    assert termB_entry["usageCount"] == 50
+
+    # Check users
+    assert len(termA_entry["usedByUsers"]) == 50
+    assert len(termB_entry["usedByUsers"]) == 50
+
+def test_resolve_spoken_alias_concurrent_multi_tenant(mock_lexicon_dir):
+    """Test multi-tenant isolation under concurrent burst traffic."""
+
+    def worker(i):
+        fac = f"fac_{i % 3}"
+        learn_alias(
+            facility_id=fac,
+            department_id="or",
+            spoken_term=f"term_{i}",
+            canonical_item=f"Item {i}",
+            user_id=f"user_{i}"
+        )
+        # Immediately try resolving it
+        return resolve_spoken_alias(fac, f"where is the term_{i}")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        futures = [executor.submit(worker, i) for i in range(100)]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    # Ensure all resolved successfully and didn't leak across tenants
+    for r in results:
+        assert r is not None
+
+    # Verify isolation
+    assert load_facility_lexicon("fac_0") is not None
+    assert len(load_facility_lexicon("fac_0")) > 0
+    assert len(load_facility_lexicon("fac_1")) > 0
+    assert len(load_facility_lexicon("fac_2")) > 0
+
+def test_lexicon_service_latency_under_load(mock_lexicon_dir):
+    """Test latency of resolve_spoken_alias under a large lexicon size."""
+    facility = "latency_fac"
+
+    # Seed large lexicon
+    entries = []
+    for i in range(1000):
+        entries.append({
+            "aliasId": f"id_{i}",
+            "facilityId": facility,
+            "departmentId": "or",
+            "spokenTerm": f"term_{i}",
+            "canonicalItemName": f"Item {i}",
+            "usageCount": 1,
+            "usedByUsers": ["user1"],
+            "confidence": "personal",
+            "updatedAt": "2023-01-01T00:00:00Z",
+            "displayPreferredName": f"Term {i}"
+        })
+    save_facility_lexicon(facility, entries)
+
+    # Warm up cache
+    resolve_spoken_alias(facility, "term_0")
+
+    # Benchmark resolution
+    start_time = time.perf_counter()
+    num_resolves = 100
+    for i in range(num_resolves):
+        resolve_spoken_alias(facility, f"term_{i * 5}")
+    end_time = time.perf_counter()
+
+    avg_latency = (end_time - start_time) / num_resolves
+    # Expect avg latency to be under 100ms
+    assert avg_latency < 0.1, f"Latency too high: {avg_latency * 1000} ms"

@@ -271,57 +271,65 @@ def learn_alias(
     if not norm_term or not canonical_item:
         raise ValueError("Both spoken_term and canonical_item are required.")
 
-    entries = load_facility_lexicon(facility_id)
-    existing_entry: Optional[dict] = None
+    import fcntl
+    path = _get_facility_lexicon_path(facility_id)
+    lock_path = path.with_suffix(".lock")
+    with open(lock_path, "w") as lock_file:
+        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        try:
+            entries = load_facility_lexicon(facility_id)
+            existing_entry: Optional[dict] = None
 
-    for entry in entries:
-        if entry.get("spokenTerm", "").lower() == norm_term:
-            existing_entry = entry
-            break
+            for entry in entries:
+                if entry.get("spokenTerm", "").lower() == norm_term:
+                    existing_entry = entry
+                    break
 
-    now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    clean_user = (user_id or "anonymous").strip().lower()
-    disp_name = display_name or title_case_term(spoken_term)
+            now_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            clean_user = (user_id or "anonymous").strip().lower()
+            disp_name = display_name or title_case_term(spoken_term)
 
-    if existing_entry:
-        # Increment usage
-        existing_entry["usageCount"] = int(existing_entry.get("usageCount", 1)) + 1
-        users = set(existing_entry.get("usedByUsers", []))
-        if clean_user and clean_user != "anonymous":
-            users.add(clean_user)
-        existing_entry["usedByUsers"] = sorted(list(users))
-        existing_entry["updatedAt"] = now_iso
-        existing_entry["canonicalItemName"] = canonical_item  # Update if re-bound
-        existing_entry["displayPreferredName"] = disp_name
+            if existing_entry:
+                # Increment usage
+                existing_entry["usageCount"] = int(existing_entry.get("usageCount", 1)) + 1
+                users = set(existing_entry.get("usedByUsers", []))
+                if clean_user and clean_user != "anonymous":
+                    users.add(clean_user)
+                existing_entry["usedByUsers"] = sorted(list(users))
+                existing_entry["updatedAt"] = now_iso
+                existing_entry["canonicalItemName"] = canonical_item  # Update if re-bound
+                existing_entry["displayPreferredName"] = disp_name
 
-        # Confidence promotion logic: >= 2 uses or >= 2 distinct users
-        if confidence_override:
-            existing_entry["confidence"] = confidence_override
-        elif len(users) >= 2 or existing_entry["usageCount"] >= 2:
-            existing_entry["confidence"] = "facility_consensus"
-        else:
-            existing_entry["confidence"] = "facility_learned"
+                # Confidence promotion logic: >= 2 uses or >= 2 distinct users
+                if confidence_override:
+                    existing_entry["confidence"] = confidence_override
+                elif len(users) >= 2 or existing_entry["usageCount"] >= 2:
+                    existing_entry["confidence"] = "facility_consensus"
+                else:
+                    existing_entry["confidence"] = "facility_learned"
 
-        save_facility_lexicon(facility_id, entries)
-        return existing_entry
+                save_facility_lexicon(facility_id, entries)
+                return existing_entry
 
-    # Create new entry
-    alias_id = f"{facility_id}_{int(datetime.now(timezone.utc).timestamp())}_{len(entries) + 1}"
-    new_entry = {
-        "aliasId": alias_id,
-        "facilityId": facility_id,
-        "departmentId": department_id or "or",
-        "spokenTerm": norm_term,
-        "displayPreferredName": disp_name,
-        "canonicalItemName": canonical_item,
-        "usageCount": 1,
-        "usedByUsers": [clean_user] if (clean_user and clean_user != "anonymous") else [],
-        "confidence": confidence_override or ("facility_consensus" if clean_user in ("admin", "sean@sacredheart.org") else "personal"),
-        "updatedAt": now_iso,
-    }
-    entries.append(new_entry)
-    save_facility_lexicon(facility_id, entries)
-    return new_entry
+            # Create new entry
+            alias_id = f"{facility_id}_{int(datetime.now(timezone.utc).timestamp())}_{len(entries) + 1}"
+            new_entry = {
+                "aliasId": alias_id,
+                "facilityId": facility_id,
+                "departmentId": department_id or "or",
+                "spokenTerm": norm_term,
+                "displayPreferredName": disp_name,
+                "canonicalItemName": canonical_item,
+                "usageCount": 1,
+                "usedByUsers": [clean_user] if (clean_user and clean_user != "anonymous") else [],
+                "confidence": confidence_override or ("facility_consensus" if clean_user in ("admin", "sean@sacredheart.org") else "personal"),
+                "updatedAt": now_iso,
+            }
+            entries.append(new_entry)
+            save_facility_lexicon(facility_id, entries)
+            return new_entry
+        finally:
+            fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 
 def resolve_spoken_alias(facility_id: str, query: str) -> Optional[dict]:
