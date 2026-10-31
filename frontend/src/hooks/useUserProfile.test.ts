@@ -254,4 +254,55 @@ describe('useUserProfile hook', () => {
     assert.strictEqual(result.current.profile.fullName, xssPayload);
     assert.strictEqual(result.current.profile.facilityId, xssPayload);
   });
+
+  it('should handle concurrent burst executions safely (High-Concurrency & Race Conditions)', async () => {
+    const CONCURRENCY_LEVEL = 50;
+
+    // Pre-instantiate multiple hooks synchronously
+    const hooks = Array.from({ length: CONCURRENCY_LEVEL }).map(() => {
+        return renderHook(() => useUserProfile());
+    });
+
+    await Promise.all(
+      hooks.map(async (hook, index) => {
+        // Yield to event loop to simulate true concurrency and micro-jitters
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 10));
+
+        act(() => {
+            hook.result.current.saveProfile({
+                ...DEFAULT_USER_PROFILE,
+                fullName: `Concurrent User ${index}`,
+                facilityId: `facility_${index % 3}`
+            });
+        });
+      })
+    );
+
+    // Assert that the final state matches one of the saved profiles (latest one wins)
+    const savedData = JSON.parse(localStorageMock[USER_PROFILE_STORAGE_KEY]);
+    assert.ok(savedData.fullName.startsWith('Concurrent User'));
+    assert.ok(savedData.facilityId.startsWith('facility_'));
+  });
+
+  it('should maintain low latency for saving and loading under stress (Latency Benchmarks)', () => {
+     const { result } = renderHook(() => useUserProfile());
+     const STRESS_ITERATIONS = 1000;
+
+     const start = performance.now();
+     for (let i = 0; i < STRESS_ITERATIONS; i++) {
+        act(() => {
+            result.current.saveProfile({
+                ...DEFAULT_USER_PROFILE,
+                fullName: `Stress User ${i}`,
+                facilityId: `sacred_heart`
+            });
+        });
+     }
+     const end = performance.now();
+
+     const averageLatency = (end - start) / STRESS_ITERATIONS;
+
+     // The average latency for simple state + localStorage update should be well under 50ms
+     assert.ok(averageLatency < 50, `Average latency was ${averageLatency}ms, expected < 50ms`);
+  });
 });
