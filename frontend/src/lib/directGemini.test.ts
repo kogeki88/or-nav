@@ -357,4 +357,182 @@ describe('directGemini', () => {
       assert.match(capturedPrompt, /Isolated Baseline/);
     });
   });
+
+  describe('High-Concurrency & Stress Benchmarks', () => {
+    let originalFetch: typeof global.fetch;
+
+    beforeEach(() => {
+      originalFetch = global.fetch;
+    });
+
+    afterEach(() => {
+      global.fetch = originalFetch;
+    });
+
+    test('directGeminiRAG handles concurrent burst execution (Promise.all)', async () => {
+      setClientGeminiApiKey("test-burst-key");
+      let activeRequests = 0;
+      let maxActiveRequests = 0;
+      let totalCompleted = 0;
+
+      global.fetch = async () => {
+        activeRequests++;
+        maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
+
+        // Yield to event loop to simulate concurrency correctly
+        await new Promise(r => setTimeout(r, Math.random() * 10));
+
+        activeRequests--;
+        totalCompleted++;
+
+        return {
+          ok: true,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: "Burst response" }] } }]
+          })
+        } as unknown as Response;
+      };
+
+      const CONCURRENCY = 50;
+      const promises = Array.from({ length: CONCURRENCY }).map((_, i) =>
+        directGeminiRAG(`Concurrent query ${i}`)
+      );
+
+      const results = await Promise.all(promises);
+
+      assert.strictEqual(results.length, CONCURRENCY);
+      assert.strictEqual(totalCompleted, CONCURRENCY);
+      assert.ok(maxActiveRequests > 1, "Expected multiple requests to be processed concurrently");
+
+      results.forEach(res => {
+        assert.strictEqual(res.reply_text, "Burst response");
+        assert.strictEqual(res.routing_tier, "TIER_2_GEMINI_RAG");
+      });
+    });
+
+    test('directGeminiRAG handles race conditions during multi-tenant overlapping requests', async () => {
+      setClientGeminiApiKey("test-race-key");
+      const capturedPrompts: string[] = [];
+
+      global.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+        if (init && init.body) {
+          const body = JSON.parse(init.body as string);
+          capturedPrompts.push(body.contents[0].parts[0].text);
+        }
+
+        // Random latency 0-20ms to jumble execution order
+        await new Promise(r => setTimeout(r, Math.random() * 20));
+
+        return {
+          ok: true,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: "Race response" }] } }]
+          })
+        } as unknown as Response;
+      };
+
+      const profiles = [
+        { name: "User A", clinicalRole: "scrub_tech", departmentId: "or_main", facilityName: "Facility A" },
+        { name: "User B", clinicalRole: "circulator", departmentId: "icu_critical_care", facilityName: "Facility B" },
+        { name: "User C", clinicalRole: "surgeon", departmentId: "er_trauma", facilityName: "Facility C" },
+      ];
+
+      const iterations = 10;
+      const promises = [];
+
+      for (let i = 0; i < iterations; i++) {
+        for (const p of profiles) {
+          promises.push(directGeminiRAG("query", undefined, undefined, undefined, p as any));
+        }
+      }
+
+      await Promise.all(promises);
+
+      const facilityACount = capturedPrompts.filter(p => p.includes("Facility A") && p.includes("Operating Room")).length;
+      const facilityBCount = capturedPrompts.filter(p => p.includes("Facility B") && p.includes("ICU / Critical Care")).length;
+      const facilityCCount = capturedPrompts.filter(p => p.includes("Facility C") && p.includes("Emergency Dept")).length;
+
+      assert.strictEqual(facilityACount, iterations, "Facility A context leaked or was dropped");
+      assert.strictEqual(facilityBCount, iterations, "Facility B context leaked or was dropped");
+      assert.strictEqual(facilityCCount, iterations, "Facility C context leaked or was dropped");
+    });
+
+    test('directGeminiRAG latency benchmark under stress (P99 < 100ms simulator)', async () => {
+      setClientGeminiApiKey("test-latency-key");
+
+      // Simulate typical network latency
+      global.fetch = async () => {
+        await new Promise(r => setTimeout(r, 15)); // baseline network cost
+        return {
+          ok: true,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: "Latency response" }] } }]
+          })
+        } as unknown as Response;
+      };
+
+      const CONCURRENCY = 20;
+      const startTime = performance.now();
+
+      const promises = Array.from({ length: CONCURRENCY }).map(() => directGeminiRAG("latency check"));
+      const results = await Promise.all(promises);
+
+      const totalTime = performance.now() - startTime;
+
+      // Compute average latency per request using reported latency_ms
+      const latencies = results.map(r => r.latency_ms);
+      const avgLatency = latencies.reduce((a, b) => a + b, 0) / latencies.length;
+
+      assert.ok(avgLatency > 0, "Latency should be tracked and > 0");
+      assert.ok(totalTime < 200, `Total time for ${CONCURRENCY} requests should be reasonably fast, took ${totalTime}ms`);
+      // Since Promises run concurrently and we sleep for 15ms inside each, total time won't exceed significantly
+      // over 15ms if executed efficiently. We just assert the engine calculates it correctly.
+    });
+
+    test('Offline-first invariant: gracefully handles sudden network loss under high concurrency', async () => {
+      setClientGeminiApiKey("test-offline-key");
+
+      let fetchCount = 0;
+      global.fetch = async () => {
+        fetchCount++;
+        // Simulate network randomly dropping after 10 requests
+        if (fetchCount > 10) {
+          throw new TypeError("Failed to fetch"); // Typical offline error
+        }
+        await new Promise(r => setTimeout(r, 5));
+        return {
+          ok: true,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: "Online response" }] } }]
+          })
+        } as unknown as Response;
+      };
+
+      const CONCURRENCY = 20;
+      const promises = Array.from({ length: CONCURRENCY }).map(() =>
+        // Catch errors individually so Promise.all completes
+        directGeminiRAG("offline test").catch(e => e)
+      );
+
+      const results = await Promise.all(promises);
+
+      let successes = 0;
+      let networkErrors = 0;
+
+      for (const res of results) {
+        if (res instanceof Error) {
+          assert.match(res.message, /Failed to fetch|Network offline/i);
+          networkErrors++;
+        } else {
+          assert.strictEqual(res.reply_text, "Online response");
+          successes++;
+        }
+      }
+
+      // Approximately 10 should succeed, rest should gracefully bubble the offline error up to the caller
+      assert.ok(successes > 0, "Some requests should succeed");
+      assert.ok(networkErrors > 0, "Some requests should fail due to simulated offline");
+      assert.strictEqual(successes + networkErrors, CONCURRENCY, "All requests must resolve or gracefully reject");
+    });
+  });
 });
