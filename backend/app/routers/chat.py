@@ -180,6 +180,8 @@ class VerifyMoveRequest(BaseModel):
     item: str = Field(..., min_length=1, description="Exact item name to verify move for")
     expected_location: Optional[str] = Field(
         default=None, description="Expected pending coordinate target (prevents stale confirms)")
+    timestamp: Optional[str] = Field(
+        default=None, description="Mutation timestamp for offline conflict resolution")
 
 
 class VerifyMoveResponse(BaseModel):
@@ -199,6 +201,8 @@ class FlagWrongRequest(BaseModel):
     tenant_id: str = Field(default=settings.default_tenant)
     item: str = Field(..., min_length=1)
     reason: str = Field(default="Location empty or item moved")
+    timestamp: Optional[str] = Field(
+        default=None, description="Mutation timestamp for offline conflict resolution")
 
 
 class CreateQuestionRequest(BaseModel):
@@ -903,7 +907,7 @@ async def handle_flag_wrong(req: FlagWrongRequest):
     check_tenant(req.tenant_id)
 
     inv_service = get_inventory_service(req.tenant_id)
-    updated = inv_service.flag_wrong(req.item, req.reason)
+    updated = inv_service.flag_wrong(req.item, req.reason, req.timestamp)
     if updated is None:
         raise HTTPException(status_code=404, detail=f"Item '{req.item}' not found in inventory.")
 
@@ -924,7 +928,7 @@ async def handle_verify_move(req: VerifyMoveRequest):
     check_tenant(req.tenant_id)
 
     inv_service = get_inventory_service(req.tenant_id)
-    result = inv_service.verify_move(req.item, req.expected_location)
+    result = inv_service.verify_move(req.item, req.expected_location, req.timestamp)
     if result is None:
         raise HTTPException(status_code=404, detail=f"Item '{req.item}' not found in inventory.")
 

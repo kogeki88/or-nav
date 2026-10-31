@@ -1315,7 +1315,7 @@ class InventoryService:
 
         return matched_cards
 
-    def flag_wrong(self, item_query: str, reason: str = "") -> Optional[dict]:
+    def flag_wrong(self, item_query: str, reason: str = "", timestamp: Optional[str] = None) -> Optional[dict]:
         """
         Explicitly flag an item as wrong/empty/moved:
         Immediately drops `verification_score` to 0.5 and sets
@@ -1325,6 +1325,16 @@ class InventoryService:
             matched_row, stage = self._find_matching_row(item_query)
             if matched_row is None:
                 return None
+
+            if timestamp and matched_row.get("last_verified_at"):
+                try:
+                    incoming_ts = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                    current_ts = datetime.fromisoformat(matched_row["last_verified_at"].replace("Z", "+00:00"))
+                    if incoming_ts < current_ts:
+                        # Offline conflict: This mutation is older than the current state; drop it (Last-Write-Wins)
+                        return self._row_to_card(matched_row)
+                except Exception:
+                    pass
 
             matched_row["verification_score"] = 0.5
             matched_row["status"] = "needs_reverification"
@@ -1438,7 +1448,7 @@ class InventoryService:
             self._save_csv()
             return self._row_to_card(matched_row)
 
-    def verify_move(self, item_name: str, expected_location: Optional[str] = None) -> Optional[dict]:
+    def verify_move(self, item_name: str, expected_location: Optional[str] = None, timestamp: Optional[str] = None) -> Optional[dict]:
         """
         Increment verify_count for an item's pending move.
         Vector 3: Rejects confirmations from outdated widgets if expected_location
@@ -1465,6 +1475,18 @@ class InventoryService:
 
             if target_row is None:
                 return None
+
+            if timestamp and target_row.get("last_verified_at"):
+                try:
+                    incoming_ts = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                    current_ts = datetime.fromisoformat(target_row["last_verified_at"].replace("Z", "+00:00"))
+                    if incoming_ts < current_ts:
+                        # Offline conflict: This mutation is older than the current state; drop it (Last-Write-Wins)
+                        card = self._row_to_card(target_row)
+                        card["committed"] = False
+                        return card
+                except Exception:
+                    pass
 
             if not target_row["pending_location"]:
                 card = self._row_to_card(target_row)
