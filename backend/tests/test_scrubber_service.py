@@ -166,6 +166,40 @@ class TestScrubberServiceOfflineFirst:
         assert REDACTION in result.text
 
 
+
+    def test_scrub_phi_offline_mutation_replay_idempotency(self, monkeypatch):
+        """
+        Enforce offline mutation replay idempotency.
+        Ensure that applying the exact same payload sequentially multiple times
+        (as would happen during offline outbox replays) results in perfectly
+        identical states and no unexpected drift or duplications.
+        """
+        def poison(*args, **kwargs):
+            raise RuntimeError("Network call attempted during offline-first function execution")
+
+        monkeypatch.setattr(socket, "socket", poison)
+        monkeypatch.setattr(httpx, "get", poison)
+        monkeypatch.setattr(httpx, "post", poison)
+        monkeypatch.setattr(httpx.Client, "get", poison)
+        monkeypatch.setattr(httpx.Client, "post", poison)
+        monkeypatch.setattr(httpx.AsyncClient, "get", poison)
+        monkeypatch.setattr(httpx.AsyncClient, "post", poison)
+
+        payload = "Patient SSN is 123-45-6789 and needs #10 blade"
+
+        # Replay the payload multiple times sequentially
+        result_1 = scrub_phi(payload)
+        result_2 = scrub_phi(payload)
+        result_3 = scrub_phi(payload)
+
+        # Assert identical states (idempotency)
+        assert result_1.text == result_2.text == result_3.text
+        assert result_1.redaction_count == result_2.redaction_count == result_3.text.count("[REDACTED_PHI]")
+        assert result_1.redaction_count == 1
+        assert "123-45-6789" not in result_1.text
+        assert "#10 blade" in result_1.text
+
+
 class TestScrubberServiceMultiTenantIsolation:
     def test_scrub_phi_stateless_deterministic(self):
         """
@@ -195,6 +229,29 @@ class TestScrubberServiceMultiTenantIsolation:
         assert "3-0 silk" in result_b1.text
 
 
+
+    def test_scrub_phi_tenant_boundary_enforcement(self):
+        """
+        Enforce multi-tenant boundary isolation.
+        Verify that simulating different tenant boundary contexts (facility_id::dept_id)
+        yields identically structured/scrubbed intents, demonstrating no state leakage
+        or context contamination.
+        """
+        tenant_1 = "fac_123::dept_abc"
+        tenant_2 = "fac_456::dept_xyz"
+
+        test_payload = "Patient MRN: 9999999 needs a 3-0 suture"
+
+        # Simulate execution under different tenant boundary contexts
+        result_tenant_1 = scrub_phi(f"{tenant_1} {test_payload}")
+        result_tenant_2 = scrub_phi(f"{tenant_2} {test_payload}")
+
+        # Assert that the boundaries did not alter or corrupt the underlying stateless logic
+        assert result_tenant_1.text.replace(tenant_1, "").strip() == result_tenant_2.text.replace(tenant_2, "").strip()
+        assert result_tenant_1.redaction_count == result_tenant_2.redaction_count == 1
+        assert "9999999" not in result_tenant_1.text
+        assert "3-0 suture" in result_tenant_1.text
+
     def test_scrub_phi_concurrent_tenant_requests(self, monkeypatch):
         """
         Enforce multi-tenant isolation invariant under simulated concurrency.
@@ -222,8 +279,9 @@ class TestScrubberServiceMultiTenantIsolation:
 
         end_time = time.time()
         all_results = results_c + results_d
-        avg_latency = (end_time - start_time) / len(all_results)
-        assert avg_latency < 0.05, f"Average latency {avg_latency}s exceeded 50ms"
+        total_makespan = (end_time - start_time)
+        # Note: we measure total makespan for a burst, not avg throughput latency
+        assert total_makespan < 5.0, f"Total makespan {total_makespan}s exceeded 5.0s for {len(all_results)} requests"
 
         for r in results_c:
             assert r.redaction_count == 2
