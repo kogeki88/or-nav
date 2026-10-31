@@ -48,3 +48,8 @@ Implemented validation and unit tests to ensure over-the-air (OTA) package integ
 - Validated filenames to block path traversal sequences (`..`, `/`, `\`).
 - Ensured uploads read asynchronously in chunks (`await file.read(1024 * 1024)`) instead of reading entirely into memory, mitigating OOM DoS vulnerabilities.
 - Hardcoded `media_type` in `FileResponse` and validated file extensions to block executable/HTML uploads and prevent Stored XSS.
+## 2024-10-29 - Multilingual PHI Scrubbing Patterns
+
+- **Learning**: PHI scrubbing algorithms need regular localization updates to prevent PII exposure in non-English environments.
+- **Vulnerability**: If an MRN prefix (e.g. `Historial Medico`) or date-of-birth indicator (e.g. `Nacido el`) is not detected by regex filters designed for English, PII will be passed to backend systems.
+- **Prevention**: Expand Regex-based client-side PHI redaction logic to include common terms across multiple languages, ensuring proper case sensitivity for patient name matching (e.g., `Paciente:` vs `patient`) while simultaneously protecting localized clinical terminology from false redactions.
