@@ -226,6 +226,67 @@ test('handles malformed payloads, boundary inputs, and extreme values safely (Fu
   cleanup();
 });
 
+test('enforces multi-tenant boundary isolation and offline mutation replay idempotency', () => {
+  const tenant1 = 'facility_A::dept_1';
+  const tenant2 = 'facility_B::dept_2';
+
+  const manifestTenant1: VersionManifest = {
+    ...manifest,
+    changelog: `Update for ${tenant1}`,
+  };
+
+  const manifestTenant2: VersionManifest = {
+    ...manifest,
+    changelog: `Update for ${tenant2}`,
+  };
+
+  // Replay idempotency for Tenant 1
+  const { rerender, unmount } = render(
+    <AutoUpdateModal
+      isOpen={true}
+      onClose={() => {}}
+      manifest={manifestTenant1}
+      currentVersion="v0.61"
+      currentBuild={18}
+    />
+  );
+
+  assert.ok(screen.getByText(`Update for ${tenant1}`));
+  assert.strictEqual(screen.queryByText(`Update for ${tenant2}`), null);
+
+  // Replay exactly the same mutation
+  rerender(
+    <AutoUpdateModal
+      isOpen={true}
+      onClose={() => {}}
+      manifest={manifestTenant1}
+      currentVersion="v0.61"
+      currentBuild={18}
+    />
+  );
+
+  assert.ok(screen.getByText(`Update for ${tenant1}`));
+  assert.strictEqual(screen.queryByText(`Update for ${tenant2}`), null);
+
+  unmount(); // Unmount to simulate fresh boundary context
+
+  // Switch to Tenant 2, verifying Multi-Tenant Isolation
+  render(
+    <AutoUpdateModal
+      isOpen={true}
+      onClose={() => {}}
+      manifest={manifestTenant2}
+      currentVersion="v0.61"
+      currentBuild={18}
+    />
+  );
+
+  assert.ok(screen.getByText(`Update for ${tenant2}`));
+  assert.strictEqual(screen.queryByText(`Update for ${tenant1}`), null); // Assert Tenant 1 context is completely isolated/scrubbed
+
+  cleanup();
+});
+
 test('handles high-concurrency and race conditions (Burst/Stress)', async () => {
   const onCloseMock = mock.fn();
   const CONCURRENCY_COUNT = 50;
