@@ -510,3 +510,65 @@ test('enforce offline-first invariant (no global.fetch during ptt offline fallba
     global.fetch = originalFetch;
   }
 });
+
+test('high-concurrency burst execution, race conditions, latency, and multi-tenant isolation', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = mock.fn(() => {
+    throw new Error('Network request blocked by offline-first invariant');
+  });
+
+  try {
+    const burstSize = 100;
+    const callbacks = Array.from({ length: burstSize }, () => mock.fn());
+
+    // Render all instances concurrently
+    const { unmount } = render(
+      <div>
+        {callbacks.map((cb, idx) => (
+          <div key={idx} data-testid={`tenant-container-${idx}`}>
+            <Omnibar onSendMessage={cb} onFileUpload={() => {}} />
+          </div>
+        ))}
+      </div>
+    );
+
+    const inputs = screen.getAllByTestId('omnibar-input');
+    const submitBtns = screen.getAllByTestId('omnibar-submit-btn');
+
+    assert.strictEqual(inputs.length, burstSize);
+    assert.strictEqual(submitBtns.length, burstSize);
+
+    const startTime = performance.now();
+
+    // Fire events concurrently with micro-jitters
+    await Promise.all(
+      inputs.map(async (input, i) => {
+        // Yield to event loop to simulate true concurrency and micro-jitters
+        await new Promise(r => setTimeout(r, Math.random() * 10));
+
+        const payload = `tenant ${i} burst message`;
+        fireEvent.change(input, { target: { value: payload } });
+
+        await new Promise(r => setTimeout(r, Math.random() * 5));
+        fireEvent.click(submitBtns[i]);
+      })
+    );
+
+    const endTime = performance.now();
+    const averageLatency = (endTime - startTime) / burstSize;
+
+    // Verify all callbacks were fired exactly once with the correct payload
+    callbacks.forEach((cb, i) => {
+      assert.strictEqual(cb.mock.calls.length, 1);
+      assert.strictEqual(cb.mock.calls[0].arguments[0], `tenant ${i} burst message`);
+    });
+
+    // Assert multi-tenant isolation, no network calls, and latency
+    assert.strictEqual((global.fetch as any).mock.calls.length, 0);
+    assert.ok(averageLatency < 50, `Average latency too high: ${averageLatency}ms`);
+
+    unmount();
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
