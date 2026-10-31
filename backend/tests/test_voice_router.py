@@ -89,6 +89,94 @@ class TestVoiceRouter:
         data = resp.json()
         assert data["silence"] is False
         assert "bovie" in data["transcript"].lower()
+
+    def test_voice_transcribe_multi_tenant_isolation(self, client):
+        audio = b"0" * 500
+        tenant_1 = "facility_1::dept_a"
+        tenant_2 = "facility_2::dept_b"
+
+        payload_1 = f"give me the bovie for patient John Smith in {tenant_1}"
+        payload_2 = f"give me the bovie for patient John Smith in {tenant_2}"
+
+        resp_1 = client.post(
+            "/api/voice/transcribe",
+            files={"file": ("test.wav", audio, "audio/wav")},
+            data={"transcript_hint": payload_1, "tenant_id": tenant_1}
+        )
+        resp_2 = client.post(
+            "/api/voice/transcribe",
+            files={"file": ("test.wav", audio, "audio/wav")},
+            data={"transcript_hint": payload_2, "tenant_id": tenant_2}
+        )
+
+        assert resp_1.status_code == 200
+        assert resp_2.status_code == 200
+
+        data_1 = resp_1.json()
+        data_2 = resp_2.json()
+
+        assert tenant_1 in data_1["transcript"]
+        assert tenant_1 in data_1["safe_transcript"]
+        assert tenant_2 not in data_1["transcript"]
+        assert tenant_2 not in data_1["safe_transcript"]
+
+        assert tenant_2 in data_2["transcript"]
+        assert tenant_2 in data_2["safe_transcript"]
+        assert tenant_1 not in data_2["transcript"]
+        assert tenant_1 not in data_2["safe_transcript"]
+
+    def test_voice_transcribe_offline_mutation_replay_idempotency(self, client, monkeypatch):
+        import httpx
+        import socket
+
+        def mock_raise(*args, **kwargs):
+            raise RuntimeError("Offline invariant violated: External network call attempted.")
+
+        original_socket = socket.socket
+        def mock_socket(*args, **kwargs):
+            family = args[0] if args else kwargs.get("family", socket.AF_INET)
+            if family != getattr(socket, "AF_UNIX", -1):
+                raise RuntimeError("Offline invariant violated: External network call attempted.")
+            return original_socket(*args, **kwargs)
+
+        monkeypatch.setattr(socket, "socket", mock_socket)
+        monkeypatch.setattr(httpx, "get", mock_raise)
+        monkeypatch.setattr(httpx, "post", mock_raise)
+        monkeypatch.setattr(httpx, "request", mock_raise)
+
+        audio = b"0" * 500
+        tenant_id = "facility_42::dept_99"
+        payload = f"give me the bovie for patient John Smith in {tenant_id}"
+
+        resp1 = client.post(
+            "/api/voice/transcribe",
+            files={"file": ("test.wav", audio, "audio/wav")},
+            data={"transcript_hint": payload, "tenant_id": tenant_id}
+        )
+        assert resp1.status_code == 200
+        data1 = resp1.json()
+
+        resp2 = client.post(
+            "/api/voice/transcribe",
+            files={"file": ("test.wav", audio, "audio/wav")},
+            data={"transcript_hint": payload, "tenant_id": tenant_id}
+        )
+        assert resp2.status_code == 200
+        data2 = resp2.json()
+
+        assert data1 == data2
+
+    def test_transcribe_audio_with_hint_speech(self, client):
+        audio = b"0" * 500
+        resp = client.post(
+            "/api/voice/transcribe",
+            files={"file": ("test.wav", audio, "audio/wav")},
+            data={"transcript_hint": "give me the bovie for patient John Smith"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["silence"] is False
+        assert "bovie" in data["transcript"].lower()
         # The scrubber replaces the name with [REDACTED_PHI]
         assert "john smith" not in data["safe_transcript"].lower()
         assert "[redacted_phi]" in data["safe_transcript"].lower()
