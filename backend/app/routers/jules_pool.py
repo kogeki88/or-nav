@@ -13,6 +13,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import httpx
+import re
 
 router = APIRouter(prefix="/api/jules", tags=["jules"])
 
@@ -254,6 +255,10 @@ async def get_live_pool():
 async def unblock_session(req: UnblockRequest):
     api_key = get_jules_api_key()
     session_id = req.sessionId
+
+    # Path traversal & SSRF protection
+    if not re.match(r"^[a-zA-Z0-9-]+$", session_id):
+        raise HTTPException(status_code=400, detail="Invalid sessionId format")
     headers = {"X-Goog-Api-Key": api_key, "Content-Type": "application/json"}
 
     # --- STEP 1: READ & EXTRACT ---
@@ -363,4 +368,4 @@ async def unblock_session(req: UnblockRequest):
                 "tailoredResponse": tailored_response
             }
         else:
-            raise HTTPException(status_code=resp.status_code, detail=f"Failed to unblock session: {resp.text}")
+            raise HTTPException(status_code=resp.status_code, detail="Failed to unblock session: Upstream service error")

@@ -6,10 +6,10 @@
     "spokenTerm": "3-0 silk",
     "displayPreferredName": "3-0 Silk",
     "canonicalItemName": "3-0 Silk Suture",
-    "usageCount": 24,
+    "usageCount": 26,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T19:14:09Z"
+    "updatedAt": "2026-10-31T03:48:02Z"
   },
   {
     "aliasId": "general_memorial_1793196097_2",
@@ -18,10 +18,10 @@
     "spokenTerm": "debakey forceps",
     "displayPreferredName": "Debakey Forceps",
     "canonicalItemName": "DeBakey Vascular Tissue Forceps 12in",
-    "usageCount": 84,
+    "usageCount": 95,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-29T23:11:24Z"
+    "updatedAt": "2026-10-31T03:48:10Z"
   },
   {
     "aliasId": "general_memorial_1793196216_3",
@@ -66,10 +66,10 @@
     "spokenTerm": "4-0 prolene rb-1 and heparin 300 units/kg for act over 480",
     "displayPreferredName": "4-0 Prolene Rb-1 And Heparin 300 Units/kg For Act Over 480",
     "canonicalItemName": "4-0 Prolene Suture on RB-1",
-    "usageCount": 4,
+    "usageCount": 5,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T19:14:00Z"
+    "updatedAt": "2026-10-31T03:47:51Z"
   },
   {
     "aliasId": "general_memorial_1793206060_7",
@@ -78,10 +78,10 @@
     "spokenTerm": "endo gia stapler",
     "displayPreferredName": "Endo Gia Stapler",
     "canonicalItemName": "Endo GIA 60mm Articulating Stapler",
-    "usageCount": 3,
+    "usageCount": 4,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T19:14:07Z"
+    "updatedAt": "2026-10-31T03:48:05Z"
   },
   {
     "aliasId": "general_memorial_1793206060_8",
@@ -90,10 +90,10 @@
     "spokenTerm": "adult rsi airway tackle box",
     "displayPreferredName": "Adult Rsi Airway Tackle Box",
     "canonicalItemName": "RSI Medication Tackle Box",
-    "usageCount": 3,
+    "usageCount": 4,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T19:14:07Z"
+    "updatedAt": "2026-10-31T03:48:06Z"
   },
   {
     "aliasId": "general_memorial_1793206060_9",
@@ -102,10 +102,10 @@
     "spokenTerm": "bair hugger warming blanket",
     "displayPreferredName": "Bair Hugger Warming Blanket",
     "canonicalItemName": "Bair Hugger Full Body Blanket 30000",
-    "usageCount": 3,
+    "usageCount": 4,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T19:14:08Z"
+    "updatedAt": "2026-10-31T03:48:06Z"
   },
   {
     "aliasId": "general_memorial_1793206061_10",
@@ -114,10 +114,10 @@
     "spokenTerm": "central line kit",
     "displayPreferredName": "Central Line Kit",
     "canonicalItemName": "Central Line (Arrow Triple Lumen CVC 7Fr 20cm)",
-    "usageCount": 3,
+    "usageCount": 4,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T19:14:08Z"
+    "updatedAt": "2026-10-31T03:48:07Z"
   },
   {
     "aliasId": "general_memorial_1793206061_11",
@@ -126,10 +126,10 @@
     "spokenTerm": "arterial line",
     "displayPreferredName": "Arterial Line",
     "canonicalItemName": "Arterial Line Transducer (Edwards TruWave)",
-    "usageCount": 6,
+    "usageCount": 8,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T19:14:09Z"
+    "updatedAt": "2026-10-31T03:48:08Z"
   },
   {
     "aliasId": "general_memorial_1793206061_12",
@@ -138,10 +138,10 @@
     "spokenTerm": "rsi tackle box",
     "displayPreferredName": "Rsi Tackle Box",
     "canonicalItemName": "RSI Medication Tackle Box",
-    "usageCount": 3,
+    "usageCount": 4,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T19:14:08Z"
+    "updatedAt": "2026-10-31T03:48:07Z"
   },
   {
     "aliasId": "general_memorial_1793206061_13",
@@ -150,10 +150,10 @@
     "spokenTerm": "nerve block",
     "displayPreferredName": "Nerve Block",
     "canonicalItemName": "Ultrasound Nerve Block Tray & Needles",
-    "usageCount": 3,
+    "usageCount": 4,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T19:14:08Z"
+    "updatedAt": "2026-10-31T03:48:07Z"
   },
   {
     "aliasId": "general_memorial_1793206061_14",
@@ -174,10 +174,10 @@
     "spokenTerm": "skin knife",
     "displayPreferredName": "Skin Knife",
     "canonicalItemName": "Ethicon Proximate 35W Skin Stapler",
-    "usageCount": 3,
+    "usageCount": 4,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-28T19:14:23Z"
+    "updatedAt": "2026-10-31T03:49:40Z"
   },
   {
     "aliasId": "general_memorial_1793206084_16",
@@ -198,9 +198,9 @@
     "spokenTerm": "adson with teeth",
     "displayPreferredName": "Adson With Teeth",
     "canonicalItemName": "Adson Tissue Forceps 1x2 (Adson Pickups)",
-    "usageCount": 4,
+    "usageCount": 6,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-29T23:11:24Z"
+    "updatedAt": "2026-10-31T03:48:19Z"
   }
 ]
