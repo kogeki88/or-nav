@@ -35,14 +35,13 @@
     "spokenTerm": "gemini",
     "displayPreferredName": "Gemini",
     "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
-    "usageCount": 6,
+    "usageCount": 5,
     "usedByUsers": [
-      "jd@sacredheart.org",
-      "sean@sacredheart.org",
-      "turk@sacredheart.org"
+      "turk@sacredheart.org",
+      "sean@sacredheart.org"
     ],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-29T18:08:48Z"
+    "updatedAt": "2026-10-28T08:20:00Z"
   },
   {
     "aliasId": "sh_lex_4",
@@ -81,45 +80,16 @@
     "spokenTerm": "pillowcase",
     "displayPreferredName": "Pillowcase",
     "canonicalItemName": "Mayo Stand Cover Reinforced Blue",
-    "usageCount": 4,
+    "usageCount": 3,
     "usedByUsers": [
       "laverne@sacredheart.org",
       "sean@sacredheart.org"
     ],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-29T18:08:49Z"
+    "updatedAt": "2026-10-28T08:50:00Z"
   },
   {
-    "aliasId": "sacred_heart_1793297328_7",
-    "facilityId": "sacred_heart",
-    "departmentId": "or",
-    "spokenTerm": "geminis",
-    "displayPreferredName": "Geminis",
-    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
-    "usageCount": 1,
-    "usedByUsers": [
-      "turk@sacredheart.org"
-    ],
-    "confidence": "personal",
-    "updatedAt": "2026-10-29T18:08:48Z"
-  },
-  {
-    "aliasId": "sacred_heart_1793297329_8",
-    "facilityId": "sacred_heart",
-    "departmentId": "or",
-    "spokenTerm": "test ratchet clamp 81cdd7",
-    "displayPreferredName": "Test Ratchet Clamp 81cdd7",
-    "canonicalItemName": "Mixter Right-Angle Clamp 7.5in",
-    "usageCount": 2,
-    "usedByUsers": [
-      "user_alpha@sacredheart.org",
-      "user_beta@sacredheart.org"
-    ],
-    "confidence": "facility_consensus",
-    "updatedAt": "2026-10-29T18:08:49Z"
-  },
-  {
-    "aliasId": "sacred_heart_1793384310_9",
+    "aliasId": "sacred_heart_1793418589_7",
     "facilityId": "sacred_heart",
     "departmentId": "sacred_heart/or",
     "spokenTerm": "the bakey pickups",
@@ -128,6 +98,6 @@
     "usageCount": 1,
     "usedByUsers": [],
     "confidence": "personal",
-    "updatedAt": "2026-10-30T18:18:30Z"
+    "updatedAt": "2026-10-31T03:49:49Z"
   }
 ]

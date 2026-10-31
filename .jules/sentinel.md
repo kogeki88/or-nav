@@ -53,3 +53,10 @@ Implemented validation and unit tests to ensure over-the-air (OTA) package integ
 - **Learning**: PHI scrubbing algorithms need regular localization updates to prevent PII exposure in non-English environments.
 - **Vulnerability**: If an MRN prefix (e.g. `Historial Medico`) or date-of-birth indicator (e.g. `Nacido el`) is not detected by regex filters designed for English, PII will be passed to backend systems.
 - **Prevention**: Expand Regex-based client-side PHI redaction logic to include common terms across multiple languages, ensuring proper case sensitivity for patient name matching (e.g., `Paciente:` vs `patient`) while simultaneously protecting localized clinical terminology from false redactions.
+## 2026-10-31 - [SSRF & Error Leakage in API]
+
+Identified a Server-Side Request Forgery (SSRF) and error leakage vulnerability in the `backend/app/routers/jules_pool.py` endpoint `unblock_session`. The endpoint previously utilized `req.sessionId` dynamically inside an HTTP request (via `httpx.AsyncClient`) without validation, which could be exploited for path traversal. Furthermore, the endpoint leaked raw response text from upstream services in a generic `HTTPException`.
+
+Fix applied:
+- Enforced strict regex validation for the `sessionId` field (`^[a-zA-Z0-9-]+$`) to ensure malicious strings containing path manipulation are caught.
+- Replaced the detailed exception containing `resp.text` with a sanitized generic message ("Upstream service error"), preserving the status code while mitigating information leakage.
