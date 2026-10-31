@@ -216,3 +216,39 @@ class TestScrubberServiceMultiTenantIsolation:
             assert "Alice Johnson" not in r.text
             assert "3333333" not in r.text
             assert "Bob Smith" not in r.text
+
+
+from hypothesis import given, strategies as st
+from hypothesis import settings
+
+class TestScrubberServiceFuzzing:
+    @given(st.text())
+    @settings(max_examples=100)
+    def test_scrub_phi_fuzz_text(self, text_input):
+        """Fuzz with random text strings to ensure no crashes."""
+        result = scrub_phi(text_input)
+        assert isinstance(result, ScrubResult)
+        assert hasattr(result, "text")
+        assert hasattr(result, "redaction_count")
+
+    @given(st.integers() | st.floats(allow_nan=True, allow_infinity=True) | st.booleans() | st.none())
+    @settings(max_examples=50)
+    def test_scrub_phi_fuzz_primitives(self, primitive_input):
+        """Fuzz with primitive types that might be coerced to string."""
+        result = scrub_phi(primitive_input)
+        assert isinstance(result, ScrubResult)
+
+    @given(st.lists(st.text() | st.integers()) | st.dictionaries(st.text(), st.text() | st.integers()))
+    @settings(max_examples=50)
+    def test_scrub_phi_fuzz_collections(self, collection_input):
+        """Fuzz with collections (lists, dicts) simulating parsed JSON payloads."""
+        result = scrub_phi(collection_input)
+        assert isinstance(result, ScrubResult)
+
+    def test_scrub_phi_extremely_long_string(self):
+        """Test boundary case with extremely long strings."""
+        long_string = "MRN 1234567 " * 10000
+        result = scrub_phi(long_string)
+        assert result.redaction_count == 10000
+        assert "1234567" not in result.text
+        assert REDACTION in result.text

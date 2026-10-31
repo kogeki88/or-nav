@@ -140,6 +140,11 @@ def scrub_phi(text: str) -> ScrubResult:
     Returns:
         ScrubResult with scrubbed text and redaction count.
     """
+    if not isinstance(text, str):
+        if text is None:
+            return ScrubResult(text="", redaction_count=0)
+        text = str(text)
+
     if not text:
         return ScrubResult(text="", redaction_count=0)
 
