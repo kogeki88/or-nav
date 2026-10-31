@@ -542,4 +542,59 @@ describe("ResourceManagerChecksum", () => {
     const forceps = items?.find(i => i.item === "Forceps");
     assert.ok(forceps);
   });
+
+  test("ResourceManagerChecksum enforces multi-tenant boundary isolation and offline mutation replay idempotency", async () => {
+    const csvContentFac1 = "item,room,cabinet,shelf,container,full_code\nScalpel,Main OR,A,1,A,Main OR A 1 A\n";
+    const csvContentFac2 = "item,room,cabinet,shelf,container,full_code\nForceps,ER,B,2,C,ER B 2 C\n";
+
+    // Mock fetch to simulate offline mutation replay idempotency but return specific payloads for each tenant
+    mock.method(global, 'fetch', async (url: string) => {
+      return {
+        ok: true,
+        status: 200,
+        text: async () => url.includes("fac2") ? csvContentFac2 : csvContentFac1
+      };
+    });
+
+    const fac1PackMeta = {
+      packId: "pack_fac1_1", facilityId: "fac1", departmentId: "or", title: "Test Pack 1", category: "department", filePath: "fac1/or/inventory.csv", sizeBytes: 100, versionHash: "v1", updatedAt: "2023-01-01T00:00:00Z"
+    };
+
+    const fac2PackMeta = {
+      packId: "pack_fac2_1", facilityId: "fac2", departmentId: "er", title: "Test Pack 2", category: "department", filePath: "fac2/er/inventory.csv", sizeBytes: 100, versionHash: "v1", updatedAt: "2023-01-01T00:00:00Z"
+    };
+
+    // Install multiple times sequentially for offline replay idempotency
+    await resourceManager.installPack(fac1PackMeta);
+    const fac1ItemsAfterFirst = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    const fac1InstalledPacksAfterFirst = await resourceManager.getInstalledPacks();
+
+    await resourceManager.installPack(fac1PackMeta);
+    const fac1ItemsAfterSecond = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    const fac1InstalledPacksAfterSecond = await resourceManager.getInstalledPacks();
+
+    assert.deepStrictEqual(fac1ItemsAfterFirst, fac1ItemsAfterSecond);
+
+    // installedAt will differ slightly since it uses new Date().toISOString()
+    // but everything else should match
+    const stripInstalledAt = (packs: any[]) => packs.map(p => {
+      const { installedAt, ...rest } = p;
+      return rest;
+    });
+
+    assert.deepStrictEqual(stripInstalledAt(fac1InstalledPacksAfterFirst), stripInstalledAt(fac1InstalledPacksAfterSecond));
+
+    // Install for second facility
+    await resourceManager.installPack(fac2PackMeta);
+    await resourceManager.installPack(fac2PackMeta);
+
+    // Verify multi-tenant boundary isolation
+    const fac1Items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    const fac2Items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac2::er").toArray();
+
+    assert.ok(fac1Items && fac1Items.some(i => i.item === "Scalpel"));
+    assert.ok(fac1Items && !fac1Items.some(i => i.item === "Forceps")); // No Fac2 data
+    assert.ok(fac2Items && fac2Items.some(i => i.item === "Forceps"));
+    assert.ok(fac2Items && !fac2Items.some(i => i.item === "Scalpel")); // No Fac1 data
+  });
 });
