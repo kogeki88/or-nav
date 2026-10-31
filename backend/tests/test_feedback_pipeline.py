@@ -143,3 +143,49 @@ def test_fuzzing_and_boundary_conditions():
     # 6. Random non-existent endpoint or malformed id
     res = client.patch("/api/feedback/non_existent_id_123/status", json={"status": "resolved"})
     assert res.status_code == 404
+
+def test_concurrent_burst_execution_and_latency():
+    """Test race condition resistance and latency during a concurrent burst."""
+    import time
+    import concurrent.futures
+    import random
+    import string
+    start_time = time.time()
+
+    def worker(i):
+        # Generate completely random words to defeat similarity deduplication
+        rand_words = " ".join("".join(random.choices(string.ascii_lowercase, k=8)) for _ in range(5))
+        payload = {
+            "tenantId": f"burst_tenant_{i % 2}::or",
+            "userName": f"User {i}",
+            "userRole": "Nurse",
+            "source": "manual_submission",
+            "rawText": f"Unique {rand_words} {i}",
+            "aiRecommendation": "Rec",
+            "suggestedFixPrompt": "Prompt"
+        }
+        res = client.post("/api/feedback", json=payload)
+        return res.status_code
+
+    num_requests = 20
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        results = list(executor.map(worker, range(num_requests)))
+
+    end_time = time.time()
+
+    assert all(r == 200 for r in results)
+
+    res_0 = client.get("/api/feedback?tenantId=burst_tenant_0::or")
+    res_1 = client.get("/api/feedback?tenantId=burst_tenant_1::or")
+
+    items_0 = res_0.json()["items"]
+    items_1 = res_1.json()["items"]
+
+    added_0 = [it for it in items_0 if "Unique" in it.get("rawText", "")]
+    added_1 = [it for it in items_1 if "Unique" in it.get("rawText", "")]
+
+    assert len(added_0) == 10
+    assert len(added_1) == 10
+
+    avg_latency = (end_time - start_time) / num_requests
+    assert avg_latency < 0.05

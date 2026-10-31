@@ -13,6 +13,11 @@ REST endpoints:
 from datetime import datetime, timezone
 import json
 import os
+import fcntl
+import time
+import threading
+
+_feedback_lock = threading.RLock()
 from pathlib import Path
 import re
 from typing import List, Optional, Union
@@ -230,24 +235,85 @@ def _get_default_seed() -> List[dict]:
 # --- Storage Functions ---
 
 def load_feedback_items() -> List[dict]:
-    if not FEEDBACK_FILE.exists():
+    FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with _feedback_lock:
+        if not FEEDBACK_FILE.exists():
+            initial = _get_default_seed()
+            save_feedback_items(initial)
+            return initial
+
+        try:
+            with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+                try:
+                    fcntl.flock(f, fcntl.LOCK_SH)
+                    data = json.load(f)
+                    if isinstance(data, list):
+                        return data
+                finally:
+                    fcntl.flock(f, fcntl.LOCK_UN)
+        except Exception as e:
+            print(f"Error reading feedback file: {e}")
+
         initial = _get_default_seed()
         save_feedback_items(initial)
         return initial
-    try:
-        data = json.loads(FEEDBACK_FILE.read_text(encoding="utf-8"))
-        if isinstance(data, list):
-            return data
-    except Exception as e:
-        print(f"Error reading feedback file: {e}")
-    initial = _get_default_seed()
-    save_feedback_items(initial)
-    return initial
 
 
 def save_feedback_items(items: List[dict]) -> None:
     FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
-    FEEDBACK_FILE.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
+    with _feedback_lock:
+        for attempt in range(50):
+            try:
+                with open(FEEDBACK_FILE, "a+", encoding="utf-8") as f:
+                    try:
+                        fcntl.flock(f, fcntl.LOCK_EX)
+                        f.seek(0)
+                        f.truncate()
+                        json.dump(items, f, indent=2, ensure_ascii=False)
+                        f.flush()
+                        os.fsync(f.fileno())
+                        return
+                    finally:
+                        fcntl.flock(f, fcntl.LOCK_UN)
+            except Exception as e:
+                time.sleep(0.01)
+
+def modify_feedback_items(modifier_fn):
+    """Safely update feedback items under a thread lock + file lock."""
+    FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+    with _feedback_lock:
+        for attempt in range(50):
+            try:
+                with open(FEEDBACK_FILE, "a+", encoding="utf-8") as f:
+                    try:
+                        fcntl.flock(f, fcntl.LOCK_EX)
+                        f.seek(0)
+                        content = f.read()
+                        if not content:
+                            items = _get_default_seed()
+                        else:
+                            try:
+                                items = json.loads(content)
+                                if not isinstance(items, list):
+                                    items = _get_default_seed()
+                            except json.JSONDecodeError:
+                                items = _get_default_seed()
+
+                        result, updated_items = modifier_fn(items)
+
+                        if updated_items is not None:
+                            f.seek(0)
+                            f.truncate()
+                            json.dump(updated_items, f, indent=2, ensure_ascii=False)
+                            f.flush()
+                            os.fsync(f.fileno())
+
+                        return result
+                    finally:
+                        fcntl.flock(f, fcntl.LOCK_UN)
+            except Exception as e:
+                time.sleep(0.01)
 
 
 def is_similar(t1: str, t2: str) -> bool:
@@ -336,80 +402,87 @@ async def create_or_intercept_feedback(req: CreateFeedbackRequest):
     if not raw:
         raise HTTPException(status_code=400, detail="rawText must not be empty.")
 
-    items = load_feedback_items()
+    def _modifier(items):
+        # 1. Similarity check for auto-upvote merging on open items
+        for item in items:
+            if item.get("status") in ["open", "planned"] and is_similar(item.get("rawText", ""), raw):
+                item["upvotes"] = item.get("upvotes", 1) + 1
+                return item, items
 
-    # 1. Similarity check for auto-upvote merging on open items
-    for item in items:
-        if item.get("status") in ["open", "planned"] and is_similar(item.get("rawText", ""), raw):
-            item["upvotes"] = item.get("upvotes", 1) + 1
-            save_feedback_items(items)
-            return item
+        # 2. Determine category & severity
+        category = req.category
+        severity = req.severity
+        if not category or not severity:
+            auto_cat, auto_sev = classify_text(raw)
+            category = category or auto_cat
+            severity = severity or auto_sev
 
-    # 2. Determine category & severity
-    category = req.category
-    severity = req.severity
-    if not category or not severity:
-        auto_cat, auto_sev = classify_text(raw)
-        category = category or auto_cat
-        severity = severity or auto_sev
+        # 3. Synthesize recommendations
+        ai_rec = req.aiRecommendation
+        fix_prompt = req.suggestedFixPrompt
+        if not ai_rec or not fix_prompt:
+            synth_rec, synth_prompt = synthesize_recommendations(raw, category, severity)
+            ai_rec = ai_rec or synth_rec
+            fix_prompt = fix_prompt or synth_prompt
 
-    # 3. Synthesize recommendations
-    ai_rec = req.aiRecommendation
-    fix_prompt = req.suggestedFixPrompt
-    if not ai_rec or not fix_prompt:
-        synth_rec, synth_prompt = synthesize_recommendations(raw, category, severity)
-        ai_rec = ai_rec or synth_rec
-        fix_prompt = fix_prompt or synth_prompt
+        new_item = {
+            "id": f"fb-{uuid.uuid4().hex[:8]}",
+            "tenantId": req.tenantId or "sacred_heart::or",
+            "userName": req.userName or "Staff Clinician",
+            "userRole": req.userRole or "Circulating RN",
+            "source": req.source or "manual_submission",
+            "category": category,
+            "severity": severity,
+            "rawText": raw,
+            "aiRecommendation": ai_rec,
+            "suggestedFixPrompt": fix_prompt,
+            "upvotes": 1,
+            "status": "open",
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+        }
 
-    new_item = {
-        "id": f"fb-{uuid.uuid4().hex[:8]}",
-        "tenantId": req.tenantId or "sacred_heart::or",
-        "userName": req.userName or "Staff Clinician",
-        "userRole": req.userRole or "Circulating RN",
-        "source": req.source or "manual_submission",
-        "category": category,
-        "severity": severity,
-        "rawText": raw,
-        "aiRecommendation": ai_rec,
-        "suggestedFixPrompt": fix_prompt,
-        "upvotes": 1,
-        "status": "open",
-        "createdAt": datetime.now(timezone.utc).isoformat(),
-    }
+        items.insert(0, new_item)
+        return new_item, items
 
-    items.insert(0, new_item)
-    save_feedback_items(items)
-    return new_item
+    return modify_feedback_items(_modifier)
 
 
 @router.patch("/{feedback_id}", response_model=FeedbackItem)
 async def patch_feedback(feedback_id: str, req: PatchFeedbackRequest):
     """Update status or increment upvote on a feedback item."""
-    items = load_feedback_items()
-    for item in items:
-        if item.get("id") == feedback_id:
-            if req.upvote:
-                item["upvotes"] = item.get("upvotes", 1) + 1
-            if req.status:
-                valid_statuses = ["open", "planned", "resolved"]
-                if req.status not in valid_statuses:
-                    raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {valid_statuses}")
-                item["status"] = req.status
-            save_feedback_items(items)
-            return item
-    raise HTTPException(status_code=404, detail="Feedback item not found.")
+    def _modifier(items):
+        for item in items:
+            if item.get("id") == feedback_id:
+                if req.upvote:
+                    item["upvotes"] = item.get("upvotes", 1) + 1
+                if req.status:
+                    valid_statuses = ["open", "planned", "resolved"]
+                    if req.status not in valid_statuses:
+                        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {valid_statuses}")
+                    item["status"] = req.status
+                return item, items
+        return None, None
+
+    res = modify_feedback_items(_modifier)
+    if not res:
+        raise HTTPException(status_code=404, detail="Feedback item not found.")
+    return res
 
 
 @router.post("/{feedback_id}/upvote", response_model=FeedbackItem)
 async def upvote_feedback(feedback_id: str):
     """Upvote an existing feedback item."""
-    items = load_feedback_items()
-    for item in items:
-        if item.get("id") == feedback_id:
-            item["upvotes"] = item.get("upvotes", 1) + 1
-            save_feedback_items(items)
-            return item
-    raise HTTPException(status_code=404, detail="Feedback item not found.")
+    def _modifier(items):
+        for item in items:
+            if item.get("id") == feedback_id:
+                item["upvotes"] = item.get("upvotes", 1) + 1
+                return item, items
+        return None, None
+
+    res = modify_feedback_items(_modifier)
+    if not res:
+        raise HTTPException(status_code=404, detail="Feedback item not found.")
+    return res
 
 
 @router.patch("/{feedback_id}/status", response_model=FeedbackItem)
@@ -419,13 +492,17 @@ async def update_feedback_status(feedback_id: str, req: UpdateStatusRequest):
     if req.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {valid_statuses}")
 
-    items = load_feedback_items()
-    for item in items:
-        if item.get("id") == feedback_id:
-            item["status"] = req.status
-            save_feedback_items(items)
-            return item
-    raise HTTPException(status_code=404, detail="Feedback item not found.")
+    def _modifier(items):
+        for item in items:
+            if item.get("id") == feedback_id:
+                item["status"] = req.status
+                return item, items
+        return None, None
+
+    res = modify_feedback_items(_modifier)
+    if not res:
+        raise HTTPException(status_code=404, detail="Feedback item not found.")
+    return res
 
 
 @router.delete("/{feedback_id}")
