@@ -156,4 +156,105 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
       assert.notStrictEqual(tenantA_loc1.location, tenantC_loc2.location);
     });
   });
+
+  describe("High-Concurrency & Stress Benchmarks", () => {
+    test("Latency and Concurrent Burst Execution Benchmark", async () => {
+      const inputs = [
+        "OR 21 A 2 C",
+        "or21a2c",
+        "OR-21-A-2-C",
+        "OR 21 • A • 2 • C",
+        "Core Supply A 1 B",
+        "Pump Room A 1 B",
+        "Trauma Bay 1 A 2 B",
+        "ICU Supply A 1 B",
+        "ICU 1 A 1 B",
+        "PACU Med Room A 1 B",
+        "OR twenty one ay two see",
+        "Bay 2 Cart A Shelf 1 Bin B",
+        "core supply pyxis c drawer 2 container d"
+      ];
+
+      const burstSize = 10000;
+      const startTime = performance.now();
+
+      const promises = Array.from({ length: burstSize }).map((_, i) => {
+        return new Promise<void>((resolve) => {
+          const input = inputs[i % inputs.length];
+          // Mix operations
+          if (i % 2 === 0) {
+            extractAndNormalizeCoordinateClient(input);
+          } else {
+            normalizeLocationCoordinate(input);
+          }
+          resolve();
+        });
+      });
+
+      await Promise.all(promises);
+
+      const endTime = performance.now();
+      const duration = endTime - startTime;
+
+      // Ensure the burst executes reasonably fast (e.g. within 3 seconds for 10,000 parses)
+      assert.ok(duration < 3000, `Expected burst to complete in under 3000ms, but took ${duration}ms`);
+    });
+
+    test("Race Condition Resistance & Multi-Tenant Isolation Under High Concurrency", async () => {
+      // Setup a scenario where distinct simulated "tenants" execute simultaneously
+      const tenants = ["tenantA", "tenantB", "tenantC", "tenantD", "tenantE"];
+      const tenantData: Record<string, string[]> = {
+        tenantA: ["OR 1 A 1 A", "OR 2 B 2 B"],
+        tenantB: ["ICU 1 A 1 A", "ICU 2 B 2 B"],
+        tenantC: ["Core Supply A 1 A", "Core Supply B 2 B"],
+        tenantD: ["Trauma Bay 1 A 1 A", "Trauma Bay 2 B 2 B"],
+        tenantE: ["Pump Room A 1 A", "Pump Room B 2 B"]
+      };
+
+      const concurrentTasks = 5000; // Total concurrent tasks across all tenants
+      const tasks = [];
+
+      const originalFetch = global.fetch;
+      global.fetch = () => { throw new Error("Network request attempted during offline parsing"); };
+
+      try {
+        for (let i = 0; i < concurrentTasks; i++) {
+          const tenant = tenants[i % tenants.length];
+          const data = tenantData[tenant];
+          const input = data[i % data.length];
+
+          tasks.push(
+            new Promise<{ tenant: string; input: string; result: any }>((resolve) => {
+              // Introduce slight random delay to increase interleaving
+              setTimeout(() => {
+                const result = extractAndNormalizeCoordinateClient(input);
+                resolve({ tenant, input, result });
+              }, Math.random() * 10);
+            })
+          );
+        }
+
+        const results = await Promise.all(tasks);
+
+        // Verification: ensure no cross-contamination between tenants
+        for (const { tenant, input, result } of results) {
+          assert.ok(result);
+
+          if (tenant === "tenantA") {
+            assert.ok(result.location.startsWith("OR"));
+          } else if (tenant === "tenantB") {
+            assert.ok(result.location.startsWith("ICU"));
+          } else if (tenant === "tenantC") {
+            assert.ok(result.location.startsWith("Core Supply"));
+          } else if (tenant === "tenantD") {
+            assert.ok(result.location.startsWith("Trauma Bay"));
+          } else if (tenant === "tenantE") {
+            assert.ok(result.location.startsWith("Pump Room"));
+          }
+        }
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+  });
 });
