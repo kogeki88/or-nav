@@ -88,36 +88,68 @@ describe('useUserProfile hook', () => {
   });
 
   it('should save new profile, update state, and isolate tenants (Multi-tenant isolation invariant)', () => {
-    const { result } = renderHook(() => useUserProfile());
+    const root1 = document.createElement('div');
+    root1.setAttribute('data-tenant', 'county_general::er_trauma');
+    document.body.appendChild(root1);
+    const { result: hook1, unmount: unmount1 } = renderHook(() => useUserProfile(), { container: root1 });
 
     const tenant1Profile = { ...DEFAULT_USER_PROFILE, fullName: 'Jane Doe', facilityId: 'county_general', departmentId: 'er_trauma' };
 
     act(() => {
-      result.current.saveProfile(tenant1Profile);
+      hook1.current.saveProfile(tenant1Profile);
     });
 
-    assert.strictEqual(result.current.profile.fullName, 'Jane Doe');
-    assert.strictEqual(result.current.profile.facilityId, 'county_general');
-    assert.strictEqual(result.current.profile.departmentId, 'er_trauma');
+    assert.strictEqual(hook1.current.profile.fullName, 'Jane Doe');
+    assert.strictEqual(hook1.current.profile.facilityId, 'county_general');
+    assert.strictEqual(hook1.current.profile.departmentId, 'er_trauma');
 
     // Check if it's correctly isolated in localStorage
     const savedData = JSON.parse(localStorageMock[USER_PROFILE_STORAGE_KEY]);
     assert.strictEqual(savedData.facilityId, 'county_general');
     assert.strictEqual(savedData.departmentId, 'er_trauma');
 
+    const root2 = document.createElement('div');
+    root2.setAttribute('data-tenant', 'sacred_heart::icu_critical_care');
+    document.body.appendChild(root2);
+    const { result: hook2, unmount: unmount2 } = renderHook(() => useUserProfile(), { container: root2 });
+
     // Test a second tenant switch
     const tenant2Profile = { ...DEFAULT_USER_PROFILE, fullName: 'John Smith', facilityId: 'sacred_heart', departmentId: 'icu_critical_care' };
 
     act(() => {
-      result.current.saveProfile(tenant2Profile);
+      hook2.current.saveProfile(tenant2Profile);
     });
 
-    assert.strictEqual(result.current.profile.facilityId, 'sacred_heart');
-    assert.strictEqual(result.current.profile.departmentId, 'icu_critical_care');
+    assert.strictEqual(hook2.current.profile.facilityId, 'sacred_heart');
+    assert.strictEqual(hook2.current.profile.departmentId, 'icu_critical_care');
 
     const savedData2 = JSON.parse(localStorageMock[USER_PROFILE_STORAGE_KEY]);
     assert.strictEqual(savedData2.facilityId, 'sacred_heart');
     assert.strictEqual(savedData2.departmentId, 'icu_critical_care');
+
+    unmount1();
+    unmount2();
+    document.body.removeChild(root1);
+    document.body.removeChild(root2);
+  });
+
+  it('should enforce offline mutation replay idempotency', () => {
+    const { result } = renderHook(() => useUserProfile());
+
+    const profileToSave = { ...DEFAULT_USER_PROFILE, fullName: 'Idempotency Test' };
+
+    act(() => {
+      result.current.saveProfile(profileToSave);
+    });
+    const stateAfterFirst = JSON.parse(JSON.stringify(result.current.profile));
+
+    // Replay the mutation
+    act(() => {
+      result.current.saveProfile(profileToSave);
+    });
+    const stateAfterSecond = JSON.parse(JSON.stringify(result.current.profile));
+
+    assert.deepStrictEqual(stateAfterFirst, stateAfterSecond);
   });
 
   it('should sync state across multiple hooks when a profile is saved', () => {
