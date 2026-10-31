@@ -348,3 +348,63 @@ def test_planner_strict_multi_tenant_isolation():
     plan_pacu = plan_clinical_query("dr patel suture", graph=graph_pacu)
     if plan_pacu.surgeon:
         assert not plan_pacu.surgeon.is_indexed
+
+import concurrent.futures
+import time
+
+def test_planner_concurrent_burst_execution_and_latency(monkeypatch):
+    """
+    High-concurrency stress test to validate thread safety,
+    latency targets, offline-first invariants, and multi-tenant isolation.
+    """
+    def poisoned_socket(*args, **kwargs):
+        raise RuntimeError("Network call attempted during offline-first function!")
+
+    def poisoned_httpx_post(*args, **kwargs):
+        raise RuntimeError("HTTP network call attempted during offline-first function!")
+
+    def poisoned_httpx_get(*args, **kwargs):
+        raise RuntimeError("HTTP network call attempted during offline-first function!")
+
+    def poisoned_httpx_request(*args, **kwargs):
+        raise RuntimeError("HTTP network call attempted during offline-first function!")
+
+    monkeypatch.setattr(socket, "socket", poisoned_socket)
+    monkeypatch.setattr(httpx, "post", poisoned_httpx_post)
+    monkeypatch.setattr(httpx, "get", poisoned_httpx_get)
+    monkeypatch.setattr(httpx, "request", poisoned_httpx_request)
+
+    graph_main = get_clinical_graph("or_main")
+    graph_pacu = get_clinical_graph("pacu_periop")
+
+    burst_size = 100
+
+    def worker(i):
+        if i % 2 == 0:
+            return ("or_main", plan_clinical_query("dr patel suture", graph=graph_main))
+        else:
+            return ("pacu_periop", plan_clinical_query("dr patel suture", graph=graph_pacu))
+
+    start_time = time.time()
+
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=burst_size) as executor:
+        futures = [executor.submit(worker, i) for i in range(burst_size)]
+        for future in concurrent.futures.as_completed(futures):
+            results.append(future.result())
+
+    end_time = time.time()
+    avg_latency = (end_time - start_time) / burst_size
+
+    assert avg_latency < 0.05, f"Average wall latency {avg_latency:.4f}s exceeded 50ms target"
+
+    assert len(results) == burst_size
+    for tenant, plan in results:
+        if tenant == "or_main":
+            assert plan.intent == "PREFERENCE_CARD_LOOKUP"
+            assert plan.surgeon is not None
+            assert plan.surgeon.normalized_last_name == "patel"
+            assert plan.surgeon.is_indexed
+        else:
+            if plan.surgeon:
+                assert not plan.surgeon.is_indexed
