@@ -413,11 +413,21 @@ describe('directGemini', () => {
     test('directGeminiRAG handles race conditions during multi-tenant overlapping requests', async () => {
       setClientGeminiApiKey("test-race-key");
       const capturedPrompts: string[] = [];
+      const fetchLogs: string[] = [];
 
       global.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
         if (init && init.body) {
           const body = JSON.parse(init.body as string);
-          capturedPrompts.push(body.contents[0].parts[0].text);
+          const combined = body.contents[0].parts.map((p: any) => p.text).join(" ");
+          capturedPrompts.push(combined);
+          fetchLogs.push(combined);
+        }
+
+        // Enforce multi-tenant boundary assertion dynamically
+        const currentPayload = fetchLogs[fetchLogs.length - 1];
+        if (currentPayload && currentPayload.includes("Facility A")) {
+          assert.ok(currentPayload.includes("Operating Room"), "Tenant boundary violation: Facility A should map to OR");
+          assert.ok(!currentPayload.includes("Facility B"), "Tenant boundary violation: Cross-contamination");
         }
 
         // Random latency 0-20ms to jumble execution order
@@ -432,9 +442,9 @@ describe('directGemini', () => {
       };
 
       const profiles = [
-        { name: "User A", clinicalRole: "scrub_tech", departmentId: "or_main", facilityName: "Facility A" },
-        { name: "User B", clinicalRole: "circulator", departmentId: "icu_critical_care", facilityName: "Facility B" },
-        { name: "User C", clinicalRole: "surgeon", departmentId: "er_trauma", facilityName: "Facility C" },
+        { name: "User A", clinicalRole: "scrub_tech", departmentId: "or_main", facilityName: "Facility A", facilityId: "fac_a" },
+        { name: "User B", clinicalRole: "circulator", departmentId: "icu_critical_care", facilityName: "Facility B", facilityId: "fac_b" },
+        { name: "User C", clinicalRole: "surgeon", departmentId: "er_trauma", facilityName: "Facility C", facilityId: "fac_c" },
       ];
 
       const iterations = 10;
@@ -442,16 +452,18 @@ describe('directGemini', () => {
 
       for (let i = 0; i < iterations; i++) {
         for (const p of profiles) {
-          promises.push(directGeminiRAG("query", undefined, undefined, undefined, p as any));
+          // Simulate multi-tenant context using facility_id::dept_id boundary mapping implicitly handled by directGeminiRAG's internal profile context
+          promises.push(directGeminiRAG(`query ${p.facilityId}::${p.departmentId}`, undefined, undefined, undefined, p as any));
         }
       }
 
       await Promise.all(promises);
 
-      const facilityACount = capturedPrompts.filter(p => p.includes("Facility A") && p.includes("Operating Room")).length;
-      const facilityBCount = capturedPrompts.filter(p => p.includes("Facility B") && p.includes("ICU / Critical Care")).length;
-      const facilityCCount = capturedPrompts.filter(p => p.includes("Facility C") && p.includes("Emergency Dept")).length;
+      const facilityACount = capturedPrompts.filter(p => p.includes("Facility A") && p.includes("Operating Room") && p.includes("fac_a::or_main")).length;
+      const facilityBCount = capturedPrompts.filter(p => p.includes("Facility B") && p.includes("ICU / Critical Care") && p.includes("fac_b::icu_critical_care")).length;
+      const facilityCCount = capturedPrompts.filter(p => p.includes("Facility C") && p.includes("Emergency Dept") && p.includes("fac_c::er_trauma")).length;
 
+      // Ensure that all requests correctly parsed into the system prompt and scrubbed query respectively
       assert.strictEqual(facilityACount, iterations, "Facility A context leaked or was dropped");
       assert.strictEqual(facilityBCount, iterations, "Facility B context leaked or was dropped");
       assert.strictEqual(facilityCCount, iterations, "Facility C context leaked or was dropped");
@@ -487,6 +499,35 @@ describe('directGemini', () => {
       assert.ok(totalTime < 200, `Total time for ${CONCURRENCY} requests should be reasonably fast, took ${totalTime}ms`);
       // Since Promises run concurrently and we sleep for 15ms inside each, total time won't exceed significantly
       // over 15ms if executed efficiently. We just assert the engine calculates it correctly.
+    });
+
+    test('Offline mutation replay idempotency for directGeminiRAG', async () => {
+      setClientGeminiApiKey("test-offline-key");
+
+      let fetchCount = 0;
+      global.fetch = async () => {
+        fetchCount++;
+        throw new TypeError("Failed to fetch");
+      };
+
+      let initialError;
+      try {
+        await directGeminiRAG("offline payload replay");
+      } catch (err) {
+        initialError = err;
+      }
+      assert.ok(initialError, "Expected network error on first call");
+
+      let replayError;
+      try {
+        await directGeminiRAG("offline payload replay");
+      } catch (err) {
+        replayError = err;
+      }
+      assert.ok(replayError, "Expected network error on replay call");
+
+      assert.strictEqual((initialError as Error).message, (replayError as Error).message, "Idempotency: Replaying identical offline mutation should yield strict equal state/error");
+      assert.strictEqual(fetchCount, 2, "Both calls should have attempted fetch");
     });
 
     test('Offline-first invariant: gracefully handles sudden network loss under high concurrency', async () => {
