@@ -86,6 +86,7 @@ async def lookup_item_location(
     start = time.perf_counter()
 
     # 1. Scrub ambient PHI
+    item_query = str(item_query) if item_query is not None else ""
     scrub_result = scrub_phi(item_query)
     clean_query = scrub_result.text
     phi_detected = scrub_result.redaction_count > 0
@@ -167,7 +168,9 @@ async def report_item_move(
     start = time.perf_counter()
 
     # 1. Scrub ambient PHI
+    item_name = str(item_name) if item_name is not None else ""
     scrub_name = scrub_phi(item_name).text
+    new_location = str(new_location) if new_location is not None else ""
     scrub_loc = scrub_phi(new_location).text
     phi_detected = scrub_name != item_name or scrub_loc != new_location
 
@@ -224,6 +227,7 @@ async def query_clinical_protocol(
     start = time.perf_counter()
 
     # 1. Scrub ambient PHI
+    question = str(question) if question is not None else ""
     scrub_result = scrub_phi(question)
     clean_question = scrub_result.text
     phi_detected = scrub_result.redaction_count > 0
