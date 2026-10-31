@@ -25,7 +25,26 @@ def isolate_tenant_data():
     inv_path = tenant.inventory_path
     inv_backup = inv_path.with_suffix(".csv.voice.bak")
 
+    tenant_er = get_tenant("general_memorial/er")
+    er_inv_path = tenant_er.inventory_path
+    er_inv_backup = er_inv_path.with_suffix(".csv.voice.bak")
+
+    lexicon_path = tenant.inventory_path.parent / "learned_lexicon.json"
+    lexicon_backup = lexicon_path.with_suffix(".json.voice.bak")
+    lexicon_lock = tenant.inventory_path.parent / "learned_lexicon.lock"
+
+    er_lexicon_path = tenant_er.inventory_path.parent / "learned_lexicon.json"
+    er_lexicon_backup = er_lexicon_path.with_suffix(".json.voice.bak")
+    er_lexicon_lock = tenant_er.inventory_path.parent / "learned_lexicon.lock"
+
     shutil.copyfile(inv_path, inv_backup)
+    shutil.copyfile(er_inv_path, er_inv_backup)
+
+    if lexicon_path.exists():
+        shutil.copyfile(lexicon_path, lexicon_backup)
+    if er_lexicon_path.exists():
+        shutil.copyfile(er_lexicon_path, er_lexicon_backup)
+
     reset_inventory_services()
     reset_rag_services()
     set_active_room(None)
@@ -35,6 +54,24 @@ def isolate_tenant_data():
     if inv_backup.exists():
         shutil.copyfile(inv_backup, inv_path)
         inv_backup.unlink()
+
+    if er_inv_backup.exists():
+        shutil.copyfile(er_inv_backup, er_inv_path)
+        er_inv_backup.unlink()
+
+    if lexicon_backup.exists():
+        shutil.copyfile(lexicon_backup, lexicon_path)
+        lexicon_backup.unlink()
+
+    if er_lexicon_backup.exists():
+        shutil.copyfile(er_lexicon_backup, er_lexicon_path)
+        er_lexicon_backup.unlink()
+
+    if lexicon_lock.exists():
+        lexicon_lock.unlink()
+
+    if er_lexicon_lock.exists():
+        er_lexicon_lock.unlink()
 
     reset_inventory_services()
     reset_rag_services()
@@ -242,3 +279,73 @@ async def test_fuzz_report_item_move(item_name, new_location, tenant_id):
 async def test_fuzz_query_clinical_protocol(question, tenant_id):
     result = await query_clinical_protocol(question=question, tenant_id=tenant_id)
     assert isinstance(result, str)
+
+@pytest.mark.asyncio
+async def test_concurrent_burst_execution_and_latency(monkeypatch):
+    def raise_offline_error(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+    monkeypatch.setattr("socket.socket", raise_offline_error)
+    monkeypatch.setattr("httpx.get", raise_offline_error)
+    monkeypatch.setattr("httpx.post", raise_offline_error)
+    monkeypatch.setattr("httpx.request", raise_offline_error)
+
+    num_requests = 100
+    tasks = []
+    for i in range(num_requests):
+        if i % 2 == 0:
+            tasks.append(lookup_item_location(item_query="rapid infuser", tenant_id="general_memorial/er"))
+        else:
+            tasks.append(lookup_item_location(item_query="3-0 silk", tenant_id="general_memorial_cvor"))
+
+    start_time = time.time()
+    results = await asyncio.gather(*tasks)
+    end_time = time.time()
+
+    avg_latency = (end_time - start_time)  # Makespan of concurrent execution
+
+    for i, result in enumerate(results):
+        if i % 2 == 0:
+            assert "Belmont" in result and "Rapid Infuser" in result
+        else:
+            assert "3-0 Silk Suture" in result
+
+    assert avg_latency < 2.0, f"Total execution time too high: {avg_latency}s"
+
+@pytest.mark.asyncio
+async def test_concurrent_burst_write_race_condition(monkeypatch):
+    """Test race condition resistance under high concurrent writes."""
+    def raise_offline_error(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+    monkeypatch.setattr("socket.socket", raise_offline_error)
+    monkeypatch.setattr("httpx.get", raise_offline_error)
+    monkeypatch.setattr("httpx.post", raise_offline_error)
+    monkeypatch.setattr("httpx.request", raise_offline_error)
+
+    num_requests = 50
+    tasks = []
+
+    # We will concurrently report the same item moving to different locations
+    # and different items moving to the same location across tenants.
+    for i in range(num_requests):
+        if i % 2 == 0:
+            tasks.append(report_item_move(item_name="3-0 silk suture", new_location=f"OR 21 B {i}", tenant_id="general_memorial_cvor"))
+        else:
+            tasks.append(report_item_move(item_name="rapid infuser", new_location="OR 10", tenant_id="general_memorial/er"))
+
+    start_time = time.time()
+    results = await asyncio.gather(*tasks)
+    end_time = time.time()
+
+    for i, result in enumerate(results):
+        if i % 2 == 0:
+            assert "Relocation logged" in result
+        else:
+            assert "Relocation logged" in result
+
+    # Verify the final state is consistent for one of the updates
+    inv_svc = get_inventory_service("general_memorial_cvor")
+    res = inv_svc.search("3-0 silk")
+    assert res.pending_location.startswith("OR 21 B ")
+    assert res.verify_count > 0
