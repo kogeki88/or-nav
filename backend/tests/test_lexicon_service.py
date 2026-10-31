@@ -11,6 +11,9 @@ from app.services.lexicon_learning import (
     learn_alias,
     resolve_spoken_alias,
     DEFAULT_PRESEEDED_LEXICONS,
+    get_all_aliases_for_item,
+    title_case_term,
+    detect_teaching_intent,
 )
 
 
@@ -137,3 +140,49 @@ def test_resolve_spoken_alias_multi_tenant(mock_lexicon_dir):
     # Resolve in facility2 -> Should not be found
     resolved2 = resolve_spoken_alias(facility2, "where is the grabber")
     assert resolved2 is None
+
+def test_learn_alias_malformed_inputs(mock_lexicon_dir):
+    # Missing required inputs
+    with pytest.raises(ValueError):
+        learn_alias("fac", "or", "", "Canonical Item")
+
+    with pytest.raises(ValueError):
+        learn_alias("fac", "or", "Spoken Term", "")
+
+    with pytest.raises(ValueError):
+        learn_alias("fac", "or", "   ", "Canonical Item")
+
+def test_resolve_spoken_alias_boundary_inputs(mock_lexicon_dir):
+    # Empty/None queries
+    assert resolve_spoken_alias("sacred_heart", "") is None
+    assert resolve_spoken_alias("sacred_heart", "   ") is None
+
+def test_get_all_aliases_for_item_boundary():
+    assert get_all_aliases_for_item("fac", "") == []
+    assert get_all_aliases_for_item("fac", "   ") == []
+
+def test_title_case_term():
+    assert title_case_term("adson pickups") == "Adson Pickups"
+    assert title_case_term("  messy   spaces  ") == "Messy Spaces"
+    assert title_case_term("ALL CAPS") == "ALL CAPS" # preserves upper
+
+def test_detect_teaching_intent_fuzzing():
+    # Various valid and invalid teachings
+    assert detect_teaching_intent("We call the grabber a pickup.") == ("grabber", "pickup")
+    assert detect_teaching_intent("In this facility, the magic wand is called a bovie.") == ("magic wand", "bovie")
+    assert detect_teaching_intent("Remember that the clamp means a hemostat.") == ("clamp", "hemostat")
+    assert detect_teaching_intent("Alias the snips to scissors.") == ("snips", "scissors")
+
+    # Should not match general questions
+    assert detect_teaching_intent("What is the grabber called?") is None
+    assert detect_teaching_intent("Where is the grabber?") is None
+    assert detect_teaching_intent("Who is called to the OR?") is None
+
+    # Too short
+    assert detect_teaching_intent("We call a b") is None
+
+def test_load_facility_lexicon_malformed_json(tmp_path):
+    with patch('app.services.lexicon_learning._get_facility_lexicon_path') as mock_path:
+        mock_path.return_value = tmp_path / 'malformed.json'
+        (tmp_path / 'malformed.json').write_text('{ malformed: json, [ }', encoding='utf-8')
+        assert load_facility_lexicon('malformed_facility') == []
