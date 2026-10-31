@@ -160,6 +160,89 @@ describe("ResourceManagerChecksum", () => {
     assert.strictEqual(packs[0].content, "v2 content");
   });
 
+
+  test("ResourceManagerChecksum malformed payload resilience and fuzzing", async () => {
+    // 1. Fuzzing downloadPackContent
+    // empty string
+    mock.method(global, 'fetch', async () => ({
+      ok: true,
+      status: 200,
+      text: async () => ""
+    }));
+
+    await assert.rejects(
+      async () => {
+        await resourceManager.downloadPackContent("empty_file.md");
+      },
+      /Failed to download pack file: empty_file\.md/
+    );
+    mock.restoreAll();
+
+    // whitespace string
+    mock.method(global, 'fetch', async () => ({
+      ok: true,
+      status: 200,
+      text: async () => "   \n  \t  "
+    }));
+
+    await assert.rejects(
+      async () => {
+        await resourceManager.downloadPackContent("whitespace_file.md");
+      },
+      /Failed to download pack file: whitespace_file\.md/
+    );
+    mock.restoreAll();
+
+    // 2. Schema validation with offline db
+    // Installing a pack missing critical manifest fields
+    await assert.rejects(
+      async () => {
+        await resourceManager.installPack({
+          packId: "pack_missing_fields",
+          facilityId: null as any,
+          category: "hospital",
+          title: "Title",
+          filePath: "path.md",
+          sizeBytes: 0,
+          versionHash: "v1",
+          updatedAt: "2023-01-01"
+        });
+      },
+      // Depending on dexie validation, it might throw a different error, but we expect an error to be thrown when facilityId is null
+      (err) => err instanceof Error
+    );
+    mock.restoreAll();
+
+    // 3. ensureProfilePacksInstalled missing/malformed manifest fields
+    mock.method(global, 'fetch', async (url) => {
+      if (url.includes("manifest.json")) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({
+            packs: [
+              // valid pack
+              { packId: "handbook", facilityId: "fac1", category: "hospital", filePath: "handbook.md", versionHash: "v2" },
+              // missing facilityId
+              { packId: "bad1", category: "hospital", filePath: "bad1.md", versionHash: "v2" },
+              // missing category
+              { packId: "bad2", facilityId: "fac1", filePath: "bad2.md", versionHash: "v2" }
+            ]
+          })
+        };
+      }
+      return { ok: true, status: 200, text: async () => "v2 content" };
+    });
+
+    const result = await resourceManager.ensureProfilePacksInstalled("fac1", "or", "circulator");
+
+    // Only the valid handbook should be installed. bad1 and bad2 might be ignored or fail.
+    const packs = await resourceManager.getInstalledPacks();
+    assert.strictEqual(packs.length, 1);
+    assert.strictEqual(packs[0].packId, "handbook");
+    mock.restoreAll();
+  });
+
   test("ensureProfilePacksInstalled multi-tenant isolation invariant (ResourceManagerChecksum)", async () => {
     // Test that packs for fac1 don't overwrite fac2 and purging unassigned works
     mock.method(global, 'fetch', async (url: string) => {
