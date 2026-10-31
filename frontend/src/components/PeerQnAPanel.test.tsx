@@ -345,3 +345,154 @@ test('verify answer updates local and remote state', async () => {
         assert.ok(screen.getByText('✓ Verified by You'));
     });
 });
+
+test('handles malformed question payloads from backend without crashing', async () => {
+    const malformedQuestions = [
+        null,
+        undefined,
+        "not an object",
+        { id: 'missing-fields' }, // Missing required fields like answers array
+        {
+            id: 'q-malformed-answers',
+            tenantId: 'er_trauma',
+            questionText: 'Malformed answers test?',
+            askedBy: 'Dr. Glitch',
+            role: 'Attending',
+            createdAt: new Date().toISOString(),
+            answers: null, // Should be array
+            status: 'unverified',
+            verificationsCount: 0
+        },
+        {
+            id: 'q-valid',
+            tenantId: 'er_trauma',
+            questionText: 'Valid question?',
+            askedBy: 'Dr. Valid',
+            role: 'Attending',
+            createdAt: new Date().toISOString(),
+            answers: [],
+            status: 'unverified',
+            verificationsCount: 0
+        }
+    ];
+
+    global.fetch = mock.fn(async () => ({
+        ok: true,
+        json: async () => malformedQuestions
+    } as unknown as Response));
+
+    // The component should render without crashing, potentially skipping or safely rendering the malformed questions.
+    render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="er_trauma" userProfile={dummyProfile} />);
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('Valid question?'));
+    });
+});
+
+test('handles massive boundary strings and XSS attempts in inputs', async () => {
+    global.fetch = mock.fn(async (url: any, options: any) => {
+        if (options && options.method === 'POST') {
+            const body = JSON.parse(options.body);
+            return {
+                ok: true,
+                json: async () => ({
+                    ...body,
+                    id: 'q-fuzz-1',
+                    answers: [],
+                    status: 'unverified',
+                    verificationsCount: 0
+                })
+            } as unknown as Response;
+        }
+        return { ok: true, json: async () => [] } as unknown as Response;
+    });
+
+    render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="er_trauma" userProfile={dummyProfile} />);
+
+    const askTab = screen.getByText('Ask Department Peers');
+    fireEvent.click(askTab);
+
+    const maliciousString = '<script>alert(1)</script><img src=x onerror=alert(1)>' + 'A'.repeat(10000);
+    const textarea = screen.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+    fireEvent.change(textarea, { target: { value: maliciousString } });
+
+    const submitBtn = screen.getByText('Broadcast Question');
+    fireEvent.click(submitBtn);
+
+    // Should successfully submit and display (React automatically sanitizes, testing for no crashes)
+    await waitFor(() => {
+        assert.ok(screen.getByText((content) => content.includes('<script>alert(1)</script>')));
+    });
+});
+
+test('handles concurrent/rapid submissions correctly without duplication', async () => {
+    let postCallCount = 0;
+    global.fetch = mock.fn(async (url: any, options: any) => {
+        if (options && options.method === 'POST') {
+            postCallCount++;
+            // Simulate network delay to test debouncing/submitting state
+            await new Promise(resolve => setTimeout(resolve, 50));
+            const body = JSON.parse(options.body);
+            return {
+                ok: true,
+                json: async () => ({
+                    ...body,
+                    id: `q-rapid-${postCallCount}`,
+                    answers: [],
+                    status: 'unverified',
+                    verificationsCount: 0
+                })
+            } as unknown as Response;
+        }
+        return { ok: true, json: async () => [] } as unknown as Response;
+    });
+
+    render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="er_trauma" userProfile={dummyProfile} />);
+
+    const askTab = screen.getByText('Ask Department Peers');
+    fireEvent.click(askTab);
+
+    const textarea = screen.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+    fireEvent.change(textarea, { target: { value: 'Rapid click test' } });
+
+    const submitBtn = screen.getByText('Broadcast Question');
+
+    // Fire click rapidly multiple times
+    fireEvent.click(submitBtn);
+    fireEvent.click(submitBtn);
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('Rapid click test'));
+    });
+
+    // The component disables the button while submitting, so only 1 POST should go through
+    assert.strictEqual(postCallCount, 1, 'Should only send one POST request despite rapid clicks');
+});
+
+test('enforces strict multi-tenant isolation on offline boundary', async () => {
+    mockOfflineQuestions = [
+        {
+            id: 'offline-q1',
+            tenantId: 'other-tenant',
+            questionText: 'Wrong Tenant Question',
+            askedBy: 'Dr. Offline',
+            role: 'Attending',
+            createdAt: new Date().toISOString(),
+            answers: [],
+            status: 'unverified',
+            verificationsCount: 0
+        }
+    ];
+
+    global.fetch = mock.fn(async () => {
+        throw new Error('Network offline');
+    });
+
+    render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="er_trauma" userProfile={dummyProfile} />);
+
+    await waitFor(() => {
+        const missing = screen.queryByText('Wrong Tenant Question');
+        assert.ok(!missing, 'Should not render questions from another tenant');
+    });
+});
