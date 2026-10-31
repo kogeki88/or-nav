@@ -1,4 +1,4 @@
-import 'jsdom-global/register';
+import 'jsdom-global/register.js';
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
@@ -193,4 +193,55 @@ test('enforces multi-tenant isolation invariant with stateless and deterministic
 
   // Verify Tenant A data has completely leaked out of the render tree
   assert.strictEqual(screen.queryByText('Tenant A Specific Features'), null);
+});
+
+
+test('handles malformed payloads, boundary inputs, and extreme values safely (Fuzzing / Resilience)', () => {
+  const massiveString = 'A'.repeat(5000);
+  const xssPayload = '<img src=x onerror=alert(1)>';
+
+  const malformedManifest = {
+    version: xssPayload,
+    build_number: -999999, // Negative boundary
+    release_date: '',
+    apk_download_url: 'javascript:alert("hacked")',
+    min_supported_version: massiveString,
+    changelog: massiveString, // Massive payload
+  } as any;
+
+  render(
+    <AutoUpdateModal
+      isOpen={true}
+      onClose={() => {}}
+      manifest={malformedManifest}
+      currentVersion={massiveString}
+      currentBuild={Number.MAX_SAFE_INTEGER}
+    />
+  );
+
+  assert.ok(screen.getByTestId('auto-update-modal'));
+  // Ensure XSS payload is treated as string and not parsed as HTML
+  assert.ok(screen.getByText(massiveString + ' (Build ' + Number.MAX_SAFE_INTEGER + ') ➔ ' + xssPayload + ' (Build -999999)'));
+
+  cleanup();
+});
+
+test('enforces strict schema resilience (missing fields, unexpected types)', () => {
+  // Passing an empty object or object with null/undefined for all fields
+  const emptyManifest = {} as any;
+
+  render(
+    <AutoUpdateModal
+      isOpen={true}
+      onClose={() => {}}
+      manifest={emptyManifest}
+      currentVersion={null as any}
+      currentBuild={undefined as any}
+    />
+  );
+
+  assert.ok(screen.getByTestId('auto-update-modal'));
+  // Should render without crashing, using undefined/null implicitly
+
+  cleanup();
 });
