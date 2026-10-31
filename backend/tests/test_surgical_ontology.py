@@ -1,4 +1,5 @@
 import pytest
+from hypothesis import given, strategies as st
 from fastapi.testclient import TestClient
 import io
 import re
@@ -481,3 +482,76 @@ def test_strip_spoken_disfluencies_multi_tenant_isolation():
     res2 = strip_spoken_disfluencies("umm get me the metz")
     assert res1 == res2
     assert res1 == "get me the metz"
+
+# ---------------------------------------------------------------------------
+# 8. Fuzzing & Boundary Hardening
+# ---------------------------------------------------------------------------
+
+@given(st.text())
+def test_fuzz_normalize_or_lingo(text):
+    res = normalize_or_lingo(text)
+    assert isinstance(res, str)
+
+@given(st.text())
+def test_fuzz_normalize_acoustic_speech(text):
+    res = normalize_acoustic_speech(text)
+    assert isinstance(res, str)
+
+@given(st.text())
+def test_fuzz_extract_eponyms(text):
+    res = extract_eponyms(text)
+    assert isinstance(res, set)
+    for item in res:
+        assert isinstance(item, str)
+
+@given(st.text(), st.text())
+def test_fuzz_is_eponym_conflict(query, candidate):
+    res = is_eponym_conflict(query, candidate)
+    assert isinstance(res, bool)
+
+@given(st.text())
+def test_fuzz_is_generic_class_only(text):
+    res = is_generic_class_only(text)
+    assert isinstance(res, bool)
+
+@given(st.text())
+def test_fuzz_strip_spoken_disfluencies(text):
+    from app.services.surgical_ontology import strip_spoken_disfluencies
+    res = strip_spoken_disfluencies(text)
+    assert isinstance(res, str)
+
+def test_malformed_payload_resilience():
+    from app.services.surgical_ontology import strip_spoken_disfluencies
+    # Test handling of None (malformed inputs that should be strings)
+    assert normalize_or_lingo(None) == ""
+    assert normalize_acoustic_speech(None) == ""
+    assert extract_eponyms(None) == set()
+    assert is_eponym_conflict(None, "candidate") == False
+    assert is_eponym_conflict("query", None) == False
+    assert is_eponym_conflict(None, None) == False
+    assert is_generic_class_only(None) == False
+    assert strip_spoken_disfluencies(None) == ""
+
+def test_fuzz_offline_first_invariant(monkeypatch):
+    import socket
+    import httpx
+
+    def mock_socket(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+    def mock_httpx_post(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+    def mock_httpx_get(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
+    monkeypatch.setattr(httpx, "post", mock_httpx_post)
+    monkeypatch.setattr(httpx, "get", mock_httpx_get)
+
+    from app.services.surgical_ontology import strip_spoken_disfluencies
+
+    assert normalize_or_lingo("test") == "test"
+    assert normalize_acoustic_speech("test") == "test"
+    assert extract_eponyms("test") == set()
+    assert is_eponym_conflict("test", "test") == False
+    assert is_generic_class_only("test") == False
+    assert strip_spoken_disfluencies("test") == "test"
