@@ -207,4 +207,71 @@ describe("moveDebouncer", () => {
     const firstValidIndex = 1;
     assert.strictEqual(receivedItems[0].id, firstValidIndex);
   });
+
+  test("high-concurrency benchmark with multi-tenant isolation and offline-first invariants", async () => {
+    // Poison global.fetch to assert offline-first
+    const originalFetch = global.fetch;
+    global.fetch = () => {
+      throw new Error("Network call detected! Offline-first invariant violated.");
+    };
+
+    try {
+      const receivedItems: any[] = [];
+      const callCounts = new Map<string, number>();
+
+      const validator = (payload: any) => payload && typeof payload.tenant_id === "string";
+
+      const debouncer = createMoveDebouncer((items: any[]) => {
+        receivedItems.push(...items);
+        for (const item of items) {
+          const count = callCounts.get(item.tenant_id) || 0;
+          callCounts.set(item.tenant_id, count + 1);
+        }
+      }, 50, validator);
+
+      const numRequests = 10000;
+      const tenants = ["tenantA::or", "tenantB::icu", "tenantC::er"];
+      const payloads = Array.from({ length: numRequests }, (_, i) => ({
+        tenant_id: tenants[i % tenants.length],
+        id: i,
+        data: `data-${i}`
+      }));
+
+      const startTime = performance.now();
+
+      // Simulate concurrent burst traffic
+      await Promise.all(
+        payloads.map((payload) =>
+          new Promise<void>((resolve) => {
+            // Random micro-delays to simulate real concurrency/race conditions
+            setTimeout(() => {
+              debouncer(payload);
+              resolve();
+            }, Math.random() * 10);
+          })
+        )
+      );
+
+      // Wait for debouncer to flush
+      await sleep(100);
+
+      const endTime = performance.now();
+      const latency = endTime - startTime;
+
+      // Validate latency (should not take more than a few hundred milliseconds beyond the delays)
+      assert.ok(latency < 1000, `Execution took too long: ${latency}ms`);
+
+      // Verify all items are collected
+      assert.strictEqual(receivedItems.length, numRequests);
+
+      // Verify multi-tenant isolation
+      assert.strictEqual(callCounts.get("tenantA::or"), 3334);
+      assert.strictEqual(callCounts.get("tenantB::icu"), 3333);
+      assert.strictEqual(callCounts.get("tenantC::er"), 3333);
+
+    } finally {
+      // Restore original fetch
+      global.fetch = originalFetch;
+    }
+  });
 });
