@@ -349,3 +349,57 @@ async def test_concurrent_burst_write_race_condition(monkeypatch):
     res = inv_svc.search("3-0 silk")
     assert res.pending_location.startswith("OR 21 B ")
     assert res.verify_count > 0
+
+@pytest.mark.asyncio
+async def test_offline_mutation_replay_idempotency(monkeypatch):
+    """Verify offline mutation replay idempotency for VoiceWorker."""
+    import socket
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+        return original_socket(*args, **kwargs)
+
+    def raise_offline_error(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+    monkeypatch.setattr("socket.socket", mock_socket)
+    monkeypatch.setattr("httpx.get", raise_offline_error)
+    monkeypatch.setattr("httpx.post", raise_offline_error)
+    monkeypatch.setattr("httpx.request", raise_offline_error)
+
+    # Move item once
+    res1 = await report_item_move(
+        item_name="3-0 silk suture",
+        new_location="OR 21 B 1 A",
+        tenant_id="general_memorial_cvor"
+    )
+
+    # Replay same mutation
+    res2 = await report_item_move(
+        item_name="3-0 silk suture",
+        new_location="OR 21 B 1 A",
+        tenant_id="general_memorial_cvor"
+    )
+
+    assert res1 == res2
+
+@pytest.mark.asyncio
+async def test_multi_tenant_isolation_move():
+    """Verify item relocation respects tenant boundaries."""
+    # Attempt to move an item only present in cvor from er_trauma
+    spoken_er = await report_item_move(
+        item_name="3-0 silk suture",
+        new_location="OR 10",
+        tenant_id="general_memorial::er"
+    )
+    assert "Could not find" in spoken_er
+
+    # Move item in cvor
+    spoken_cvor = await report_item_move(
+        item_name="3-0 silk suture",
+        new_location="OR 21 B 1 A",
+        tenant_id="general_memorial_cvor"
+    )
+    assert "Relocation logged" in spoken_cvor
