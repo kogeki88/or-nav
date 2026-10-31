@@ -296,3 +296,50 @@ class TestChatRouterMultiTenant:
         assert resp.status_code in [200, 400, 404, 409, 422, 500]
         # In a real app we don't want 500, let's assert it is not 500
         assert resp.status_code != 500
+
+    def test_chat_concurrent_burst_and_latency(self):
+        reset_inventory_services()
+        reset_governance_services()
+        reset_rag_services()
+        client = TestClient(app)
+        tenant_a = "general_memorial_cvor"
+        tenant_b = "or_main"
+
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        def make_request(tenant):
+            start = time.time()
+            resp = client.post("/api/chat", json={
+                "message": "where is 3-0 silk",
+                "tenant_id": tenant
+            })
+            end = time.time()
+            return resp, end - start
+
+        # Burst of 20 concurrent requests
+        start_time = time.time()
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            futures = [executor.submit(make_request, tenant_a if i % 2 == 0 else tenant_b) for i in range(20)]
+            results = [f.result() for f in futures]
+        end_time = time.time()
+
+        # Verify race conditions and tenant isolation in results
+        for i, (resp, lat) in enumerate(results):
+            assert resp.status_code == 200
+            data = resp.json()
+            if i % 2 == 0:
+                assert data["routing_tier"] == "TIER_1_LOCAL_CSV"
+                assert "coordinate_card" in data
+                assert data["coordinate_card"]["item"] == "3-0 Silk Suture"
+                assert "OR 21" in data["coordinate_card"]["full_code"]
+            else:
+                assert data["routing_tier"] == "TIER_1_LOCAL_CSV"
+                assert "coordinate_card" in data
+                assert data["coordinate_card"]["item"] == "3-0 Silk Suture"
+                assert data["coordinate_card"]["full_code"] != ""
+
+        # Total latency check: check average wall latency for concurrency
+        # (According to the memory: "calculate the total average wall latency ((end_time - start_time) / len(results)) rather than checking the latency inside each individual thread.")
+        avg_latency = (end_time - start_time) / len(results)
+        assert avg_latency < 0.2
