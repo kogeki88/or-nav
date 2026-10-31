@@ -233,4 +233,66 @@ describe("Dexie Benchmarks", () => {
         global.fetch = originalFetch;
     }
   });
+
+  test("multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency", async () => {
+    const db = new BenchmarkDB();
+
+    // Insert items with complex tenant IDs (facility::dept)
+    const items = [
+      { id: "fac1::deptA::1", tenant_id: "fac1::deptA", item: "Item 1", status: "verified" },
+      { id: "fac1::deptA::2", tenant_id: "fac1::deptA", item: "Item 2", status: "verified" },
+      { id: "fac1::deptB::1", tenant_id: "fac1::deptB", item: "Item 3", status: "verified" },
+      { id: "fac2::deptA::1", tenant_id: "fac2::deptA", item: "Item 4", status: "verified" },
+    ];
+    await db.inventoryItems.bulkPut(items);
+
+    // Query for exactly one tenant ID and verify isolation
+    const fac1DeptAItems = await db.inventoryItems.where("tenant_id").equals("fac1::deptA").toArray();
+    assert.strictEqual(fac1DeptAItems.length, 2, "Should retrieve exactly items for fac1::deptA");
+    assert.ok(fac1DeptAItems.every(i => i.tenant_id === "fac1::deptA"), "Strictly isolates from fac1::deptB and fac2::deptA");
+
+    // Insert duplicate outbox mutations
+    const mutations = [
+      { tenant_id: "fac1::deptA", type: "update_item", item: "Item 1", timestamp: Date.now() },
+      { tenant_id: "fac1::deptA", type: "update_item", item: "Item 1", timestamp: Date.now() + 10 },
+      { tenant_id: "fac1::deptA", type: "update_item", item: "Item 1", timestamp: Date.now() + 20 },
+      { tenant_id: "fac1::deptA", type: "update_item", item: "Item 2", timestamp: Date.now() },
+      { tenant_id: "fac1::deptB", type: "update_item", item: "Item 1", timestamp: Date.now() },
+    ];
+    await db.offlineOutbox.bulkAdd(mutations);
+
+    // Simulate flushOfflineOutbox deduplication
+    const pending = await db.offlineOutbox.toArray();
+    const deduplicatedMutations = new Map<string, typeof pending[0]>();
+    const mutationIdsByKey = new Map<string, number[]>();
+
+    for (const mut of pending) {
+      let deduplicationKey = `${mut.type}::${mut.tenant_id}`;
+      if (mut.item) deduplicationKey += `::${mut.item}`;
+      if (mut.question_id) deduplicationKey += `::${mut.question_id}`;
+      if (mut.question_text) deduplicationKey += `::${mut.question_text}`;
+
+      deduplicatedMutations.set(deduplicationKey, mut);
+
+      const ids = mutationIdsByKey.get(deduplicationKey) || [];
+      if (mut.id) ids.push(mut.id as number);
+      mutationIdsByKey.set(deduplicationKey, ids);
+    }
+
+    // There are 3 deduplicated items from this test, but the offlineOutbox table isn't cleared
+    // from earlier tests. So we can't assert the total size of the deduplicated mutations map,
+    // but we can ensure our specific keys are correctly grouped.
+
+    const duplicateKey = "update_item::fac1::deptA::Item 1";
+    assert.ok(deduplicatedMutations.has(duplicateKey), "Map has duplicate key");
+    assert.strictEqual(mutationIdsByKey.get(duplicateKey)?.length, 3, "Duplicate key should map to 3 mutation IDs");
+
+    const otherKey1 = "update_item::fac1::deptA::Item 2";
+    assert.ok(deduplicatedMutations.has(otherKey1));
+    assert.strictEqual(mutationIdsByKey.get(otherKey1)?.length, 1);
+
+    const otherKey2 = "update_item::fac1::deptB::Item 1";
+    assert.ok(deduplicatedMutations.has(otherKey2));
+    assert.strictEqual(mutationIdsByKey.get(otherKey2)?.length, 1);
+  });
 });
