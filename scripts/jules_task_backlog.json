@@ -1065,8 +1065,10 @@
     "id": "backlog-116",
     "title": "Code Health: Invariant, Fuzzing & Boundary Hardening for LexiconLearningService",
     "category": "Code Health",
-    "status": "pending",
-    "prompt": "# 🚀 Code Health Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for LexiconLearningService\n\n**File:** `backend/tests/test_lexicon_service.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_lexicon_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Code Health Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for LexiconLearningService\n\n**File:** `backend/tests/test_lexicon_service.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_lexicon_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "14412798985134775911",
+    "dispatchedAt": "2026-10-31T03:36:59.924Z"
   },
   {
     "id": "backlog-117",
