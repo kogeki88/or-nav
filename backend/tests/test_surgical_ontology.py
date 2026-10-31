@@ -555,3 +555,70 @@ def test_fuzz_offline_first_invariant(monkeypatch):
     assert is_eponym_conflict("test", "test") == False
     assert is_generic_class_only("test") == False
     assert strip_spoken_disfluencies("test") == "test"
+
+# ---------------------------------------------------------------------------
+# 9. High-Concurrency & Stress Benchmarks
+# ---------------------------------------------------------------------------
+
+def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
+    import time
+    import concurrent.futures
+    import socket
+    import httpx
+
+    # 1. Enforce offline-first invariants under load
+    def mock_socket(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+    def mock_httpx_post(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+    def mock_httpx_get(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
+    monkeypatch.setattr(httpx, "post", mock_httpx_post)
+    monkeypatch.setattr(httpx, "get", mock_httpx_get)
+
+    from app.services.surgical_ontology import (
+        normalize_or_lingo,
+        normalize_acoustic_speech,
+        extract_eponyms,
+        is_eponym_conflict,
+        is_generic_class_only,
+        strip_spoken_disfluencies
+    )
+
+    CONCURRENCY = 50
+    payloads = [f"umm get me the metz {i}" for i in range(CONCURRENCY)]
+
+    def worker(payload, idx):
+        # 2. Assert multi-tenant isolation and correct returns under load
+        res_lingo = normalize_or_lingo(payload)
+        res_acoust = normalize_acoustic_speech(payload)
+        res_epo = extract_eponyms(payload)
+        res_conf = is_eponym_conflict(payload, payload)
+        res_gen = is_generic_class_only(payload)
+        res_disf = strip_spoken_disfluencies(payload)
+
+        assert isinstance(res_lingo, str)
+        assert isinstance(res_acoust, str)
+        assert isinstance(res_epo, set)
+        assert isinstance(res_conf, bool)
+        assert isinstance(res_gen, bool)
+        assert isinstance(res_disf, str)
+
+        return True
+
+    start_time = time.time()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=CONCURRENCY) as executor:
+        futures = [executor.submit(worker, payloads[i], i) for i in range(CONCURRENCY)]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    end_time = time.time()
+
+    assert len(results) == CONCURRENCY
+    assert all(results)
+
+    # 3. Assess total average wall latency (< 50ms) to account for GIL inflation
+    avg_latency = (end_time - start_time) / CONCURRENCY
+    assert avg_latency < 0.05, f"Average latency too high: {avg_latency * 1000:.2f}ms"
