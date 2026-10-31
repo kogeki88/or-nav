@@ -150,3 +150,98 @@ def test_fuzzing_malformed_inputs(tmp_path):
     # Check add_inventory_item
     with pytest.raises(TypeError):
         inv.add_inventory_item(None, None)
+
+import concurrent.futures
+
+import socket
+import httpx
+import time
+
+def test_concurrency_race_condition_and_latency(tmp_path, monkeypatch):
+    # Enforce offline-first invariants
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        # The default socket family is AF_INET, so empty args imply network call
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during benchmarks")
+        if args and args[0] != socket.AF_UNIX:
+            raise RuntimeError("Network call attempted during benchmarks")
+        if 'family' in kwargs and kwargs['family'] != socket.AF_UNIX:
+            raise RuntimeError("Network call attempted during benchmarks")
+        return original_socket(*args, **kwargs)
+
+    def mock_httpx(*args, **kwargs):
+        raise RuntimeError("Network call attempted during benchmarks")
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
+    monkeypatch.setattr(httpx, "get", mock_httpx)
+    monkeypatch.setattr(httpx, "post", mock_httpx)
+    monkeypatch.setattr(httpx, "request", mock_httpx)
+
+    # Setup Tenant 1
+    t1 = get_tenant("sacred_heart::or")
+    t1_csv = tmp_path / "t1.csv"
+    t1_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nTarget Item,Supplies,Room1,Cab1,Shelf1,Cont1,Room2 Cab2 Shelf2 Cont2,0\n")
+    t1.inventory_path = t1_csv
+    inv1 = InventoryService(t1)
+
+    # Setup Tenant 2
+    t2 = get_tenant("princeton_plainsboro::icu")
+    t2_csv = tmp_path / "t2.csv"
+    t2_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nAnother Item,Supplies,R2,C2,S2,C2,,0\n")
+    t2.inventory_path = t2_csv
+    inv2 = InventoryService(t2)
+
+    # 1. Race condition benchmark for verify_move
+    def verify_worker():
+        return inv1.verify_move("Target Item", "Room2 Cab2 Shelf2 Cont2")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(verify_worker) for _ in range(10)]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    # Assert correct final state
+    commits = [r for r in results if r and r.get("committed")]
+    assert len(commits) == 1  # Exactly one thread triggered the commit
+
+    # Refresh state
+    card = inv1.search("Target Item")
+    assert card["verify_count"] == 0  # Should be reset
+    assert card["room"] == "Room2"
+    assert card["cabinet"] == "CAB2"
+
+    # 2. High-concurrency multi-tenant & latency benchmark
+    queries = []
+    for i in range(500):
+        queries.append((inv1, "Target Item", True))
+        queries.append((inv2, "Another Item", True))
+        # Cross-tenant lookups should fail
+        queries.append((inv1, "Another Item", False))
+        queries.append((inv2, "Target Item", False))
+
+    start_time = time.time()
+    def search_worker(args):
+        inv, q, expect_found = args
+        t_start = time.time()
+        res = inv.search(q, record_implicit_verification=False)
+        t_end = time.time()
+        return res, expect_found, (t_end - t_start)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        futures = [executor.submit(search_worker, q) for q in queries]
+        search_results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    end_time = time.time()
+
+    total_latency = 0.0
+    for res, expect_found, latency in search_results:
+        total_latency += latency
+        if expect_found:
+            assert res is not None
+        else:
+            assert res is None
+
+    avg_latency = total_latency / len(search_results)
+    # The GIL inflates thread-local timing, so we also check total wall time per request
+    wall_latency = (end_time - start_time) / len(search_results)
+    assert wall_latency < 0.05, f"Average wall latency too high: {wall_latency:.4f}s"
