@@ -311,4 +311,54 @@ describe('appSettings', () => {
     assert.strictEqual(settings.fontScaling, DEFAULT_APP_SETTINGS.fontScaling);
     (global as { localStorage?: unknown }).localStorage = originalLocalStorage;
   });
+
+  test('concurrent burst execution and race condition resistance', async () => {
+    localStorage.clear();
+    const iterations = 100;
+    const promises = [];
+
+    for (let i = 0; i < iterations; i++) {
+      promises.push(
+        new Promise<void>((resolve) => {
+          setTimeout(() => {
+            const current = getAppSettings();
+            saveAppSettings({
+              fontScaling: current.fontScaling + 0.01,
+              darkMode: i % 2 === 0,
+            });
+            resolve();
+          }, Math.random() * 10);
+        })
+      );
+    }
+
+    await Promise.all(promises);
+
+    const finalSettings = getAppSettings();
+    assert.strictEqual(typeof finalSettings.fontScaling, 'number');
+    assert.ok(finalSettings.fontScaling > 1.0);
+    assert.strictEqual(typeof finalSettings.darkMode, 'boolean');
+    assert.strictEqual(finalSettings.autoUpdateEnabled, DEFAULT_APP_SETTINGS.autoUpdateEnabled);
+  });
+
+  test('latency benchmark for rapid consecutive reads and writes', () => {
+    localStorage.clear();
+    const iterations = 10000;
+
+    const start = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      saveAppSettings({
+        fontScaling: 1.0 + (i / iterations),
+        voiceSettings: `voice-${i}`
+      });
+      getAppSettings();
+    }
+    const end = performance.now();
+
+    const duration = end - start;
+    assert.ok(duration < 1000, `Latency benchmark failed: took ${duration}ms, expected < 1000ms`);
+
+    const finalSettings = getAppSettings();
+    assert.strictEqual(finalSettings.voiceSettings, `voice-${iterations - 1}`);
+  });
 });
