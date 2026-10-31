@@ -17,6 +17,11 @@ Verifies all 3 layers of the Clinical Query Planner & Relational Execution Engin
 
 import pytest
 from fastapi.testclient import TestClient
+from hypothesis import given, strategies as st
+from app.services.clinical_query_planner import ClinicalIntentType
+import socket
+import httpx
+import string
 
 from app.main import app
 from app.services.clinical_graph import get_clinical_graph, reset_clinical_graphs
@@ -263,3 +268,83 @@ def test_offline_first_invariant_no_network_calls(monkeypatch):
 
     plan_2 = plan_clinical_query("where is 4-0 prolene", graph=graph)
     assert plan_2.intent == "INVENTORY_LOOKUP"
+
+@given(st.text())
+def test_planner_fuzzing_hypothesis(raw_text):
+    """Property-based testing: the planner must never crash on any arbitrary string."""
+    graph = get_clinical_graph("or_main")
+    # Execute planner
+    plan = plan_clinical_query(raw_text, graph=graph)
+
+    # Invariants
+    assert plan.raw_query == (raw_text or "").strip()
+    assert plan.intent in [
+        "PREFERENCE_CARD_LOOKUP",
+        "PREFERENCE_INVENTORY_JOIN",
+        "INVENTORY_LOOKUP",
+        "PROTOCOL_GUIDELINE_LOOKUP"
+    ]
+
+def test_planner_boundary_cases():
+    """Strict boundary condition testing."""
+    graph = get_clinical_graph("or_main")
+
+    # Case 1: Extremely long strings (should not ReDoS or OOM)
+    long_str = "A" * 100000
+    plan = plan_clinical_query(long_str, graph=graph)
+    assert plan.intent == "INVENTORY_LOOKUP"
+
+    # Case 2: Only non-ascii characters
+    non_ascii = "😀" * 100
+    plan = plan_clinical_query(non_ascii, graph=graph)
+    assert plan.intent == "INVENTORY_LOOKUP"
+
+    # Case 3: Empty string after stripping
+    empty_cases = ["", "   ", "\n\t  "]
+    for q in empty_cases:
+        plan = plan_clinical_query(q, graph=graph)
+        assert plan.intent == "INVENTORY_LOOKUP"
+        assert plan.raw_query == ""
+
+def test_planner_strict_offline_isolation(monkeypatch):
+    """Ensures that absolutely zero network calls are made during planning."""
+    def poisoned_socket(*args, **kwargs):
+        raise RuntimeError("Network call attempted during offline-first function!")
+
+    def poisoned_httpx_post(*args, **kwargs):
+        raise RuntimeError("HTTP network call attempted during offline-first function!")
+
+    def poisoned_httpx_get(*args, **kwargs):
+        raise RuntimeError("HTTP network call attempted during offline-first function!")
+
+    def poisoned_httpx_request(*args, **kwargs):
+        raise RuntimeError("HTTP network call attempted during offline-first function!")
+
+    monkeypatch.setattr(socket, "socket", poisoned_socket)
+    monkeypatch.setattr(httpx, "post", poisoned_httpx_post)
+    monkeypatch.setattr(httpx, "get", poisoned_httpx_get)
+    monkeypatch.setattr(httpx, "request", poisoned_httpx_request)
+
+    graph = get_clinical_graph("or_main")
+    plan = plan_clinical_query("where is dr patel's 4-0 prolene", graph=graph)
+    assert plan.intent == "PREFERENCE_INVENTORY_JOIN"
+
+def test_planner_strict_multi_tenant_isolation():
+    """Ensures that tenants do not leak state."""
+    graph_main = get_clinical_graph("or_main")
+
+    # We will simulate a tenant with an empty graph
+    # If the app doesn't allow on-the-fly tenants easily, we test logic on or_main vs pacu_periop
+    graph_pacu = get_clinical_graph("pacu_periop")
+
+    # A surgeon in or_main
+    plan_main = plan_clinical_query("dr patel suture", graph=graph_main)
+    assert plan_main.surgeon is not None
+    assert plan_main.surgeon.normalized_last_name == "patel"
+    assert plan_main.intent == "PREFERENCE_CARD_LOOKUP"
+
+    # The same surgeon should NOT be mapped if they don't exist in pacu_periop
+    # (Assuming pacu_periop does not have dr patel in their graph)
+    plan_pacu = plan_clinical_query("dr patel suture", graph=graph_pacu)
+    if plan_pacu.surgeon:
+        assert not plan_pacu.surgeon.is_indexed
