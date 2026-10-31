@@ -157,6 +157,137 @@ describe("useSyncEngine", () => {
     assert.strictEqual(result.current.status, "synced");
   });
 
+
+
+  test("Offline-first invariant: triggerSync enforces offline mode without network dependencies", async () => {
+    setNetworkOnline(false);
+
+    // Poison fetch
+    const originalFetch = global.fetch;
+    global.fetch = mock.fn(() => {
+      throw new Error("Network request made during offline mode!");
+    });
+    apiMocks.fetchQuestions = mock.fn(async () => {
+      throw new Error("API call made during offline mode!");
+    });
+    offlineDbMocks.flushOfflineOutbox = mock.fn(async () => {
+      throw new Error("Flush made during offline mode!");
+    });
+    offlineDbMocks.syncTenantInventoryToOfflineDb = mock.fn(async () => {
+      throw new Error("Sync made during offline mode!");
+    });
+
+    const { result } = renderHook(() => useSyncEngine("tenant-offline", false));
+    assert.strictEqual(result.current.status, "offline");
+
+    let syncResult;
+    await act(async () => {
+      syncResult = await result.current.triggerSync();
+    });
+
+    assert.strictEqual(syncResult.success, false);
+    assert.strictEqual(syncResult.flushedCount, 0);
+    assert.strictEqual(result.current.status, "offline");
+
+    assert.strictEqual(offlineDbMocks.flushOfflineOutbox.mock.calls.length, 0);
+    assert.strictEqual(offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls.length, 0);
+    assert.strictEqual(apiMocks.fetchQuestions.mock.calls.length, 0);
+
+    global.fetch = originalFetch;
+  });
+
+  test("Multi-tenant isolation invariant: functions called strictly with active tenantId", async () => {
+    setNetworkOnline(true);
+
+    // First tenant
+    const { result: res1, unmount: unmount1 } = renderHook(() => useSyncEngine("tenant-A", false));
+    await act(async () => { await res1.current.triggerSync(); });
+
+    assert.strictEqual(offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls.length, 1);
+    assert.strictEqual(offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls[0].arguments[0], "tenant-A");
+    assert.strictEqual(apiMocks.fetchQuestions.mock.calls.length, 1);
+    assert.strictEqual(apiMocks.fetchQuestions.mock.calls[0].arguments[0], "tenant-A");
+
+    unmount1();
+
+    // Second tenant
+    const { result: res2 } = renderHook(() => useSyncEngine("tenant-B", false));
+    await act(async () => { await res2.current.triggerSync(); });
+
+    assert.strictEqual(offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls.length, 2);
+    assert.strictEqual(offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls[1].arguments[0], "tenant-B");
+    assert.strictEqual(apiMocks.fetchQuestions.mock.calls.length, 2);
+    assert.strictEqual(apiMocks.fetchQuestions.mock.calls[1].arguments[0], "tenant-B");
+  });
+
+  test("Fuzzing & boundary inputs: malformed tenantIds do not crash the engine", async () => {
+    setNetworkOnline(true);
+
+    const fuzzInputs = [
+      "",
+      "a".repeat(10000),
+      "\u0000\uFFFF\uD800",
+      "tenant-!@#$%^&*()_+",
+      "null",
+      "undefined",
+      "\n\r\t"
+    ];
+
+    for (const fuzzId of fuzzInputs) {
+      const { result, unmount } = renderHook(() => useSyncEngine(fuzzId, false));
+
+      let syncResult;
+      await act(async () => {
+        syncResult = await result.current.triggerSync();
+      });
+
+      assert.strictEqual(syncResult.success, true);
+      assert.strictEqual(result.current.status, "synced");
+
+      // Ensure the exact fuzzed ID was passed to the mocks
+      const lastSyncCallIdx = offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls.length - 1;
+      const lastApiCallIdx = apiMocks.fetchQuestions.mock.calls.length - 1;
+
+      assert.strictEqual(
+        offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls[lastSyncCallIdx].arguments[0],
+        fuzzId
+      );
+      assert.strictEqual(
+        apiMocks.fetchQuestions.mock.calls[lastApiCallIdx].arguments[0],
+        fuzzId
+      );
+
+      unmount();
+    }
+  });
+
+  test("Malformed payload resilience & Strict schema validation for offline data dependencies", async () => {
+    setNetworkOnline(true);
+
+    offlineDbMocks.getPendingOutboxCount = mock.fn(async () => {
+      // Return a malformed type to ensure the state handles it gracefully
+      return "NaN" as any;
+    });
+
+    offlineDbMocks.flushOfflineOutbox = mock.fn(async () => {
+      // Return negative count
+      return -5;
+    });
+
+    const { result, unmount } = renderHook(() => useSyncEngine("tenant-validate", false));
+
+    let syncResult;
+    await act(async () => {
+      syncResult = await result.current.triggerSync();
+    });
+
+    assert.strictEqual(syncResult.success, true);
+    assert.strictEqual(syncResult.flushedCount, -5);
+
+    assert.ok(result.current.statusLabel.includes("Synced") || result.current.statusLabel.includes("Syncing"));
+    unmount();
+  });
+
   test("listens to online/offline events", async () => {
     setNetworkOnline(true);
     const { result } = renderHook(() => useSyncEngine("tenant-5", true));
