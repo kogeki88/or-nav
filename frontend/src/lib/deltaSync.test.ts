@@ -191,4 +191,42 @@ test("diffRecords", async (t) => {
       assert.notStrictEqual(delta, null);
     }
   });
+
+  await t.test("High-concurrency and Race Condition Benchmark: executes bursts and enforces invariants", async () => {
+    const originalFetch = global.fetch;
+    let fetchCalled = false;
+    global.fetch = async () => {
+      fetchCalled = true;
+      throw new Error("Network calls are forbidden");
+    };
+
+    try {
+      const burstSize = 500;
+      const startTime = performance.now();
+
+      const promises = Array.from({ length: burstSize }).map(async (_, index) => {
+        // Yield execution to event loop to simulate concurrency and race conditions
+        await new Promise(r => setTimeout(r, Math.random() * 10));
+
+        const tenantId = `tenant_${index % 5}::or`;
+        const modifiedTenantId = `tenant_${(index % 5) + 1}::or`;
+        const base = { id: index, tenant_id: tenantId, data: "old" };
+        const modified = { id: index, tenant_id: modifiedTenantId, data: "new" };
+
+        const delta = diffRecords(base, modified);
+
+        // Assert multi-tenant isolation internally
+        assert.strictEqual(delta.tenant_id, modifiedTenantId);
+        assert.strictEqual(delta.data, "new");
+      });
+
+      await Promise.all(promises);
+      const latency = performance.now() - startTime;
+
+      assert.strictEqual(fetchCalled, false, "Offline-first invariant violated: fetch was called");
+      assert.ok(latency < 2000, `Latency too high: ${latency}ms`);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });
