@@ -883,7 +883,18 @@ async function startDaemon(intervalMin) {
       log(`[DAEMON ERROR] Unexpected error: ${err.message}`);
     }
     log(`Daemon sleeping for ${intervalMin} minutes until next cycle...`);
-    await new Promise(r => setTimeout(r, intervalMin * 60 * 1000));
+    const totalMs = intervalMin * 60 * 1000;
+    const heartbeatMs = 60 * 1000;
+    const sleepUntil = Date.now() + totalMs;
+    while (Date.now() < sleepUntil) {
+      const remainingMs = sleepUntil - Date.now();
+      const waitMs = Math.min(heartbeatMs, remainingMs);
+      await new Promise(r => setTimeout(r, waitMs));
+      if (Date.now() < sleepUntil) {
+        const remMin = ((sleepUntil - Date.now()) / 60000).toFixed(1);
+        log(`[DAEMON HEARTBEAT] Standing by. Next autonomous cycle in ${remMin}m...`);
+      }
+    }
   }
 }
 
