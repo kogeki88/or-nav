@@ -226,6 +226,54 @@ test('handles malformed payloads, boundary inputs, and extreme values safely (Fu
   cleanup();
 });
 
+test('handles high-concurrency and race conditions (Burst/Stress)', async () => {
+  const onCloseMock = mock.fn();
+  const CONCURRENCY_COUNT = 50;
+
+  // Track rendering latency
+  const latencies: number[] = [];
+
+  const renderPromises = Array.from({ length: CONCURRENCY_COUNT }).map(async (_, index) => {
+    const start = performance.now();
+    // Yield execution to event loop to simulate actual asynchronous concurrency
+    await new Promise(resolve => setTimeout(resolve, Math.random() * 10));
+
+    const isTenantA = index % 2 === 0;
+    const currentManifest = {
+      ...manifest,
+      version: isTenantA ? `v0.99-A-${index}` : `v0.99-B-${index}`,
+      build_number: index + 100
+    };
+
+    // We verify the global fetch isn't called due to the offline-first poison in beforeEach
+    const { unmount, queryByText } = render(
+      <AutoUpdateModal
+        isOpen={true}
+        onClose={onCloseMock}
+        manifest={currentManifest}
+        currentVersion="v0.61"
+        currentBuild={18}
+      />
+    );
+
+    // Yield again so renders interleave
+    await new Promise(resolve => setTimeout(resolve, Math.random() * 5));
+
+    // Assert deterministic text
+    assert.ok(queryByText(`v0.61 (Build 18) ➔ ${currentManifest.version} (Build ${currentManifest.build_number})`));
+
+    // Cleanup and track latency
+    unmount();
+    latencies.push(performance.now() - start);
+  });
+
+  await Promise.all(renderPromises);
+
+  const avgLatency = latencies.reduce((a, b) => a + b, 0) / latencies.length;
+  // Assert rendering latency remains reasonable under load
+  assert.ok(avgLatency < 1500, `Average latency too high: ${avgLatency}ms`);
+});
+
 test('enforces strict schema resilience (missing fields, unexpected types)', () => {
   // Passing an empty object or object with null/undefined for all fields
   const emptyManifest = {} as any;
