@@ -16,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.auth import load_users, save_users, DEFAULT_DEMO_USERS
+from app.auth import load_users, save_users, DEFAULT_DEMO_USERS, sanitize_user
 
 client = TestClient(app)
 
@@ -179,3 +179,31 @@ def test_profile_update_completes_onboarding():
     assert re_login.json()["profile"]["facilityId"] == "county_general"
     assert re_login.json()["profile"]["departmentId"] == "er_trauma"
     assert re_login.json()["profile"]["clinicalRole"] == "ER RN"
+
+def test_sanitize_user():
+    """Verify sanitize_user removes password hashes and leaves other fields intact."""
+    user = {
+        "email": "test@example.com",
+        "fullName": "Test User",
+        "passwordHash": "hash1",
+        "password_hash": "hash2",
+        "profile": {"role": "RN"}
+    }
+
+    sanitized = sanitize_user(user)
+
+    assert "passwordHash" not in sanitized
+    assert "password_hash" not in sanitized
+    assert sanitized["email"] == "test@example.com"
+    assert sanitized["fullName"] == "Test User"
+    assert sanitized["profile"]["role"] == "RN"
+
+    # Verify it works without the keys too
+    user_no_pw = {
+        "email": "test@example.com",
+        "fullName": "Test User"
+    }
+
+    sanitized_no_pw = sanitize_user(user_no_pw)
+    assert sanitized_no_pw["email"] == "test@example.com"
+    assert sanitized_no_pw["fullName"] == "Test User"

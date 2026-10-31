@@ -78,6 +78,7 @@ def sanitize_user(user: Dict[str, Any]) -> Dict[str, Any]:
     """Strip sensitive fields before sending over REST."""
     sanitized = dict(user)
     sanitized.pop("passwordHash", None)
+    sanitized.pop("password_hash", None)
     return sanitized
 
 
