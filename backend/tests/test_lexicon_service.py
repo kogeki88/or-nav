@@ -1,5 +1,6 @@
 import json
 import pytest
+import socket
 from pathlib import Path
 from unittest.mock import patch
 
@@ -66,6 +67,34 @@ def test_load_save_lexicon_offline_persistence(mock_lexicon_dir, tmp_path):
     # Load entries back
     assert load_facility_lexicon(facility) == test_entries
 
+
+def test_multi_tenant_isolation_and_offline_replay_idempotency(mock_lexicon_dir):
+    facility1 = "tenant1::dept1"
+    facility2 = "tenant2::dept1"
+
+    # Save multiple times to simulate offline replay idempotency
+    payload1 = [
+        {"aliasId": "1", "spokenTerm": "term1", "facilityId": facility1, "departmentId": "dept1", "canonicalItemName": "Item 1", "usageCount": 1, "usedByUsers": ["user1"], "confidence": "personal", "updatedAt": "2023-01-01T00:00:00Z", "displayPreferredName": "Term 1"}
+    ]
+
+    save_facility_lexicon(facility1, payload1)
+    state1 = load_facility_lexicon(facility1)
+
+    save_facility_lexicon(facility1, payload1)
+    save_facility_lexicon(facility1, payload1)
+    state2 = load_facility_lexicon(facility1)
+
+    assert state1 == state2, "Offline mutation replay should be idempotent"
+
+    payload2 = [
+        {"aliasId": "2", "spokenTerm": "term2", "facilityId": facility2, "departmentId": "dept1", "canonicalItemName": "Item 2", "usageCount": 1, "usedByUsers": ["user1"], "confidence": "personal", "updatedAt": "2023-01-01T00:00:00Z", "displayPreferredName": "Term 2"}
+    ]
+
+    save_facility_lexicon(facility2, payload2)
+
+    # Assert multi-tenant isolation
+    assert load_facility_lexicon(facility1) == state1
+    assert load_facility_lexicon(facility2) == payload2
 
 def test_reset_facility_lexicons(mock_lexicon_dir, tmp_path):
     # Alter the lexicon memory cache and disk for sacred_heart
@@ -192,13 +221,14 @@ import concurrent.futures
 
 @pytest.fixture(autouse=True)
 def enforce_offline_first(monkeypatch):
-    """Enforce offline-first invariants by poisoning httpx methods."""
+    """Enforce offline-first invariants by poisoning httpx methods and socket."""
     def _block_network(*args, **kwargs):
         raise RuntimeError("Network call blocked by offline-first invariant enforcement.")
 
     monkeypatch.setattr("httpx.get", _block_network)
     monkeypatch.setattr("httpx.post", _block_network)
     monkeypatch.setattr("httpx.request", _block_network)
+    monkeypatch.setattr("socket.socket", _block_network)
 
 def test_learn_alias_concurrency_race_condition(mock_lexicon_dir):
     """Test race conditions when learning aliases concurrently."""
@@ -292,12 +322,20 @@ def test_lexicon_service_latency_under_load(mock_lexicon_dir):
     resolve_spoken_alias(facility, "term_0")
 
     # Benchmark resolution
-    start_time = time.perf_counter()
     num_resolves = 100
-    for i in range(num_resolves):
-        resolve_spoken_alias(facility, f"term_{i * 5}")
-    end_time = time.perf_counter()
+    latencies = []
 
-    avg_latency = (end_time - start_time) / num_resolves
+    def resolve_with_latency(i):
+        start = time.perf_counter()
+        resolve_spoken_alias(facility, f"term_{i * 5}")
+        end = time.perf_counter()
+        return end - start
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(resolve_with_latency, i) for i in range(num_resolves)]
+        for f in concurrent.futures.as_completed(futures):
+            latencies.append(f.result())
+
+    avg_latency = sum(latencies) / len(latencies)
     # Expect avg latency to be under 100ms
     assert avg_latency < 0.1, f"Latency too high: {avg_latency * 1000} ms"
