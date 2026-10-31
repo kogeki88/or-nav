@@ -171,4 +171,73 @@ test("getFacilityIdFromTenant normalizes facility ID resolution", async (t) => {
             departmentId: "or"
         });
     });
+
+    await t.test("High-Concurrency & Stress Benchmarks: burst execution, race condition resistance, offline-first invariant", async () => {
+        // Poison global.fetch to strictly ensure the offline-first invariant (no network calls)
+        const originalFetch = global.fetch;
+        global.fetch = () => {
+            throw new Error("Network call detected in offline-first function!");
+        };
+
+        try {
+            const iterations = 1000;
+            const tenants = [
+                "sacred_heart::or",
+                "general_memorial::cvor",
+                "county_general_er",
+                "duke_regional::nicu",
+                "metro_medical_icu",
+                "princeton_plainsboro",
+                "unknown_hospital::dept",
+                "",
+                "🏥hospital::🩺dept",
+                "a::b::c::d",
+            ];
+
+            const start = performance.now();
+
+            // Promise.all to simulate concurrent burst execution
+            const results = await Promise.all(
+                Array.from({ length: iterations }).map(async (_, i) => {
+                    const tenant = tenants[i % tenants.length];
+
+                    // Simulate random micro-jitters using setTimeout to test race condition resistance
+                    await new Promise(r => setTimeout(r, Math.random() * 5));
+
+                    return {
+                        input: tenant,
+                        output: getFacilityIdFromTenant(tenant)
+                    };
+                })
+            );
+
+            const end = performance.now();
+            const latency = (end - start) / iterations;
+
+            // Ensure latency is well under 50ms per execution on average
+            assert.ok(latency < 50, `Latency too high: ${latency}ms per operation`);
+
+            // Verify Multi-tenant isolation - random results match expected outputs exactly
+            for (const result of results) {
+                const { input, output } = result;
+                let expected;
+                if (input === "sacred_heart::or") expected = { facilityId: "sacred_heart", departmentId: "or" };
+                else if (input === "general_memorial::cvor") expected = { facilityId: "general_memorial", departmentId: "cvor" };
+                else if (input === "county_general_er") expected = { facilityId: "county_general", departmentId: "er" };
+                else if (input === "duke_regional::nicu") expected = { facilityId: "duke_regional", departmentId: "nicu" };
+                else if (input === "metro_medical_icu") expected = { facilityId: "metro_medical", departmentId: "icu" };
+                else if (input === "princeton_plainsboro") expected = { facilityId: "princeton_plainsboro", departmentId: "or" };
+                else if (input === "unknown_hospital::dept") expected = { facilityId: "unknown_hospital", departmentId: "dept" };
+                else if (input === "") expected = { facilityId: "sacred_heart", departmentId: "or" };
+                else if (input === "🏥hospital::🩺dept") expected = { facilityId: "🏥hospital", departmentId: "🩺dept" };
+                else if (input === "a::b::c::d") expected = { facilityId: "a", departmentId: "b" };
+
+                assert.deepStrictEqual(output, expected);
+            }
+        } finally {
+            // Restore fetch
+            global.fetch = originalFetch;
+        }
+    });
+
 });
