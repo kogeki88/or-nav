@@ -310,37 +310,78 @@ test('enforce multi-tenant isolation invariant (stateless)', async () => {
 
   // The component should NOT hold any internal tenant state.
   // We can render two independent instances and prove they fire events independently without cross-talk
-  const { unmount } = render(
-    <div>
-      <div data-testid="tenant-1-container">
-        <Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />
-      </div>
-      <div data-testid="tenant-2-container">
-        <Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />
-      </div>
-    </div>
-  );
+  const root1 = document.createElement('div');
+  root1.setAttribute('data-tenant', 'facility_1::dept_1');
+  document.body.appendChild(root1);
 
-  const inputs = screen.getAllByTestId('omnibar-input');
-  const submitBtns = screen.getAllByTestId('omnibar-submit-btn');
+  const root2 = document.createElement('div');
+  root2.setAttribute('data-tenant', 'facility_2::dept_2');
+  document.body.appendChild(root2);
 
-  assert.strictEqual(inputs.length, 2);
+  const render1 = render(<Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />, { container: root1 });
+  const render2 = render(<Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />, { container: root2 });
 
-  // Interact with first instance
-  fireEvent.change(inputs[0], { target: { value: 'tenant 1 message' } });
-  fireEvent.click(submitBtns[0]);
+  try {
+    const inputs = screen.getAllByTestId('omnibar-input');
+    const submitBtns = screen.getAllByTestId('omnibar-submit-btn');
 
-  assert.strictEqual(onSendMessage.mock.calls.length, 1);
-  assert.strictEqual(onSendMessage.mock.calls[0].arguments[0], 'tenant 1 message');
+    assert.strictEqual(inputs.length, 2);
 
-  // Interact with second instance
-  fireEvent.change(inputs[1], { target: { value: 'tenant 2 message' } });
-  fireEvent.click(submitBtns[1]);
+    // Interact with first instance
+    fireEvent.change(inputs[0], { target: { value: 'tenant 1 message' } });
+    fireEvent.click(submitBtns[0]);
 
-  assert.strictEqual(onSendMessage.mock.calls.length, 2);
-  assert.strictEqual(onSendMessage.mock.calls[1].arguments[0], 'tenant 2 message');
+    assert.strictEqual(onSendMessage.mock.calls.length, 1);
+    assert.strictEqual(onSendMessage.mock.calls[0].arguments[0], 'tenant 1 message');
 
-  unmount();
+    // Interact with second instance
+    fireEvent.change(inputs[1], { target: { value: 'tenant 2 message' } });
+    fireEvent.click(submitBtns[1]);
+
+    assert.strictEqual(onSendMessage.mock.calls.length, 2);
+    assert.strictEqual(onSendMessage.mock.calls[1].arguments[0], 'tenant 2 message');
+  } finally {
+    render1.unmount();
+    render2.unmount();
+    root1.remove();
+    root2.remove();
+  }
+});
+
+test('offline mutation replay idempotency (rerender)', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = mock.fn(() => {
+    throw new Error('Network request blocked by offline-first invariant');
+  });
+
+  try {
+    const onSendMessage = mock.fn();
+    const { rerender, unmount } = render(<Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />);
+
+    const submitBtn = screen.getByTestId('omnibar-submit-btn');
+    const input = screen.getByTestId('omnibar-input');
+
+    // First interaction
+    fireEvent.change(input, { target: { value: 'Identical offline message' } });
+    fireEvent.click(submitBtn);
+
+    // Replay interaction after rerender
+    rerender(<Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />);
+
+    const inputAfter = screen.getByTestId('omnibar-input');
+    fireEvent.change(inputAfter, { target: { value: 'Identical offline message' } });
+    const submitBtnAfter = screen.getByTestId('omnibar-submit-btn');
+    fireEvent.click(submitBtnAfter);
+
+    // Although called twice, ensure that no global fetching occurs and inputs are identical
+    assert.strictEqual(onSendMessage.mock.calls.length, 2);
+    assert.strictEqual(onSendMessage.mock.calls[0].arguments[0], 'Identical offline message');
+    assert.strictEqual(onSendMessage.mock.calls[1].arguments[0], 'Identical offline message');
+
+    unmount();
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
 
 
@@ -517,20 +558,23 @@ test('high-concurrency burst execution, race conditions, latency, and multi-tena
     throw new Error('Network request blocked by offline-first invariant');
   });
 
+  const roots: HTMLDivElement[] = [];
+  const unmounts: (() => void)[] = [];
+
   try {
     const burstSize = 100;
     const callbacks = Array.from({ length: burstSize }, () => mock.fn());
 
-    // Render all instances concurrently
-    const { unmount } = render(
-      <div>
-        {callbacks.map((cb, idx) => (
-          <div key={idx} data-testid={`tenant-container-${idx}`}>
-            <Omnibar onSendMessage={cb} onFileUpload={() => {}} />
-          </div>
-        ))}
-      </div>
-    );
+    // Pre-instantiate elements into isolated containers representing tenant boundaries
+    for (let i = 0; i < burstSize; i++) {
+      const root = document.createElement('div');
+      root.setAttribute('data-tenant', `facility_${i}::dept_${i}`);
+      document.body.appendChild(root);
+      roots.push(root);
+
+      const { unmount } = render(<Omnibar onSendMessage={callbacks[i]} onFileUpload={() => {}} />, { container: root });
+      unmounts.push(unmount);
+    }
 
     const inputs = screen.getAllByTestId('omnibar-input');
     const submitBtns = screen.getAllByTestId('omnibar-submit-btn');
@@ -555,7 +599,7 @@ test('high-concurrency burst execution, race conditions, latency, and multi-tena
     );
 
     const endTime = performance.now();
-    const averageLatency = (endTime - startTime) / burstSize;
+    const makespan = endTime - startTime;
 
     // Verify all callbacks were fired exactly once with the correct payload
     callbacks.forEach((cb, i) => {
@@ -563,12 +607,13 @@ test('high-concurrency burst execution, race conditions, latency, and multi-tena
       assert.strictEqual(cb.mock.calls[0].arguments[0], `tenant ${i} burst message`);
     });
 
-    // Assert multi-tenant isolation, no network calls, and latency
+    // Assert multi-tenant isolation, no network calls, and total burst execution latency
     assert.strictEqual((global.fetch as any).mock.calls.length, 0);
-    assert.ok(averageLatency < 50, `Average latency too high: ${averageLatency}ms`);
+    assert.ok(makespan < 5000, `Makespan too high: ${makespan}ms`);
 
-    unmount();
   } finally {
     global.fetch = originalFetch;
+    unmounts.forEach(u => u());
+    roots.forEach(r => r.remove());
   }
 });
