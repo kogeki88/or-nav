@@ -268,7 +268,8 @@ def parse_clinical_intent(query: str, clinical_role: Optional[str] = None) -> Pa
     """
     Parse natural text or spoken transcript into structured clinical intent and slots.
     """
-    normalized_query, correction = normalize_clinical_speech(query)
+    stripped_query = re.sub(r'^[a-zA-Z0-9_-]+::[a-zA-Z0-9_-]+\s+', '', query)
+    normalized_query, correction = normalize_clinical_speech(stripped_query)
     cleaned = re.sub(r"\[REDACTED_PHI\]", "", normalized_query, flags=re.IGNORECASE).strip()
 
     # 0. Check TEACH_ALIAS intent (e.g. "Here we call Mixter clamps Geminis", "Adson forceps are called Adson pickups")

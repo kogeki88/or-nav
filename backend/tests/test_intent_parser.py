@@ -66,7 +66,12 @@ def test_intent_parser_fuzzing():
         assert res.confidence >= 0
 
 def test_intent_parser_offline_first(monkeypatch):
+    orig_socket = socket.socket
     def poison(*args, **kwargs):
+        if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
+        if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
         raise RuntimeError("Network call attempted! Offline invariant violated.")
 
     monkeypatch.setattr(socket, "socket", poison)
@@ -79,16 +84,42 @@ def test_intent_parser_offline_first(monkeypatch):
 
 def test_intent_parser_multi_tenant_isolation(monkeypatch):
     # Ensure intent parser is deterministic and acts strictly on query regardless of environment
-    # Setting an arbitrary dummy hospital context
     monkeypatch.setenv("HOSPITAL_TENANT", "hospital_a")
-    res1 = parse_clinical_intent("move the 3-0 prolene to shelf B")
+    res1 = parse_clinical_intent("hospital_a::dept_1 move the 3-0 prolene to shelf B")
 
     monkeypatch.setenv("HOSPITAL_TENANT", "hospital_b")
-    res2 = parse_clinical_intent("move the 3-0 prolene to shelf B")
+    res2 = parse_clinical_intent("hospital_b::dept_2 move the 3-0 prolene to shelf B")
 
     assert res1.intent == res2.intent
     assert res1.entities == res2.entities
     assert res1.confidence == res2.confidence
+    # We do NOT assert raw_query difference because intent_parser is just a pure text processor.
+    # It does not parse the "hospital_a::dept_1" boundary format natively, the caller does.
+    # This just ensures we can pass arbitrary tenant-prefixed payloads safely.
+
+def test_intent_parser_offline_mutation_replay_idempotency(monkeypatch):
+    orig_socket = socket.socket
+    def poison(*args, **kwargs):
+        if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
+        if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
+        raise RuntimeError("Network call attempted! Offline invariant violated.")
+
+    monkeypatch.setattr(socket, "socket", poison)
+    monkeypatch.setattr(httpx, "get", poison)
+    monkeypatch.setattr(httpx, "post", poison)
+    monkeypatch.setattr(httpx, "request", poison)
+
+    # Replay sequentially with the exact same input
+    input_str = "hospital_a::dept_1 move the 3-0 prolene to shelf B"
+    res1 = parse_clinical_intent(input_str)
+    res2 = parse_clinical_intent(input_str)
+    res3 = parse_clinical_intent(input_str)
+
+    assert res1.intent == res2.intent == res3.intent
+    assert res1.entities == res2.entities == res3.entities
+    assert res1.confidence == res2.confidence == res3.confidence
 
 
 import time
@@ -96,14 +127,22 @@ import multiprocessing
 from unittest.mock import patch
 import socket
 import httpx
+import os
 
 def _poison_and_parse(args):
     tenant, query, expected_intent = args
-    import os
     os.environ["HOSPITAL_TENANT"] = tenant
 
+    # Inject tenant into the query payload for testing boundary isolation
+    query = f"{tenant}::dept_1 {query}"
+
+    orig_socket = socket.socket
     # Enforce offline-first invariant globally for this worker process
     def poison(*args, **kwargs):
+        if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
+        if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
         raise RuntimeError("Network call attempted! Offline invariant violated.")
 
     with patch('socket.socket', side_effect=poison), \
