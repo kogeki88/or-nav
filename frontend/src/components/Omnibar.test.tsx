@@ -342,3 +342,171 @@ test('enforce multi-tenant isolation invariant (stateless)', async () => {
 
   unmount();
 });
+
+
+// --- NEW TESTS: Fuzzing, Boundaries, Malformed Payloads ---
+
+test('boundary input: exactly 2000 characters is accepted', async () => {
+  const onSendMessage = mock.fn();
+  render(<Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />);
+
+  const input = screen.getByTestId('omnibar-input');
+  const exactMaxText = 'a'.repeat(2000);
+
+  fireEvent.change(input, { target: { value: exactMaxText } });
+  const form = input.closest('form');
+  fireEvent.submit(form!);
+
+  assert.strictEqual(onSendMessage.mock.calls.length, 1);
+  assert.strictEqual(onSendMessage.mock.calls[0].arguments[0], exactMaxText);
+});
+
+test('fuzzing: handles complex unicode, emojis, and RTL text correctly', async () => {
+  const onSendMessage = mock.fn();
+  render(<Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />);
+
+  const input = screen.getByTestId('omnibar-input');
+  const fuzzedPayload = '🤖 مرحبا بالعالم! 👨‍👩‍👧‍👦 \u0000 \t \n 💥';
+
+  fireEvent.change(input, { target: { value: fuzzedPayload } });
+  const form = input.closest('form');
+  fireEvent.submit(form!);
+
+  assert.strictEqual(onSendMessage.mock.calls.length, 1);
+  assert.strictEqual(onSendMessage.mock.calls[0].arguments[0], fuzzedPayload.replace(/\n/g, '').trim());
+});
+
+test('malformed payloads: empty file upload event handles gracefully', async () => {
+  const onFileUpload = mock.fn();
+  render(<Omnibar onSendMessage={() => {}} onFileUpload={onFileUpload} />);
+
+  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+
+  // Simulate an event where files array is empty
+  fireEvent.change(fileInput, { target: { files: [] } });
+  assert.strictEqual(onFileUpload.mock.calls.length, 0);
+
+  // Simulate an event where files is null
+  fireEvent.change(fileInput, { target: { files: null } });
+  assert.strictEqual(onFileUpload.mock.calls.length, 0);
+});
+
+test('malformed payloads: audio query with empty chunks handles gracefully', async () => {
+  const onAudioVoiceQuery = mock.fn(async () => true);
+
+  // Override mock to emit an empty chunk
+  const OriginalMediaRecorder = (global as any).MediaRecorder;
+  (global as any).MediaRecorder = class extends OriginalMediaRecorder {
+    start = mock.fn((timeslice?: number) => {
+      this.state = 'recording';
+      // Simulate emitting empty or invalid chunks
+      if (typeof this.ondataavailable === 'function') {
+        this.ondataavailable({ data: new Blob([]) } as any);
+        this.ondataavailable({ data: null } as any);
+      }
+    });
+  };
+
+  try {
+    render(
+      <Omnibar
+        onSendMessage={() => {}}
+        onFileUpload={() => {}}
+        onAudioVoiceQuery={onAudioVoiceQuery}
+      />
+    );
+
+    const micBtn = screen.getByTestId('ptt-mic-btn');
+
+    // Start recording
+    fireEvent.pointerDown(micBtn);
+    await waitFor(() => {
+      assert.strictEqual(
+        (screen.getByTestId('omnibar-input') as HTMLInputElement).placeholder,
+        '🔴 Recording... Tap mic to send'
+      );
+    });
+
+    // Stop recording
+    fireEvent.pointerDown(micBtn);
+
+    // Ensure it falls back to silence logic because chunks were empty (less than MIN_AUDIO_BYTES)
+    await waitFor(() => {
+      assert.strictEqual(
+        (screen.getByTestId('omnibar-input') as HTMLInputElement).placeholder,
+        "Didn't catch that — try speaking closer to the mic"
+      );
+    });
+
+    assert.strictEqual(onAudioVoiceQuery.mock.calls.length, 0);
+  } finally {
+    // Restore mock safely
+    (global as any).MediaRecorder = OriginalMediaRecorder;
+  }
+});
+
+test('malformed payloads: component unmount during recording cleans up safely', async () => {
+  const onAudioVoiceQuery = mock.fn(async () => true);
+
+  const { unmount } = render(
+    <Omnibar
+      onSendMessage={() => {}}
+      onFileUpload={() => {}}
+      onAudioVoiceQuery={onAudioVoiceQuery}
+    />
+  );
+
+  const micBtn = screen.getByTestId('ptt-mic-btn');
+
+  // Start recording
+  fireEvent.pointerDown(micBtn);
+  await waitFor(() => {
+    assert.strictEqual(
+      (screen.getByTestId('omnibar-input') as HTMLInputElement).placeholder,
+      '🔴 Recording... Tap mic to send'
+    );
+  });
+
+  // Unmount while actively recording (should not throw exceptions)
+  assert.doesNotThrow(() => {
+    unmount();
+  });
+});
+
+
+test('enforce offline-first invariant (no global.fetch during ptt offline fallback)', async () => {
+  const originalFetch = global.fetch;
+  const fetchMock = mock.fn(() => {
+    throw new Error('Network request blocked by offline-first invariant');
+  });
+  global.fetch = fetchMock;
+
+  try {
+    const onSendMessage = mock.fn();
+    render(<Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />);
+
+    const micBtn = screen.getByTestId('ptt-mic-btn');
+    fireEvent.pointerDown(micBtn);
+
+    await waitFor(() => {
+      assert.strictEqual(
+        (screen.getByTestId('omnibar-input') as HTMLInputElement).placeholder,
+        '🔴 Recording... Tap mic to send'
+      );
+    });
+
+    fireEvent.pointerDown(micBtn);
+
+    await waitFor(() => {
+      assert.strictEqual(
+        (screen.getByTestId('omnibar-input') as HTMLInputElement).placeholder,
+        "Didn't catch that — try speaking closer to the mic"
+      );
+    });
+
+    assert.strictEqual(fetchMock.mock.calls.length, 0);
+
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
