@@ -426,17 +426,22 @@ TEACH_PATTERNS = [
     # "[X] is called [Y]" / "[X] are called [Y]"
     re.compile(r"(?:the\s+)?(.+?)\s+(?:is|are)\s+called\s+(?:an?|the)?\s*([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
     # "In this facility, [X] is called [Y]"
-    re.compile(r"in\s+this\s+(?:facility|hospital|unit|or|department)\s*,\s*(?:the\s+)?(.+?)\s+(?:is|are)\s+called\s+(?:an?|the)?\s*([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
+    re.compile(
+        r"in\s+this\s+(?:facility|hospital|unit|or|department)\s*,\s*(?:the\s+)?(.+?)\s+(?:is|are)\s+called\s+(?:an?|the)?\s*([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
     # "Remember that [X] are called [Y]" / "Remember that [X] is [Y]"
-    re.compile(r"remember\s+that\s+(?:the\s+)?(.+?)\s+(?:are\s+called|is\s+called|means|is|are)\s+(?:an?|the)?\s*([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
+    re.compile(
+        r"remember\s+that\s+(?:the\s+)?(.+?)\s+(?:are\s+called|is\s+called|means|is|are)\s+(?:an?|the)?\s*([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
     # "Alias [X] to [Y]"
     re.compile(r"alias\s+(?:the\s+)?(.+?)\s+to\s+(?:an?|the)?\s*([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
     # "Here we call [X] a/an/the/as [Y]"
-    re.compile(r"(?:here\s+)?we\s+call\s+(?:the\s+)?(.+?)\s+(?:a|an|the|as)\s+([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
+    re.compile(
+        r"(?:here\s+)?we\s+call\s+(?:the\s+)?(.+?)\s+(?:a|an|the|as)\s+([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
     # "We call [X forceps/clamp/scissors/etc] [Y]"
-    re.compile(r"(?:here\s+)?we\s+call\s+(?:the\s+)?(.+?\b(?:forceps|scissors|clamps?|retractors?|needle\s+drivers?|needle\s+holders?|sponges?|elevators?|rongeurs?|suction|tubes?))\s+([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
+    re.compile(
+        r"(?:here\s+)?we\s+call\s+(?:the\s+)?(.+?\b(?:forceps|scissors|clamps?|retractors?|needle\s+drivers?|needle\s+holders?|sponges?|elevators?|rongeurs?|suction|tubes?))\s+([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
     # Generic "Here we call [X] [Y]" fallback
-    re.compile(r"(?:here\s+)?(?:we|i)\s+call\s+(?:the\s+)?([a-zA-Z0-9\s-]+?)\s+([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
+    re.compile(
+        r"(?:here\s+)?(?:we|i)\s+call\s+(?:the\s+)?([a-zA-Z0-9\s-]+?)\s+([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
 ]
 
 

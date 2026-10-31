@@ -65,11 +65,14 @@ SUTURE_GAUGE_MAP: list[tuple[re.Pattern, str]] = [
     # 5-0
     (re.compile(r"\b(?:five[\s\-]*(?:oh|zero)|5[\s\-]*(?:oh|zero)|fifty)\b", re.IGNORECASE), "5-0"),
     # 4-0
-    (re.compile(r"\b(?:four[\s\-]*(?:oh|zero|dash[\s\-]*zero)|4[\s\-]*(?:oh|zero|dash[\s\-]*zero)|forty)\b", re.IGNORECASE), "4-0"),
+    (re.compile(
+        r"\b(?:four[\s\-]*(?:oh|zero|dash[\s\-]*zero)|4[\s\-]*(?:oh|zero|dash[\s\-]*zero)|forty)\b", re.IGNORECASE), "4-0"),
     # 3-0
-    (re.compile(r"\b(?:three[\s\-]*(?:oh|zero|dash[\s\-]*zero)|3[\s\-]*(?:oh|zero|dash[\s\-]*zero)|thirty)\b", re.IGNORECASE), "3-0"),
+    (re.compile(
+        r"\b(?:three[\s\-]*(?:oh|zero|dash[\s\-]*zero)|3[\s\-]*(?:oh|zero|dash[\s\-]*zero)|thirty)\b", re.IGNORECASE), "3-0"),
     # 2-0
-    (re.compile(r"\b(?:two[\s\-]*(?:oh|zero|dash[\s\-]*zero)|2[\s\-]*(?:oh|zero|dash[\s\-]*zero)|twenty)\b", re.IGNORECASE), "2-0"),
+    (re.compile(
+        r"\b(?:two[\s\-]*(?:oh|zero|dash[\s\-]*zero)|2[\s\-]*(?:oh|zero|dash[\s\-]*zero)|twenty)\b", re.IGNORECASE), "2-0"),
     # 0 (Zero / Aught)
     (re.compile(r"(?<![\d\-/])\b(?:size\s+)?(?:zero|aught|#0)\b(?!\s*[\-/]\s*\d)", re.IGNORECASE), "0"),
 ]
@@ -305,7 +308,8 @@ def parse_clinical_intent(query: str, clinical_role: Optional[str] = None) -> Pa
 
     # 2. Check MUTATE_INVENTORY intent (Add / Move / Flag) via Multi-Clause Decomposer
     is_add_intent = bool(re.search(r"\b(?:add|insert|register|new\s+item)\b", cleaned, re.IGNORECASE))
-    is_move_intent = bool(re.search(r"\b(?:was\s+moved|moved|relocated|is\s+now\s+at|is\s+now\s+in|transfer\s+to|move\s+to)\b", cleaned, re.IGNORECASE))
+    is_move_intent = bool(re.search(
+        r"\b(?:was\s+moved|moved|relocated|is\s+now\s+at|is\s+now\s+in|transfer\s+to|move\s+to)\b", cleaned, re.IGNORECASE))
 
     if is_add_intent:
         working = cleaned
@@ -330,9 +334,11 @@ def parse_clinical_intent(query: str, clinical_role: Optional[str] = None) -> Pa
         loc, working = extract_and_normalize_coordinate(working)
 
         # Extract target item
-        item_clean = re.sub(r"^(?:please\s+|can\s+you\s+)?(?:add|insert|register|new\s+item)\s+", "", working, flags=re.IGNORECASE).strip()
+        item_clean = re.sub(r"^(?:please\s+|can\s+you\s+)?(?:add|insert|register|new\s+item)\s+",
+                            "", working, flags=re.IGNORECASE).strip()
         item_clean = re.sub(r"^(?:an?\s+|the\s+)", "", item_clean, flags=re.IGNORECASE).strip()
-        item_clean = re.sub(r"\s+(?:to\s+(?:the\s+)?(?:list|inventory|system|database|stock|catalog))$", "", item_clean, flags=re.IGNORECASE).strip()
+        item_clean = re.sub(r"\s+(?:to\s+(?:the\s+)?(?:list|inventory|system|database|stock|catalog))$",
+                            "", item_clean, flags=re.IGNORECASE).strip()
         item_clean = re.sub(r"[,;.\(\)\s]+$", "", item_clean).strip()
 
         return ParsedIntent(
@@ -373,8 +379,10 @@ def parse_clinical_intent(query: str, clinical_role: Optional[str] = None) -> Pa
         loc, working = extract_and_normalize_coordinate(working)
 
         # Extract target item
-        item_clean = re.sub(r"\b(?:was\s+moved|moved|relocated|is\s+now\s+at|is\s+now\s+in|transfer\s+to|move\s+to)\b.*$", "", working, flags=re.IGNORECASE).strip()
-        item_clean = re.sub(r"^(?:please\s+|can\s+you\s+)?(?:move|transfer)\s+", "", item_clean, flags=re.IGNORECASE).strip()
+        item_clean = re.sub(r"\b(?:was\s+moved|moved|relocated|is\s+now\s+at|is\s+now\s+in|transfer\s+to|move\s+to)\b.*$",
+                            "", working, flags=re.IGNORECASE).strip()
+        item_clean = re.sub(r"^(?:please\s+|can\s+you\s+)?(?:move|transfer)\s+",
+                            "", item_clean, flags=re.IGNORECASE).strip()
         item_clean = re.sub(r"^(?:an?\s+|the\s+)", "", item_clean, flags=re.IGNORECASE).strip()
         item_clean = re.sub(r"[,;.\(\)\s]+$", "", item_clean).strip()
 
@@ -395,7 +403,8 @@ def parse_clinical_intent(query: str, clinical_role: Optional[str] = None) -> Pa
 
     if MUTATE_FLAG_PATTERN.search(cleaned):
         # Flagging query
-        item_cand = re.sub(r"\b(?:flag|report\s+missing|report\s+empty|location\s+wrong|is\s+empty)\b", "", cleaned, flags=re.IGNORECASE).strip()
+        item_cand = re.sub(r"\b(?:flag|report\s+missing|report\s+empty|location\s+wrong|is\s+empty)\b",
+                           "", cleaned, flags=re.IGNORECASE).strip()
         return ParsedIntent(
             intent=ClinicalIntent.MUTATE_INVENTORY,
             confidence=0.92,

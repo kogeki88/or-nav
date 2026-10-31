@@ -56,7 +56,8 @@ def test_personal_term_preservation_adson_pickups():
     assert card["user_preferred_term"] == "Adson Pickups"
     assert "Adson Pickups" in data["reply_text"]
     # Verify voice badge is NOT forced to "forceps"
-    assert data.get("spoken_transcript_correction") is None or "forceps" not in data["spoken_transcript_correction"].lower()
+    assert data.get(
+        "spoken_transcript_correction") is None or "forceps" not in data["spoken_transcript_correction"].lower()
 
 
 def test_conversational_teaching_intent_detection():

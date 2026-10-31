@@ -279,4 +279,3 @@ async def set_gemini_key(body: GeminiKeyRequest):
         "masked_key": masked,
         "model": "gemini-2.5-flash",
     }
-

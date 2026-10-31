@@ -1,5 +1,6 @@
 from app.main import _mask_api_key
 
+
 def test_mask_api_key():
     # Empty string
     assert _mask_api_key("") == "***"

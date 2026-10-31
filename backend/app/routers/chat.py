@@ -15,6 +15,8 @@ Endpoints:
 """
 
 import io
+import logging
+
 import re
 import time
 from datetime import datetime, timezone
@@ -176,7 +178,8 @@ class VerifyMoveRequest(BaseModel):
     """Request body for POST /api/inventory/verify-move."""
     tenant_id: str = Field(default=settings.default_tenant)
     item: str = Field(..., min_length=1, description="Exact item name to verify move for")
-    expected_location: Optional[str] = Field(default=None, description="Expected pending coordinate target (prevents stale confirms)")
+    expected_location: Optional[str] = Field(
+        default=None, description="Expected pending coordinate target (prevents stale confirms)")
 
 
 class VerifyMoveResponse(BaseModel):
@@ -484,7 +487,8 @@ async def handle_chat(request: Request, response: Response, req: ChatRequest):
                 if req.clinical_role:
                     card.surgeon_notes = filter_surgeon_note_for_role(card.surgeon_notes, req.clinical_role) or ""
                     if card.highlighted_surgeon_note:
-                        card.highlighted_surgeon_note = filter_surgeon_note_for_role(card.highlighted_surgeon_note, req.clinical_role)
+                        card.highlighted_surgeon_note = filter_surgeon_note_for_role(
+                            card.highlighted_surgeon_note, req.clinical_role)
                         if not card.highlighted_surgeon_note:
                             card.surgeon_filter = None
                 if not any(existing.item == card.item for existing in cards_found):
@@ -611,7 +615,8 @@ async def handle_chat(request: Request, response: Response, req: ChatRequest):
         if req.clinical_role:
             card.surgeon_notes = filter_surgeon_note_for_role(card.surgeon_notes, req.clinical_role) or ""
             if card.highlighted_surgeon_note:
-                card.highlighted_surgeon_note = filter_surgeon_note_for_role(card.highlighted_surgeon_note, req.clinical_role)
+                card.highlighted_surgeon_note = filter_surgeon_note_for_role(
+                    card.highlighted_surgeon_note, req.clinical_role)
                 if not card.highlighted_surgeon_note:
                     card.surgeon_filter = None
 
@@ -858,7 +863,7 @@ async def handle_in_ram_voice_query(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.warning(f"Voice query exception handled cleanly: {exc}")
+        logging.warning(f"Voice query exception handled cleanly: {exc}")
         return {"safe_transcript": "", "silence": True, "error_handled": True}
     payload["silence"] = False
     return payload
@@ -999,7 +1004,6 @@ async def handle_add_inventory_item(req: AddItemRequest):
             )
 
     return CoordinateCard(**card_dict)
-
 
 
 # ---------------------------------------------------------------------------

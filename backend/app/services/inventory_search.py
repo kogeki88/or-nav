@@ -685,6 +685,7 @@ def unescape_csv_cell(val: str) -> str:
 
 class AttrDict(dict):
     """Dict subclass supporting both dict['key'] and dict.key access for backwards compatibility."""
+
     def __getattr__(self, key: str):
         try:
             return self[key]
@@ -1201,7 +1202,8 @@ class InventoryService:
                             if has_conflicting_specifications(query_specs, r):
                                 continue
                             q_eponyms = extract_eponyms(cleaned_q)
-                            c_eponyms = r.get("_eponyms") or extract_eponyms(f"{r.get('item', '')} {r.get('aliases', '')}")
+                            c_eponyms = r.get("_eponyms") or extract_eponyms(
+                                f"{r.get('item', '')} {r.get('aliases', '')}")
                             if q_eponyms and not (q_eponyms & c_eponyms):
                                 continue
                             matched_row = r
@@ -1288,7 +1290,8 @@ class InventoryService:
             return []
 
         specs = extract_gauge_and_specs(f"{cleaned} {query}")
-        has_spec = any(bool(specs.get(k)) for k in ("suture_gauges", "french_sizes", "needle_codes", "blade_numbers", "gauge_sizes", "mm_sizes", "lengths"))
+        has_spec = any(bool(specs.get(k)) for k in ("suture_gauges", "french_sizes",
+                       "needle_codes", "blade_numbers", "gauge_sizes", "mm_sizes", "lengths"))
         if has_spec:
             # Not a generic family query - has explicit size/gauge
             return []
@@ -1471,7 +1474,8 @@ class InventoryService:
             # Vector 3: Guard against split-brain / stale confirmations from scrollback
             if expected_location:
                 norm_exp = normalize_location_coordinate(expected_location) or expected_location.strip()
-                norm_act = normalize_location_coordinate(target_row["pending_location"]) or target_row["pending_location"].strip()
+                norm_act = normalize_location_coordinate(
+                    target_row["pending_location"]) or target_row["pending_location"].strip()
                 if norm_exp.lower() != norm_act.lower():
                     card = self._row_to_card(target_row)
                     card["committed"] = False
@@ -1600,11 +1604,9 @@ class InventoryService:
             return self._row_to_card(enriched)
 
 
-
 # ---------------------------------------------------------------------------
 # Module-level service cache (one instance per tenant) & Verification Cooldown
 # ---------------------------------------------------------------------------
-
 _services: dict[str, InventoryService] = {}
 _services_lock = threading.Lock()
 _implicit_verification_cooldown: dict[str, float] = {}

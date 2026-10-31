@@ -9,6 +9,7 @@ from app.main import app
 
 client = TestClient(app)
 
+
 def test_consecutive_sessions_tenant_isolation():
     """Verify that consecutive queries across multiple case sessions preserve tenant context."""
     # Case 1 in OR
@@ -38,6 +39,7 @@ def test_consecutive_sessions_tenant_isolation():
     d3 = r3.json()
     assert d3["routing_tier"] in ("TIER_1_LOCAL_CSV", "TIER_2_GEMINI_RAG")
 
+
 def test_session_phi_scrubbing_resilience():
     """Verify PHI is scrubbed on chat queries regardless of active session history."""
     r = client.post(
@@ -51,6 +53,7 @@ def test_session_phi_scrubbing_resilience():
     data = r.json()
     assert "John Doe" not in data.get("reply_text", "")
     assert "123456789" not in data.get("reply_text", "")
+
 
 def test_inventory_sync_supports_offline_hydration():
     """Verify inventory sync endpoint provides offline seeds for IndexedDB cache."""

@@ -109,10 +109,12 @@ def test_gauntlet_3tier_modular_knowledge_packs_and_checksums():
         assert file_path.exists(), f"Pack file missing on disk: {pack['filePath']}"
 
         raw_bytes = file_path.read_bytes()
-        assert len(raw_bytes) == pack["sizeBytes"], f"Byte size mismatch on {pack['filePath']}: disk={len(raw_bytes)}, manifest={pack['sizeBytes']}"
+        assert len(
+            raw_bytes) == pack["sizeBytes"], f"Byte size mismatch on {pack['filePath']}: disk={len(raw_bytes)}, manifest={pack['sizeBytes']}"
 
         calculated_hash = hashlib.md5(raw_bytes).hexdigest()[:12]
-        assert calculated_hash == pack["versionHash"], f"MD5 hash mismatch on {pack['filePath']}: calc={calculated_hash}, manifest={pack['versionHash']}"
+        assert calculated_hash == pack[
+            "versionHash"], f"MD5 hash mismatch on {pack['filePath']}: calc={calculated_hash}, manifest={pack['versionHash']}"
 
     # Verify REST endpoints
     r_manifest = client.get("/api/packs/manifest")
@@ -365,7 +367,10 @@ def test_gauntlet_ota_manifest_and_apk_bloat_guard():
     assert "no-cache" in res.headers.get("Cache-Control", "")
 
     v_data = res.json()
-    assert v_data["version"] in ["v0.4", "v0.41", "v0.5", "v0.51", "v0.52", "v0.53", "v0.54", "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62"]
+    assert v_data["version"] in [
+        "v0.4", "v0.41", "v0.5", "v0.51", "v0.52", "v0.53", "v0.54",
+        "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62"
+    ]
     assert v_data["build_number"] >= 6
     assert v_data["apk_download_url"].startswith("http")
 

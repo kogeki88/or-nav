@@ -180,7 +180,8 @@ def test_v8_question_deduplication():
 def test_v8_idempotent_qna_promotion():
     gov = get_governance_service("general_memorial_cvor")
     q = gov.create_question("How is the arterial line transducer leveled for sternotomy?", "CVOR RN")
-    gov.answer_question(q["id"], "Level to the phlebostatic axis (4th intercostal space, mid-axillary line).", confidence="confident")
+    gov.answer_question(
+        q["id"], "Level to the phlebostatic axis (4th intercostal space, mid-axillary line).", confidence="confident")
 
     # Promote once
     gov.answer_question(q["id"], promote_to_verified=True)

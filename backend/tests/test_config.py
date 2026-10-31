@@ -21,6 +21,7 @@ def test_validate_tenant_id_default():
     assert validate_tenant_id(None) == "or_main"
     assert validate_tenant_id("   ") == "or_main"
 
+
 def test_validate_tenant_id_error_cases():
 
     # Directory traversal attempts

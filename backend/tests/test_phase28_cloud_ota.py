@@ -24,10 +24,19 @@ def test_phase28_manifest_metadata():
     v_path = ROOT_DIR / "frontend" / "public" / "version.json"
     assert v_path.exists(), "version.json must exist"
     data = json.loads(v_path.read_text(encoding="utf-8"))
-    assert data["version"] in ["v0.41", "v0.5", "v0.51", "v0.52", "v0.53", "v0.54", "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62"]
+    assert data["version"] in [
+        "v0.41", "v0.5", "v0.51", "v0.52", "v0.53", "v0.54",
+        "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62"
+    ]
     assert data["build_number"] in [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     assert data["apk_download_url"] == "https://github.com/kogeki88/or-nav/releases/latest/download/or-nav.apk"
-    assert "github" in data["changelog"].lower() or "ota" in data["changelog"].lower() or "v0.5" in data["changelog"].lower() or "v0.56" in data["changelog"].lower() or "v0.58" in data["changelog"].lower() or "v0.59" in data["changelog"].lower() or "v0.60" in data["changelog"].lower() or "v0.61" in data["changelog"].lower() or "v0.62" in data["changelog"].lower()
+    assert (
+        "github" in data["changelog"].lower() or "ota" in data["changelog"].lower() or
+        "v0.5" in data["changelog"].lower() or "v0.56" in data["changelog"].lower() or
+        "v0.58" in data["changelog"].lower() or "v0.59" in data["changelog"].lower() or
+        "v0.60" in data["changelog"].lower() or "v0.61" in data["changelog"].lower() or
+        "v0.62" in data["changelog"].lower()
+    )
 
 
 def test_phase28_api_version_endpoint():
@@ -35,7 +44,10 @@ def test_phase28_api_version_endpoint():
     res = client.get("/api/version")
     assert res.status_code == 200
     data = res.json()
-    assert data["version"] in ["v0.41", "v0.5", "v0.51", "v0.52", "v0.53", "v0.54", "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62"]
+    assert data["version"] in [
+        "v0.41", "v0.5", "v0.51", "v0.52", "v0.53", "v0.54",
+        "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62"
+    ]
     assert data["build_number"] in [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
     assert data["apk_download_url"].startswith("https://github.com/kogeki88/or-nav/releases")
 
