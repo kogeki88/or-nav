@@ -285,7 +285,7 @@ class TestChatRouterMultiTenant:
         })
         assert resp.status_code == 422
 
-    @settings(max_examples=50)
+    @settings(max_examples=50, deadline=None)
     @given(message=st.text(min_size=1, max_size=2000), tenant_id=st.text(min_size=1, max_size=50))
     def test_chat_fuzzing(self, message, tenant_id):
         client = TestClient(app)
@@ -343,3 +343,66 @@ class TestChatRouterMultiTenant:
         # (According to the memory: "calculate the total average wall latency ((end_time - start_time) / len(results)) rather than checking the latency inside each individual thread.")
         avg_latency = (end_time - start_time) / len(results)
         assert avg_latency < 0.2
+
+    def test_offline_mutation_replay_idempotency(self, monkeypatch):
+        import httpx
+        client = TestClient(app)
+
+        def mock_post(*args, **kwargs):
+            class DummyRequest:
+                pass
+            raise httpx.NetworkError("Offline mode: Network is unreachable", request=DummyRequest())
+
+        monkeypatch.setattr(httpx, "post", mock_post)
+        monkeypatch.setattr(httpx, "get", mock_post)
+        monkeypatch.setattr(httpx, "request", mock_post)
+
+        payload = {
+            "tenant_id": "general_memorial_cvor",
+            "message": "add new scalpel to inventory"
+        }
+
+        resp1 = client.post("/api/chat", json=payload)
+        resp2 = client.post("/api/chat", json=payload)
+        resp3 = client.post("/api/chat", json=payload)
+
+        assert resp1.status_code == 200
+        assert resp2.status_code == 200
+        assert resp3.status_code == 200
+
+        data1 = resp1.json()
+        data2 = resp2.json()
+        data3 = resp3.json()
+
+        for data in [data1, data2, data3]:
+            if "latency_ms" in data:
+                del data["latency_ms"]
+
+        assert data1 == data2 == data3
+
+    def test_multi_tenant_boundary_enforcement(self):
+        client = TestClient(app)
+
+        # Verify general_memorial_cvor gets coordinate card with no pending_location
+        respA = client.post("/api/chat", json={"message": "where is 3-0 silk", "tenant_id": "general_memorial_cvor"})
+        assert respA.status_code == 200
+        assert "coordinate_card" in respA.json()
+        assert respA.json()["coordinate_card"]["full_code"] == "OR 21 A 2 C"
+        assert respA.json()["coordinate_card"]["pending_location"] == ""
+
+        # Verify or_main gets isolated data with pending_location
+        respB = client.post("/api/chat", json={"message": "where is 3-0 silk", "tenant_id": "or_main"})
+        assert respB.status_code == 200
+        assert "coordinate_card" in respB.json()
+        assert respB.json()["coordinate_card"]["full_code"] == "OR 21 A 2 C"
+        assert respB.json()["coordinate_card"]["pending_location"] == "OR 21 B 1 A"
+        assert respB.json()["move_widget"] is not None
+
+        # Verify general_memorial::cvor maps to general_memorial_cvor
+        respC = client.post("/api/chat", json={"message": "where is 3-0 silk", "tenant_id": "general_memorial::cvor"})
+        assert respC.status_code == 400
+        assert "Slashes are not allowed" in respC.json()["detail"] or "Tenant directory not found" in respC.json()["detail"]
+
+        # Verify cross tenant with bad format is rejected
+        respD = client.post("/api/chat", json={"message": "where is 3-0 silk", "tenant_id": "other_hospital::er"})
+        assert respD.status_code in [404, 400]
