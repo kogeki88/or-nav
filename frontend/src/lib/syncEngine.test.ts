@@ -473,3 +473,144 @@ describe("useSyncEngine statusLabel", () => {
     assert.strictEqual(result.current.statusLabel, "🟢 Synced");
   });
 });
+
+
+describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
+  let useSyncEngine: any;
+  let offlineDbMocks: any;
+  let apiMocks: any;
+  let originalOnLine: any;
+
+  beforeEach(() => {
+    originalOnLine = Object.getOwnPropertyDescriptor(navigator, 'onLine');
+    mock.method(console, 'warn', () => {});
+
+    offlineDbMocks = {
+      flushOfflineOutbox: mock.fn(async () => {
+        await new Promise(resolve => setTimeout(resolve, 5)); // Simulate slight latency
+        return 1;
+      }),
+      getPendingOutboxCount: mock.fn(async () => 0),
+      syncTenantInventoryToOfflineDb: mock.fn(async () => {
+        await new Promise(resolve => setTimeout(resolve, 5)); // Simulate slight latency
+      })
+    };
+
+    apiMocks = {
+      fetchQuestions: mock.fn(async () => {
+        await new Promise(resolve => setTimeout(resolve, 5)); // Simulate slight latency
+      })
+    };
+
+    const module = proxyquire('./syncEngine', {
+      './offlineDb': offlineDbMocks,
+      './api': apiMocks
+    });
+
+    useSyncEngine = module.useSyncEngine;
+  });
+
+  afterEach(() => {
+    cleanup();
+    mock.restoreAll();
+    if (originalOnLine) {
+      Object.defineProperty(navigator, 'onLine', originalOnLine);
+    } else {
+      delete (navigator as any).onLine;
+    }
+  });
+
+  const setNetworkOnline = (isOnline: boolean) => {
+    Object.defineProperty(navigator, 'onLine', {
+      value: isOnline,
+      configurable: true
+    });
+  };
+
+  test("Concurrent burst execution and race condition resistance", async () => {
+    setNetworkOnline(true);
+    const burstSize = 50;
+
+    const { result, unmount } = renderHook(() => useSyncEngine("tenant-stress", false));
+
+    const promises = Array.from({ length: burstSize }).map(async (_, idx) => {
+      // Yield to event loop to simulate true concurrency
+      await new Promise(r => setTimeout(r, Math.random() * 10));
+      return result.current.triggerSync();
+    });
+
+    let results: any[];
+    await act(async () => {
+      results = await Promise.all(promises);
+    });
+
+    // Due to syncingRef.current, only a few (likely just 1 or a few depending on timing overlap)
+    // underlying API calls should be made.
+    const flushCalls = offlineDbMocks.flushOfflineOutbox.mock.calls.length;
+    const syncCalls = offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls.length;
+    const fetchCalls = apiMocks.fetchQuestions.mock.calls.length;
+
+    // Assert that the number of underlying calls is much less than the burst size
+    // due to race condition resistance (lock)
+    assert.ok(flushCalls < burstSize);
+    assert.ok(syncCalls < burstSize);
+    assert.ok(fetchCalls < burstSize);
+
+    // Multi-tenant isolation invariant: check that all successful calls used the correct tenantId
+    for (const call of offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls) {
+      assert.strictEqual(call.arguments[0], "tenant-stress");
+    }
+
+    unmount();
+  });
+
+  test("Multiple simultaneous renderHook calls and unmounts", async () => {
+    setNetworkOnline(true);
+    const burstSize = 20;
+
+    const hooks = Array.from({ length: burstSize }).map((_, i) => ({
+      tenantId: `tenant-mult-${i}`
+    }));
+
+    const hookInstances = hooks.map(hookParams => {
+       return renderHook(() => useSyncEngine(hookParams.tenantId, false));
+    });
+
+    const promises = hookInstances.map(async (instance, i) => {
+      await new Promise(r => setTimeout(r, Math.random() * 10));
+      const syncRes = await instance.result.current.triggerSync();
+      instance.unmount();
+      return syncRes;
+    });
+
+    await act(async () => {
+      await Promise.all(promises);
+    });
+
+    const syncCalls = offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls;
+    assert.strictEqual(syncCalls.length, burstSize);
+
+    // Enforce multi-tenant isolation
+    const usedTenants = syncCalls.map((call: any) => call.arguments[0]);
+    hooks.forEach(h => {
+      assert.ok(usedTenants.includes(h.tenantId));
+    });
+  });
+
+  test("Latency benchmarks under load", async () => {
+    setNetworkOnline(true);
+
+    const { result, unmount } = renderHook(() => useSyncEngine("tenant-latency", false));
+
+    const start = performance.now();
+    await act(async () => {
+      await result.current.triggerSync();
+    });
+    const end = performance.now();
+
+    const duration = end - start;
+    assert.ok(duration < 200, `Sync latency (${duration}ms) exceeded 200ms limit`);
+
+    unmount();
+  });
+});
