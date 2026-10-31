@@ -208,52 +208,125 @@ describe("useWakeLock", () => {
   });
 
   it("should enforce multi-tenant isolation (no state leaks between renders)", async () => {
-    const { unmount: unmount1 } = renderHook(() => useWakeLock(true));
-    await Promise.resolve();
-    assert.strictEqual(mockRequest.mock.calls.length, 1);
-    assert.strictEqual(mockRelease.mock.calls.length, 0);
+    const root1 = document.createElement('div');
+    const root2 = document.createElement('div');
+    root1.setAttribute('data-tenant', 'facility_1::dept_A');
+    root2.setAttribute('data-tenant', 'facility_2::dept_B');
+    document.body.appendChild(root1);
+    document.body.appendChild(root2);
 
-    // Simulate switching context
-    unmount1();
-    await Promise.resolve();
-    assert.strictEqual(mockRelease.mock.calls.length, 1);
+    try {
+      const { unmount: unmount1 } = renderHook(() => useWakeLock(true), { container: root1 });
+      await Promise.resolve();
+      assert.strictEqual(mockRequest.mock.calls.length, 1);
+      assert.strictEqual(mockRelease.mock.calls.length, 0);
 
-    mockRequest.mock.resetCalls();
-    mockRelease.mock.resetCalls();
+      // Simulate switching context
+      unmount1();
+      await Promise.resolve();
+      assert.strictEqual(mockRelease.mock.calls.length, 1);
 
-    const { unmount: unmount2 } = renderHook(() => useWakeLock(true));
-    await Promise.resolve();
-    assert.strictEqual(mockRequest.mock.calls.length, 1);
-    assert.strictEqual(mockRelease.mock.calls.length, 0);
+      mockRequest.mock.resetCalls();
+      mockRelease.mock.resetCalls();
 
-    unmount2();
-    await Promise.resolve();
-    assert.strictEqual(mockRelease.mock.calls.length, 1);
+      const { unmount: unmount2 } = renderHook(() => useWakeLock(true), { container: root2 });
+      await Promise.resolve();
+      assert.strictEqual(mockRequest.mock.calls.length, 1);
+      assert.strictEqual(mockRelease.mock.calls.length, 0);
+
+      unmount2();
+      await Promise.resolve();
+      assert.strictEqual(mockRelease.mock.calls.length, 1);
+    } finally {
+      if (document.body.contains(root1)) document.body.removeChild(root1);
+      if (document.body.contains(root2)) document.body.removeChild(root2);
+    }
+  });
+
+  it("should maintain offline mutation replay idempotency", async () => {
+    const originalFetch = global.fetch;
+    const fetchMock = mock.fn(async () => {
+      throw new Error("Network call detected");
+    });
+    global.fetch = fetchMock as any;
+
+    try {
+      mockRequest.mock.resetCalls();
+      mockRelease.mock.resetCalls();
+
+      const { rerender } = renderHook((props) => useWakeLock(props.enabled), {
+        initialProps: { enabled: true }
+      });
+      await Promise.resolve();
+      assert.strictEqual(mockRequest.mock.calls.length, 1);
+
+      // Replay identical input (offline mutation replay)
+      rerender({ enabled: true });
+      await Promise.resolve();
+      rerender({ enabled: true });
+      await Promise.resolve();
+
+      // Should not re-request the lock multiple times redundantly
+      assert.strictEqual(mockRequest.mock.calls.length, 1);
+      assert.strictEqual(mockRelease.mock.calls.length, 0);
+      assert.strictEqual(fetchMock.mock.calls.length, 0);
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 
   it("should handle high-concurrency burst executions and race conditions", async () => {
-    mockRequest.mock.resetCalls();
-    mockRelease.mock.resetCalls();
+    const originalFetch = global.fetch;
+    const fetchMock = mock.fn(async (url: any) => {
+      throw new Error(`Network call detected to ${url}`);
+    });
+    global.fetch = fetchMock as any;
 
-    const burstSize = 50;
+    try {
+      mockRequest.mock.resetCalls();
+      mockRelease.mock.resetCalls();
 
-    // Simulate rapid concurrent bursts of component mount/unmounts
-    const results = await Promise.all(
-      Array.from({ length: burstSize }).map(async () => {
-        const { unmount } = renderHook(() => useWakeLock(true));
-        await Promise.resolve(); // Simulate microtask queue processing
-        unmount();
-        await Promise.resolve(); // Allow cleanup to execute
-        return true;
-      })
-    );
+      const burstSize = 50;
 
-    assert.strictEqual(results.length, burstSize);
-    // Since React renders sequentially and our mock tracks all, we should see an equal number of requests and releases
-    // In a real environment, they might queue up, but our mock is synchronous async.
-    // The key is that it didn't throw and properly tracked requests/releases.
-    assert.strictEqual(mockRequest.mock.calls.length, burstSize);
-    assert.strictEqual(mockRelease.mock.calls.length, burstSize);
+      // Synchronously pre-instantiate hook render objects with isolated DOM nodes for multi-tenant isolation
+      const hooks = Array.from({ length: burstSize }).map((_, i) => {
+        const root = document.createElement('div');
+        root.setAttribute('data-tenant', `facility_${i % 5}::dept_${i % 3}`);
+        document.body.appendChild(root);
+
+        // Initial render disabled to prevent immediate side effects before we want concurrency
+        const hook = renderHook((props) => useWakeLock(props.enabled), {
+          initialProps: { enabled: false },
+          container: root
+        });
+        return { hook, root };
+      });
+
+      // Concurrently trigger actions on them with random jitter
+      const results = await Promise.all(
+        hooks.map(async ({ hook, root }) => {
+          await new Promise(r => setTimeout(r, Math.random() * 10)); // yield execution to event loop
+
+          hook.rerender({ enabled: true });
+          await new Promise(r => setTimeout(r, Math.random() * 10)); // jitter
+
+          hook.unmount();
+          await new Promise(r => setTimeout(r, Math.random() * 10)); // jitter
+
+          if (document.body.contains(root)) {
+            document.body.removeChild(root);
+          }
+          return true;
+        })
+      );
+
+      assert.strictEqual(results.length, burstSize);
+      assert.strictEqual(mockRequest.mock.calls.length, burstSize);
+      assert.strictEqual(mockRelease.mock.calls.length, burstSize);
+      assert.strictEqual(fetchMock.mock.calls.length, 0); // Assert offline-first invariant under load
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 
   it("should meet latency benchmarks under load", async () => {
