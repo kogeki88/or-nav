@@ -197,3 +197,69 @@ class TestAuthTokenRotation:
             },
         )
         assert res2.status_code == 200
+
+
+
+    def test_auth_profile_offline_mutation_replay_idempotency(self, clean_auth_state):
+        """Verify that replaying the same profile mutation multiple times offline is idempotent."""
+        reg_res = client.post(
+            "/api/auth/register",
+            json={"email": "replay@test.com", "password": "password123", "fullName": "Replay User"}
+        )
+        assert reg_res.status_code == 200
+
+        payload = {
+            "email": "replay@test.com",
+            "facilityId": "sacred_heart",
+            "departmentId": "or_main",
+            "clinicalRole": "Surgeon"
+        }
+
+        res1 = client.put("/api/auth/profile", json=payload)
+        assert res1.status_code == 200
+        profile1 = res1.json()["profile"]
+
+        res2 = client.put("/api/auth/profile", json=payload)
+        assert res2.status_code == 200
+        profile2 = res2.json()["profile"]
+
+        assert profile1 == profile2
+        assert profile2["facilityId"] == "sacred_heart"
+        assert profile2["departmentId"] == "or_main"
+        assert profile2["clinicalRole"] == "Surgeon"
+
+    def test_auth_multi_tenant_boundary_enforcement(self, clean_auth_state):
+        """Ensure users are correctly isolated by their facility_id::dept_id boundaries."""
+        res_a = client.post(
+            "/api/auth/register",
+            json={"email": "userA@tenantA.com", "password": "password123", "fullName": "User A"}
+        )
+        assert res_a.status_code == 200
+
+        client.put("/api/auth/profile", json={
+            "email": "userA@tenantA.com",
+            "facilityId": "tenantA_fac",
+            "departmentId": "dept_alpha"
+        })
+
+        res_b = client.post(
+            "/api/auth/register",
+            json={"email": "userB@tenantB.com", "password": "password123", "fullName": "User B"}
+        )
+        assert res_b.status_code == 200
+
+        client.put("/api/auth/profile", json={
+            "email": "userB@tenantB.com",
+            "facilityId": "tenantB_fac",
+            "departmentId": "dept_beta"
+        })
+
+        login_a = client.post("/api/auth/login", json={"email": "userA@tenantA.com", "password": "password123"})
+        profile_a = login_a.json()["profile"]
+        assert profile_a["facilityId"] == "tenantA_fac"
+        assert profile_a["departmentId"] == "dept_alpha"
+
+        login_b = client.post("/api/auth/login", json={"email": "userB@tenantB.com", "password": "password123"})
+        profile_b = login_b.json()["profile"]
+        assert profile_b["facilityId"] == "tenantB_fac"
+        assert profile_b["departmentId"] == "dept_beta"
