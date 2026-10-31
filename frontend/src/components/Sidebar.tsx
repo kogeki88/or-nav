@@ -522,6 +522,8 @@ export default function Sidebar({
                 type="button"
                 onClick={() => setRecentCasesOpen(!recentCasesOpen)}
                 className="text-zinc-500 hover:text-zinc-300 p-0.5 transition-colors cursor-pointer"
+                aria-label={recentCasesOpen ? "Collapse recent cases" : "Expand recent cases"}
+                aria-expanded={recentCasesOpen}
               >
                 {recentCasesOpen ? (
                   <ChevronUp className="w-3.5 h-3.5" />
