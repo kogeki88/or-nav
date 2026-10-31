@@ -274,4 +274,68 @@ describe("moveDebouncer", () => {
       global.fetch = originalFetch;
     }
   });
+
+  test("offline mutation replay idempotency and multi-tenant boundaries (facility_id::dept_id)", async () => {
+    const receivedItems: any[] = [];
+    const callCounts = new Map<string, number>();
+
+    const validator = (payload: any) => payload && typeof payload.tenant_id === "string";
+
+    const debouncer = createMoveDebouncer((items: any[]) => {
+      receivedItems.push(...items);
+      for (const item of items) {
+        const count = callCounts.get(item.tenant_id) || 0;
+        callCounts.set(item.tenant_id, count + 1);
+      }
+    }, 50, validator);
+
+    // Payload representing an offline mutation to be replayed multiple times
+    const payloadA = {
+      tenant_id: "facility1::deptA",
+      mutation_id: "offline_mut_123",
+      action: "UPDATE",
+      data: { status: "completed" }
+    };
+
+    // Payload from another tenant to ensure interleaving doesn't break boundaries
+    const payloadB = {
+      tenant_id: "facility2::deptB",
+      mutation_id: "offline_mut_456",
+      action: "UPDATE",
+      data: { status: "started" }
+    };
+
+    // Simulate replay of the same offline mutation interleaved with another tenant's requests
+    debouncer(payloadA); // Attempt 1
+    debouncer(payloadB); // Interleaved request
+    debouncer(payloadA); // Attempt 2 (replay)
+    debouncer(payloadB);
+    debouncer(payloadA); // Attempt 3 (replay)
+
+    await sleep(80);
+
+    // The moveDebouncer is generic and batches everything passed to it within the window.
+    // True "idempotency" is handled downstream, but here we verify that the debouncer
+    // correctly captures all replays without mutating the payloads and maintains
+    // strict multi-tenant association.
+    assert.strictEqual(receivedItems.length, 5);
+
+    // Ensure all requests from facility1::deptA are present and identical
+    const itemsA = receivedItems.filter(i => i.tenant_id === "facility1::deptA");
+    assert.strictEqual(itemsA.length, 3);
+    itemsA.forEach(item => {
+      assert.deepStrictEqual(item, payloadA);
+    });
+
+    // Ensure all requests from facility2::deptB are present and identical
+    const itemsB = receivedItems.filter(i => i.tenant_id === "facility2::deptB");
+    assert.strictEqual(itemsB.length, 2);
+    itemsB.forEach(item => {
+      assert.deepStrictEqual(item, payloadB);
+    });
+
+    // Final multi-tenant counts verification
+    assert.strictEqual(callCounts.get("facility1::deptA"), 3);
+    assert.strictEqual(callCounts.get("facility2::deptB"), 2);
+  });
 });
