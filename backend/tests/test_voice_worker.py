@@ -1,3 +1,4 @@
+from hypothesis import given, settings, strategies as st
 import asyncio
 import json
 import os
@@ -196,3 +197,48 @@ async def test_offline_first_invariant():
             os.environ["GEMINI_API_KEY"] = old_key
         else:
             del os.environ["GEMINI_API_KEY"]
+
+@pytest.mark.asyncio
+async def test_malformed_payload_resilience():
+    """Verify that none inputs don't crash the worker"""
+    spoken1 = await lookup_item_location(item_query=None)
+    assert "could not locate" in spoken1.lower()
+
+    spoken2 = await report_item_move(item_name=None, new_location=None)
+    assert "Could not find an item matching" in spoken2
+
+    spoken3 = await query_clinical_protocol(question=None)
+    assert isinstance(spoken3, str)
+
+
+
+@pytest.mark.asyncio
+@settings(deadline=None)
+@given(
+    item_query=st.one_of(st.none(), st.text(min_size=0, max_size=1000)),
+    tenant_id=st.sampled_from(["general_memorial_cvor", "er_trauma", "icu_critical_care"])
+)
+async def test_fuzz_lookup_item_location(item_query, tenant_id):
+    result = await lookup_item_location(item_query=item_query, tenant_id=tenant_id)
+    assert isinstance(result, str)
+
+@pytest.mark.asyncio
+@settings(deadline=None)
+@given(
+    item_name=st.one_of(st.none(), st.text(min_size=0, max_size=1000)),
+    new_location=st.one_of(st.none(), st.text(min_size=0, max_size=1000)),
+    tenant_id=st.sampled_from(["general_memorial_cvor", "er_trauma", "icu_critical_care"])
+)
+async def test_fuzz_report_item_move(item_name, new_location, tenant_id):
+    result = await report_item_move(item_name=item_name, new_location=new_location, tenant_id=tenant_id)
+    assert isinstance(result, str)
+
+@pytest.mark.asyncio
+@settings(deadline=None)
+@given(
+    question=st.one_of(st.none(), st.text(min_size=0, max_size=1000)),
+    tenant_id=st.sampled_from(["general_memorial_cvor", "er_trauma", "icu_critical_care"])
+)
+async def test_fuzz_query_clinical_protocol(question, tenant_id):
+    result = await query_clinical_protocol(question=question, tenant_id=tenant_id)
+    assert isinstance(result, str)
