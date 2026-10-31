@@ -398,11 +398,12 @@ export default function PeerQnAPanel({
                 </div>
               ) : (
                 <div className="space-y-3.5">
-                  {questions.map((q) => {
-                    const isVerified = q.status === "verified" || q.verificationsCount >= 2;
+                  {questions.map((q, index) => {
+                    if (!q || typeof q !== 'object') return null;
+                    const isVerified = q.status === "verified" || ((q.verificationsCount ?? 0) >= 2);
                     return (
                       <div
-                        key={q.id}
+                        key={q.id || `q-fallback-${index}`}
                         data-testid={`peer-question-${q.id}`}
                         className={`p-4 rounded-xl border transition-all ${
                           isVerified
@@ -445,14 +446,15 @@ export default function PeerQnAPanel({
 
                         {/* Answers Section */}
                         <div className="space-y-2.5 border-t border-zinc-800/60 pt-2.5">
-                          {q.answers.length === 0 ? (
+                          {!q.answers || q.answers.length === 0 ? (
                             <div className="text-[11px] text-zinc-500 italic">
                               Awaiting peer answers...
                             </div>
                           ) : (
                             q.answers.map((ans) => {
-                              const alreadyVerified = ans.verifiedBy.some(
-                                (v) => v.includes(clinicianName)
+                              if (!ans || typeof ans !== 'object') return null;
+                              const alreadyVerified = ans.verifiedBy && Array.isArray(ans.verifiedBy) && ans.verifiedBy.some(
+                                (v) => typeof v === 'string' && v.includes(clinicianName)
                               );
                               return (
                                 <div
