@@ -245,3 +245,88 @@ def test_concurrency_race_condition_and_latency(tmp_path, monkeypatch):
     # The GIL inflates thread-local timing, so we also check total wall time per request
     wall_latency = (end_time - start_time) / len(search_results)
     assert wall_latency < 0.05, f"Average wall latency too high: {wall_latency:.4f}s"
+
+def test_offline_mutation_replay_idempotency(tmp_path, monkeypatch):
+    """
+    Tests that:
+    1. Offline mutation invariants are respected (no network calls are allowed).
+    2. Interleaved mutations across different tenants don't leak (boundary enforcement).
+    3. Identical sequential offline mutations on the same item are idempotent.
+    """
+    # 1. Enforce offline invariants dynamically
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline replay")
+        if args and args[0] != socket.AF_UNIX:
+            raise RuntimeError("Network call attempted during offline replay")
+        if 'family' in kwargs and kwargs['family'] != socket.AF_UNIX:
+            raise RuntimeError("Network call attempted during offline replay")
+        return original_socket(*args, **kwargs)
+
+    def mock_httpx(*args, **kwargs):
+        raise RuntimeError("Network call attempted during offline replay")
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
+    monkeypatch.setattr(httpx, "get", mock_httpx)
+    monkeypatch.setattr(httpx, "post", mock_httpx)
+    monkeypatch.setattr(httpx, "request", mock_httpx)
+
+    # 2. Setup Tenants
+    t1 = get_tenant("sacred_heart::or")
+    t1_csv = tmp_path / "t1.csv"
+    t1_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nSuture,Supplies,R1,C1,S1,C1,,0\n")
+    t1.inventory_path = t1_csv
+    inv1 = InventoryService(t1)
+
+    t2 = get_tenant("princeton_plainsboro::icu")
+    t2_csv = tmp_path / "t2.csv"
+    t2_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nSyringe,Supplies,R2,C2,S2,C2,,0\n")
+    t2.inventory_path = t2_csv
+    inv2 = InventoryService(t2)
+
+    # 3. Perform interleaved mutations to assert boundary isolation
+    # Tenant 1 reports a move
+    card1 = inv1.report_move("Suture", "R1 C1 S1 C2")
+    assert card1["pending_location"] == "R1 C1 S1 C2"
+    assert card1["verify_count"] == 1
+
+    # Tenant 2 reports a move
+    card2 = inv2.report_move("Syringe", "R2 C2 S2 C3")
+    assert card2["pending_location"] == "R2 C2 S2 C3"
+    assert card2["verify_count"] == 1
+
+    # Assert no cross-contamination
+    t1_search = inv1.search("Syringe", record_implicit_verification=False)
+    assert t1_search is None
+
+    t2_search = inv2.search("Suture", record_implicit_verification=False)
+    assert t2_search is None
+
+    # 4. Perform sequential identical offline replays to ensure idempotency
+    # Replay report_move for Tenant 1 identically multiple times (should not increment verify_count past 1)
+    replay_card1_a = inv1.report_move("Suture", "R1 C1 S1 C2")
+    assert replay_card1_a["pending_location"] == "R1 C1 S1 C2"
+    assert replay_card1_a["verify_count"] == 1
+
+    replay_card1_b = inv1.report_move("Suture", "R1 C1 S1 C2")
+    assert replay_card1_b["verify_count"] == 1
+
+    # Verify move (count = 2)
+    v_card1 = inv1.verify_move("Suture", "R1 C1 S1 C2")
+    assert v_card1["verify_count"] == 2
+
+    # Verify move replay: if we replay an identical verification with an older timestamp,
+    # it should be dropped (LWW) and not increment the count further.
+    current_state = inv1.search("Suture")
+    if "last_verified_at" not in current_state:
+        # Initialize if missing
+        inv1.report_move("Suture", "R1 C1 S1 C2")
+        current_state = inv1.search("Suture")
+
+    older_timestamp = "2020-01-01T00:00:00Z"
+    stale_replay = inv1.verify_move("Suture", "R1 C1 S1 C2", timestamp=older_timestamp)
+
+    assert stale_replay["committed"] is False
+    final_state = inv1.search("Suture")
+    assert final_state["verify_count"] == 2
