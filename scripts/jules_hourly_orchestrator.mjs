@@ -20,6 +20,59 @@ const BACKLOG_PATH = path.join(__dirname, 'jules_task_backlog.json');
 const LOGS_DIR = path.join(ROOT_DIR, 'logs');
 const LOG_FILE = path.join(LOGS_DIR, 'jules_orchestrator.log');
 const LOCK_FILE = path.join(LOGS_DIR, 'orchestrator.lock');
+const DAEMON_LOCK_FILE = path.join(LOGS_DIR, 'daemon.lock');
+
+function acquireDaemonLock() {
+  if (fs.existsSync(DAEMON_LOCK_FILE)) {
+    try {
+      const lockData = JSON.parse(fs.readFileSync(DAEMON_LOCK_FILE, 'utf8'));
+      if (lockData.pid && lockData.pid !== process.pid) {
+        try {
+          process.kill(lockData.pid, 0);
+          const ageMinutes = (Date.now() - (lockData.lastHeartbeat || lockData.timestamp)) / 60000;
+          if (ageMinutes < 5) {
+            log(`Active daemon already running (PID ${lockData.pid}, heartbeat ${ageMinutes.toFixed(1)}m ago). Skipping duplicate daemon launch.`);
+            return false;
+          } else {
+            log(`Reclaiming stale daemon lock from PID ${lockData.pid} (heartbeat ${ageMinutes.toFixed(1)}m ago).`);
+          }
+        } catch {
+          // PID not alive
+        }
+      }
+    } catch {
+      // Malformed lock
+    }
+  }
+  if (!fs.existsSync(LOGS_DIR)) {
+    fs.mkdirSync(LOGS_DIR, { recursive: true });
+  }
+  fs.writeFileSync(DAEMON_LOCK_FILE, JSON.stringify({ pid: process.pid, timestamp: Date.now(), lastHeartbeat: Date.now() }), 'utf8');
+  return true;
+}
+
+function updateDaemonHeartbeat() {
+  try {
+    if (fs.existsSync(DAEMON_LOCK_FILE)) {
+      const lockData = JSON.parse(fs.readFileSync(DAEMON_LOCK_FILE, 'utf8'));
+      if (lockData.pid === process.pid) {
+        lockData.lastHeartbeat = Date.now();
+        fs.writeFileSync(DAEMON_LOCK_FILE, JSON.stringify(lockData), 'utf8');
+      }
+    }
+  } catch {}
+}
+
+function releaseDaemonLock() {
+  try {
+    if (fs.existsSync(DAEMON_LOCK_FILE)) {
+      const lockData = JSON.parse(fs.readFileSync(DAEMON_LOCK_FILE, 'utf8'));
+      if (lockData.pid === process.pid) {
+        fs.unlinkSync(DAEMON_LOCK_FILE);
+      }
+    }
+  } catch {}
+}
 
 const TARGET_CONCURRENCY = 15;
 const REPO_SOURCE = 'sources/github/kogeki88/or-nav';
@@ -876,6 +929,13 @@ const intervalMinutes = intervalArgIndex !== -1 && args[intervalArgIndex + 1]
   : 30;
 
 async function startDaemon(intervalMin) {
+  if (!acquireDaemonLock()) {
+    return;
+  }
+  process.on('exit', releaseDaemonLock);
+  process.on('SIGINT', () => { releaseDaemonLock(); process.exit(0); });
+  process.on('SIGTERM', () => { releaseDaemonLock(); process.exit(0); });
+
   while (true) {
     try {
       await run();
@@ -890,6 +950,7 @@ async function startDaemon(intervalMin) {
       const remainingMs = sleepUntil - Date.now();
       const waitMs = Math.min(heartbeatMs, remainingMs);
       await new Promise(r => setTimeout(r, waitMs));
+      updateDaemonHeartbeat();
       if (Date.now() < sleepUntil) {
         const remMin = ((sleepUntil - Date.now()) / 60000).toFixed(1);
         log(`[DAEMON HEARTBEAT] Standing by. Next autonomous cycle in ${remMin}m...`);

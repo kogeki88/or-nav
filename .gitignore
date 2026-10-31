@@ -56,3 +56,6 @@ Thumbs.db
 *.tmp.*
 *.swp
 *~
+
+# Daemon & Orchestrator Locks
+logs/*.lock
