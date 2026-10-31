@@ -124,7 +124,7 @@ def classify_text(text: str) -> tuple[str, str]:
 def synthesize_recommendations(raw_text: str, category: str, severity: str) -> tuple[str, str]:
     """Synthesize developer recommendation and ready-to-copy Antigravity prompt."""
     lower = raw_text.lower()
-    
+
     # Specific clinical heuristics
     if "dark mode" in lower or "too bright" in lower or "glare" in lower:
         ai_rec = "Add surgical dark-mode toggle and low-glare high-contrast theme for dimmed laparoscopic suites."
@@ -263,6 +263,7 @@ def is_similar(t1: str, t2: str) -> bool:
 def generate_top_recommendations(items: List[dict]) -> List[str]:
     """Generate top 3 actionable developer recommendations from open feedback."""
     open_items = [it for it in items if it.get("status") == "open"]
+
     def score(it):
         sev_weight = {"high": 300, "medium": 200, "low": 100}.get(it.get("severity", "low"), 100)
         return sev_weight + (it.get("upvotes", 1) * 5)
@@ -270,7 +271,8 @@ def generate_top_recommendations(items: List[dict]) -> List[str]:
 
     recs = []
     for it in open_items[:3]:
-        cat_badge = {"ui_ux": "UI/UX", "bug_friction": "Bug Fix", "data_inventory": "Data", "feature_request": "Feature"}.get(it.get("category", ""), "Update")
+        cat_badge = {"ui_ux": "UI/UX", "bug_friction": "Bug Fix", "data_inventory": "Data",
+                     "feature_request": "Feature"}.get(it.get("category", ""), "Update")
         rec_text = f"🔥 [{cat_badge}] {it.get('aiRecommendation', '')} ({it.get('upvotes', 1)} upvotes)"
         recs.append(rec_text)
     return recs

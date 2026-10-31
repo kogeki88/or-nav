@@ -59,11 +59,11 @@ def test_tier2_department_inventories():
         for dept in DEPARTMENTS:
             inv_path = HOSPITALS_DIR / fac / dept / "inventory.csv"
             assert inv_path.exists(), f"Missing inventory: {inv_path}"
-            
+
             with open(inv_path, mode="r", encoding="utf-8") as f:
                 reader = csv.DictReader(f)
                 rows = list(reader)
-            
+
             assert len(rows) >= 50, f"Expected 50+ items in {inv_path}, found {len(rows)}"
 
             # Column verification
@@ -76,7 +76,7 @@ def test_tier2_department_inventories():
                 assert h in rows[0], f"Header {h} missing in {inv_path}"
 
             item_names = [r["item"].lower() for r in rows]
-            
+
             if dept == "or":
                 # Verify surgical instruments, energy devices, sutures, hemostatics, medications
                 assert any("debakey" in n for n in item_names)
@@ -167,7 +167,7 @@ def test_hospitals_manifest_integrity():
     manifest_path = HOSPITALS_DIR / "manifest.json"
     assert manifest_path.exists()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    
+
     assert manifest["version"] == "1.1"
     assert manifest["packsCount"] >= 45
     assert len(manifest["packs"]) == manifest["packsCount"]
@@ -211,12 +211,14 @@ def test_role_based_rag_resolution():
     assert "Suture Preferences" in reply_scrub
 
     # 2. Circulator asks about Lap Chole
-    reply_circ, _ = rag._offline_fallback("What is the patient positioning for Lap Chole?", clinical_role="Circulating RN")
+    reply_circ, _ = rag._offline_fallback(
+        "What is the patient positioning for Lap Chole?", clinical_role="Circulating RN")
     assert "Preference Card: Laparoscopic Cholecystectomy" in reply_circ
     assert "Reverse Trendelenburg" in reply_circ or "Positioning" in reply_circ
 
     # 3. CRNA asks about Malignant Hyperthermia
-    reply_crna, _ = rag._offline_fallback("What is the dose for Dantrolene in Malignant Hyperthermia?", clinical_role="CRNA")
+    reply_crna, _ = rag._offline_fallback(
+        "What is the dose for Dantrolene in Malignant Hyperthermia?", clinical_role="CRNA")
     assert "Dantrolene" in reply_crna or "Ryanodex" in reply_crna
     assert "2.5 mg/kg" in reply_crna or "MHAUS" in reply_crna
 

@@ -226,11 +226,15 @@ async def update_profile(req: UpdateProfileRequest):
         # Fallback to the first non-demo user or demo user
         user = users[0]
 
-    full_name = req.fullName or req.full_name or (req.profile.fullName if hasattr(req.profile, "fullName") else None) or user.get("fullName", "")
-    facility_id = req.facilityId or req.facility_id or (req.profile.facilityId if req.profile else None) or "sacred_heart"
-    facility_name = req.facilityName or req.facility_name or (req.profile.facilityName if req.profile else None) or "Sacred Heart Hospital"
+    full_name = req.fullName or req.full_name or (req.profile.fullName if hasattr(
+        req.profile, "fullName") else None) or user.get("fullName", "")
+    facility_id = req.facilityId or req.facility_id or (
+        req.profile.facilityId if req.profile else None) or "sacred_heart"
+    facility_name = req.facilityName or req.facility_name or (
+        req.profile.facilityName if req.profile else None) or "Sacred Heart Hospital"
     dept_id = req.departmentId or req.department_id or (req.profile.departmentId if req.profile else None) or "or_main"
-    clinical_role = req.clinicalRole or req.clinical_role or (req.profile.clinicalRole if req.profile else None) or "Circulating RN"
+    clinical_role = req.clinicalRole or req.clinical_role or (
+        req.profile.clinicalRole if req.profile else None) or "Circulating RN"
 
     user["profile"] = {
         "fullName": full_name,

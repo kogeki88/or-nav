@@ -32,13 +32,13 @@ def test_version_manifest_schema_and_types():
 def test_unreachable_server_contract_message():
     """Verify the exact user-friendly alert message when server is unreachable."""
     expected_msg = "Could not reach update server. Check your connection or use QR pairing."
-    
+
     # Simulate failed candidate loop
     candidate_urls = [
         "http://nonexistent-host-12345.local/version.json",
         "http://192.0.2.1:3000/version.json",  # RFC 5737 TEST-NET-1 (unroutable)
     ]
-    
+
     # Contract: when all network attempts fail, error is not swallowed
     all_failed = True
     assert all_failed is True

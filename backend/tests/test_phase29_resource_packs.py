@@ -99,7 +99,8 @@ def test_phase29_role_scoped_case_lookups():
     assert "skin prep" in circ_ans.lower() or "safety" in circ_ans.lower()
 
     # Query hospital policy
-    code_ans, _ = rag._offline_fallback("what is the code blue team and blood bank extension", clinical_role="Circulating RN")
+    code_ans, _ = rag._offline_fallback(
+        "what is the code blue team and blood bank extension", clinical_role="Circulating RN")
     assert "facility policy" in code_ans.lower() or "code blue" in code_ans.lower() or "blood bank" in code_ans.lower()
 
 

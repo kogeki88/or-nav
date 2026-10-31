@@ -228,7 +228,7 @@ async def create_peer_question(req: CreateQuestionRequest):
     t_id = req.tenant_id or req.tenantId
     if not t_id:
         raise HTTPException(status_code=400, detail="tenant_id is required.")
-    
+
     q_text = req.question_text or req.questionText
     if not q_text or not q_text.strip():
         raise HTTPException(status_code=400, detail="question_text cannot be empty.")
@@ -264,6 +264,7 @@ async def list_peer_questions(tenant_id: Optional[str] = Query(None)):
 
     clean_tid = tenant_id.strip().lower()
     # Support exact, prefix, suffix, and cross-department matching
+
     def matches_tenant(q_tid: str) -> bool:
         qt = q_tid.lower()
         if qt == clean_tid:
@@ -287,9 +288,9 @@ async def answer_peer_question(question_id: str, req: CreateAnswerRequest):
     a_text = req.answer_text or req.answerText
     if not a_text or not a_text.strip():
         raise HTTPException(status_code=400, detail="answer_text cannot be empty.")
-    
+
     answered_by = req.answered_by or req.answeredBy or "Clinical Colleague"
-    
+
     questions = load_peer_questions()
     target_q: Optional[PeerQuestion] = None
     for q in questions:

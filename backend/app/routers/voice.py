@@ -235,4 +235,3 @@ async def transcribe_surgical_audio(
         safe_transcript=scrubbed,
         silence=False,
     )
-

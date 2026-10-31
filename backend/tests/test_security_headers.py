@@ -4,6 +4,7 @@ from app.main import app
 
 client = TestClient(app)
 
+
 def test_cors_headers_rejected_for_untrusted_origins():
     response = client.options(
         "/health",
@@ -13,6 +14,7 @@ def test_cors_headers_rejected_for_untrusted_origins():
         }
     )
     assert response.status_code == 400
+
 
 def test_security_headers_present():
     response = client.get("/health")
