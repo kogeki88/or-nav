@@ -33,8 +33,12 @@ export function useUserProfile() {
   }, []);
 
   const saveProfile = useCallback((newProfile: UserProfile) => {
-    persistUserProfile(newProfile);
-    setProfileState(newProfile);
+    const cleaned = persistUserProfile(newProfile);
+    if (cleaned) {
+      setProfileState(cleaned);
+    } else {
+      setProfileState(getUserProfile());
+    }
   }, []);
 
   return {

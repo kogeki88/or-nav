@@ -161,4 +161,97 @@ describe('useUserProfile hook', () => {
 
     assert.strictEqual(result.current.profile.fullName, 'Detailed Update');
   });
+
+  it('should handle malformed JSON in localStorage gracefully (Fuzzing)', () => {
+    const originalWarn = console.warn;
+    console.warn = mock.fn();
+
+    localStorageMock[USER_PROFILE_STORAGE_KEY] = '{ invalid json ]';
+
+    const { result } = renderHook(() => useUserProfile());
+    assert.deepStrictEqual(result.current.profile, DEFAULT_USER_PROFILE);
+
+    console.warn = originalWarn;
+  });
+
+  it('should enforce strict schema validation for missing/incorrect types in localStorage (Strict Schema Validation)', () => {
+    const malformedData = {
+      fullName: 12345, // should be string
+      facilityId: null, // should be string
+      departmentId: '', // should fallback to default if empty or handle it safely depending on logic
+      clinicalRole: true // should be string
+    };
+    localStorageMock[USER_PROFILE_STORAGE_KEY] = JSON.stringify(malformedData);
+
+    const { result } = renderHook(() => useUserProfile());
+
+    // It should replace invalid types with default values
+    assert.strictEqual(result.current.profile.fullName, DEFAULT_USER_PROFILE.fullName);
+    assert.strictEqual(result.current.profile.facilityId, DEFAULT_USER_PROFILE.facilityId);
+    assert.strictEqual(result.current.profile.clinicalRole, DEFAULT_USER_PROFILE.clinicalRole);
+    // empty string is a valid string, so departmentId might remain empty or fallback depending on logic
+  });
+
+  it('should reject malformed saveProfile payloads and maintain strict schema (Malformed Payload Resilience)', () => {
+    const { result } = renderHook(() => useUserProfile());
+    const originalError = console.error;
+    console.error = mock.fn();
+
+    const badProfile = {
+      fullName: null,
+      facilityId: 9999,
+      departmentId: undefined,
+      clinicalRole: ['Array']
+    };
+
+    act(() => {
+      // Cast to any to bypass TS for fuzzing
+      result.current.saveProfile(badProfile as any);
+    });
+
+    // The state should be updated to a strictly validated version using fallbacks
+    assert.strictEqual(result.current.profile.fullName, DEFAULT_USER_PROFILE.fullName);
+    assert.strictEqual(result.current.profile.facilityId, DEFAULT_USER_PROFILE.facilityId);
+    assert.strictEqual(result.current.profile.departmentId, DEFAULT_USER_PROFILE.departmentId);
+    assert.strictEqual(result.current.profile.clinicalRole, DEFAULT_USER_PROFILE.clinicalRole);
+
+    console.error = originalError;
+  });
+
+  it('should handle massive strings safely (Boundary inputs)', () => {
+    const { result } = renderHook(() => useUserProfile());
+    const massiveString = 'A'.repeat(50000);
+
+    const massiveProfile = {
+      ...DEFAULT_USER_PROFILE,
+      fullName: massiveString,
+      facilityId: massiveString
+    };
+
+    act(() => {
+      result.current.saveProfile(massiveProfile);
+    });
+
+    assert.strictEqual(result.current.profile.fullName, massiveString);
+    assert.strictEqual(result.current.profile.facilityId, massiveString);
+  });
+
+  it('should handle special characters and potential XSS payloads safely', () => {
+    const { result } = renderHook(() => useUserProfile());
+    const xssPayload = '<script>alert(1)</script>';
+
+    const xssProfile = {
+      ...DEFAULT_USER_PROFILE,
+      fullName: xssPayload,
+      facilityId: xssPayload
+    };
+
+    act(() => {
+      result.current.saveProfile(xssProfile);
+    });
+
+    // Validates that it stores and retrieves without evaluating or mutating maliciously
+    assert.strictEqual(result.current.profile.fullName, xssPayload);
+    assert.strictEqual(result.current.profile.facilityId, xssPayload);
+  });
 });
