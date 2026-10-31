@@ -1,11 +1,16 @@
 import "fake-indexeddb/auto";
+import { indexedDB, IDBKeyRange } from "fake-indexeddb";
 import { test, describe } from "node:test";
 import assert from "node:assert";
 import Dexie from "dexie";
 
+Dexie.dependencies.indexedDB = indexedDB;
+Dexie.dependencies.IDBKeyRange = IDBKeyRange;
+
 // Re-initialize a test database using Dexie explicitly for benchmark
 class BenchmarkDB extends Dexie {
   inventoryItems!: Dexie.Table<Record<string, unknown>, string>;
+  offlineOutbox!: Dexie.Table<Record<string, unknown>, number>;
   constructor() {
     super("ORNavOfflineDB-Bench");
     this.version(7).stores({
@@ -165,6 +170,67 @@ describe("Dexie Benchmarks", () => {
     } catch (err: any) {
        if (err.name === 'AssertionError') throw err;
        assert.ok(err.name === "DataError", "Error should be DataError due to missing primary key");
+    }
+  });
+
+  test("concurrent burst execution and race condition resistance", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = () => Promise.reject(new Error("Network call strictly forbidden during offlineDB benchmark"));
+
+    try {
+        const db = new BenchmarkDB();
+        const NUM_WORKERS = 50;
+        const ITEMS_PER_WORKER = 20;
+
+        const runWorker = async (workerId: number, tenant: string) => {
+          const items = [];
+          for (let i = 0; i < ITEMS_PER_WORKER; i++) {
+            items.push({
+              id: `${tenant}::worker${workerId}::item_${i}`,
+              tenant_id: tenant,
+              item: `Item Worker ${workerId} ${i}`,
+              status: i % 2 === 0 ? "verified" : "unverified",
+            });
+          }
+          // Insert concurrently
+          await db.inventoryItems.bulkPut(items);
+
+          // Read concurrently
+          const readBack = await db.inventoryItems.where("tenant_id").equals(tenant).toArray();
+          assert.ok(readBack.length >= ITEMS_PER_WORKER);
+
+          // Update concurrently
+          const toUpdate = readBack.slice(0, 10).map(item => ({ ...item, status: "updated" }));
+          await db.inventoryItems.bulkPut(toUpdate);
+
+          // Delete concurrently
+          const toDelete = readBack.slice(10, 20).map(item => item.id);
+          await db.inventoryItems.bulkDelete(toDelete as string[]);
+        };
+
+        const t0 = performance.now();
+        const workers = Array.from({ length: NUM_WORKERS }).map((_, i) => {
+          const tenantId = `tenant_${i % 5}`; // mix of 5 tenants
+          return runWorker(i, tenantId);
+        });
+
+        await Promise.all(workers);
+        const t1 = performance.now();
+        const burstDuration = t1 - t0;
+        console.log(`Concurrent burst of ${NUM_WORKERS} workers took ${burstDuration.toFixed(2)}ms`);
+
+        // Latency assertion
+        assert.ok(burstDuration < 2000, `Concurrent burst took ${burstDuration}ms, which is >= 2000ms`);
+
+        // Verify consistency and multi-tenant isolation invariants post-burst
+        for (let t = 0; t < 5; t++) {
+            const tenantStr = `tenant_${t}`;
+            const tenantItems = await db.inventoryItems.where("tenant_id").equals(tenantStr).toArray();
+            assert.ok(tenantItems.length > 0, `${tenantStr} should have items`);
+            assert.ok(tenantItems.every(i => i.tenant_id === tenantStr), `No leakage into ${tenantStr}`);
+        }
+    } finally {
+        global.fetch = originalFetch;
     }
   });
 });
