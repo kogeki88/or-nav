@@ -265,6 +265,8 @@ def learn_alias(
     Record or increment a learned alias entry for a facility.
     Upgrades confidence to 'facility_consensus' when usageCount >= 2 or usedByUsers.length >= 2.
     """
+    if not spoken_term or not spoken_term.strip():
+        raise ValueError("spoken_term is required.")
     norm_term = spoken_term.strip().lower()
     if not norm_term or not canonical_item:
         raise ValueError("Both spoken_term and canonical_item are required.")
@@ -329,7 +331,7 @@ def resolve_spoken_alias(facility_id: str, query: str) -> Optional[dict]:
     Strictly prevents eponym false-positives across hyphens and protects
     against conflicting sizing/gauge specifications.
     """
-    if not query:
+    if not query or not query.strip():
         return None
     norm_q = query.strip().lower()
     entries = load_facility_lexicon(facility_id)
@@ -401,7 +403,7 @@ def get_all_aliases_for_item(facility_id: str, canonical_item: str) -> List[str]
     Return all learned display aliases for a canonical item in this facility.
     e.g. ['Adson Pickups', 'Toothed Adson', '1x2 Pickups']
     """
-    if not canonical_item:
+    if not canonical_item or not canonical_item.strip():
         return []
     entries = load_facility_lexicon(facility_id)
     canonical_norm = canonical_item.strip().lower()
@@ -423,8 +425,6 @@ def get_all_aliases_for_item(facility_id: str, canonical_item: str) -> List[str]
 # ---------------------------------------------------------------------------
 
 TEACH_PATTERNS = [
-    # "[X] is called [Y]" / "[X] are called [Y]"
-    re.compile(r"(?:the\s+)?(.+?)\s+(?:is|are)\s+called\s+(?:an?|the)?\s*([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
     # "In this facility, [X] is called [Y]"
     re.compile(
         r"in\s+this\s+(?:facility|hospital|unit|or|department)\s*,\s*(?:the\s+)?(.+?)\s+(?:is|are)\s+called\s+(?:an?|the)?\s*([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
@@ -442,6 +442,8 @@ TEACH_PATTERNS = [
     # Generic "Here we call [X] [Y]" fallback
     re.compile(
         r"(?:here\s+)?(?:we|i)\s+call\s+(?:the\s+)?([a-zA-Z0-9\s-]+?)\s+([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
+    # "[X] is called [Y]" / "[X] are called [Y]" (moved to bottom so specific ones catch first)
+    re.compile(r"(?:the\s+)?(.+?)\s+(?:is|are)\s+called\s+(?:an?|the)?\s*([a-zA-Z0-9\s-]+?)(?:\.|$)", re.IGNORECASE),
 ]
 
 
