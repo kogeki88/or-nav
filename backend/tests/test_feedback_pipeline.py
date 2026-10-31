@@ -60,6 +60,24 @@ def test_feedback_pipeline_multi_tenant_isolation():
     for item in res_cg.json()["items"]:
         assert item["tenantId"].startswith("county_general")
 
+    # Add a new item to sacred_heart::icu
+    payload_icu = {
+        "tenantId": "sacred_heart::icu",
+        "rawText": "Isolated test complaint for ICU"
+    }
+    client.post("/api/feedback", json=payload_icu)
+
+    # Assert Sacred Heart ICU item doesn't leak into Sacred Heart OR
+    res_sh_or_final = client.get("/api/feedback?tenantId=sacred_heart::or")
+    assert len(res_sh_or_final.json()["items"]) == initial_sh_count + 1
+
+    res_sh_icu_final = client.get("/api/feedback?tenantId=sacred_heart::icu")
+    # Only items with tenantId starting with sacred_heart::icu
+    icu_items = [it for it in res_sh_icu_final.json()["items"] if it["tenantId"] == "sacred_heart::icu"]
+    assert len(icu_items) == 1
+    assert icu_items[0]["rawText"] == "Isolated test complaint for ICU"
+
+
 def test_offline_first_invariants(monkeypatch):
     """Ensure that the feedback pipeline operations maintain the offline-first data structure and constraints."""
     def block_network(*args, **kwargs):
@@ -143,3 +161,47 @@ def test_fuzzing_and_boundary_conditions():
     # 6. Random non-existent endpoint or malformed id
     res = client.patch("/api/feedback/non_existent_id_123/status", json={"status": "resolved"})
     assert res.status_code == 404
+
+def test_offline_mutation_replay_idempotency(monkeypatch):
+    """Ensure offline mutation replay idempotency."""
+    def block_network(*args, **kwargs):
+        raise RuntimeError("Network access is strictly forbidden in offline-first mode")
+
+    monkeypatch.setattr(httpx, "get", block_network)
+    monkeypatch.setattr(httpx, "post", block_network)
+    monkeypatch.setattr(httpx, "request", block_network)
+
+    payload = {
+        "tenantId": "sacred_heart::or",
+        "userName": "Sean",
+        "userRole": "Nurse",
+        "source": "manual_submission",
+        "rawText": "Need a timer idempotency check",
+    }
+
+    # 1. First execution
+    res1 = client.post("/api/feedback", json=payload)
+    assert res1.status_code == 200
+
+    # Get total count after first execution
+    items_after_first = client.get("/api/feedback").json()["items"]
+    count_after_first = len(items_after_first)
+
+    # 2. Second execution (replay)
+    res2 = client.post("/api/feedback", json=payload)
+    assert res2.status_code == 200
+
+    # Check that deduplication happened: count stays the same
+    items_after_second = client.get("/api/feedback").json()["items"]
+    assert len(items_after_second) == count_after_first
+
+    # 3. Third execution (replay)
+    res3 = client.post("/api/feedback", json=payload)
+    assert res3.status_code == 200
+
+    items_after_third = client.get("/api/feedback").json()["items"]
+    assert len(items_after_third) == count_after_first
+
+    # Assert upvotes incremented correctly because of is_similar merging
+    target_item = next(it for it in items_after_third if it["rawText"] == "Need a timer idempotency check")
+    assert target_item["upvotes"] >= 3

@@ -293,10 +293,9 @@ async def list_feedback(
     # Optional filter by tenant (or facility part of tenant)
     if tenant_id:
         clean_tid = tenant_id.strip()
-        fac = clean_tid.split("::")[0].split("/")[0]
         items = [
             it for it in items
-            if it.get("tenantId") == clean_tid or it.get("tenantId", "").startswith(f"{fac}::") or it.get("tenantId", "").startswith(f"{fac}/")
+            if it.get("tenantId") == clean_tid
         ]
 
     # Category filter
@@ -339,8 +338,10 @@ async def create_or_intercept_feedback(req: CreateFeedbackRequest):
     items = load_feedback_items()
 
     # 1. Similarity check for auto-upvote merging on open items
+    # Also enforce multi-tenant isolation here to avoid upvoting another tenant's similar item
     for item in items:
-        if item.get("status") in ["open", "planned"] and is_similar(item.get("rawText", ""), raw):
+        is_same_tenant = item.get("tenantId") == req.tenantId if req.tenantId else item.get("tenantId") == "sacred_heart::or"
+        if is_same_tenant and item.get("status") in ["open", "planned"] and is_similar(item.get("rawText", ""), raw):
             item["upvotes"] = item.get("upvotes", 1) + 1
             save_feedback_items(items)
             return item
