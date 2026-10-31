@@ -496,3 +496,132 @@ test('enforces strict multi-tenant isolation on offline boundary', async () => {
         assert.ok(!missing, 'Should not render questions from another tenant');
     });
 });
+
+
+test('high-concurrency and race condition benchmark', async () => {
+    const numPanels = 50;
+    const start = performance.now();
+    let fetchCalls = 0;
+    let postCalls = 0;
+
+    // Mix of tenants
+    const tenants = ['tenant_alpha', 'tenant_beta', 'tenant_gamma'];
+
+    global.fetch = mock.fn(async (url, options) => {
+        fetchCalls++;
+        if (options && options.method === 'POST') {
+            postCalls++;
+
+            // Introduce jitter for race conditions
+            await new Promise(r => setTimeout(r, Math.random() * 20));
+
+            const body = JSON.parse(options.body);
+
+            return {
+                ok: true,
+                json: async () => ({
+                    ...body,
+                    id: `q-concurrent-${postCalls}`,
+                    answers: [],
+                    status: 'unverified',
+                    verificationsCount: 0
+                })
+            };
+        }
+
+        return { ok: true, json: async () => [] };
+    });
+
+    const panels = Array.from({ length: numPanels }).map((_, i) => {
+        const root = document.createElement('div');
+        document.body.appendChild(root);
+        const tenantId = tenants[i % tenants.length];
+        const comp = render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId={tenantId} userProfile={dummyProfile} />, { container: root });
+        return { comp, tenantId, id: i };
+    });
+
+    // Wait for event loop
+    await new Promise(r => setTimeout(r, 50));
+
+    await Promise.all(panels.map(async ({ comp, tenantId, id }) => {
+        // Yield execution to simulate real concurrent burst!
+        await new Promise(r => setTimeout(r, Math.random() * 10));
+
+        const askTab = comp.getByText('Ask Department Peers');
+        fireEvent.click(askTab);
+
+        const textarea = comp.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+        fireEvent.change(textarea, { target: { value: `Stress question ${id} for ${tenantId}` } });
+
+        const submitBtn = comp.getByText('Broadcast Question');
+        fireEvent.click(submitBtn);
+    }));
+
+    await waitFor(() => {
+        assert.strictEqual(postCalls, numPanels, 'All panels must submit successfully under load');
+    }, { timeout: 5000 });
+
+    const end = performance.now();
+
+    // Performance criteria
+    const totalLatency = end - start;
+    const avgLatency = totalLatency / numPanels;
+
+    console.log(`Concurrency bench: ${numPanels} requests in ${totalLatency.toFixed(2)}ms (${avgLatency.toFixed(2)}ms/req)`);
+
+    // Cleanup
+    panels.forEach(({ comp }) => comp.unmount());
+});
+
+test('high-concurrency and race condition benchmark - offline first invariant', async () => {
+    const numPanels = 50;
+
+    // Mix of tenants
+    const tenants = ['tenant_alpha', 'tenant_beta', 'tenant_gamma'];
+
+    // Poison fetch
+    global.fetch = mock.fn(async () => {
+        throw new Error('Network offline');
+    });
+
+    const panels = Array.from({ length: numPanels }).map((_, i) => {
+        const root = document.createElement('div');
+        document.body.appendChild(root);
+        const tenantId = tenants[i % tenants.length];
+        const comp = render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId={tenantId} userProfile={dummyProfile} />, { container: root });
+        return { comp, tenantId, id: i };
+    });
+
+    // Wait for event loop
+    await new Promise(r => setTimeout(r, 50));
+
+    const initialCount = mockSaveOfflinePeerQuestionCalls.length;
+
+    await Promise.all(panels.map(async ({ comp, tenantId, id }) => {
+        // Yield execution to simulate real concurrent burst!
+        await new Promise(r => setTimeout(r, Math.random() * 10));
+
+        const askTab = comp.getByText('Ask Department Peers');
+        fireEvent.click(askTab);
+
+        const textarea = comp.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+        fireEvent.change(textarea, { target: { value: `Offline stress question ${id} for ${tenantId}` } });
+
+        const submitBtn = comp.getByText('Broadcast Question');
+        fireEvent.click(submitBtn);
+    }));
+
+    await waitFor(() => {
+        const currentCount = mockSaveOfflinePeerQuestionCalls.length;
+        assert.strictEqual(currentCount - initialCount, numPanels, 'All panels must fallback to offline storage successfully under load');
+    }, { timeout: 5000 });
+
+    // Validate offline storage tenant isolation
+    const relevantCalls = mockSaveOfflinePeerQuestionCalls.slice(initialCount);
+    relevantCalls.forEach(call => {
+        assert.ok(tenants.includes(call.tenantId), 'Offline fallback must correctly store tenant ID');
+    });
+
+    // Cleanup
+    panels.forEach(({ comp }) => comp.unmount());
+});
