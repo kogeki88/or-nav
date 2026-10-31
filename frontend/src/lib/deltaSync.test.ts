@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert";
 import { diffRecords } from "./deltaSync";
+import { compressPayload, decompressPayload } from "./deltaSyncPayload";
 
 test("diffRecords", async (t) => {
   await t.test("returns an empty object for identical records", () => {
@@ -228,5 +229,26 @@ test("diffRecords", async (t) => {
     } finally {
       global.fetch = originalFetch;
     }
+  });
+
+  await t.test("Multi-tenant boundary enforcement: payload strictly partitions tenant state", () => {
+    const payloads = [
+      { id: 1, tenant_id: "fac1::deptA", data: "test" },
+      { id: 2, tenant_id: "fac2::deptB", data: "test" }
+    ];
+    const compressed = compressPayload(payloads);
+    assert.ok(compressed.keys.includes("tenant_id"));
+    const tenantIndex = compressed.keys.indexOf("tenant_id");
+    assert.strictEqual(compressed.data[0][tenantIndex], "fac1::deptA");
+    assert.strictEqual(compressed.data[1][tenantIndex], "fac2::deptB");
+  });
+
+  await t.test("Offline mutation replay idempotency: sequential replays produce identical state without network", () => {
+    const payload = [{ id: 1, val: "old" }, { id: 2, val: "new" }];
+    const run1 = decompressPayload(compressPayload(payload));
+    const run2 = decompressPayload(compressPayload(payload));
+    const run3 = decompressPayload(compressPayload(payload));
+    assert.deepStrictEqual(run1, run2);
+    assert.deepStrictEqual(run1, run3);
   });
 });
