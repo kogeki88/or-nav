@@ -597,6 +597,76 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
     });
   });
 
+
+
+
+
+  test("Offline mutation replay idempotency and multi-tenant boundary enforcement", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = (() => { throw new Error("Offline execution"); }) as any;
+
+    const root1 = document.createElement("div");
+    root1.setAttribute("data-tenant", "fac1::dept1");
+    document.body.appendChild(root1);
+
+    const root2 = document.createElement("div");
+    root2.setAttribute("data-tenant", "fac2::dept2");
+    document.body.appendChild(root2);
+
+    try {
+      // Offline mode simulation
+      setNetworkOnline(false);
+
+      const hook1 = renderHook(() => useSyncEngine("fac1::dept1", false), { container: root1 });
+      const hook2 = renderHook(() => useSyncEngine("fac2::dept2", false), { container: root2 });
+
+      let res1First, res2First;
+      await act(async () => {
+        res1First = await hook1.result.current.triggerSync();
+        res2First = await hook2.result.current.triggerSync();
+      });
+
+      const state1First = { ...hook1.result.current };
+      const state2First = { ...hook2.result.current };
+
+      // Replay identical inputs sequentially to simulate idempotency
+      let res1Replay, res2Replay;
+      await act(async () => {
+        res1Replay = await hook1.result.current.triggerSync();
+        res2Replay = await hook2.result.current.triggerSync();
+      });
+
+      const state1Replay = { ...hook1.result.current };
+      const state2Replay = { ...hook2.result.current };
+
+      // Output state remains strictly equal
+      assert.deepStrictEqual(res1First, res1Replay);
+      assert.deepStrictEqual(res2First, res2Replay);
+      assert.strictEqual(state1First.status, state1Replay.status);
+      assert.strictEqual(state2First.status, state2Replay.status);
+      assert.strictEqual(state1First.pendingCount, state1Replay.pendingCount);
+      assert.strictEqual(state2First.pendingCount, state2Replay.pendingCount);
+
+      // Now switch online and enforce multi-tenant boundaries during real execution
+      setNetworkOnline(true);
+      await act(async () => {
+        await hook1.result.current.triggerSync();
+        await hook2.result.current.triggerSync();
+      });
+
+      const calls = offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls;
+      const tenants = calls.map((c: any) => c.arguments[0]);
+
+      assert.ok(tenants.includes("fac1::dept1"));
+      assert.ok(tenants.includes("fac2::dept2"));
+
+    } finally {
+      global.fetch = originalFetch;
+      document.body.removeChild(root1);
+      document.body.removeChild(root2);
+    }
+  });
+
   test("Latency benchmarks under load", async () => {
     setNetworkOnline(true);
 
