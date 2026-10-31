@@ -200,17 +200,22 @@ export function getUserProfile(): UserProfile {
     const raw = localStorage.getItem(USER_PROFILE_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      const deptId = parsed.departmentId || DEFAULT_USER_PROFILE.departmentId;
-      const facId = parsed.facilityId || DEFAULT_USER_PROFILE.facilityId;
+      if (typeof parsed !== 'object' || parsed === null) return { ...DEFAULT_USER_PROFILE };
+
+      const deptId = typeof parsed.departmentId === 'string' ? parsed.departmentId : DEFAULT_USER_PROFILE.departmentId;
+      const facId = typeof parsed.facilityId === 'string' ? parsed.facilityId : DEFAULT_USER_PROFILE.facilityId;
       const matchedFac = REGISTERED_FACILITIES.find((f) => f.id === facId);
-      const facName = matchedFac ? matchedFac.name : parsed.facilityName || DEFAULT_USER_PROFILE.facilityName;
+      const facName = matchedFac ? matchedFac.name : (typeof parsed.facilityName === 'string' ? parsed.facilityName : DEFAULT_USER_PROFILE.facilityName);
+
+      const fullName = typeof parsed.fullName === 'string' ? parsed.fullName.trim() : DEFAULT_USER_PROFILE.fullName;
+      const clinicalRole = typeof parsed.clinicalRole === 'string' ? parsed.clinicalRole : DEFAULT_USER_PROFILE.clinicalRole;
 
       return {
-        fullName: parsed.fullName?.trim() || DEFAULT_USER_PROFILE.fullName,
+        fullName: fullName || DEFAULT_USER_PROFILE.fullName,
         facilityId: facId,
         facilityName: facName,
         departmentId: deptId,
-        clinicalRole: parsed.clinicalRole || DEFAULT_USER_PROFILE.clinicalRole,
+        clinicalRole: clinicalRole || DEFAULT_USER_PROFILE.clinicalRole,
       };
     }
   } catch (e) {
@@ -219,22 +224,30 @@ export function getUserProfile(): UserProfile {
   return { ...DEFAULT_USER_PROFILE };
 }
 
-export function saveUserProfile(profile: UserProfile): void {
+export function saveUserProfile(profile: UserProfile): UserProfile | void {
   if (typeof window === "undefined") return;
   try {
-    const matchedFac = REGISTERED_FACILITIES.find((f) => f.id === profile.facilityId);
-    const facName = matchedFac ? matchedFac.name : profile.facilityName || DEFAULT_USER_PROFILE.facilityName;
+    const safeProfile = (typeof profile === 'object' && profile !== null) ? profile : {} as Partial<UserProfile>;
+    const facId = typeof safeProfile.facilityId === 'string' ? safeProfile.facilityId : DEFAULT_USER_PROFILE.facilityId;
+    const matchedFac = REGISTERED_FACILITIES.find((f) => f.id === facId);
+    const facName = matchedFac ? matchedFac.name : (typeof safeProfile.facilityName === 'string' ? safeProfile.facilityName : DEFAULT_USER_PROFILE.facilityName);
+
+    const fullName = typeof safeProfile.fullName === 'string' ? safeProfile.fullName.trim() : DEFAULT_USER_PROFILE.fullName;
+    const deptId = typeof safeProfile.departmentId === 'string' ? safeProfile.departmentId : DEFAULT_USER_PROFILE.departmentId;
+    const clinicalRole = typeof safeProfile.clinicalRole === 'string' ? safeProfile.clinicalRole : DEFAULT_USER_PROFILE.clinicalRole;
 
     const clean: UserProfile = {
-      fullName: profile.fullName?.trim() || DEFAULT_USER_PROFILE.fullName,
-      facilityId: profile.facilityId || DEFAULT_USER_PROFILE.facilityId,
+      fullName: fullName || DEFAULT_USER_PROFILE.fullName,
+      facilityId: facId,
       facilityName: facName,
-      departmentId: profile.departmentId || DEFAULT_USER_PROFILE.departmentId,
-      clinicalRole: profile.clinicalRole || DEFAULT_USER_PROFILE.clinicalRole,
+      departmentId: deptId,
+      clinicalRole: clinicalRole || DEFAULT_USER_PROFILE.clinicalRole,
     };
+
     localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(clean));
     setActiveDepartmentId(clean.departmentId);
     window.dispatchEvent(new CustomEvent(USER_PROFILE_EVENT, { detail: clean }));
+    return clean;
   } catch (e) {
     console.error("Failed to save user profile:", e);
   }
