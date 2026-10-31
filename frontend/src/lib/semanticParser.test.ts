@@ -222,3 +222,66 @@ test("Semantic Query Parser Normalizations & Invariants", async (t) => {
     assert.notDeepStrictEqual(q1.entities, q3.entities);
   });
 });
+
+
+test("Semantic Query Parser High-Concurrency & Stress Benchmarks", async (t) => {
+  await t.test("Concurrent burst execution and race condition resistance", async () => {
+    // Poison global.fetch to enforce offline-first invariant during burst
+    const originalFetch = global.fetch;
+    global.fetch = () => {
+      throw new Error("Network call detected in offline-first burst execution");
+    };
+
+    try {
+      const burstSize = 1000;
+      const queries = Array.from({ length: burstSize }, (_, i) => ({
+        id: i,
+        query: `where is the ${i}-0 vicryl`,
+        expectedGauge: `${i}-0`
+      }));
+
+      // Execute concurrently
+      const startTime = performance.now();
+      const results = await Promise.all(queries.map(async (q) => {
+        // Yield to event loop to simulate interleaved execution
+        await new Promise(resolve => setImmediate(resolve));
+        return {
+          id: q.id,
+          parsed: parseClinicalIntent(q.query),
+          expectedGauge: q.expectedGauge
+        };
+      }));
+      const endTime = performance.now();
+
+      // Assert multi-tenant isolation / race condition resistance
+      for (const res of results) {
+        assert.strictEqual(res.parsed.intent, ClinicalIntent.FIND_INVENTORY);
+        assert.strictEqual(res.parsed.entities.gauge, res.expectedGauge, `Race condition detected for ID ${res.id}`);
+      }
+
+      // Latency benchmark
+      const duration = endTime - startTime;
+      // Allow up to 2000ms for 1000 iterations to account for CI environments
+      assert.ok(duration < 2000, `Burst execution took too long: ${duration}ms`);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  await t.test("Latency benchmark for complex query parsing", () => {
+    const complexQuery = "please add 3-0 silk to OR 21 C 1 F, also called blue tie, note: doctor's favorite";
+
+    const iterations = 500;
+    const startTime = performance.now();
+    for (let i = 0; i < iterations; i++) {
+      parseClinicalIntent(complexQuery);
+    }
+    const endTime = performance.now();
+
+    const duration = endTime - startTime;
+    const avgLatency = duration / iterations;
+
+    // Ensure average latency per complex query is under 2ms
+    assert.ok(avgLatency < 2, `Average latency too high: ${avgLatency}ms`);
+  });
+});
