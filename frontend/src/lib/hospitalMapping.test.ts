@@ -240,4 +240,37 @@ test("getFacilityIdFromTenant normalizes facility ID resolution", async (t) => {
         }
     });
 
+    await t.test("Invariant: Offline mutation replay idempotency and multi-tenant boundary enforcement", () => {
+        const originalFetch = global.fetch;
+        global.fetch = () => {
+            throw new Error("Network call detected in offline-first function!");
+        };
+
+        try {
+            const tenant1 = "sacred_heart::or";
+            const tenant2 = "general_memorial::cvor";
+
+            // Replay same mutation sequentially multiple times
+            const run1 = getFacilityIdFromTenant(tenant1);
+            const run2 = getFacilityIdFromTenant(tenant1);
+            const run3 = getFacilityIdFromTenant(tenant1);
+
+            const run4 = getFacilityIdFromTenant(tenant2);
+            const run5 = getFacilityIdFromTenant(tenant2);
+            const run6 = getFacilityIdFromTenant(tenant2);
+
+            // Verify idempotency (no state drift)
+            assert.deepStrictEqual(run1, run2);
+            assert.deepStrictEqual(run1, run3);
+            assert.deepStrictEqual(run4, run5);
+            assert.deepStrictEqual(run4, run6);
+
+            // Verify boundaries are intact
+            assert.deepStrictEqual(run1, { facilityId: "sacred_heart", departmentId: "or" });
+            assert.deepStrictEqual(run4, { facilityId: "general_memorial", departmentId: "cvor" });
+        } finally {
+            global.fetch = originalFetch;
+        }
+    });
+
 });
