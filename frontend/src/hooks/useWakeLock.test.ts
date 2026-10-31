@@ -230,4 +230,56 @@ describe("useWakeLock", () => {
     await Promise.resolve();
     assert.strictEqual(mockRelease.mock.calls.length, 1);
   });
+
+  it("should handle high-concurrency burst executions and race conditions", async () => {
+    mockRequest.mock.resetCalls();
+    mockRelease.mock.resetCalls();
+
+    const burstSize = 50;
+
+    // Simulate rapid concurrent bursts of component mount/unmounts
+    const results = await Promise.all(
+      Array.from({ length: burstSize }).map(async () => {
+        const { unmount } = renderHook(() => useWakeLock(true));
+        await Promise.resolve(); // Simulate microtask queue processing
+        unmount();
+        await Promise.resolve(); // Allow cleanup to execute
+        return true;
+      })
+    );
+
+    assert.strictEqual(results.length, burstSize);
+    // Since React renders sequentially and our mock tracks all, we should see an equal number of requests and releases
+    // In a real environment, they might queue up, but our mock is synchronous async.
+    // The key is that it didn't throw and properly tracked requests/releases.
+    assert.strictEqual(mockRequest.mock.calls.length, burstSize);
+    assert.strictEqual(mockRelease.mock.calls.length, burstSize);
+  });
+
+  it("should meet latency benchmarks under load", async () => {
+    mockRequest.mock.resetCalls();
+    mockRelease.mock.resetCalls();
+
+    const iterations = 100;
+    const start = performance.now();
+
+    for (let i = 0; i < iterations; i++) {
+      const { unmount } = renderHook(() => useWakeLock(true));
+      await Promise.resolve();
+      unmount();
+      await Promise.resolve();
+    }
+
+    const end = performance.now();
+    const totalTime = end - start;
+    const averageLatency = totalTime / iterations;
+
+    // React renderHook is fairly fast but we ensure the average latency is below an acceptable threshold (e.g. 50ms)
+    // 50ms is very generous for a simple hook render and async mock execution.
+    assert.ok(
+      averageLatency < 50,
+      `Average latency of ${averageLatency.toFixed(2)}ms exceeded the 50ms threshold`
+    );
+    assert.strictEqual(mockRequest.mock.calls.length, iterations);
+  });
 });
