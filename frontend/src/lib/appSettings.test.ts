@@ -361,4 +361,47 @@ describe('appSettings', () => {
     const finalSettings = getAppSettings();
     assert.strictEqual(finalSettings.voiceSettings, `voice-${iterations - 1}`);
   });
+
+  test('multi-tenant boundary enforcement (facility_id::dept_id) - enforces multi-tenant isolation by dropping cross-tenant payload pollution', () => {
+    localStorage.clear();
+
+    // Attempt to inject tenant-specific boundary keys into the global app settings
+    const maliciousPayload = {
+      darkMode: true,
+      "facility_id::dept_id": "fac1::dept1",
+      facility_id: "fac1",
+      dept_id: "dept1",
+      tenantId: "tenant-123"
+    };
+
+    saveAppSettings(maliciousPayload as any);
+
+    const settings = getAppSettings();
+
+    // Ensure only valid settings are preserved, and tenant boundary keys are scrubbed
+    assert.strictEqual(settings.darkMode, true);
+    assert.strictEqual((settings as any)["facility_id::dept_id"], undefined);
+    assert.strictEqual((settings as any).facility_id, undefined);
+    assert.strictEqual((settings as any).dept_id, undefined);
+    assert.strictEqual((settings as any).tenantId, undefined);
+  });
+
+  test('offline mutation replay idempotency - handles multiple identical saves gracefully', () => {
+    localStorage.clear();
+
+    const replayPayload = { fontScaling: 1.5, voiceSettings: "low" };
+
+    // Simulate an offline mutation being replayed multiple times (e.g., from an outbox)
+    saveAppSettings(replayPayload);
+    const stateAfterFirst = getAppSettings();
+
+    saveAppSettings(replayPayload);
+    saveAppSettings(replayPayload);
+    const stateAfterReplays = getAppSettings();
+
+    // The state should remain identical and idempotent
+    assert.deepStrictEqual(stateAfterReplays, stateAfterFirst);
+    assert.strictEqual(stateAfterReplays.fontScaling, 1.5);
+    assert.strictEqual(stateAfterReplays.voiceSettings, "low");
+  });
 });
