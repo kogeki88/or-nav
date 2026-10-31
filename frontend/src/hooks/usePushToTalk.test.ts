@@ -367,4 +367,88 @@ describe('usePushToTalk', () => {
 
     assert.strictEqual(result.current.isConnected, false);
   });
+
+  test("high-concurrency and race condition resistance for startPTT", async () => {
+    const hooks: any[] = [];
+
+    // Mount all inside act and let initial fetchVoiceStatus resolve
+    await act(async () => {
+      for (let i = 0; i < 10; i++) {
+        hooks.push(renderHook(() => usePushToTalk({ tenantId: "test" })));
+      }
+      await new Promise(r => setTimeout(r, 50));
+    });
+
+    for (const hook of hooks) {
+      await waitFor(() => {
+        assert.strictEqual(hook.result.current.isConnected, true);
+      });
+    }
+
+    const startCount = mockMicrophoneEnabled.mock.calls.length;
+
+    await act(async () => {
+      await Promise.all(hooks.map(async (hook) => {
+        await new Promise(r => setTimeout(r, Math.random() * 10));
+        await hook.result.current.startPTT();
+      }));
+    });
+
+    for (const hook of hooks) {
+      assert.strictEqual(hook.result.current.isHoldingPTT, true);
+    }
+
+    const newCalls = mockMicrophoneEnabled.mock.calls.slice(startCount);
+    assert.strictEqual(newCalls.length, 10);
+    for (const call of newCalls) {
+      assert.strictEqual(call.arguments[0], true);
+    }
+  });
+
+  test("multi-tenant isolation and offline-first invariants under concurrent load", async () => {
+    const originalMockFetchVoiceToken = mockFetchVoiceToken;
+    try {
+      mockFetchVoiceToken = mock.fn(async (tenantId?: string) => {
+        if (tenantId && tenantId.includes("offline-tenant")) {
+          throw new Error("Network error for offline tenant");
+        }
+        return {
+          token: "test-token",
+          livekit_url: "wss://test.livekit",
+          room_name: "test-room",
+          tenant_id: tenantId || "test"
+        };
+      });
+
+      const hooks: any[] = [];
+
+      // Mount all inside act and let initial fetchVoiceStatus and fetchVoiceToken resolve/reject
+      await act(async () => {
+        for (let i = 0; i < 4; i++) {
+          const tenantId = i % 2 === 0 ? "offline-tenant-" + i : "online-tenant-" + i;
+          hooks.push(renderHook(() => usePushToTalk({ tenantId })));
+        }
+        // Yield enough time for fetchVoiceToken rejection to process the catch block
+        await new Promise(r => setTimeout(r, 100));
+      });
+
+      for (let i = 0; i < hooks.length; i++) {
+        const hook = hooks[i];
+        const tenantId = i % 2 === 0 ? "offline-tenant-" + i : "online-tenant-" + i;
+
+        if (tenantId.startsWith("offline-tenant")) {
+          await waitFor(() => {
+            assert.strictEqual(hook.result.current.roomError, "Network error for offline tenant");
+            assert.strictEqual(hook.result.current.voiceMode, "BROWSER_WEB_SPEECH");
+          });
+        } else {
+          await waitFor(() => {
+            assert.strictEqual(hook.result.current.voiceMode, "LIVEKIT_WEBRTC");
+          });
+        }
+      }
+    } finally {
+      mockFetchVoiceToken = originalMockFetchVoiceToken;
+    }
+  });
 });
