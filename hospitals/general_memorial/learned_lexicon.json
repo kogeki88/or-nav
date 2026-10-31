@@ -66,10 +66,10 @@
     "spokenTerm": "4-0 prolene rb-1 and heparin 300 units/kg for act over 480",
     "displayPreferredName": "4-0 Prolene Rb-1 And Heparin 300 Units/kg For Act Over 480",
     "canonicalItemName": "4-0 Prolene Suture on RB-1",
-    "usageCount": 5,
+    "usageCount": 6,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-31T03:47:51Z"
+    "updatedAt": "2026-10-31T15:32:43Z"
   },
   {
     "aliasId": "general_memorial_1793206060_7",
@@ -174,10 +174,10 @@
     "spokenTerm": "skin knife",
     "displayPreferredName": "Skin Knife",
     "canonicalItemName": "Ethicon Proximate 35W Skin Stapler",
-    "usageCount": 4,
+    "usageCount": 5,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-10-31T03:49:40Z"
+    "updatedAt": "2026-10-31T15:32:58Z"
   },
   {
     "aliasId": "general_memorial_1793206084_16",

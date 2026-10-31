@@ -89,3 +89,56 @@ def test_intent_parser_multi_tenant_isolation(monkeypatch):
     assert res1.intent == res2.intent
     assert res1.entities == res2.entities
     assert res1.confidence == res2.confidence
+
+
+import time
+import multiprocessing
+from unittest.mock import patch
+import socket
+import httpx
+
+def _poison_and_parse(args):
+    tenant, query, expected_intent = args
+    import os
+    os.environ["HOSPITAL_TENANT"] = tenant
+
+    # Enforce offline-first invariant globally for this worker process
+    def poison(*args, **kwargs):
+        raise RuntimeError("Network call attempted! Offline invariant violated.")
+
+    with patch('socket.socket', side_effect=poison), \
+         patch('httpx.get', side_effect=poison), \
+         patch('httpx.post', side_effect=poison), \
+         patch('httpx.request', side_effect=poison):
+        res = parse_clinical_intent(query)
+
+    return res, expected_intent, tenant
+
+def test_intent_parser_concurrent_burst():
+    # Multi-tenant context and queries
+    queries = [
+        ("hospital_a", "where is the 3-0 vicryl", ClinicalIntent.FIND_INVENTORY),
+        ("hospital_b", "Add open heart tray to rack 4 shelf A", ClinicalIntent.MUTATE_INVENTORY),
+        ("hospital_a", "move the 3-0 prolene to shelf B", ClinicalIntent.FIND_INVENTORY),
+        ("hospital_b", "Here we call Mixter clamps Geminis", ClinicalIntent.TEACH_ALIAS),
+        ("hospital_a", "Dr. Smith lap chole", ClinicalIntent.VIEW_PREFERENCE_CARD),
+        ("hospital_b", "Code blue protocol", ClinicalIntent.GENERAL_QUERY)
+    ] * 20  # Total 120 executions
+
+    start_time = time.time()
+
+    # Use multiprocessing to safely modify os.environ without race conditions
+    with multiprocessing.Pool(processes=4) as pool:
+        results = pool.map(_poison_and_parse, queries)
+
+    end_time = time.time()
+
+    total_latency = end_time - start_time
+    avg_latency = total_latency / len(queries)
+
+    # Assert latency (use a more lenient threshold for CI/CD)
+    assert avg_latency < 0.200, f"Average latency too high: {avg_latency * 1000:.2f}ms"
+
+    # Assert correctness (no race conditions and correct behavior under concurrency)
+    for res, expected_intent, tenant in results:
+        assert res.intent == expected_intent, f"Race condition or bad parse for {expected_intent}. got {res.intent}"
