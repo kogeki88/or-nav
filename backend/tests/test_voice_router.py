@@ -178,3 +178,74 @@ class TestVoiceRouter:
     def test_transcribe_audio_missing_file(self, client):
         resp = client.post("/api/voice/transcribe", data={"transcript_hint": "hint"})
         assert resp.status_code == 422
+
+    def test_concurrent_burst_execution(self, client, monkeypatch):
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        mock_livekit = MagicMock()
+        mock_token = MagicMock()
+        mock_token.with_grants.return_value = mock_token
+        mock_token.with_identity.return_value = mock_token
+        mock_token.with_metadata.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.to_jwt.return_value = "mock_jwt_token"
+        mock_livekit.AccessToken.return_value = mock_token
+        monkeypatch.setitem(sys.modules, "livekit.api", mock_livekit)
+
+        def make_request(i):
+            tenant_id = f"tenant_{i}"
+            start_time = time.time()
+            resp = client.post("/api/voice/token", json={"tenant_id": tenant_id, "participant_name": "user"})
+            end_time = time.time()
+            latency = end_time - start_time
+            return tenant_id, resp, latency
+
+        results = []
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            futures = [executor.submit(make_request, i) for i in range(50)]
+            for f in futures:
+                results.append(f.result())
+
+        latencies = []
+        for expected_tenant, resp, latency in results:
+            assert resp.status_code == 200
+            assert resp.json()["tenant_id"] == expected_tenant
+            latencies.append(latency)
+
+        avg_latency = sum(latencies) / len(latencies)
+        assert avg_latency < 0.5
+
+    def test_voice_transcribe_offline_invariant(self, client, monkeypatch):
+        import httpx
+        import socket
+
+        def mock_raise(*args, **kwargs):
+            raise RuntimeError("Offline invariant violated: External network call attempted.")
+
+        original_socket = socket.socket
+        def mock_socket(*args, **kwargs):
+            family = args[0] if args else kwargs.get("family", socket.AF_INET)
+            if family != getattr(socket, "AF_UNIX", -1):
+                raise RuntimeError("Offline invariant violated: External network call attempted.")
+            return original_socket(*args, **kwargs)
+
+        monkeypatch.setattr(socket, "socket", mock_socket)
+        monkeypatch.setattr(httpx, "get", mock_raise)
+        monkeypatch.setattr(httpx, "post", mock_raise)
+        monkeypatch.setattr(httpx, "request", mock_raise)
+
+        audio = b"0" * 500
+        resp = client.post(
+            "/api/voice/transcribe",
+            files={"file": ("test.wav", audio, "audio/wav")},
+            data={"transcript_hint": "give me the bovie for patient John Smith"}
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["silence"] is False
+        assert "bovie" in data["transcript"].lower()
