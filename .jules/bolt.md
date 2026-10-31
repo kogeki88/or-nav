@@ -43,3 +43,6 @@ This optimization ensures robust performance for the multi-tenant architecture u
 ## 2024-10-30 - LiveKit WebRTC Audio Visualizer Cleanup
 - Implemented robust `requestAnimationFrame` cleanup on WebRTC audio track unmount for `LiveKitAudioVisualizer`.
 - Ensured zero lingering event listeners on `dispose()` to prevent memory leaks in the browser.
+## 2026-10-31 - [React components re-renders without React.memo]
+**Learning:** PeerQnAPanel and other heavy UI components in this codebase frequently trigger unnecessary re-renders in concurrent/react updates if not memoized, due to array iteration and callback regeneration.
+**Action:** Apply `React.memo()` with appropriate prop comparisons where expensive arrays are rendered.

@@ -45,7 +45,7 @@ function getPeerApiUrl(path: string): string {
   return path;
 }
 
-export default function PeerQnAPanel({
+const PeerQnAPanel = React.memo(function PeerQnAPanel({
   isOpen,
   onClose,
   tenantId,
@@ -562,4 +562,6 @@ export default function PeerQnAPanel({
       </div>
     </div>
   );
-}
+});
+
+export default PeerQnAPanel;
