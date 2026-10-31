@@ -1,6 +1,8 @@
 import pytest
 import socket
 import httpx
+import time
+import concurrent.futures
 from app.scrubber import scrub_phi, ScrubResult, REDACTION
 
 
@@ -193,15 +195,35 @@ class TestScrubberServiceMultiTenantIsolation:
         assert "3-0 silk" in result_b1.text
 
 
-    def test_scrub_phi_concurrent_tenant_requests(self):
+    def test_scrub_phi_concurrent_tenant_requests(self, monkeypatch):
         """
         Enforce multi-tenant isolation invariant under simulated concurrency.
         """
+        def poison(*args, **kwargs):
+            raise RuntimeError("Network call attempted during offline-first function execution")
+
+        monkeypatch.setattr(socket, "socket", poison)
+        monkeypatch.setattr(httpx, "get", poison)
+        monkeypatch.setattr(httpx, "post", poison)
+        monkeypatch.setattr(httpx, "request", poison)
+
         tenant_c_text = "MRN: 3333333 pt Bob Smith"
         tenant_d_text = "MRN: 4444444 pt Alice Johnson"
 
-        results_c = [scrub_phi(tenant_c_text) for _ in range(5)]
-        results_d = [scrub_phi(tenant_d_text) for _ in range(5)]
+        num_requests = 1000
+        start_time = time.time()
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+            futures_c = [executor.submit(scrub_phi, tenant_c_text) for _ in range(num_requests)]
+            futures_d = [executor.submit(scrub_phi, tenant_d_text) for _ in range(num_requests)]
+
+            results_c = [f.result() for f in futures_c]
+            results_d = [f.result() for f in futures_d]
+
+        end_time = time.time()
+        all_results = results_c + results_d
+        avg_latency = (end_time - start_time) / len(all_results)
+        assert avg_latency < 0.05, f"Average latency {avg_latency}s exceeded 50ms"
 
         for r in results_c:
             assert r.redaction_count == 2
