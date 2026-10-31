@@ -17,6 +17,76 @@ import * as resourceManager from "./resourceManager";
 import { offlineDb } from "./offlineDb";
 
 describe("ResourceManagerChecksum", () => {
+
+  test("ResourceManagerChecksum high-concurrency burst execution and race condition resistance", async () => {
+    // 1. Setup multi-tenant data
+    const csvContentFac1 = "item,room,cabinet,shelf,container,full_code\nScalpel,Main OR,A,1,A,Main OR A 1 A\n";
+    const csvContentFac2 = "item,room,cabinet,shelf,container,full_code\nForceps,ER,B,2,C,ER B 2 C\n";
+    let fetchCount = 0;
+
+    mock.method(global, 'fetch', async (url) => {
+      fetchCount++;
+      return {
+        ok: true,
+        status: 200,
+        text: async () => url.includes("fac2") ? csvContentFac2 : csvContentFac1
+      };
+    });
+
+    const burstSize = 50;
+    const startTime = Date.now();
+
+    // Fire installs concurrently for both tenants
+    await Promise.all(
+      Array.from({ length: burstSize }).map(async (_, i) => {
+        // Yield to event loop to simulate true concurrency
+        await new Promise(r => setTimeout(r, Math.random() * 10));
+
+        const isFac2 = i % 2 !== 0;
+        const facId = isFac2 ? "fac2" : "fac1";
+        const deptId = isFac2 ? "er" : "or";
+
+        return resourceManager.installPack({
+          packId: `pack_${facId}_${i}`,
+          facilityId: facId,
+          departmentId: deptId,
+          title: `Test Pack ${i}`,
+          category: "department",
+          filePath: `${facId}/${deptId}/inventory.csv`,
+          sizeBytes: 100,
+          versionHash: `v${i}`,
+          updatedAt: "2023-01-01T00:00:00Z",
+        });
+      })
+    );
+
+    const latency = Date.now() - startTime;
+    assert.ok(latency < 5000, `Latency too high: ${latency}ms`); // Expect burst to finish within 5 seconds
+
+    // Verify all packs are installed
+    const packs = await resourceManager.getInstalledPacks();
+    assert.strictEqual(packs.length, burstSize, `Expected ${burstSize} packs to be installed, got ${packs.length}`);
+
+    // Firing multiple installs should trigger fetch for each
+    assert.strictEqual(fetchCount, burstSize, `Expected ${burstSize} fetches, got ${fetchCount}`);
+
+    // Verify items are isolated and data consistency is maintained
+    let itemsFac1 = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    let itemsFac2 = await offlineDb?.inventoryItems.where("tenant_id").equals("fac2::er").toArray();
+
+    assert.ok(itemsFac1 && itemsFac1.some(i => i.item === "Scalpel"));
+    assert.ok(itemsFac1 && !itemsFac1.some(i => i.item === "Forceps")); // No Fac2 data
+
+    assert.ok(itemsFac2 && itemsFac2.some(i => i.item === "Forceps"));
+    assert.ok(itemsFac2 && !itemsFac2.some(i => i.item === "Scalpel")); // No Fac1 data
+
+    mock.restoreAll();
+  });
+
+
+
+
+
   beforeEach(async () => {
     if (offlineDb) {
       await offlineDb.installedPacks.clear();
