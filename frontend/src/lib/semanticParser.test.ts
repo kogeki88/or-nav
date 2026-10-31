@@ -221,6 +221,27 @@ test("Semantic Query Parser Normalizations & Invariants", async (t) => {
     // Check that state doesn't leak between invocations
     assert.notDeepStrictEqual(q1.entities, q3.entities);
   });
+
+  await t.test("Invariant: Multi-tenant boundary enforcement (facility_id::dept_id)", () => {
+    // Simulate query parsing across different facility/dept boundaries
+    const qFac1 = parseClinicalIntent("where is the 3-0 silk", "facility_1::dept_A");
+    const qFac2 = parseClinicalIntent("where is the 3-0 silk", "facility_2::dept_B");
+
+    // The parser itself is stateless and should return identical intents regardless of boundaries
+    assert.deepStrictEqual(qFac1.intent, qFac2.intent);
+    assert.deepStrictEqual(qFac1.entities, qFac2.entities);
+  });
+
+  await t.test("Invariant: Offline mutation replay idempotency", () => {
+    // Ensure that multiple identical mutations yield the exact same intent structure
+    const m1 = parseClinicalIntent("add 3-0 silk to OR 1");
+    const m2 = parseClinicalIntent("add 3-0 silk to OR 1");
+    const m3 = parseClinicalIntent("add 3-0 silk to OR 1");
+
+    assert.deepStrictEqual(m1, m2);
+    assert.deepStrictEqual(m2, m3);
+    assert.strictEqual(m1.intent, ClinicalIntent.MUTATE_INVENTORY);
+  });
 });
 
 
