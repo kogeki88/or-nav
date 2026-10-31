@@ -276,9 +276,9 @@ async function checkAndMergePRs(apiKey) {
   // Step 1b: Sync local workspace with autostash
   let syncStatus = 'SUCCESS';
   try {
-    log('Syncing local workspace with origin/main via rebase with autostash...');
-    execSync('git fetch origin main', { cwd: ROOT_DIR, encoding: 'utf8', timeout: 25000 });
-    execSync('git rebase --autostash origin/main', { cwd: ROOT_DIR, encoding: 'utf8', timeout: 25000 });
+    log('Syncing local workspace with origin/main via pull rebase with autostash...');
+    execSync('git pull --rebase --autostash origin main', { cwd: ROOT_DIR, encoding: 'utf8', timeout: 30000 });
+
     log('Local workspace successfully synchronized.');
   } catch (syncErr) {
     syncStatus = 'FAILED';
@@ -343,7 +343,7 @@ async function auditAndUnblockSessions(apiKey) {
     }
 
     // Condition B: Clean up failed sessions
-    if (s.state === 'FAILED') {
+    if (s.state === 'FAILED' || s.state === 'ERROR' || s.state === 'CANCELLED') {
       log(`[Session ${s.id}] FAILED ('${title}'). Deleting failed slot to free concurrency...`);
       try {
         await julesFetch(`https://jules.googleapis.com/v1alpha/sessions/${s.id}`, apiKey, { method: 'DELETE' });
@@ -757,8 +757,17 @@ async function replenishPool(apiKey, currentActive) {
 
   backlog = ensureBacklogCapacity(backlog, needed);
 
+  const CATEGORY_PRIORITY = { 'Security': 1, 'Performance': 2, 'Code Health': 3, 'Testing': 4 };
+  const pendingTasks = backlog
+    .filter(t => t.status === 'pending')
+    .sort((a, b) => {
+      const pA = CATEGORY_PRIORITY[a.category] || 99;
+      const pB = CATEGORY_PRIORITY[b.category] || 99;
+      if (pA !== pB) return pA - pB;
+      return (a.id || '').localeCompare(b.id || '');
+    });
   let launched = 0;
-  for (const item of backlog) {
+  for (const item of pendingTasks) {
     if (launched >= needed) break;
     if (item.status !== 'pending') continue;
 
