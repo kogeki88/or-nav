@@ -449,3 +449,51 @@ test('enforces strict schema resilience (missing fields, unexpected types)', () 
 
   cleanup();
 });
+
+test('supplementary: verifies progress percentage rendering and install button handler', async () => {
+  const onCloseMock = mock.fn();
+  render(
+    <AutoUpdateModal
+      isOpen={true}
+      onClose={onCloseMock}
+      manifest={manifest}
+      currentVersion="v0.61"
+      currentBuild={18}
+    />
+  );
+
+  // Verify release notes exist initially
+  assert.ok(screen.getByText("What's New in v0.62"));
+
+  const installBtn = screen.getByTestId('btn-install-apk-modal');
+  fireEvent.click(installBtn);
+
+  await waitFor(() => {
+    assert.ok(screen.getByTestId('progress-bar'));
+    assert.ok(screen.getByText(/Downloading\.\.\. \d+%/));
+  }, { timeout: 2000 });
+
+  // Verify that it eventually reaches 100% and finishes
+  await waitFor(() => {
+    assert.ok(screen.getByText("Downloading... 100%"));
+  }, { timeout: 2000 });
+
+  // verify dismiss behavior when X is clicked
+  cleanup();
+
+  render(
+    <AutoUpdateModal
+      isOpen={true}
+      onClose={onCloseMock}
+      manifest={manifest}
+      currentVersion="v0.61"
+      currentBuild={18}
+    />
+  );
+
+  const closeBtn = screen.getByLabelText('Close');
+  fireEvent.click(closeBtn);
+  assert.strictEqual(onCloseMock.mock.callCount(), 1);
+
+  cleanup();
+});
