@@ -288,6 +288,9 @@ def plan_clinical_query(query: str, graph: Optional[ClinicalEntityGraph] = None,
     """
     Layer 2: Deterministically decompose a clinical query into a `ClinicalQueryPlan`.
     """
+    if query is not None and not isinstance(query, str):
+        raise ValueError(f"Expected query to be a string, got {type(query)}")
+
     if graph is None:
         graph = get_clinical_graph(tenant_id)
 
