@@ -1,5 +1,5 @@
 import 'jsdom-global/register';
-import { renderHook } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { useWakeLock } from "./useWakeLock";
 import { describe, it, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
@@ -263,6 +263,7 @@ describe("useWakeLock", () => {
       // Replay identical input (offline mutation replay)
       rerender({ enabled: true });
       await Promise.resolve();
+
       rerender({ enabled: true });
       await Promise.resolve();
 
@@ -289,7 +290,9 @@ describe("useWakeLock", () => {
       const burstSize = 50;
 
       // Synchronously pre-instantiate hook render objects with isolated DOM nodes for multi-tenant isolation
-      const hooks = Array.from({ length: burstSize }).map((_, i) => {
+      let hooks: any[] = [];
+      // `renderHook` wraps its own `act` in RTL.
+      hooks = Array.from({ length: burstSize }).map((_, i) => {
         const root = document.createElement('div');
         root.setAttribute('data-tenant', `facility_${i % 5}::dept_${i % 3}`);
         document.body.appendChild(root);
@@ -303,22 +306,28 @@ describe("useWakeLock", () => {
       });
 
       // Concurrently trigger actions on them with random jitter
-      const results = await Promise.all(
-        hooks.map(async ({ hook, root }) => {
-          await new Promise(r => setTimeout(r, Math.random() * 10)); // yield execution to event loop
+      let results: boolean[] = [];
+      await act(async () => {
+        results = await Promise.all(
+          hooks.map(async ({ hook, root }) => {
+            await new Promise(r => setTimeout(r, Math.random() * 10)); // yield execution to event loop
 
-          hook.rerender({ enabled: true });
-          await new Promise(r => setTimeout(r, Math.random() * 10)); // jitter
+            hook.rerender({ enabled: true });
 
+            await new Promise(r => setTimeout(r, Math.random() * 10)); // jitter
+            return true;
+          })
+        );
+      });
+
+      await act(async () => {
+        for (const { hook, root } of hooks) {
           hook.unmount();
-          await new Promise(r => setTimeout(r, Math.random() * 10)); // jitter
-
           if (document.body.contains(root)) {
             document.body.removeChild(root);
           }
-          return true;
-        })
-      );
+        }
+      });
 
       assert.strictEqual(results.length, burstSize);
       assert.strictEqual(mockRequest.mock.calls.length, burstSize);
