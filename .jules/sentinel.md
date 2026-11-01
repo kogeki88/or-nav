@@ -68,3 +68,7 @@ Fix applied:
 **Vulnerability:** Untrusted origins may attempt to make cross-origin requests, and missing security headers may expose the application to MIME-sniffing, clickjacking, and XSS attacks.
 **Learning:** Security headers like X-Content-Type-Options, X-Frame-Options, and Content-Security-Policy must be present to enforce boundaries.
 **Prevention:** Wrote tests to strictly enforce hospital domain boundaries for CORS origins and ensure essential security headers are present.
+## 2024-11-01 - Missing Auth Token Lifecycle
+**Vulnerability:** Auth tokens are currently generated as random UUID strings but are never verified, have no expiration mechanism, and cannot be revoked because there is no logout functionality.
+**Learning:** The initial authentication implementation only provided dummy tokens without implementing actual session state management, JWT validation, or token lifecycle endpoints.
+**Prevention:** Implement secure JWTs or stateful sessions with proper signature validation, expiration timestamps, and a mechanism (like a token blocklist or session destruction) for logout revocation.
