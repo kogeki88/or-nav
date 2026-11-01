@@ -662,3 +662,26 @@ test('multi-tenant boundary enforcement and offline replay idempotency', async (
     // 8. Assert multi-tenant boundary enforcement in the offline mutation payload
     assert.strictEqual(mockSaveOfflinePeerQuestionCalls[0].tenantId, 'facility1::dept2', 'The offline payload must strictly enforce the tenant boundary');
 });
+
+test('supplementary invariant test: multi-tenant isolation and offline-first', async () => {
+    global.fetch = mock.fn(async () => {
+        throw new Error('Network offline');
+    });
+    mockSaveOfflinePeerQuestionCalls = [];
+    render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility_isolated" userProfile={dummyProfile} />);
+
+    const askTab = screen.getByText('Ask Department Peers');
+    fireEvent.click(askTab);
+    const textarea = screen.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+    fireEvent.change(textarea, { target: { value: 'supplementary check' } });
+
+    const submitBtn = screen.getByText('Broadcast Question');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('supplementary check'));
+    });
+
+    assert.strictEqual(mockSaveOfflinePeerQuestionCalls.length, 1);
+    assert.strictEqual(mockSaveOfflinePeerQuestionCalls[0].tenantId, 'facility_isolated');
+});
