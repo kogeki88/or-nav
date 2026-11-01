@@ -296,3 +296,60 @@ describe("Dexie Benchmarks", () => {
     assert.strictEqual(mutationIdsByKey.get(otherKey2)?.length, 1);
   });
 });
+
+  test("Offline Database Bulk Operations Benchmark - bulkPut 600 items in under 200ms", async () => {
+    const db = new BenchmarkDB();
+    await db.inventoryItems.clear();
+
+    const mockItems = Array.from({ length: 600 }, (_, i) => ({
+      id: `item-${i}`,
+      tenant_id: 'test-tenant::department',
+      item: `Mock Item ${i}`,
+      full_code: `CODE-${i}`,
+      phonetic_code: `KODE-${i}`,
+      status: i % 2 === 0 ? 'available' : 'unavailable',
+      category: 'supplies',
+      unit_of_issue: 'ea',
+    }));
+
+    const start = performance.now();
+    await db.inventoryItems.bulkPut(mockItems);
+    const duration = performance.now() - start;
+
+    const count = await db.inventoryItems.count();
+    assert.strictEqual(count, 600);
+    assert.ok(duration < 200, `bulkPut took ${duration}ms, which exceeds the 200ms limit`);
+
+    await db.inventoryItems.clear();
+  });
+
+  test("Offline Database Bulk Operations Benchmark - compound index query [tenant_id+status] performance", async () => {
+    const db = new BenchmarkDB();
+    await db.inventoryItems.clear();
+
+    const mockItems = Array.from({ length: 600 }, (_, i) => ({
+      id: `item-${i}`,
+      tenant_id: 'test-tenant::department',
+      item: `Mock Item ${i}`,
+      full_code: `CODE-${i}`,
+      phonetic_code: `KODE-${i}`,
+      status: i % 2 === 0 ? 'available' : 'unavailable',
+      category: 'supplies',
+      unit_of_issue: 'ea',
+    }));
+
+    await db.inventoryItems.bulkPut(mockItems);
+    const start = performance.now();
+
+    const results = await db.inventoryItems
+      .where('[tenant_id+status]')
+      .equals(['test-tenant::department', 'available'])
+      .toArray();
+
+    const duration = performance.now() - start;
+
+    assert.strictEqual(results.length, 300);
+    assert.ok(duration < 100, `Compound query took ${duration}ms, which exceeds the 100ms limit`);
+
+    await db.inventoryItems.clear();
+  });
