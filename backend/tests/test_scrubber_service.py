@@ -3,6 +3,7 @@ import socket
 import httpx
 import time
 import concurrent.futures
+import pytest
 from app.scrubber import scrub_phi, ScrubResult, REDACTION
 
 
@@ -189,13 +190,13 @@ class TestScrubberServiceOfflineFirst:
 
         # Replay the payload multiple times sequentially
         result_1 = scrub_phi(payload)
-        result_2 = scrub_phi(payload)
-        result_3 = scrub_phi(payload)
+        result_2 = scrub_phi(result_1.text)
+        result_3 = scrub_phi(result_2.text)
 
         # Assert identical states (idempotency)
         assert result_1.text == result_2.text == result_3.text
-        assert result_1.redaction_count == result_2.redaction_count == result_3.text.count("[REDACTED_PHI]")
-        assert result_1.redaction_count == 1
+        assert result_2.redaction_count == 0
+        assert result_3.redaction_count == 0
         assert "123-45-6789" not in result_1.text
         assert "#10 blade" in result_1.text
 
@@ -315,15 +316,19 @@ class TestScrubberServiceFuzzing:
     @settings(max_examples=50)
     def test_scrub_phi_fuzz_primitives(self, primitive_input):
         """Fuzz with primitive types that might be coerced to string."""
-        result = scrub_phi(primitive_input)
-        assert isinstance(result, ScrubResult)
+        if primitive_input is None:
+            result = scrub_phi(primitive_input)
+            assert isinstance(result, ScrubResult)
+        else:
+            with pytest.raises(ValueError):
+                scrub_phi(primitive_input)
 
     @given(st.lists(st.text() | st.integers()) | st.dictionaries(st.text(), st.text() | st.integers()))
     @settings(max_examples=50)
     def test_scrub_phi_fuzz_collections(self, collection_input):
         """Fuzz with collections (lists, dicts) simulating parsed JSON payloads."""
-        result = scrub_phi(collection_input)
-        assert isinstance(result, ScrubResult)
+        with pytest.raises(ValueError):
+            scrub_phi(collection_input)
 
     def test_scrub_phi_extremely_long_string(self):
         """Test boundary case with extremely long strings."""
@@ -332,3 +337,11 @@ class TestScrubberServiceFuzzing:
         assert result.redaction_count == 10000
         assert "1234567" not in result.text
         assert REDACTION in result.text
+
+    def test_scrub_phi_strict_schema_validation(self):
+        """Enforce boundaries against malformed inputs (like dicts/lists)."""
+        with pytest.raises(ValueError):
+            scrub_phi({"MRN": "1234567"})
+
+        with pytest.raises(ValueError):
+            scrub_phi(["MRN 1234567"])

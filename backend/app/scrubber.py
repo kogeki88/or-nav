@@ -143,7 +143,7 @@ def scrub_phi(text: str) -> ScrubResult:
     if not isinstance(text, str):
         if text is None:
             return ScrubResult(text="", redaction_count=0)
-        text = str(text)
+        raise ValueError("Invalid input: string expected")
 
     if not text:
         return ScrubResult(text="", redaction_count=0)

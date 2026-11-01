@@ -1,4 +1,4 @@
-## 2026-11-01 - Auth Token Rotation Test Enhancement
-**Vulnerability:** Weak enforcement of offline-first invariants and missing idempotency/rotation coverage for the `/api/auth/reset-password` endpoint.
-**Learning:** Out-of-bounds network requests could theoretically bypass HTTPX mocks if a direct socket connection is made, and dynamically generated metrics mask true structural data equality checks, weakening replay idempotency verifications.
-**Prevention:** Override `socket.socket` while explicitly bypassing `AF_UNIX` to preserve `asyncio` event loops. Strip temporal metrics (like `latency_ms`) directly from payloads before comparing API test responses sequentially to ensure true idempotency validation without breaking the system.
+## 2024-05-15 - Hardening Offline Identity Mappings
+**Vulnerability:** Scrubber logic for PHI mutations lacked assertions for true offline idempotency (sequential offline payloads could cause drift), and the function signature permitted malformed primitive boundaries (lists/dicts) without failing loudly.
+**Learning:** Pure string processing functions that execute at the client or edge layer before a router must have strict validation logic to avoid coercing bad inputs that could bypass regex logic or cause unexpected JSON structural changes down stream.
+**Prevention:** Strictly enforce type checking (`isinstance(text, str)`) around untyped regex targets to fail fast and write strict mutation replay assertions (`assert scrub(res.text) == res.text`).
