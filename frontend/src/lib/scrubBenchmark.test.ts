@@ -13,14 +13,18 @@ describe("PHI Scrubber Performance & Memory Benchmark", () => {
     "today.", "MRN", "12345678", "and", "DOB", "01/15/1980.", "Contact", "at",
     "555-123-4567.", "Clinical", "positioning", "is", "critical.", "Get", "the",
     "DeBakey", "forceps", "and", "3-0", "silk.", "Move", "to", "OR", "21", "A", "2", "C.",
-    "Patient", "Mary-Jane", "Parker", "was", "born", "on", "March", "4th", "1982."
+    "Patient", "Mary-Jane", "Parker", "was", "born", "on", "March", "4th", "1982.",
+    "Dr.", "Smith", "and", "Doctor", "Jones", "are", "attending."
   ];
 
   // Generate a string with roughly 10,000 words.
-  // The base array has 47 words. Repeating it 213 times yields ~10,011 words.
-  const dictationText = Array(213).fill(words.join(" ")).join(" ");
+  // The base array has 54 words. Repeating it 186 times yields ~10,044 words.
+  const dictationText = Array(186).fill(words.join(" ")).join(" ");
 
   test("Execution time is < 15ms for ~10,000 words", () => {
+    // Warm up the JIT compiler
+    scrubPhi(dictationText);
+
     const start = performance.now();
     scrubPhi(dictationText);
     const end = performance.now();
