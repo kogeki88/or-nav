@@ -52,3 +52,14 @@ def test_expired_voice_token_is_rejected():
 
     with pytest.raises(jwt.ExpiredSignatureError):
         jwt.decode(expired_token, "secret", algorithms=["HS256"])
+
+def test_missing_livekit_credentials_fails(client, monkeypatch):
+    monkeypatch.delenv("LIVEKIT_API_KEY", raising=False)
+    monkeypatch.delenv("LIVEKIT_API_SECRET", raising=False)
+
+    resp = client.post("/api/voice/token", json={
+        "tenant_id": "general_memorial_cvor",
+        "participant_name": "dr_chen_cvor",
+    })
+
+    assert resp.status_code == 503

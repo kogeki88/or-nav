@@ -68,3 +68,7 @@ Fix applied:
 **Vulnerability:** Untrusted origins may attempt to make cross-origin requests, and missing security headers may expose the application to MIME-sniffing, clickjacking, and XSS attacks.
 **Learning:** Security headers like X-Content-Type-Options, X-Frame-Options, and Content-Security-Policy must be present to enforce boundaries.
 **Prevention:** Wrote tests to strictly enforce hospital domain boundaries for CORS origins and ensure essential security headers are present.
+## 2025-02-09 - Sentinel Voice Token Verification
+**Vulnerability:** Weak time-to-live and missing tenant isolation on room tokens.
+**Learning:** Tokens must be rigorously verified against claims to prevent cross-tenant joining.
+**Prevention:** Implement strict assertions in tests to ensure tokens carry `tenant_id` and correct `sub`, and have reasonable `exp` (<=600s). Reject expired tokens dynamically.
