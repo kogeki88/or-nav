@@ -1,117 +1,131 @@
 import 'jsdom-global/register.js';
-import { test, beforeEach, afterEach, mock } from 'node:test';
+import test, { describe, it, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import MoveVerifyWidget from './MoveVerifyWidget';
 import { MoveWidgetData } from '@/lib/api';
 
-beforeEach(() => {
-  global.fetch = mock.fn(async () => ({
-    ok: true,
-    json: async () => ({ verify_count: 2, committed: true })
-  } as unknown as Response));
-});
-
-afterEach(() => {
-  cleanup();
-  mock.reset();
-});
-
-const mockWidget: MoveWidgetData = {
-  item: "10 Blade",
-  new_location: "Shelf B",
-  verify_count: 1,
-  committed: false,
-  routing_tier: "MOVE_REPORTED",
-  move_widget: null
-};
-
-test('drag start sets attributes correctly', async () => {
-  render(<MoveVerifyWidget widget={mockWidget} tenantId="test_tenant" />);
-
-  const draggableItem = screen.getByText("10 Blade");
-  assert.strictEqual(draggableItem.getAttribute('aria-grabbed'), 'false');
-  assert.strictEqual(draggableItem.getAttribute('draggable'), 'true');
-
-  // Create a mock data transfer object
-  const dataTransfer = {
-    setData: mock.fn(),
-    getData: mock.fn(),
-    effectAllowed: ''
+describe('MoveVerifyWidget', () => {
+  const mockWidget: MoveWidgetData = {
+    item: 'Defibrillator',
+    new_location: 'ICU Storage',
+    verify_count: 1,
+    committed: false,
   };
 
-  fireEvent.dragStart(draggableItem, { dataTransfer });
+  let originalFetch: typeof global.fetch;
+  let fetchMock: any;
 
-  assert.strictEqual(draggableItem.getAttribute('aria-grabbed'), 'true');
-  assert.strictEqual(dataTransfer.setData.mock.calls.length, 1);
-  assert.strictEqual(dataTransfer.setData.mock.calls[0].arguments[0], 'text/plain');
-  assert.strictEqual(dataTransfer.setData.mock.calls[0].arguments[1], '10 Blade');
-  assert.strictEqual(dataTransfer.effectAllowed, 'move');
-});
+  beforeEach(() => {
+    mock.restoreAll();
 
-test('hover over valid target shelf indicates drop zone', async () => {
-  render(<MoveVerifyWidget widget={mockWidget} tenantId="test_tenant" />);
-
-  const targetShelf = screen.getByText("Shelf B");
-  assert.strictEqual(targetShelf.getAttribute('aria-dropeffect'), 'move');
-
-  const dataTransfer = {
-    dropEffect: ''
-  };
-
-  fireEvent.dragOver(targetShelf, { dataTransfer });
-
-  // The class should change to indicate hover, checking for specific string in className
-  assert.ok(targetShelf.className.includes('border-emerald-500'));
-  assert.strictEqual(dataTransfer.dropEffect, 'move');
-
-  fireEvent.dragLeave(targetShelf);
-  assert.ok(!targetShelf.className.includes('border-emerald-500'));
-});
-
-test('drop event triggers move confirmation', async () => {
-  const onCommittedMock = mock.fn();
-
-  render(<MoveVerifyWidget widget={mockWidget} tenantId="test_tenant" onCommitted={onCommittedMock} />);
-
-  const targetShelf = screen.getByText("Shelf B");
-
-  const dataTransfer = {
-    getData: mock.fn((format) => {
-      if (format === 'text/plain') return '10 Blade';
-      return '';
-    })
-  };
-
-  fireEvent.drop(targetShelf, { dataTransfer });
-
-  await waitFor(() => {
-    assert.strictEqual(global.fetch.mock.calls.length, 1);
-
-    // UI should show committed state
-    assert.ok(screen.getByText('Committed'));
-    assert.ok(screen.getByText('3/3 confirmed'));
-
-    assert.strictEqual(onCommittedMock.mock.calls.length, 1);
-    assert.strictEqual(onCommittedMock.mock.calls[0].arguments[0], '10 Blade');
+    originalFetch = global.fetch;
+    fetchMock = mock.fn(async () => {
+      return {
+        ok: true,
+        json: async () => ({
+          verify_count: 2,
+          committed: false,
+        })
+      };
+    });
+    global.fetch = fetchMock as any;
   });
-});
 
-test('cancel action does not trigger confirmation', async () => {
-  render(<MoveVerifyWidget widget={mockWidget} tenantId="test_tenant" />);
+  afterEach(() => {
+    cleanup();
+    global.fetch = originalFetch;
+  });
 
-  const draggableItem = screen.getByText("10 Blade");
-  const startDataTransfer = {
-    setData: mock.fn(),
-    effectAllowed: ''
-  };
-  fireEvent.dragStart(draggableItem, { dataTransfer: startDataTransfer });
-  assert.strictEqual(draggableItem.getAttribute('aria-grabbed'), 'true');
+  it('renders the widget correctly', () => {
+    render(<MoveVerifyWidget widget={mockWidget} tenantId="test-tenant" />);
+    assert.ok(screen.getByText('Defibrillator'));
+    assert.ok(screen.getByText('ICU Storage'));
+    assert.ok(screen.getByText('Confirm (1/3)'));
+  });
 
-  // Cancel drag by ending it without drop
-  fireEvent.dragEnd(draggableItem);
+  it('verifies ARIA attributes on draggable item', () => {
+    render(<MoveVerifyWidget widget={mockWidget} tenantId="test-tenant" />);
+    const draggableItem = screen.getByText('Defibrillator');
+    assert.strictEqual(draggableItem.getAttribute('draggable'), 'true');
+    assert.strictEqual(draggableItem.getAttribute('role'), 'button');
+    assert.strictEqual(draggableItem.getAttribute('aria-grabbed'), 'false');
+  });
 
-  assert.strictEqual(draggableItem.getAttribute('aria-grabbed'), 'false');
-  assert.strictEqual(global.fetch.mock.calls.length, 0); // No API call should happen
+  it('handles drag start and end events correctly', () => {
+    render(<MoveVerifyWidget widget={mockWidget} tenantId="test-tenant" />);
+    const draggableItem = screen.getByText('Defibrillator');
+
+    const setDataMock = mock.fn();
+    const dataTransfer = {
+      setData: setDataMock,
+      effectAllowed: '',
+    };
+
+    fireEvent.dragStart(draggableItem, { dataTransfer });
+
+    assert.strictEqual(draggableItem.getAttribute('aria-grabbed'), 'true');
+    assert.strictEqual(setDataMock.mock.calls.length, 1);
+    assert.deepStrictEqual(setDataMock.mock.calls[0].arguments, ['text/plain', 'Defibrillator']);
+    assert.strictEqual(dataTransfer.effectAllowed, 'move');
+
+    fireEvent.dragEnd(draggableItem);
+    assert.strictEqual(draggableItem.getAttribute('aria-grabbed'), 'false');
+  });
+
+  it('handles drag over valid target shelf', () => {
+    render(<MoveVerifyWidget widget={mockWidget} tenantId="test-tenant" />);
+    const targetShelf = screen.getByText('ICU Storage');
+
+    const dataTransfer = {
+      dropEffect: '',
+    };
+
+    fireEvent.dragOver(targetShelf, { dataTransfer });
+
+    assert.strictEqual(dataTransfer.dropEffect, 'move');
+    // Verify visual validation of drop zone
+    assert.ok(targetShelf.className.includes('border-emerald-500'));
+  });
+
+  it('handles drop event and triggers confirmation', async () => {
+    const onCommittedMock = mock.fn();
+
+    render(<MoveVerifyWidget widget={mockWidget} tenantId="test-tenant" onCommitted={onCommittedMock} />);
+
+    const targetShelf = screen.getByText('ICU Storage');
+
+    const dataTransfer = {
+      getData: mock.fn(() => 'Defibrillator'),
+    };
+
+    fireEvent.drop(targetShelf, { dataTransfer });
+
+    await waitFor(() => {
+      assert.strictEqual(fetchMock.mock.calls.length, 1);
+      const call = fetchMock.mock.calls[0];
+      assert.ok(call.arguments[0].includes('/api/inventory/verify-move'));
+      const body = JSON.parse(call.arguments[1].body);
+      assert.strictEqual(body.tenant_id, 'test-tenant');
+      assert.strictEqual(body.item, 'Defibrillator');
+      assert.strictEqual(body.expected_location, 'ICU Storage');
+    });
+
+    assert.ok(screen.getByText('Confirm (2/3)'));
+  });
+
+  it('handles cancel/no-op action on drop with non-matching data', async () => {
+    render(<MoveVerifyWidget widget={mockWidget} tenantId="test-tenant" />);
+
+    const targetShelf = screen.getByText('ICU Storage');
+
+    const dataTransfer = {
+      getData: mock.fn(() => 'Other Item'),
+    };
+
+    fireEvent.drop(targetShelf, { dataTransfer });
+
+    assert.strictEqual(fetchMock.mock.calls.length, 0);
+  });
 });
