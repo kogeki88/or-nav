@@ -314,7 +314,7 @@ describe('appSettings', () => {
 
   test('concurrent burst execution and race condition resistance', async () => {
     localStorage.clear();
-    const iterations = 100;
+    const iterations = 1000;
     const promises = [];
 
     for (let i = 0; i < iterations; i++) {
@@ -332,7 +332,12 @@ describe('appSettings', () => {
       );
     }
 
+    const start = performance.now();
     await Promise.all(promises);
+    const end = performance.now();
+
+    const duration = end - start;
+    assert.ok(duration < 500, `Concurrent burst latency too high: took ${duration}ms, expected < 500ms`);
 
     const finalSettings = getAppSettings();
     assert.strictEqual(typeof finalSettings.fontScaling, 'number');
