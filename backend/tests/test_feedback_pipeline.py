@@ -205,3 +205,37 @@ def test_offline_mutation_replay_idempotency(monkeypatch):
     # Assert upvotes incremented correctly because of is_similar merging
     target_item = next(it for it in items_after_third if it["rawText"] == "Need a timer idempotency check")
     assert target_item["upvotes"] >= 3
+
+def test_offline_first_socket_invariants(monkeypatch):
+    import socket
+    original_socket = socket.socket
+
+    def mock_socket(family=-1, *args, **kwargs):
+        if family != getattr(socket, "AF_UNIX", -1):
+            raise RuntimeError("Network access is strictly forbidden in offline-first mode")
+        return original_socket(family, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
+
+    def block_network(*args, **kwargs):
+        raise RuntimeError("Network access is strictly forbidden in offline-first mode")
+
+    monkeypatch.setattr(httpx, "get", block_network)
+    monkeypatch.setattr(httpx, "post", block_network)
+
+    payload = {
+        "tenantId": "sacred_heart::icu",
+        "rawText": "Ensure no leak and offline strictly"
+    }
+    res = client.post("/api/feedback", json=payload)
+    assert res.status_code == 200
+
+    # Positive check: item exists for the tenant that created it
+    res_sh = client.get("/api/feedback?tenantId=sacred_heart::icu")
+    items_sh = [it for it in res_sh.json()["items"] if it["tenantId"] == "sacred_heart::icu"]
+    assert any(it["rawText"] == "Ensure no leak and offline strictly" for it in items_sh)
+
+    # Negative check: another tenant cannot see it
+    res_other = client.get("/api/feedback?tenantId=county_general::er")
+    items_other = [it for it in res_other.json()["items"]]
+    assert not any(it["rawText"] == "Ensure no leak and offline strictly" for it in items_other)
