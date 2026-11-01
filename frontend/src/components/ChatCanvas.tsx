@@ -7,6 +7,7 @@ import CoordinateCard from "./CoordinateCard";
 import MoveVerifyWidget from "./MoveVerifyWidget";
 import { Shield, Sparkles, BookOpen, Volume2, Users, PlusCircle, Check } from "lucide-react";
 import { getDepartment } from "@/lib/departments";
+import { useVirtualizer } from "@tanstack/react-virtual";
 
 export interface QuickAddWidgetData {
   item: string;
@@ -358,17 +359,27 @@ export default function ChatCanvas({
                         Found {cards.length} items:
                       </div>
                     )}
-                    {cards.map((card, cIdx) => (
-                      <CoordinateCard
-                        key={`${card.item}-${cIdx}`}
-                        card={card}
-                        departmentId={tenantId}
-                        facilityId={tenantId.includes("::") ? tenantId.split("::")[0] : tenantId}
+                    {cards.length > 5 ? (
+                      <VirtualizedCardList
+                        cards={cards}
+                        tenantId={tenantId}
                         onVerifyPendingMove={onVerifyPendingMove}
                         onFlagWrong={onFlagWrong}
                         onSpeakText={onSpeakSingleMessage}
                       />
-                    ))}
+                    ) : (
+                      cards.map((card, cIdx) => (
+                        <CoordinateCard
+                          key={`${card.item}-${cIdx}`}
+                          card={card}
+                          departmentId={tenantId}
+                          facilityId={tenantId.includes("::") ? tenantId.split("::")[0] : tenantId}
+                          onVerifyPendingMove={onVerifyPendingMove}
+                          onFlagWrong={onFlagWrong}
+                          onSpeakText={onSpeakSingleMessage}
+                        />
+                      ))
+                    )}
                     {/* Vector 3: Partial Compound Missing Item Alert */}
                     {msg.text && (msg.text.includes("Could not find") || msg.text.includes("⚠️")) && (
                       <div className="text-xs text-amber-300 bg-amber-950/40 border border-amber-800/40 px-3 py-2 rounded-lg flex items-center justify-between gap-2 mt-1">
@@ -542,6 +553,69 @@ export default function ChatCanvas({
       )}
 
       <div ref={bottomRef} />
+    </div>
+  );
+}
+
+function VirtualizedCardList({ cards, tenantId, onVerifyPendingMove, onFlagWrong, onSpeakText }: {
+  cards: CoordinateCardData[],
+  tenantId: string,
+  onVerifyPendingMove?: (item: string) => Promise<void>,
+  onFlagWrong?: (item: string) => Promise<void>,
+  onSpeakText?: (text: string) => void
+}) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const rowVirtualizer = useVirtualizer({
+    count: cards.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 150, // rough estimate of a card's height
+    overscan: 5,
+  });
+
+  return (
+    <div
+      ref={parentRef}
+      style={{
+        height: '400px', // Set a max height for the scrollable area
+        overflow: 'auto', // Make it scrollable
+        width: '100%'
+      }}
+    >
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+          const card = cards[virtualItem.index];
+          return (
+            <div
+              key={virtualItem.key}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualItem.size}px`,
+                transform: `translateY(${virtualItem.start}px)`,
+                paddingBottom: '8px' // Some space between cards
+              }}
+            >
+              <CoordinateCard
+                card={card}
+                departmentId={tenantId}
+                facilityId={tenantId.includes("::") ? tenantId.split("::")[0] : tenantId}
+                onVerifyPendingMove={onVerifyPendingMove}
+                onFlagWrong={onFlagWrong}
+                onSpeakText={onSpeakText}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
