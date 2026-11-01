@@ -562,6 +562,24 @@ def test_malformed_payload_resilience():
     assert is_generic_class_only(None) == False
     assert strip_spoken_disfluencies(None) == ""
 
+    # Test handling of non-string types (lists, dicts) which should raise ValueError
+    invalid_inputs = [[1, 2], {"a": 1}, 123, 123.4]
+    for invalid in invalid_inputs:
+        with pytest.raises(ValueError, match="Input must be a string"):
+            normalize_or_lingo(invalid)
+        with pytest.raises(ValueError, match="Input must be a string"):
+            normalize_acoustic_speech(invalid)
+        with pytest.raises(ValueError, match="Input must be a string"):
+            extract_eponyms(invalid)
+        with pytest.raises(ValueError, match="Input must be a string"):
+            is_eponym_conflict(invalid, "candidate")
+        with pytest.raises(ValueError, match="Input must be a string"):
+            is_eponym_conflict("query", invalid)
+        with pytest.raises(ValueError, match="Input must be a string"):
+            is_generic_class_only(invalid)
+        with pytest.raises(ValueError, match="Input must be a string"):
+            strip_spoken_disfluencies(invalid)
+
 def test_fuzz_offline_first_invariant(monkeypatch):
     import socket
     import httpx
