@@ -226,6 +226,30 @@ test('handles malformed payloads, boundary inputs, and extreme values safely (Fu
   cleanup();
 });
 
+test('handles float boundaries, NaN, arrays, objects passed as fields (Fuzzing)', () => {
+  const strangeManifest = {
+    version: ['v1', 'v2'], // array instead of string
+    build_number: NaN,
+    release_date: { year: 2026 },
+    apk_download_url: undefined,
+    min_supported_version: 0.0001, // float boundary
+    changelog: null,
+  } as any;
+
+  render(
+    <AutoUpdateModal
+      isOpen={true}
+      onClose={() => {}}
+      manifest={strangeManifest}
+      currentVersion={null as any}
+      currentBuild={NaN}
+    />
+  );
+
+  assert.ok(screen.getByTestId('auto-update-modal'));
+  cleanup();
+});
+
 test('enforces multi-tenant boundary isolation and offline mutation replay idempotency', () => {
   const tenant1 = 'facility_A::dept_1';
   const tenant2 = 'facility_B::dept_2';
@@ -283,6 +307,30 @@ test('enforces multi-tenant boundary isolation and offline mutation replay idemp
 
   assert.ok(screen.getByText(`Update for ${tenant2}`));
   assert.strictEqual(screen.queryByText(`Update for ${tenant1}`), null); // Assert Tenant 1 context is completely isolated/scrubbed
+
+  cleanup();
+});
+
+test('handles partially filled manifest safely (Strict Schema Validation)', () => {
+  const partialManifest = {
+    version: 'v0.62',
+    build_number: 19,
+    // Omitting changelog, release_date, etc
+  } as any;
+
+  render(
+    <AutoUpdateModal
+      isOpen={true}
+      onClose={() => {}}
+      manifest={partialManifest}
+      currentVersion="v0.61"
+      currentBuild={18}
+    />
+  );
+
+  assert.ok(screen.getByTestId('auto-update-modal'));
+  // No changelog should be rendered
+  assert.strictEqual(screen.queryByText(/What's New in/i), null);
 
   cleanup();
 });
