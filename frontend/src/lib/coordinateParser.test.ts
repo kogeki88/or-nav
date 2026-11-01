@@ -141,6 +141,45 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
       }
     });
 
+    test("Supplementary High-Concurrency Burst with Offline-First and Multi-Tenant Isolation Invariants", async () => {
+      const originalFetch = global.fetch;
+      global.fetch = () => { throw new Error("Network request attempted during offline parsing"); };
+
+      try {
+        const tenants = ["tenantX", "tenantY"];
+        const tenantInputMap: Record<string, string> = {
+          "tenantX": "OR 1 A 1 A",
+          "tenantY": "ICU 1 A 1 B"
+        };
+        const burstSize = 1000;
+
+        const tasks = Array.from({ length: burstSize }).map((_, i) => {
+          return new Promise<{ tenant: string, result: any }>((resolve) => {
+            const tenant = tenants[i % tenants.length];
+            const input = tenantInputMap[tenant];
+
+            setTimeout(() => {
+              const result = extractAndNormalizeCoordinateClient(input);
+              resolve({ tenant, result });
+            }, Math.random() * 2);
+          });
+        });
+
+        const results = await Promise.all(tasks);
+
+        for (const { tenant, result } of results) {
+          assert.ok(result);
+          if (tenant === "tenantX") {
+            assert.strictEqual(result.location, "OR 1 A 1 A");
+          } else {
+            assert.strictEqual(result.location, "ICU 1 A 1 B");
+          }
+        }
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
     test("Multi-Tenant Isolation Invariant: Coordinate parsing is completely stateless and deterministic across concurrent tenant requests", () => {
       // Prove stateless purity by asserting identical inputs yield identical outputs irrespective of execution order
       // simulating multiple tenants processing coordinates simultaneously
