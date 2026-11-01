@@ -3,6 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 import uuid
 import httpx
+import socket
 import time
 import concurrent.futures
 import app.auth
@@ -25,6 +26,14 @@ def clean_auth_state(tmp_path, monkeypatch):
     monkeypatch.setattr("httpx.get", mock_request, raising=False)
     monkeypatch.setattr("httpx.post", mock_request, raising=False)
     monkeypatch.setattr("httpx.request", mock_request, raising=False)
+
+    orig_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        family = args[0] if len(args) > 0 else kwargs.get("family", -1)
+        if family == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
+        raise RuntimeError("Network requests are disabled in this test suite.")
+    monkeypatch.setattr(socket, "socket", mock_socket)
 
     # Save the initial demo user state to the tmp_path
     save_users(DEFAULT_DEMO_USERS)
@@ -217,16 +226,75 @@ class TestAuthTokenRotation:
 
         res1 = client.put("/api/auth/profile", json=payload)
         assert res1.status_code == 200
-        profile1 = res1.json()["profile"]
+        data1 = res1.json()
+        data1.pop("latency_ms", None)
+        data1.pop("last_verified_at", None)
 
         res2 = client.put("/api/auth/profile", json=payload)
         assert res2.status_code == 200
-        profile2 = res2.json()["profile"]
+        data2 = res2.json()
+        data2.pop("latency_ms", None)
+        data2.pop("last_verified_at", None)
 
-        assert profile1 == profile2
-        assert profile2["facilityId"] == "sacred_heart"
-        assert profile2["departmentId"] == "or_main"
-        assert profile2["clinicalRole"] == "Surgeon"
+        assert data1 == data2
+        assert data2["profile"]["facilityId"] == "sacred_heart"
+        assert data2["profile"]["departmentId"] == "or_main"
+        assert data2["profile"]["clinicalRole"] == "Surgeon"
+
+    def test_auth_token_rotation_reset_password(self, clean_auth_state):
+        """Verify that logging in after a password reset generates a unique token."""
+        res_reg = client.post(
+            "/api/auth/register",
+            json={"email": "rotate@test.com", "password": "old_password", "fullName": "Rotate Password User"}
+        )
+        assert res_reg.status_code == 200
+        token_initial = res_reg.json()["token"]
+
+        # Reset password
+        res_reset = client.post(
+            "/api/auth/reset-password",
+            json={"email": "rotate@test.com", "newPassword": "new_password"}
+        )
+        assert res_reset.status_code == 200
+
+        # Login with new password
+        res_login = client.post(
+            "/api/auth/login",
+            json={"email": "rotate@test.com", "password": "new_password"}
+        )
+        assert res_login.status_code == 200
+        token_after_reset = res_login.json()["token"]
+
+        assert token_after_reset.startswith("token-")
+        assert token_after_reset != token_initial
+
+    def test_auth_reset_password_offline_mutation_replay_idempotency(self, clean_auth_state):
+        """Verify that resetting a password multiple times sequentially offline is idempotent."""
+        reg_res = client.post(
+            "/api/auth/register",
+            json={"email": "reset@test.com", "password": "old_password", "fullName": "Reset User"}
+        )
+        assert reg_res.status_code == 200
+
+        payload = {
+            "email": "reset@test.com",
+            "newPassword": "new_password123"
+        }
+
+        res1 = client.post("/api/auth/reset-password", json=payload)
+        assert res1.status_code == 200
+        data1 = res1.json()
+        data1.pop("latency_ms", None)
+        data1.pop("last_verified_at", None)
+
+        res2 = client.post("/api/auth/reset-password", json=payload)
+        assert res2.status_code == 200
+        data2 = res2.json()
+        data2.pop("latency_ms", None)
+        data2.pop("last_verified_at", None)
+
+        assert data1 == data2
+        assert data2["success"] is True
 
     def test_auth_multi_tenant_boundary_enforcement(self, clean_auth_state):
         """Ensure users are correctly isolated by their facility_id::dept_id boundaries."""
