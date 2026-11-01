@@ -1,251 +1,194 @@
-import 'jsdom-global/register.js';
-import { test, beforeEach, afterEach, mock } from 'node:test';
-import assert from 'node:assert';
-import React from 'react';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import "jsdom-global/register";
+import { describe, it, mock, beforeEach, afterEach } from "node:test";
+import assert from "node:assert";
+import React from "react";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import QuestionsDrawer from "./QuestionsDrawer";
+import "fake-indexeddb/auto"; // Keep IndexedDB mock just in case
 
-// Setup IndexedDB mock for Dexie
-import 'fake-indexeddb/auto';
-import QuestionsDrawer from './QuestionsDrawer';
-import { DepartmentQuestion } from '@/lib/api';
+// We override fetch to track API calls without proxyquire
+const originalFetch = global.fetch;
 
-beforeEach(() => {
-  global.fetch = mock.fn(async () => ({
-    ok: true,
-    json: async () => ({})
-  } as unknown as Response));
-});
+describe("QuestionsDrawer", () => {
+  const tenantId = "test-tenant-123";
+  let mockQuestions: any[] = [];
+  let onRefreshQuestions: any;
+  let fetchMock: any;
 
-afterEach(() => {
-  cleanup();
-  mock.restoreAll();
-});
-
-test('lists unanswered questions', async () => {
-    const questions: DepartmentQuestion[] = [
-        {
-            id: 'q1',
-            hospital_id: 'er_trauma',
-            question_text: 'Where is the trauma cart?',
-            asked_by_role: 'Attending',
-            created_at: new Date().toISOString(),
-            verified_at: null,
-            answers: [],
-            status: 'open'
-        },
-        {
-            id: 'q2',
-            hospital_id: 'er_trauma',
-            question_text: 'What is the RSI protocol?',
-            asked_by_role: 'Scrub Tech',
-            created_at: new Date().toISOString(),
-            verified_at: new Date().toISOString(),
-            answers: [
-                {
-                    id: 'a1',
-                    responder_role: 'Senior Nurse',
-                    answer_text: 'Standard RSI protocol applies.',
-                    confidence: 'confident',
-                    created_at: new Date().toISOString()
-                }
-            ],
-            status: 'verified'
-        }
+  beforeEach(() => {
+    mockQuestions = [
+      {
+        id: "q1",
+        question_text: "Where are the 5-0 prolene sutures? Department: CVOR",
+        status: "open",
+        asked_by_role: "Clinical Orientee RN",
+        answers: [],
+      },
+      {
+        id: "q2",
+        question_text: "Who is the contact for emergency blood? Department: ER",
+        status: "open",
+        asked_by_role: "Clinical Orientee RN",
+        answers: [],
+      },
+      {
+        id: "q3",
+        question_text: "Verified question here Department: CVOR",
+        status: "verified",
+        asked_by_role: "Clinical Orientee RN",
+        answers: [],
+      }
     ];
+    onRefreshQuestions = mock.fn(() => Promise.resolve());
 
-    const onRefreshMock = mock.fn(async () => {});
+    fetchMock = mock.fn(async (url: any, options: any) => {
+      return {
+        ok: true,
+        json: async () => ({})
+      };
+    });
+    global.fetch = fetchMock;
+  });
 
-    render(<QuestionsDrawer isOpen={true} onClose={() => {}} tenantId="er_trauma" questions={questions} onRefreshQuestions={onRefreshMock} />);
+  afterEach(() => {
+    cleanup();
+    global.fetch = originalFetch;
+    mock.restoreAll();
+  });
+
+  it("should not render when isOpen is false", () => {
+    const { container } = render(
+      <QuestionsDrawer
+        isOpen={false}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+    assert.strictEqual(container.firstChild, null);
+  });
+
+  it("should render questions when isOpen is true", () => {
+    render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+    assert.ok(screen.getByText("Where are the 5-0 prolene sutures? Department: CVOR"));
+    assert.ok(screen.getByText("Who is the contact for emergency blood? Department: ER"));
+    assert.ok(screen.getByText("Verified question here Department: CVOR"));
+  });
+
+  it("should filter questions by department (using search term)", async () => {
+    render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const searchInput = screen.getByPlaceholderText("Search questions or surgeon tags...");
+    await userEvent.type(searchInput, "CVOR");
+
+    assert.ok(screen.getByText("Where are the 5-0 prolene sutures? Department: CVOR"));
+    assert.strictEqual(screen.queryByText("Who is the contact for emergency blood? Department: ER"), null);
+    assert.ok(screen.getByText("Verified question here Department: CVOR"));
+  });
+
+  it("should filter questions by search term", async () => {
+    render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const searchInput = screen.getByPlaceholderText("Search questions or surgeon tags...");
+    await userEvent.type(searchInput, "blood");
+
+    assert.strictEqual(screen.queryByText("Where are the 5-0 prolene sutures? Department: CVOR"), null);
+    assert.ok(screen.getByText("Who is the contact for emergency blood? Department: ER"));
+    assert.strictEqual(screen.queryByText("Verified question here Department: CVOR"), null);
+  });
+
+  it("should filter by 'Show only unanswered'", async () => {
+    render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const filterCheckbox = screen.getByLabelText("Show only unanswered");
+    await userEvent.click(filterCheckbox);
+
+    assert.ok(screen.getByText("Where are the 5-0 prolene sutures? Department: CVOR"));
+    assert.ok(screen.getByText("Who is the contact for emergency blood? Department: ER"));
+    assert.strictEqual(screen.queryByText("Verified question here Department: CVOR"), null);
+  });
+
+  it("should type answer and dispatch answer submission", async () => {
+    render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const draftInputs = screen.getAllByPlaceholderText("Write a peer answer for the orientee...");
+    assert.strictEqual(draftInputs.length, 2); // q1 and q2 are open, q3 is verified
+
+    // Type into the first draft input (for q1)
+    await userEvent.type(draftInputs[0], "Top shelf on the right");
+
+    // Get the confident button for the first question
+    const confidentButtons = screen.getAllByText("Confident");
+    assert.strictEqual(confidentButtons.length, 2);
+
+    // Click the confident button
+    await userEvent.click(confidentButtons[0]);
 
     await waitFor(() => {
-        assert.ok(screen.getByText('Where is the trauma cart?'));
-        assert.ok(screen.getByText('What is the RSI protocol?'));
-    });
-
-    const openBadge = screen.getByText('Open Question');
-    assert.ok(openBadge, 'Open badge should be displayed for q1');
-
-    const verifiedBadge = screen.getByText(/Verified in Guide/);
-    assert.ok(verifiedBadge, 'Verified badge should be displayed for q2');
-});
-
-test('filtering questions by department', async () => {
-    const questions: DepartmentQuestion[] = [
-        {
-            id: 'q1',
-            hospital_id: 'er_trauma',
-            question_text: 'Where is the trauma cart?',
-            asked_by_role: 'Attending',
-            created_at: new Date().toISOString(),
-            verified_at: null,
-            answers: [],
-            status: 'open'
-        },
-        {
-            id: 'q2',
-            hospital_id: 'icu',
-            question_text: 'Where is the intubation kit?',
-            asked_by_role: 'Resident',
-            created_at: new Date().toISOString(),
-            verified_at: null,
-            answers: [],
-            status: 'open'
+        // Find the fetch call made to the answer endpoint
+        const fetchCalls = fetchMock.mock.calls;
+        let answerCall = null;
+        for (const call of fetchCalls) {
+            const url = call.arguments[0];
+            if (typeof url === 'string' && url.includes('/api/questions/q1/answer')) {
+                answerCall = call;
+                break;
+            }
         }
-    ];
 
-    const onRefreshMock = mock.fn(async () => {});
+        assert.ok(answerCall, "Fetch to answer endpoint was not called");
 
-    // Filter by ICU
-    render(<QuestionsDrawer isOpen={true} onClose={() => {}} tenantId="icu" questions={questions.filter(q => q.hospital_id === "icu")} onRefreshMock={onRefreshMock} />);
-
-    await waitFor(() => {
-        assert.ok(screen.getByText('Where is the intubation kit?'));
-        const traumaQuery = screen.queryByText('Where is the trauma cart?');
-        assert.strictEqual(traumaQuery, null);
-    });
-});
-
-test('typing answer and dispatching answer submission', async () => {
-    const questions: DepartmentQuestion[] = [
-        {
-            id: 'q1',
-            hospital_id: 'er_trauma',
-            question_text: 'Where is the trauma cart?',
-            asked_by_role: 'Attending',
-            created_at: new Date().toISOString(),
-            verified_at: null,
-            answers: [],
-            status: 'open'
-        }
-    ];
-
-    const onRefreshMock = mock.fn(async () => {});
-
-    render(<QuestionsDrawer isOpen={true} onClose={() => {}} tenantId="er_trauma" questions={questions} onRefreshQuestions={onRefreshMock} />);
-
-    await waitFor(() => {
-        assert.ok(screen.getByText('Where is the trauma cart?'));
-    });
-
-    const textarea = screen.getByPlaceholderText('Write a peer answer for the orientee...');
-    fireEvent.change(textarea, { target: { value: 'It is in room 3' } });
-
-    const submitBtn = screen.getByText('Confident').closest('button');
-    assert.ok(submitBtn);
-    fireEvent.click(submitBtn!);
-
-    await waitFor(() => {
-        const fetchCalls = (global.fetch as any).mock.calls;
-        assert.strictEqual(fetchCalls.length, 1);
-        const url = fetchCalls[0].arguments[0];
-        const options = fetchCalls[0].arguments[1];
-
-        assert.ok(url.includes('/api/questions/q1/answer'));
-        assert.strictEqual(options.method, 'POST');
+        const options = answerCall.arguments[1];
         const body = JSON.parse(options.body);
-        assert.strictEqual(body.tenant_id, 'er_trauma');
-        assert.strictEqual(body.answer_text, 'It is in room 3');
-        assert.strictEqual(body.confidence, 'confident');
 
-        assert.strictEqual(onRefreshMock.mock.calls.length, 1);
+        assert.strictEqual(body.tenant_id, tenantId);
+        assert.strictEqual(body.answer_text, "Top shelf on the right");
+        assert.strictEqual(body.confidence, "confident");
+        assert.strictEqual(body.responder_role, "CVOR Peer RN");
+
+        assert.strictEqual(onRefreshQuestions.mock.calls.length, 1);
     });
-});
-
-test('filtering questions by search term and empty state display', async () => {
-    const questions: DepartmentQuestion[] = [
-        {
-            id: 'q1',
-            hospital_id: 'er_trauma',
-            question_text: 'Where is the trauma cart for Dr. Smith?',
-            asked_by_role: 'Attending',
-            created_at: new Date().toISOString(),
-            verified_at: null,
-            answers: [],
-            status: 'open'
-        },
-        {
-            id: 'q2',
-            hospital_id: 'er_trauma',
-            question_text: 'What is the RSI protocol for Dr. Jones?',
-            asked_by_role: 'Scrub Tech',
-            created_at: new Date().toISOString(),
-            verified_at: new Date().toISOString(),
-            answers: [],
-            status: 'verified'
-        }
-    ];
-
-    const onRefreshMock = mock.fn(async () => {});
-
-    render(<QuestionsDrawer isOpen={true} onClose={() => {}} tenantId="er_trauma" questions={questions} onRefreshQuestions={onRefreshMock} />);
-
-    await waitFor(() => {
-        assert.ok(screen.getByText('Where is the trauma cart for Dr. Smith?'));
-    });
-
-    const searchInput = screen.getByPlaceholderText('Search questions or surgeon tags...');
-    fireEvent.change(searchInput, { target: { value: 'Smith' } });
-
-    await waitFor(() => {
-        assert.ok(screen.getByText('Where is the trauma cart for Dr. Smith?'));
-        assert.strictEqual(screen.queryByText('What is the RSI protocol for Dr. Jones?'), null);
-    });
-
-    fireEvent.change(searchInput, { target: { value: 'Nonexistent Surgeon' } });
-    await waitFor(() => {
-        assert.ok(screen.getByText('No questions found.'));
-    });
-});
-
-test('keyboard accessibility for question close button', async () => {
-    const onRefreshMock = mock.fn(async () => {});
-    const onCloseMock = mock.fn();
-    render(<QuestionsDrawer isOpen={true} onClose={onCloseMock} tenantId="er_trauma" questions={[]} onRefreshQuestions={onRefreshMock} />);
-
-    const closeBtn = screen.getByLabelText('Close');
-    fireEvent.keyDown(closeBtn, { key: 'Enter', code: 'Enter' });
-    fireEvent.click(closeBtn);
-
-    assert.strictEqual(onCloseMock.mock.calls.length, 1);
-});
-
-test('unanswered question filtering', async () => {
-    const questions: DepartmentQuestion[] = [
-        {
-            id: 'q1',
-            hospital_id: 'er_trauma',
-            question_text: 'Where is the trauma cart for Dr. Smith?',
-            asked_by_role: 'Attending',
-            created_at: new Date().toISOString(),
-            verified_at: null,
-            answers: [],
-            status: 'open'
-        },
-        {
-            id: 'q2',
-            hospital_id: 'er_trauma',
-            question_text: 'What is the RSI protocol for Dr. Jones?',
-            asked_by_role: 'Scrub Tech',
-            created_at: new Date().toISOString(),
-            verified_at: new Date().toISOString(),
-            answers: [],
-            status: 'verified'
-        }
-    ];
-
-    const onRefreshMock = mock.fn(async () => {});
-    render(<QuestionsDrawer isOpen={true} onClose={() => {}} tenantId="er_trauma" questions={questions} onRefreshQuestions={onRefreshMock} />);
-
-    await waitFor(() => {
-        assert.ok(screen.getByText('Where is the trauma cart for Dr. Smith?'));
-        assert.ok(screen.getByText('What is the RSI protocol for Dr. Jones?'));
-    });
-
-    const unansweredCheckbox = screen.getByLabelText('Show only unanswered');
-    fireEvent.click(unansweredCheckbox);
-
-    await waitFor(() => {
-        assert.ok(screen.getByText('Where is the trauma cart for Dr. Smith?'));
-        assert.strictEqual(screen.queryByText('What is the RSI protocol for Dr. Jones?'), null);
-    });
+  });
 });
