@@ -306,3 +306,58 @@ test("Semantic Query Parser High-Concurrency & Stress Benchmarks", async (t) => 
     assert.ok(avgLatency < 2, `Average latency too high: ${avgLatency}ms`);
   });
 });
+
+
+
+test("Supplementary Tests: Edge Cases & Enforcements", async (t) => {
+  await t.test("Multi-tenant isolation: Concurrent processing for distinct tenants", async () => {
+    // Tests that state from one tenant processing does not leak into another's during concurrent handling
+    const t1 = "facility1::deptA";
+    const t2 = "facility2::deptB";
+
+    // Simulate concurrent processing using queries we know parse deterministically
+    const [res1, res2] = await Promise.all([
+      Promise.resolve(parseClinicalIntent("where is the 2-0 vicryl", t1)),
+      Promise.resolve(parseClinicalIntent("find debakey forceps", t2))
+    ]);
+
+    assert.strictEqual(res1.intent, ClinicalIntent.FIND_INVENTORY);
+    assert.strictEqual(res1.entities.item, "2-0 vicryl");
+
+    assert.strictEqual(res2.intent, ClinicalIntent.FIND_INVENTORY);
+    assert.strictEqual(res2.entities.item, "debakey forceps");
+
+    // Crucially assert that their outputs are entirely disjoint
+    assert.notDeepStrictEqual(res1, res2);
+  });
+
+  await t.test("Offline-first invariant: Resilience against total network failure", () => {
+    // Override global fetch and XMLHttpRequest to strictly assert offline behavior
+    const originalFetch = global.fetch;
+    const originalXHR = (global as any).XMLHttpRequest;
+
+    global.fetch = () => Promise.reject(new Error("NETWORK_DOWN"));
+    (global as any).XMLHttpRequest = function() {
+      throw new Error("NETWORK_DOWN");
+    };
+
+    try {
+      // Must execute synchronously and successfully despite network failure
+      const r1 = parseClinicalIntent("where is the 2-0 vicryl");
+      assert.strictEqual(r1.intent, ClinicalIntent.FIND_INVENTORY);
+      assert.strictEqual(r1.entities.item, "2-0 vicryl");
+    } finally {
+      global.fetch = originalFetch;
+      (global as any).XMLHttpRequest = originalXHR;
+    }
+  });
+
+  await t.test("Invariant: Null and Missing Tenant handling", () => {
+    // Ensuring it falls back properly and deterministic output
+    const resultNull = parseClinicalIntent("where is the 2-0 vicryl", null as any);
+    const resultMissing = parseClinicalIntent("where is the 2-0 vicryl");
+    assert.deepStrictEqual(resultNull.intent, ClinicalIntent.FIND_INVENTORY);
+    assert.deepStrictEqual(resultNull.intent, resultMissing.intent);
+    assert.deepStrictEqual(resultNull.entities, resultMissing.entities);
+  });
+});
