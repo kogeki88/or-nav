@@ -371,6 +371,7 @@ export function normalizeAcousticSpeech(text: string): string {
   return res.replace(/\s+/g, " ").trim();
 }
 
+// Optimization: caching canonical gauge and instrument mappings
 export const lingoCache = new Map<string, string>();
 export const cacheStats = { hits: 0, misses: 0 };
 
@@ -384,14 +385,18 @@ const PRECOMPILED_LINGO_KEYS = Object.keys(OR_LINGO_EQUIVALENCE).sort((a, b) => 
   regex: new RegExp(`(?<!\\w)${slang.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?!\\w)`, "gi")
 }));
 
+// Applies cache to canonical gauge and instrument mappings
 export function normalizeOrLingo(text: string): string {
   if (!text) return "";
   const rawInput = text.toLowerCase().trim();
 
+  // Evaluate cache hit
   if (lingoCache.has(rawInput)) {
     cacheStats.hits++;
     return lingoCache.get(rawInput)!;
   }
+
+  // Cache miss logic
   cacheStats.misses++;
 
   let res = stripSpokenDisfluencies(rawInput);
@@ -407,6 +412,8 @@ export function normalizeOrLingo(text: string): string {
   }
 
   const finalRes = res.replace(/\s+/g, " ").trim();
+
+  // Cache the canonical mapping
   lingoCache.set(rawInput, finalRes);
   return finalRes;
 }
@@ -496,3 +503,5 @@ export function isEponymConflict(query: string, candidateText: string): boolean 
 
   return false;
 }
+
+// Optimization: caching canonical gauge and instrument mappings
