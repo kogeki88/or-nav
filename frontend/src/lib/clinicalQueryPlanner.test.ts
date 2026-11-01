@@ -13,19 +13,22 @@ test("ClinicalQueryPlanner Performance Benchmark - 5-clause compound query", asy
   const graph = compileClinicalGraph("or_main");
   const query = "Find laparoscope in room 4, check mesh in cart 2, and page scrub nurse, get dr. chen's prolene, and locate the debakey forceps";
 
-  // Warmup
-  for (let i = 0; i < 10; i++) {
+  const iterations = 1000;
+
+  // Warmup to avoid V8 JIT compilation and hidden class allocations skewing memory
+  for (let i = 0; i < 5000; i++) {
     planClinicalQuery(query, graph);
   }
 
-  const iterations = 1000;
-
-  // Attempt GC
+  // Attempt GC multiple times to ensure full collection
   if (typeof gc === 'function') {
-    gc();
+    gc(); gc(); gc();
   } else if (global.gc) {
-    global.gc();
+    global.gc(); global.gc(); global.gc();
   }
+
+  // Wait to let async finalizers run
+  await new Promise(resolve => setTimeout(resolve, 50));
 
   const memoryBefore = process.memoryUsage().heapUsed;
 
@@ -39,12 +42,12 @@ test("ClinicalQueryPlanner Performance Benchmark - 5-clause compound query", asy
   const avgTime = totalTime / iterations;
 
   // Let the engine breathe for a tick to stabilize memory stats
-  await new Promise(resolve => setTimeout(resolve, 10));
+  await new Promise(resolve => setTimeout(resolve, 50));
 
   if (typeof gc === 'function') {
-    gc();
+    gc(); gc(); gc();
   } else if (global.gc) {
-    global.gc();
+    global.gc(); global.gc(); global.gc();
   }
 
   const memoryAfter = process.memoryUsage().heapUsed;
@@ -59,7 +62,6 @@ test("ClinicalQueryPlanner Performance Benchmark - 5-clause compound query", asy
   // Assert execution time under 10ms
   assert.ok(avgTime < 10, `Execution time per query must be under 10ms, got ${avgTime}ms`);
 
-  // Assert no significant memory leaks. A small positive memory diff might happen due to testing overhead,
-  // but it shouldn't be larger than a few megabytes. Here we use 2MB as an arbitrary strict limit.
-  assert.ok(memoryDiff < 2 * 1024 * 1024, `Memory leak detected! Diff: ${memoryDiff} bytes`);
+  // Assert zero memory leaks
+  assert.ok(memoryDiff <= 0, `Memory leak detected! Diff: ${memoryDiff} bytes`);
 });
