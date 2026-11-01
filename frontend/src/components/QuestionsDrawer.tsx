@@ -13,6 +13,7 @@ import {
   HelpCircle,
   Send,
   Plus,
+  Search,
 } from "lucide-react";
 
 interface QuestionsDrawerProps {
@@ -34,6 +35,8 @@ export default function QuestionsDrawer({
   const [submittingNew, setSubmittingNew] = useState(false);
   const [draftAnswers, setDraftAnswers] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showOnlyUnanswered, setShowOnlyUnanswered] = useState(false);
 
   if (!isOpen) return null;
 
@@ -89,6 +92,15 @@ export default function QuestionsDrawer({
     }
   };
 
+  const filteredQuestions = questions.filter((q) => {
+    const matchesSearch = q.question_text.toLowerCase().includes(searchTerm.toLowerCase());
+    if (showOnlyUnanswered) {
+      const isUnanswered = q.status !== "verified" && q.status !== "answered_confident";
+      return matchesSearch && isUnanswered;
+    }
+    return matchesSearch;
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-xs">
       <div className="w-full max-w-md h-full bg-[#121215] border-l border-zinc-800/80 flex flex-col text-zinc-100 shadow-2xl animate-in slide-in-from-right duration-150">
@@ -141,9 +153,40 @@ export default function QuestionsDrawer({
           </div>
         </form>
 
+        {/* Filter / Search Bar */}
+        <div className="p-3.5 border-b border-zinc-800/80 space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search questions or surgeon tags..."
+              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-700"
+              aria-label="Search questions"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-xs text-zinc-300 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showOnlyUnanswered}
+              onChange={(e) => setShowOnlyUnanswered(e.target.checked)}
+              className="rounded border-zinc-700 bg-zinc-900 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-zinc-900"
+              aria-label="Show only unanswered"
+            />
+            <span>Show only unanswered</span>
+          </label>
+        </div>
+
         {/* Questions Feed */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
-          {questions.map((q) => {
+          {filteredQuestions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 text-zinc-500 space-y-2">
+              <MessageSquare className="w-6 h-6 opacity-40" />
+              <p className="text-xs">No questions found.</p>
+            </div>
+          ) : (
+            filteredQuestions.map((q) => {
             const isVerified = q.status === "verified";
             const isTentative = q.status === "answered_tentative";
             const draft = draftAnswers[q.id] || "";
@@ -256,7 +299,8 @@ export default function QuestionsDrawer({
                 )}
               </div>
             );
-          })}
+          })
+          )}
         </div>
       </div>
     </div>
