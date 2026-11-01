@@ -29,22 +29,23 @@ const originalLocalStorage = (global as { localStorage?: unknown }).localStorage
   clear: () => mockStorage.clear(),
 };
 
-test("userProfile module", async (t) => {
-  t.afterEach(() => {
-    mockStorage.clear();
-  });
+import { afterEach, after } from "node:test";
 
-  t.after(() => {
-    (global as { window?: unknown }).window = originalWindow;
-    (global as { localStorage?: unknown }).localStorage = originalLocalStorage;
-  });
+afterEach(() => {
+  mockStorage.clear();
+});
 
-  await t.test("getUserProfile returns default if empty", () => {
+after(() => {
+  (global as { window?: unknown }).window = originalWindow;
+  (global as { localStorage?: unknown }).localStorage = originalLocalStorage;
+});
+
+test("getUserProfile returns default if empty", () => {
     const profile = getUserProfile();
     assert.deepEqual(profile, DEFAULT_USER_PROFILE);
-  });
+});
 
-  await t.test("saveUserProfile and getUserProfile - switching clinical roles", () => {
+test("saveUserProfile and getUserProfile - switching clinical roles", () => {
     const roles = ["Circulating RN", "Scrub Tech", "CRNA", "Perfusionist"];
 
     for (const role of roles) {
@@ -55,9 +56,9 @@ test("userProfile module", async (t) => {
       assert.equal(profile.clinicalRole, role);
       assert.deepEqual(profile, newProfile);
     }
-  });
+});
 
-  await t.test("badge display categorization (isNursingRole, isAnesthesiaRole, isScrubRole)", () => {
+test("badge display categorization (isNursingRole, isAnesthesiaRole, isScrubRole)", () => {
     // Circulating RN
     assert.equal(isNursingRole("Circulating RN"), true);
     assert.equal(isAnesthesiaRole("Circulating RN"), false);
@@ -84,9 +85,9 @@ test("userProfile module", async (t) => {
     assert.equal(isNursingRole(undefined), true); // Default is nursing
     assert.equal(isAnesthesiaRole(undefined), false);
     assert.equal(isScrubRole(undefined), false);
-  });
+});
 
-  await t.test("getRoleScope - role-specific voice prompt generation", () => {
+test("getRoleScope - role-specific voice prompt generation", () => {
     const deptId = "or_main";
 
     // Scrub Tech
@@ -112,9 +113,9 @@ test("userProfile module", async (t) => {
     assert.equal(perfScope.id, "circulating_rn");
     assert.equal(perfScope.departmentId, deptId);
     assert.ok(perfScope.focusSummary.includes("CNOR checklists"));
-  });
+});
 
-  await t.test("evaluateRbacQuery", () => {
+test("evaluateRbacQuery", () => {
     // Med Dosing
     assert.equal(evaluateRbacQuery("dosing for heparin", "Scrub Tech").allowed, false);
     assert.equal(evaluateRbacQuery("dosing for heparin", "Circulating RN").allowed, true);
@@ -124,9 +125,9 @@ test("userProfile module", async (t) => {
     assert.equal(evaluateRbacQuery("tray breakdown", "CRNA").allowed, false);
     assert.equal(evaluateRbacQuery("tray breakdown", "Circulating RN").allowed, true);
     assert.equal(evaluateRbacQuery("tray breakdown", "Scrub Tech").allowed, true);
-  });
+});
 
-  await t.test("filterSurgeonNoteForRole", () => {
+test("filterSurgeonNoteForRole", () => {
     const note = "Surgeon prefers hand-tied sutures; Administer heparin bolus.";
 
     // Anesthesia role filters out suture loading
@@ -141,5 +142,4 @@ test("userProfile module", async (t) => {
     // RN sees everything
     const rnNote = filterSurgeonNoteForRole(note, "Circulating RN");
     assert.equal(rnNote, note);
-  });
 });
