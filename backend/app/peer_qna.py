@@ -271,7 +271,9 @@ async def list_peer_questions(tenant_id: Optional[str] = Query(None)):
             return True
         if "::" in clean_tid:
             fac, dept = clean_tid.split("::", 1)
-            return (fac in qt and dept in qt) or (dept in qt)
+            if "::" in qt:
+                return qt == clean_tid
+            return dept in qt
         if clean_tid in qt or qt in clean_tid:
             return True
         # Match base dept (e.g. or_main matches sacred_heart::or)

@@ -174,3 +174,37 @@ def test_invalid_question_or_answer_not_found():
 
     bad_v2 = client.post(f"/api/peer-questions/{q_id}/answers/pa-nonexistent/verify", json={"verified_by": "test"})
     assert bad_v2.status_code == 404
+
+def test_tenant_isolation_strict():
+    """Explicitly verify that questions from one tenant do not leak into another's results."""
+    # Create question in sacred_heart::or
+    client.post(
+        "/api/peer-questions",
+        json={
+            "tenant_id": "sacred_heart::or",
+            "question_text": "Is this sacred heart OR?",
+        },
+    )
+
+    # Create question in county_general::or
+    client.post(
+        "/api/peer-questions",
+        json={
+            "tenant_id": "county_general::or",
+            "question_text": "Is this county general OR?",
+        },
+    )
+
+    # Query sacred_heart::or
+    sh_res = client.get("/api/peer-questions?tenant_id=sacred_heart::or")
+    assert sh_res.status_code == 200
+    sh_qs = sh_res.json()
+    assert all("sacred_heart" in q["tenantId"].lower() or q["tenantId"].lower() == "or_main" for q in sh_qs)
+    assert not any("county_general" in q["tenantId"].lower() for q in sh_qs)
+
+    # Query county_general::or
+    cg_res = client.get("/api/peer-questions?tenant_id=county_general::or")
+    assert cg_res.status_code == 200
+    cg_qs = cg_res.json()
+    assert all("county_general" in q["tenantId"].lower() or q["tenantId"].lower() == "or_main" for q in cg_qs)
+    assert not any("sacred_heart" in q["tenantId"].lower() for q in cg_qs)
