@@ -7,7 +7,8 @@ import {
   getAllAliasesForItemClient,
   detectTeachingIntentClient,
   titleCaseTerm,
-  getFacilityIdFromTenant
+  getFacilityIdFromTenant,
+  recordPhoneticCorrection,
 } from "./lexiconLearning.ts";
 
 const mockStorage = new Map<string, string>();
@@ -183,3 +184,36 @@ describe("lexiconLearning & Teaching Intent", () => {
     });
   });
 });
+  describe("recordPhoneticCorrection", () => {
+    beforeEach(() => { mockStorage.clear(); });
+    test("should record a phonetic correction with strict type narrowing", () => {
+      const entry = recordPhoneticCorrection("facility_unseeded", "or", "adds in", "Adson Pickups", "user1");
+      assert.strictEqual(entry.type, "phonetic");
+      assert.strictEqual(entry.spokenTerm, "adds in");
+      assert.strictEqual(entry.canonicalItemName, "Adson Pickups");
+      assert.strictEqual(entry.usageCount, 1);
+      assert.ok(entry.usedByUsers.includes("user1"));
+
+      const saved = loadFacilityLexicon("facility_unseeded");
+      const found = saved.find(e => e.aliasId === entry.aliasId);
+      assert.ok(found);
+      if (found) {
+        assert.strictEqual(found.type, "phonetic");
+      }
+    });
+
+    test("should increment usage counts for phonetic corrections and verify storage format", () => {
+      recordPhoneticCorrection("facility_unseeded", "or", "adds in", "Adson Pickups", "user1");
+      const entry = recordPhoneticCorrection("facility_unseeded", "or", "adds in", "Adson Pickups", "user1");
+      assert.strictEqual(entry.type, "phonetic");
+      assert.strictEqual(entry.usageCount, 2);
+    });
+
+    test("assert zero null pointer errors on unseeded terms", () => {
+      const entry = recordPhoneticCorrection("facility_unknown", "or", "misheard_unseeded", "actual_item", "user1");
+      assert.strictEqual(entry.spokenTerm, "misheard_unseeded");
+      const resolved = resolveSpokenAliasClient("facility_unknown", "misheard_unseeded");
+      assert.ok(resolved);
+      assert.strictEqual(resolved?.canonicalItemName, "actual_item");
+    });
+  });
