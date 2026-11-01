@@ -31,6 +31,13 @@ const API_BASE =
     ? "http://localhost:8000"
     : "");
 
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 export interface CoordinateCardData {
   item: string;
   user_preferred_term?: string;
@@ -182,7 +189,7 @@ export interface QuestionsListResponse {
 export async function fetchGeminiStatus(): Promise<GeminiStatusResponse> {
   try {
     const res = await fetch(`${API_BASE}/api/config/gemini-status`);
-    if (res.ok) return res.json();
+    if (res.ok) return (await res.json()) as GeminiStatusResponse;
   } catch {}
   const clientKey = getClientGeminiApiKey();
   return {
@@ -203,7 +210,7 @@ export async function saveGeminiKey(apiKey: string): Promise<GeminiStatusRespons
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ api_key: apiKey }),
     });
-    if (res.ok) return res.json();
+    if (res.ok) return (await res.json()) as GeminiStatusResponse;
   } catch {}
   const key = apiKey.trim();
   return {
@@ -218,8 +225,8 @@ export async function saveGeminiKey(apiKey: string): Promise<GeminiStatusRespons
  */
 export async function fetchNetworkInfo(): Promise<NetworkInfoResponse> {
   const res = await fetch(`${API_BASE}/api/network-info`);
-  if (!res.ok) throw new Error(`Failed to check network info: ${res.status}`);
-  return res.json();
+  if (!res.ok) throw new ApiError(res.status, `Failed to check network info: ${res.status}`);
+  return (await res.json()) as NetworkInfoResponse;
 }
 
 /**
@@ -227,8 +234,8 @@ export async function fetchNetworkInfo(): Promise<NetworkInfoResponse> {
  */
 export async function fetchVoiceStatus(): Promise<VoiceStatusResponse> {
   const res = await fetch(`${API_BASE}/api/voice/status`);
-  if (!res.ok) throw new Error(`Failed to check voice status: ${res.status}`);
-  return res.json();
+  if (!res.ok) throw new ApiError(res.status, `Failed to check voice status: ${res.status}`);
+  return (await res.json()) as VoiceStatusResponse;
 }
 
 /**
@@ -248,9 +255,9 @@ export async function fetchVoiceToken(
   });
   if (!res.ok) {
     const err = await res.text().catch(() => "");
-    throw new Error(`Failed to mint voice token (${res.status}): ${err}`);
+    throw new ApiError(res.status, `Failed to mint voice token (${res.status}): ${err}`);
   }
-  return res.json();
+  return (await res.json()) as VoiceTokenResponse;
 }
 
 /**
@@ -258,8 +265,8 @@ export async function fetchVoiceToken(
  */
 export async function fetchTenants(): Promise<TenantsResponse> {
   const res = await fetch(`${API_BASE}/api/tenants`);
-  if (!res.ok) throw new Error(`Failed to load tenants: ${res.status}`);
-  return res.json();
+  if (!res.ok) throw new ApiError(res.status, `Failed to load tenants: ${res.status}`);
+  return (await res.json()) as TenantsResponse;
 }
 
 /**
@@ -291,7 +298,7 @@ export async function sendChatMessage(
     });
 
     if (res.ok) {
-      const response: ChatResponse = await res.json();
+      const response = (await res.json()) as ChatResponse;
       return { response, clientPhiRedacted, clientScrubbedText };
     }
   } catch (err) {
@@ -357,7 +364,7 @@ export async function addInventoryItemApi(
       }),
     });
     if (res.ok) {
-      return res.json();
+      return (await res.json()) as CoordinateCardData;
     }
   } catch {}
 
@@ -386,7 +393,7 @@ export async function verifyMove(
     });
 
     if (res.ok) {
-      return res.json();
+      return (await res.json()) as VerifyMoveResponse;
     }
   } catch {}
 
@@ -414,7 +421,7 @@ export async function flagItemWrong(
       }),
     });
     if (res.ok) {
-      return res.json();
+      return (await res.json()) as CoordinateCardData;
     }
   } catch {}
 
@@ -431,7 +438,7 @@ export async function fetchQuestions(tenantId: string): Promise<QuestionsListRes
     const res = await fetch(
       `${API_BASE}/api/questions?tenant_id=${encodeURIComponent(tenantId)}`
     );
-    if (res.ok) return res.json();
+    if (res.ok) return (await res.json()) as QuestionsListResponse;
   } catch {}
 
   // Pure Zero-Server Standalone Questions Fallback (Phase 21)
@@ -457,7 +464,7 @@ export async function createQuestion(
         asked_by_role: askedByRole,
       }),
     });
-    if (res.ok) return res.json();
+    if (res.ok) return (await res.json()) as DepartmentQuestion;
   } catch {}
 
   // Pure Zero-Server Standalone Question Creation (Phase 21)
@@ -490,7 +497,7 @@ export async function answerQuestion(
         promote_to_verified: Boolean(options.promoteToVerified),
       }),
     });
-    if (res.ok) return res.json();
+    if (res.ok) return (await res.json()) as DepartmentQuestion;
   } catch {}
 
   // Pure Zero-Server Standalone Question Answering (Phase 21)
@@ -531,7 +538,7 @@ export async function sendVoiceAudioQuery(
     });
 
     if (res.ok) {
-      return res.json();
+      return (await res.json()) as VoiceQueryResponse;
     }
   } catch {}
 
@@ -569,10 +576,10 @@ export async function ingestFile(tenantId: string, file: File): Promise<IngestRe
 
   if (!res.ok) {
     const errorBody = await res.text().catch(() => "");
-    throw new Error(`Ingest failed (${res.status}): ${errorBody}`);
+    throw new ApiError(res.status, `Ingest failed (${res.status}): ${errorBody}`);
   }
 
-  return res.json();
+  return (await res.json()) as IngestResponse;
 }
 
 /**
