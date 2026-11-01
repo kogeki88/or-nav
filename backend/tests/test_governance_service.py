@@ -46,3 +46,16 @@ def test_log_audit_event_and_get_audit_trail():
     assert "timestamp" in event2
     assert event2["facility_id"] == "general_memorial_cvor"
     assert event2["id"].startswith("audit-")
+
+def test_supplementary_policy_verification():
+    gov = GovernanceService("or_main")
+    assert gov.verify_policy("surgeon_preference_update", "Circulating RN") is True
+    assert gov.verify_policy("inventory_adjustment", "Scrub Tech") is False
+
+def test_supplementary_audit_trail_created():
+    gov = GovernanceService("or_main")
+    initial_len = len(gov.get_audit_trail())
+    event = gov.log_audit_event("inventory_adjustment", "Moved 3-0 Silk", "Circulating RN")
+    assert "timestamp" in event
+    assert event["facility_id"] == "or_main"
+    assert len(gov.get_audit_trail()) == initial_len + 1
