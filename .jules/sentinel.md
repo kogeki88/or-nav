@@ -60,3 +60,7 @@ Identified a Server-Side Request Forgery (SSRF) and error leakage vulnerability 
 Fix applied:
 - Enforced strict regex validation for the `sessionId` field (`^[a-zA-Z0-9-]+$`) to ensure malicious strings containing path manipulation are caught.
 - Replaced the detailed exception containing `resp.text` with a sanitized generic message ("Upstream service error"), preserving the status code while mitigating information leakage.
+## 2026-11-01 - [Missing Authentication Rate Limiting]
+**Vulnerability:** The `/register`, `/login`, and `/reset-password` authentication endpoints in `backend/app/auth.py` completely lacked rate limiting.
+**Learning:** This oversight allowed unbounded brute-force attacks and credential stuffing, which is a critical security vulnerability for any authentication flow.
+**Prevention:** Always wrap authentication and sensitive mutation endpoints with `@limiter.limit` (from `slowapi` or similar) and ensure the function signature accepts `request: Request`.
