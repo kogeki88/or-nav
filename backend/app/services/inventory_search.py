@@ -880,10 +880,18 @@ class InventoryService:
             raise ValueError(f"Uploaded CSV is missing required columns: {', '.join(missing)}")
 
         new_rows = []
+        expected_tenant = self.tenant.tenant_id
+        from app.services.lexicon_learning import get_facility_id_from_tenant
+        expected_facility, _ = get_facility_id_from_tenant(expected_tenant)
+
         for raw_row in reader:
             normalized_row = {
                 (k.strip().lower() if k else ""): (v or "").strip() for k, v in raw_row.items()
             }
+            if "tenant_id" in normalized_row and normalized_row["tenant_id"] and normalized_row["tenant_id"] != expected_tenant:
+                raise ValueError("Cross-tenant injection rejected")
+            if "facility_id" in normalized_row and normalized_row["facility_id"] and normalized_row["facility_id"] != expected_facility:
+                raise ValueError("Cross-facility injection rejected")
             if "item_name" in normalized_row and "item" not in normalized_row:
                 normalized_row["item"] = normalized_row["item_name"]
 
