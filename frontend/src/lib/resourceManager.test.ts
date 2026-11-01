@@ -103,6 +103,13 @@ describe("ResourceManagerChecksum", () => {
     assert.strictEqual(resourceManager.mapRoleToKey("Scrub Tech"), "scrub");
     assert.strictEqual(resourceManager.mapRoleToKey("CRNA"), "crna");
     assert.strictEqual(resourceManager.mapRoleToKey("ER Nurse"), "er_rn");
+
+    // Fuzzing mapRoleToKey
+    assert.strictEqual(resourceManager.mapRoleToKey(undefined as any), "circulator");
+    assert.strictEqual(resourceManager.mapRoleToKey(null as any), "circulator");
+    assert.strictEqual(resourceManager.mapRoleToKey(""), "circulator");
+    assert.strictEqual(resourceManager.mapRoleToKey("   "), "circulator");
+    assert.throws(() => resourceManager.mapRoleToKey([] as any));
   });
 
   test("formatBytes", () => {
@@ -110,6 +117,11 @@ describe("ResourceManagerChecksum", () => {
     assert.strictEqual(resourceManager.formatBytes(500), "500 B");
     assert.strictEqual(resourceManager.formatBytes(1024), "1.0 KB");
     assert.strictEqual(resourceManager.formatBytes(1024 * 1024), "1.0 MB");
+
+    // Fuzzing formatBytes
+    assert.strictEqual(resourceManager.formatBytes(-100), "0 B");
+    assert.strictEqual(resourceManager.formatBytes(NaN), "0 B");
+    assert.strictEqual(resourceManager.formatBytes(Infinity), "Infinity MB");
   });
 
   test("installPack stores pack and hydrates inventory correctly with offline-first support", async () => {
@@ -281,7 +293,52 @@ describe("ResourceManagerChecksum", () => {
       // Depending on dexie validation, it might throw a different error, but we expect an error to be thrown when facilityId is null
       (err) => err instanceof Error
     );
+
+    await assert.rejects(
+      async () => {
+        await resourceManager.installPack({
+          packId: "pack_undefined_fields",
+          facilityId: undefined as any,
+          category: "hospital",
+          title: "Title",
+          filePath: "path.md",
+          sizeBytes: 0,
+          versionHash: "v1",
+          updatedAt: "2023-01-01"
+        });
+      },
+      (err) => err instanceof Error
+    );
     mock.restoreAll();
+
+    // Fuzzing CSV parsing
+    mock.method(global, 'fetch', async () => ({
+      ok: true,
+      status: 200,
+      text: async () => "random string that is not a csv\nno headers\n1,2,3"
+    }));
+    await assert.doesNotReject(
+      async () => {
+        await resourceManager.installPack({
+          packId: "pack_fuzz_csv",
+          facilityId: "fac1",
+          departmentId: "or",
+          title: "Title",
+          category: "department",
+          filePath: "path.csv",
+          sizeBytes: 10,
+          versionHash: "v1",
+          updatedAt: "2023-01-01"
+        });
+      }
+    );
+    mock.restoreAll();
+
+    // Cleanup mid-test
+    if (offlineDb) {
+      await offlineDb.installedPacks.clear();
+      await offlineDb.inventoryItems.clear();
+    }
 
     // 3. ensureProfilePacksInstalled missing/malformed manifest fields
     mock.method(global, 'fetch', async (url) => {
@@ -596,5 +653,32 @@ describe("ResourceManagerChecksum", () => {
     assert.ok(fac1Items && !fac1Items.some(i => i.item === "Forceps")); // No Fac2 data
     assert.ok(fac2Items && fac2Items.some(i => i.item === "Forceps"));
     assert.ok(fac2Items && !fac2Items.some(i => i.item === "Scalpel")); // No Fac1 data
+
+    // Explicit offline mutation replay strict structural equality checks
+    // The items will include the CSV items overlaid on whatever seed data was rehydrated
+    // So we just check that the specific item we added is exactly as expected structurally
+    // and the lengths remain completely stable across replays.
+    assert.strictEqual(fac1Items?.length, fac1ItemsAfterFirst?.length);
+    assert.strictEqual(fac1ItemsAfterFirst?.length, fac1ItemsAfterSecond?.length);
+
+    const scalpelItem = fac1Items?.find(i => i.item === "Scalpel");
+    assert.ok(scalpelItem);
+
+    const { verify_count, pending_location, ...cleanScalpel } = scalpelItem;
+    const expectedCleanScalpel = {
+      id: "fac1::or::scalpel",
+      tenant_id: "fac1::or",
+      item: "Scalpel",
+      room: "Main OR",
+      cabinet: "A",
+      shelf: "1",
+      container: "A",
+      full_code: "Main OR A 1 A",
+      phonetic_code: "Main OR A 1 A",
+      surgeon_notes: "",
+      category: "",
+      normalized_name: "scalpel"
+    };
+    assert.deepStrictEqual(cleanScalpel, expectedCleanScalpel);
   });
 });
