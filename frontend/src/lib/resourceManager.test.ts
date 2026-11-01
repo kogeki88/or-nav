@@ -549,6 +549,61 @@ describe("ResourceManagerChecksum", () => {
     assert.strictEqual(scalpelAfter, undefined);
   });
 
+  test("downloads and caches facility orientation cards and clinical guidelines", async () => {
+    const mdContent = "# General Hospital Orientation\n\nWelcome to General Hospital.";
+    const csvContent = "item,room,cabinet,shelf,container,full_code\nGuideline,Main OR,B,2,C,Main OR B 2 C\n";
+
+    mock.method(global, 'fetch', async (url: string) => {
+      if (url.includes("manifest.json")) {
+        return {
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({
+            packs: [
+              { packId: "orientation", facilityId: "fac1", category: "hospital", filePath: "orientation.md", versionHash: "v1" },
+              { packId: "guideline", facilityId: "fac1", departmentId: "or", category: "department", filePath: "inventory.csv", versionHash: "v1" }
+            ]
+          })
+        };
+      }
+      if (url.includes("inventory.csv")) {
+          return { ok: true, status: 200, text: async () => csvContent };
+      }
+      return { ok: true, status: 200, text: async () => mdContent };
+    });
+
+    await resourceManager.installPack({
+      packId: "orientation", facilityId: "fac1", category: "hospital", title: "Orientation", filePath: "orientation.md", sizeBytes: 100, versionHash: "v1", updatedAt: "2023-01-01T00:00:00Z"
+    });
+
+    await resourceManager.installPack({
+      packId: "guideline", facilityId: "fac1", departmentId: "or", category: "department", title: "Clinical Guideline", filePath: "inventory.csv", sizeBytes: 100, versionHash: "v1", updatedAt: "2023-01-01T00:00:00Z"
+    });
+
+    const packs = await resourceManager.getInstalledPacks();
+    assert.strictEqual(packs.length, 2);
+
+    const orientationPack = packs.find(p => p.packId === "orientation");
+    assert.ok(orientationPack);
+    assert.strictEqual(orientationPack?.content, mdContent);
+
+    const guidelinePack = packs.find(p => p.packId === "guideline");
+    assert.ok(guidelinePack);
+    assert.strictEqual(guidelinePack?.content, csvContent);
+
+    // Activation (Unpacking to Dexie)
+    const count = await resourceManager.unpackInstalledPacksToDexie("fac1", "or");
+    const items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    assert.ok(items && items.length > 0);
+    const guidelineItem = items?.find(i => i.item === "Guideline");
+    assert.ok(guidelineItem);
+
+    await resourceManager.deletePack("guideline");
+    const updatedPacks = await resourceManager.getInstalledPacks();
+    assert.strictEqual(updatedPacks.length, 1);
+    assert.strictEqual(updatedPacks[0].packId, "orientation");
+  });
+
   test("downloadPackContent throws error on fetch failure", async () => {
     mock.method(global, 'fetch', async () => {
       throw new Error("Network offline");
