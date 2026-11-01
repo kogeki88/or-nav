@@ -150,3 +150,102 @@ test('typing answer and dispatching answer submission', async () => {
         assert.strictEqual(onRefreshMock.mock.calls.length, 1);
     });
 });
+
+test('filtering questions by search term and empty state display', async () => {
+    const questions: DepartmentQuestion[] = [
+        {
+            id: 'q1',
+            hospital_id: 'er_trauma',
+            question_text: 'Where is the trauma cart for Dr. Smith?',
+            asked_by_role: 'Attending',
+            created_at: new Date().toISOString(),
+            verified_at: null,
+            answers: [],
+            status: 'open'
+        },
+        {
+            id: 'q2',
+            hospital_id: 'er_trauma',
+            question_text: 'What is the RSI protocol for Dr. Jones?',
+            asked_by_role: 'Scrub Tech',
+            created_at: new Date().toISOString(),
+            verified_at: new Date().toISOString(),
+            answers: [],
+            status: 'verified'
+        }
+    ];
+
+    const onRefreshMock = mock.fn(async () => {});
+
+    render(<QuestionsDrawer isOpen={true} onClose={() => {}} tenantId="er_trauma" questions={questions} onRefreshQuestions={onRefreshMock} />);
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('Where is the trauma cart for Dr. Smith?'));
+    });
+
+    const searchInput = screen.getByPlaceholderText('Search questions or surgeon tags...');
+    fireEvent.change(searchInput, { target: { value: 'Smith' } });
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('Where is the trauma cart for Dr. Smith?'));
+        assert.strictEqual(screen.queryByText('What is the RSI protocol for Dr. Jones?'), null);
+    });
+
+    fireEvent.change(searchInput, { target: { value: 'Nonexistent Surgeon' } });
+    await waitFor(() => {
+        assert.ok(screen.getByText('No questions found.'));
+    });
+});
+
+test('keyboard accessibility for question close button', async () => {
+    const onRefreshMock = mock.fn(async () => {});
+    const onCloseMock = mock.fn();
+    render(<QuestionsDrawer isOpen={true} onClose={onCloseMock} tenantId="er_trauma" questions={[]} onRefreshQuestions={onRefreshMock} />);
+
+    const closeBtn = screen.getByLabelText('Close');
+    fireEvent.keyDown(closeBtn, { key: 'Enter', code: 'Enter' });
+    fireEvent.click(closeBtn);
+
+    assert.strictEqual(onCloseMock.mock.calls.length, 1);
+});
+
+test('unanswered question filtering', async () => {
+    const questions: DepartmentQuestion[] = [
+        {
+            id: 'q1',
+            hospital_id: 'er_trauma',
+            question_text: 'Where is the trauma cart for Dr. Smith?',
+            asked_by_role: 'Attending',
+            created_at: new Date().toISOString(),
+            verified_at: null,
+            answers: [],
+            status: 'open'
+        },
+        {
+            id: 'q2',
+            hospital_id: 'er_trauma',
+            question_text: 'What is the RSI protocol for Dr. Jones?',
+            asked_by_role: 'Scrub Tech',
+            created_at: new Date().toISOString(),
+            verified_at: new Date().toISOString(),
+            answers: [],
+            status: 'verified'
+        }
+    ];
+
+    const onRefreshMock = mock.fn(async () => {});
+    render(<QuestionsDrawer isOpen={true} onClose={() => {}} tenantId="er_trauma" questions={questions} onRefreshQuestions={onRefreshMock} />);
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('Where is the trauma cart for Dr. Smith?'));
+        assert.ok(screen.getByText('What is the RSI protocol for Dr. Jones?'));
+    });
+
+    const unansweredCheckbox = screen.getByLabelText('Show only unanswered');
+    fireEvent.click(unansweredCheckbox);
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('Where is the trauma cart for Dr. Smith?'));
+        assert.strictEqual(screen.queryByText('What is the RSI protocol for Dr. Jones?'), null);
+    });
+});
