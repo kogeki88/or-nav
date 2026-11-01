@@ -288,6 +288,21 @@ def test_planner_fuzzing_hypothesis(raw_text):
         "PROTOCOL_GUIDELINE_LOOKUP"
     ]
 
+def test_planner_malformed_payload_resilience():
+    """Verify the planner properly rejects malformed inputs (non-strings)."""
+    malformed_inputs = [
+        123,
+        12.34,
+        ["dr", "patel"],
+        {"query": "dr patel"},
+        True,
+        False
+    ]
+    for bad_input in malformed_inputs:
+        with pytest.raises(ValueError) as exc:
+            plan_clinical_query(bad_input)
+        assert "Expected query to be a string" in str(exc.value)
+
 def test_planner_boundary_cases():
     """Strict boundary condition testing."""
     graph = get_clinical_graph("or_main")
