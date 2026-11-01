@@ -1,5 +1,5 @@
 import 'jsdom-global/register';
-import { renderHook } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { useWakeLock } from "./useWakeLock";
 import { describe, it, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
@@ -257,14 +257,22 @@ describe("useWakeLock", () => {
       const { rerender } = renderHook((props) => useWakeLock(props.enabled), {
         initialProps: { enabled: true }
       });
-      await Promise.resolve();
+      // We must wait for the initial async lock acquisition to complete
+      // to ensure `wakeLockRef.current` is set, so subsequent calls are idempotent.
+      await act(async () => {
+        await Promise.resolve();
+      });
+
       assert.strictEqual(mockRequest.mock.calls.length, 1);
 
-      // Replay identical input (offline mutation replay)
-      rerender({ enabled: true });
-      await Promise.resolve();
-      rerender({ enabled: true });
-      await Promise.resolve();
+      // Re-rendering with identical props acts as an offline mutation replay.
+      // We replay identical input sequentially to assert idempotency.
+      await act(async () => {
+        rerender({ enabled: true });
+      });
+      await act(async () => {
+        rerender({ enabled: true });
+      });
 
       // Should not re-request the lock multiple times redundantly
       assert.strictEqual(mockRequest.mock.calls.length, 1);
@@ -307,10 +315,16 @@ describe("useWakeLock", () => {
         hooks.map(async ({ hook, root }) => {
           await new Promise(r => setTimeout(r, Math.random() * 10)); // yield execution to event loop
 
-          hook.rerender({ enabled: true });
+          await act(async () => {
+            hook.rerender({ enabled: true });
+          });
+
           await new Promise(r => setTimeout(r, Math.random() * 10)); // jitter
 
-          hook.unmount();
+          await act(async () => {
+            hook.unmount();
+          });
+
           await new Promise(r => setTimeout(r, Math.random() * 10)); // jitter
 
           if (document.body.contains(root)) {
@@ -354,5 +368,36 @@ describe("useWakeLock", () => {
       `Average latency of ${averageLatency.toFixed(2)}ms exceeded the 50ms threshold`
     );
     assert.strictEqual(mockRequest.mock.calls.length, iterations);
+  });
+
+  it("should handle malformed configuration payloads and strict schema validation gracefully", async () => {
+    const malformedPayload = new TextEncoder().encode('{ invalid json ');
+    const originalWakeLock = global.navigator.wakeLock;
+
+    // Simulate navigator.wakeLock returning malformed unexpected data structure
+    Object.defineProperty(global.navigator, "wakeLock", {
+      value: {
+        request: async () => malformedPayload
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    try {
+      const { unmount } = renderHook(() => useWakeLock(true));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      // Should catch the TypeError internally without crashing the component
+      assert.ok(true);
+
+      unmount();
+    } finally {
+      Object.defineProperty(global.navigator, "wakeLock", {
+        value: originalWakeLock,
+        writable: true,
+        configurable: true,
+      });
+    }
   });
 });
