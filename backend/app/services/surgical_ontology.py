@@ -372,6 +372,8 @@ def strip_spoken_disfluencies(text: str) -> str:
     (e.g. 'umm', 'uhh', 'er', 'ah', 'you know', 'let's see') so they never
     interfere with surgical instrument matching or clinical intent parsing.
     """
+    if text is not None and not isinstance(text, str):
+        raise ValueError("Input must be a string")
     if not text:
         return ""
     res = text.strip()
@@ -437,6 +439,8 @@ def normalize_acoustic_speech(text: str) -> str:
     while strictly PRESERVING user surgical slang ('pickups', 'metz', 'snaps', 'peanuts', 'gemini')
     and stripping spoken disfluencies ('umm', 'uhh').
     """
+    if text is not None and not isinstance(text, str):
+        raise ValueError("Input must be a string")
     if not text:
         return ""
     res = strip_spoken_disfluencies(text)
@@ -457,6 +461,8 @@ def normalize_or_lingo(text: str) -> str:
          'snaps' -> 'crile hemostat clamp'
          'peanut' -> 'kittner dissector sponge'
     """
+    if text is not None and not isinstance(text, str):
+        raise ValueError("Input must be a string")
     if not text:
         return ""
     res = strip_spoken_disfluencies(text).lower()
@@ -481,6 +487,8 @@ def extract_eponyms(text: str) -> Set[str]:
          'DeBakey Forceps' -> {'debakey'}
          'Mayo-Hegar needle driver' -> {'mayo-hegar'}
     """
+    if text is not None and not isinstance(text, str):
+        raise ValueError("Input must be a string")
     if not text:
         return set()
 
@@ -518,6 +526,8 @@ def is_generic_class_only(text: str) -> bool:
     e.g. 'forceps' -> True, 'pickups' -> True, 'scissors' -> True
          'adson pickups' -> False, '4-0 prolene' -> False
     """
+    if text is not None and not isinstance(text, str):
+        raise ValueError("Input must be a string")
     if not text:
         return False
     norm = normalize_or_lingo(text).lower()
@@ -539,6 +549,10 @@ def is_eponym_conflict(query: str, candidate_text: str) -> bool:
          and NONE of those non-generic words match the candidate — meaning candidate
          would match purely on the generic class word ('forceps').
     """
+    if query is not None and not isinstance(query, str):
+        raise ValueError("Input must be a string")
+    if candidate_text is not None and not isinstance(candidate_text, str):
+        raise ValueError("Input must be a string")
     if not query or not candidate_text:
         return False
 
