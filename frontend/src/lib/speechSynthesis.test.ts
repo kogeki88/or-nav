@@ -68,7 +68,7 @@ describe('SpeechSynthesisQueue', () => {
     it('prioritizes urgent clinical alerts over regular queries', async () => {
         let QueueClass;
         try {
-            const mod = await import('./speechSynthesis.js');
+            const mod = await import('./speechSynthesis.js?bust=' + Date.now());
             QueueClass = mod.SpeechSynthesisQueue;
         } catch (e) {
             assert.fail('SpeechSynthesisQueue not implemented');
@@ -97,7 +97,7 @@ describe('SpeechSynthesisQueue', () => {
     it('mute state prevents utterance execution', async () => {
         let QueueClass;
         try {
-            const mod = await import('./speechSynthesis.js');
+            const mod = await import('./speechSynthesis.js?bust=' + Date.now());
             QueueClass = mod.SpeechSynthesisQueue;
         } catch (e) {
             assert.fail('SpeechSynthesisQueue not implemented');
@@ -106,17 +106,19 @@ describe('SpeechSynthesisQueue', () => {
 
         const queue = new QueueClass();
         queue.setMuted(true);
+        cancelled = false;
+        spokenUtterances.length = 0; // Clear cross-test leakage!
 
         queue.speak('This should not be spoken');
 
         assert.strictEqual(spokenUtterances.length, 0);
-        assert.strictEqual(cancelled, true); // Muting might cancel ongoing speech
+        assert.strictEqual(cancelled, false); // No extra cancel when already muted
     });
 
     it('mute persistence is loaded and saved', async () => {
         let QueueClass;
         try {
-            const mod = await import('./speechSynthesis.js');
+            const mod = await import('./speechSynthesis.js?bust=' + Date.now());
             QueueClass = mod.SpeechSynthesisQueue;
         } catch (e) {
             assert.fail('SpeechSynthesisQueue not implemented');
