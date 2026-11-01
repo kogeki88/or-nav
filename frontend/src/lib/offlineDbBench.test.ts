@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { indexedDB, IDBKeyRange } from "fake-indexeddb";
-import { test, describe } from "node:test";
+import { test, describe, afterEach } from "node:test";
 import assert from "node:assert";
 import Dexie from "dexie";
 
@@ -25,6 +25,12 @@ class BenchmarkDB extends Dexie {
 }
 
 describe("Dexie Benchmarks", () => {
+  afterEach(async () => {
+    const db = new BenchmarkDB();
+    await db.inventoryItems.clear();
+    await db.offlineOutbox.clear();
+  });
+
   test("bulkPut and query is fast", async () => {
     const db = new BenchmarkDB();
     const items = [];
@@ -279,9 +285,8 @@ describe("Dexie Benchmarks", () => {
       mutationIdsByKey.set(deduplicationKey, ids);
     }
 
-    // There are 3 deduplicated items from this test, but the offlineOutbox table isn't cleared
-    // from earlier tests. So we can't assert the total size of the deduplicated mutations map,
-    // but we can ensure our specific keys are correctly grouped.
+    // Tables were explicitly cleared via afterEach, so we can assert the exact total size
+    assert.strictEqual(deduplicatedMutations.size, 3, "Should have exactly 3 deduplicated keys");
 
     const duplicateKey = "update_item::fac1::deptA::Item 1";
     assert.ok(deduplicatedMutations.has(duplicateKey), "Map has duplicate key");
