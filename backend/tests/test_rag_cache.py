@@ -1,49 +1,42 @@
 import pytest
-import os
-from pathlib import Path
-from app.config import TenantConfig
+import asyncio
+from unittest.mock import patch
+
+from app.config import get_tenant
 from app.services.rag_fallback import RAGService, _MAX_CACHE_SIZE
 
 @pytest.mark.asyncio
-async def test_rag_cache_eviction(monkeypatch):
-    # Make sure we don't accidentally hit the real Gemini API during this test
-    # by ensuring GEMINI_API_KEY is clear for this test context.
-    monkeypatch.setenv("GEMINI_API_KEY", "")
+async def test_rag_cache_lru_eviction():
+    tenant = get_tenant("or_main")
+    service = RAGService(tenant)
 
-    dummy_tenant = TenantConfig(
-        tenant_id="test_tenant",
-        display_name="Test Tenant",
-        inventory_path=Path("/tmp/dummy_inventory.csv"),
-        orientation_path=Path("/tmp/dummy_orientation.md"),
-    )
+    with patch.object(service, '_call_gemini') as mock_gemini:
+        mock_gemini.return_value = ("mock response", False)
+        # Mock active key to trigger _call_gemini instead of fallback
+        service._api_key = "dummy"
 
-    service = RAGService(dummy_tenant)
-    service._api_key = "" # explicitly make sure API key is empty
+        # Fill cache to capacity
+        for i in range(_MAX_CACHE_SIZE):
+            await service.query_with_meta(f"query {i}")
 
-    assert _MAX_CACHE_SIZE == 1024
-
-    # Run queries to fill the cache to max capacity
-    for i in range(_MAX_CACHE_SIZE):
-        query = f"test query {i}"
-        await service.query_with_meta(query)
-
-    with service._lock:
         assert len(service._cache) == _MAX_CACHE_SIZE
 
-        # Check that the first query is currently at the beginning of the OrderedDict
-        # (It was accessed first, so it's the oldest and should be first to evict)
-        first_cache_key = service._cache_key("test query 0")
-        assert first_cache_key in service._cache
+        # Access the first item to move it to the end of LRU
+        await service.query_with_meta("query 0")
 
-    # Run one more query to trigger eviction
-    await service.query_with_meta(f"test query {_MAX_CACHE_SIZE}")
+        # Add a new item that exceeds max capacity
+        await service.query_with_meta(f"query {_MAX_CACHE_SIZE}")
 
-    with service._lock:
         assert len(service._cache) == _MAX_CACHE_SIZE
 
-        # The oldest entry ("test query 0") should now be evicted
-        assert first_cache_key not in service._cache
+        key_0 = service._cache_key("query 0")
+        key_1 = service._cache_key("query 1")
+        key_new = service._cache_key(f"query {_MAX_CACHE_SIZE}")
 
-        # The newest entry should be in the cache
-        newest_cache_key = service._cache_key(f"test query {_MAX_CACHE_SIZE}")
-        assert newest_cache_key in service._cache
+        # query 0 was accessed recently, so it should remain
+        assert key_0 in service._cache
+        # query 1 is now the oldest, so it should be evicted
+        assert key_1 not in service._cache
+        # the new query should be present
+        assert key_new in service._cache
+
