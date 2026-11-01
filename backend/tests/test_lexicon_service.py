@@ -113,6 +113,34 @@ def test_reset_facility_lexicons(mock_lexicon_dir, tmp_path):
     assert loaded[0]["spokenTerm"] == defaults[0]["spokenTerm"]
 
 
+def test_learn_alias_offline_replay_idempotency(mock_lexicon_dir):
+    facility = "idempotency_fac"
+
+    entry1 = learn_alias(
+        facility_id=facility,
+        department_id="or",
+        spoken_term="bovie",
+        canonical_item="Electrosurgical Unit",
+        user_id="user1"
+    )
+
+    entry2 = learn_alias(
+        facility_id=facility,
+        department_id="or",
+        spoken_term="bovie",
+        canonical_item="Electrosurgical Unit",
+        user_id="user1"
+    )
+
+    entries = load_facility_lexicon(facility)
+    assert len(entries) == 1
+
+    state1 = {k: v for k, v in entry1.items() if k not in ["updatedAt", "usageCount", "confidence"]}
+    state2 = {k: v for k, v in entry2.items() if k not in ["updatedAt", "usageCount", "confidence"]}
+
+    assert state1 == state2
+
+
 def test_learn_alias_tenant_isolation_and_confidence(mock_lexicon_dir):
     facility1 = "fac1"
     facility2 = "fac2"
@@ -149,13 +177,13 @@ def test_learn_alias_tenant_isolation_and_confidence(mock_lexicon_dir):
 
 
 def test_resolve_spoken_alias_multi_tenant(mock_lexicon_dir):
-    facility1 = "fac_a"
-    facility2 = "fac_b"
+    facility1 = "fac_a::dept_x"
+    facility2 = "fac_b::dept_x"
 
     # Teach "grabber" in facility1
     learn_alias(
         facility_id=facility1,
-        department_id="or",
+        department_id="dept_x",
         spoken_term="grabber",
         canonical_item="Adson Tissue Forceps 1x2 (Adson Pickups)",
         user_id="user1"
