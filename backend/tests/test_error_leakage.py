@@ -1,25 +1,27 @@
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app
-from fastapi.responses import JSONResponse
-import os
+from backend.app.main import app
+
+# Add a dummy endpoint dynamically to the app to ensure we trigger a RuntimeError reliably
+@app.get("/dummy-error")
+async def dummy_error():
+    raise RuntimeError("SENSITIVE_API_KEY=12345 /var/www/secret")
 
 client = TestClient(app, raise_server_exceptions=False)
 
-@app.get("/api/test-error-leakage-endpoint")
-async def trigger_error():
-    os.environ["DUMMY_SECRET_KEY"] = "super-secret-12345"
-    raise RuntimeError(f"Failed at /opt/backend/app/db.sqlite: DUMMY_SECRET_KEY={os.environ['DUMMY_SECRET_KEY']}")
+def test_error_leakage_sanitization():
+    """
+    Simulate a server exception (RuntimeError with sensitive data) during a request.
+    Verify that the generic_exception_handler catches it and returns a sanitized
+    500 Internal Server Error response without leaking the sensitive string.
+    """
+    response = client.get("/dummy-error")
 
-def test_unexpected_error_sanitized():
-    response = client.get("/api/test-error-leakage-endpoint")
     assert response.status_code == 500
 
-    content = response.text
-    assert "super-secret-12345" not in content
-    assert "/opt/backend/app/db.sqlite" not in content
-    assert "RuntimeError" not in content
+    data = response.json()
+    assert data == {"detail": "Internal Server Error"}
 
-    # We should return a generic JSON message
-    assert response.headers.get("content-type") == "application/json"
-    assert response.json() == {"detail": "Internal Server Error"}
+    # Double check the sensitive data is not in the text response
+    assert "SENSITIVE_API_KEY" not in response.text
+    assert "secret" not in response.text

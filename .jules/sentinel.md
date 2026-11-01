@@ -68,3 +68,7 @@ Fix applied:
 **Vulnerability:** Untrusted origins may attempt to make cross-origin requests, and missing security headers may expose the application to MIME-sniffing, clickjacking, and XSS attacks.
 **Learning:** Security headers like X-Content-Type-Options, X-Frame-Options, and Content-Security-Policy must be present to enforce boundaries.
 **Prevention:** Wrote tests to strictly enforce hospital domain boundaries for CORS origins and ensure essential security headers are present.
+## 2024-11-01 - Error Leakage Sanitization
+**Vulnerability:** Unhandled server exceptions could potentially leak internal stack traces, file paths, or environment variables to clients.
+**Learning:** A global exception handler ensures that unhandled exceptions are caught at the application level, providing a standard, sanitized response.
+**Prevention:** Always implement a top-level global exception handler in FastAPI apps to convert 500 exceptions into generic JSON responses.
