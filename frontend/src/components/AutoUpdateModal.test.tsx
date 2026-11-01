@@ -2,12 +2,13 @@ import 'jsdom-global/register.js';
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
 import { VersionManifest } from '@/lib/version';
 
 const proxyquire = require('proxyquire');
 
-const openApkDownloadMock = mock.fn();
+let currentOpenApkDownloadMock = mock.fn();
+const openApkDownloadMock = mock.fn((...args: any[]) => currentOpenApkDownloadMock(...args));
 
 const AutoUpdateModalMod = proxyquire('./AutoUpdateModal', {
   '@/hooks/useAppUpdate': {
@@ -21,7 +22,7 @@ const AutoUpdateModal = AutoUpdateModalMod.default;
 const originalFetch = global.fetch;
 
 beforeEach(() => {
-  openApkDownloadMock.mock.resetCalls();
+  currentOpenApkDownloadMock = mock.fn();
 
   // Poison global.fetch to strictly enforce offline-first invariant
   // If the component attempts ANY network request during render or interaction, the test will fail
@@ -147,52 +148,67 @@ test('closes modal when X button or Remind Me Later is clicked', () => {
 });
 
 test('enforces multi-tenant isolation invariant with stateless and deterministic rendering', () => {
-  // Simulates switching active multi-tenant contexts by re-rendering with disjoint data
-  const tenantAManifest: VersionManifest = {
-    ...manifest,
-    version: 'v0.99-TenantA',
-    changelog: 'Tenant A Specific Features',
-  };
+  const rootA = document.createElement('div');
+  rootA.setAttribute('data-tenant', 'TenantA');
+  document.body.appendChild(rootA);
 
-  const tenantBManifest: VersionManifest = {
-    ...manifest,
-    version: 'v0.99-TenantB',
-    changelog: 'Tenant B Specific Features',
-  };
+  const rootB = document.createElement('div');
+  rootB.setAttribute('data-tenant', 'TenantB');
+  document.body.appendChild(rootB);
 
-  const { rerender, unmount } = render(
-    <AutoUpdateModal
-      isOpen={true}
-      onClose={() => {}}
-      manifest={tenantAManifest}
-      currentVersion="v0.61"
-      currentBuild={18}
-    />
-  );
+  try {
+    // Simulates switching active multi-tenant contexts by re-rendering with disjoint data
+    const tenantAManifest: VersionManifest = {
+      ...manifest,
+      version: 'v0.99-TenantA',
+      changelog: 'Tenant A Specific Features',
+    };
 
-  // Assert Tenant A
-  assert.ok(screen.getByText('v0.61 (Build 18) ➔ v0.99-TenantA (Build 19)'));
-  assert.ok(screen.getByText('Tenant A Specific Features'));
+    const tenantBManifest: VersionManifest = {
+      ...manifest,
+      version: 'v0.99-TenantB',
+      changelog: 'Tenant B Specific Features',
+    };
 
-  // Unmount and render Tenant B to verify no internal memoization or global leak persists
-  unmount();
+    const { rerender, unmount } = render(
+      <AutoUpdateModal
+        isOpen={true}
+        onClose={() => {}}
+        manifest={tenantAManifest}
+        currentVersion="v0.61"
+        currentBuild={18}
+      />,
+      { container: rootA }
+    );
 
-  render(
-    <AutoUpdateModal
-      isOpen={true}
-      onClose={() => {}}
-      manifest={tenantBManifest}
-      currentVersion="v0.61"
-      currentBuild={18}
-    />
-  );
+    // Assert Tenant A
+    assert.ok(screen.getByText('v0.61 (Build 18) ➔ v0.99-TenantA (Build 19)'));
+    assert.ok(screen.getByText('Tenant A Specific Features'));
 
-  // Assert Tenant B
-  assert.ok(screen.getByText('v0.61 (Build 18) ➔ v0.99-TenantB (Build 19)'));
-  assert.ok(screen.getByText('Tenant B Specific Features'));
+    // Unmount and render Tenant B to verify no internal memoization or global leak persists
+    unmount();
 
-  // Verify Tenant A data has completely leaked out of the render tree
-  assert.strictEqual(screen.queryByText('Tenant A Specific Features'), null);
+    render(
+      <AutoUpdateModal
+        isOpen={true}
+        onClose={() => {}}
+        manifest={tenantBManifest}
+        currentVersion="v0.61"
+        currentBuild={18}
+      />,
+      { container: rootB }
+    );
+
+    // Assert Tenant B
+    assert.ok(screen.getByText('v0.61 (Build 18) ➔ v0.99-TenantB (Build 19)'));
+    assert.ok(screen.getByText('Tenant B Specific Features'));
+
+    // Verify Tenant A data has completely leaked out of the render tree
+    assert.strictEqual(screen.queryByText('Tenant A Specific Features'), null);
+  } finally {
+    document.body.removeChild(rootA);
+    document.body.removeChild(rootB);
+  }
 });
 
 
@@ -230,61 +246,75 @@ test('enforces multi-tenant boundary isolation and offline mutation replay idemp
   const tenant1 = 'facility_A::dept_1';
   const tenant2 = 'facility_B::dept_2';
 
-  const manifestTenant1: VersionManifest = {
-    ...manifest,
-    changelog: `Update for ${tenant1}`,
-  };
+  const root1 = document.createElement('div');
+  root1.setAttribute('data-tenant', tenant1);
+  document.body.appendChild(root1);
 
-  const manifestTenant2: VersionManifest = {
-    ...manifest,
-    changelog: `Update for ${tenant2}`,
-  };
+  const root2 = document.createElement('div');
+  root2.setAttribute('data-tenant', tenant2);
+  document.body.appendChild(root2);
 
-  // Replay idempotency for Tenant 1
-  const { rerender, unmount } = render(
-    <AutoUpdateModal
-      isOpen={true}
-      onClose={() => {}}
-      manifest={manifestTenant1}
-      currentVersion="v0.61"
-      currentBuild={18}
-    />
-  );
+  try {
+    const manifestTenant1: VersionManifest = {
+      ...manifest,
+      changelog: `Update for ${tenant1}`,
+    };
 
-  assert.ok(screen.getByText(`Update for ${tenant1}`));
-  assert.strictEqual(screen.queryByText(`Update for ${tenant2}`), null);
+    const manifestTenant2: VersionManifest = {
+      ...manifest,
+      changelog: `Update for ${tenant2}`,
+    };
 
-  // Replay exactly the same mutation
-  rerender(
-    <AutoUpdateModal
-      isOpen={true}
-      onClose={() => {}}
-      manifest={manifestTenant1}
-      currentVersion="v0.61"
-      currentBuild={18}
-    />
-  );
+    // Replay idempotency for Tenant 1
+    const { rerender, unmount } = render(
+      <AutoUpdateModal
+        isOpen={true}
+        onClose={() => {}}
+        manifest={manifestTenant1}
+        currentVersion="v0.61"
+        currentBuild={18}
+      />,
+      { container: root1 }
+    );
 
-  assert.ok(screen.getByText(`Update for ${tenant1}`));
-  assert.strictEqual(screen.queryByText(`Update for ${tenant2}`), null);
+    assert.ok(screen.getByText(`Update for ${tenant1}`));
+    assert.strictEqual(screen.queryByText(`Update for ${tenant2}`), null);
 
-  unmount(); // Unmount to simulate fresh boundary context
+    // Replay exactly the same mutation
+    rerender(
+      <AutoUpdateModal
+        isOpen={true}
+        onClose={() => {}}
+        manifest={manifestTenant1}
+        currentVersion="v0.61"
+        currentBuild={18}
+      />
+    );
 
-  // Switch to Tenant 2, verifying Multi-Tenant Isolation
-  render(
-    <AutoUpdateModal
-      isOpen={true}
-      onClose={() => {}}
-      manifest={manifestTenant2}
-      currentVersion="v0.61"
-      currentBuild={18}
-    />
-  );
+    assert.ok(screen.getByText(`Update for ${tenant1}`));
+    assert.strictEqual(screen.queryByText(`Update for ${tenant2}`), null);
 
-  assert.ok(screen.getByText(`Update for ${tenant2}`));
-  assert.strictEqual(screen.queryByText(`Update for ${tenant1}`), null); // Assert Tenant 1 context is completely isolated/scrubbed
+    unmount(); // Unmount to simulate fresh boundary context
 
-  cleanup();
+    // Switch to Tenant 2, verifying Multi-Tenant Isolation
+    render(
+      <AutoUpdateModal
+        isOpen={true}
+        onClose={() => {}}
+        manifest={manifestTenant2}
+        currentVersion="v0.61"
+        currentBuild={18}
+      />,
+      { container: root2 }
+    );
+
+    assert.ok(screen.getByText(`Update for ${tenant2}`));
+    assert.strictEqual(screen.queryByText(`Update for ${tenant1}`), null); // Assert Tenant 1 context is completely isolated/scrubbed
+  } finally {
+    document.body.removeChild(root1);
+    document.body.removeChild(root2);
+    cleanup();
+  }
 });
 
 test('handles high-concurrency and race conditions (Burst/Stress)', async () => {
@@ -294,41 +324,58 @@ test('handles high-concurrency and race conditions (Burst/Stress)', async () => 
   // Track rendering latency
   const latencies: number[] = [];
 
-  const renderPromises = Array.from({ length: CONCURRENCY_COUNT }).map(async (_, index) => {
-    const start = performance.now();
-    // Yield execution to event loop to simulate actual asynchronous concurrency
-    await new Promise(resolve => setTimeout(resolve, Math.random() * 10));
-
+  const rootNodes = Array.from({ length: CONCURRENCY_COUNT }).map((_, index) => {
     const isTenantA = index % 2 === 0;
-    const currentManifest = {
-      ...manifest,
-      version: isTenantA ? `v0.99-A-${index}` : `v0.99-B-${index}`,
-      build_number: index + 100
-    };
-
-    // We verify the global fetch isn't called due to the offline-first poison in beforeEach
-    const { unmount, queryByText } = render(
-      <AutoUpdateModal
-        isOpen={true}
-        onClose={onCloseMock}
-        manifest={currentManifest}
-        currentVersion="v0.61"
-        currentBuild={18}
-      />
-    );
-
-    // Yield again so renders interleave
-    await new Promise(resolve => setTimeout(resolve, Math.random() * 5));
-
-    // Assert deterministic text
-    assert.ok(queryByText(`v0.61 (Build 18) ➔ ${currentManifest.version} (Build ${currentManifest.build_number})`));
-
-    // Cleanup and track latency
-    unmount();
-    latencies.push(performance.now() - start);
+    const tenantId = isTenantA ? `TenantA-${index}` : `TenantB-${index}`;
+    const root = document.createElement('div');
+    root.setAttribute('data-tenant', tenantId);
+    document.body.appendChild(root);
+    return { root, isTenantA };
   });
 
-  await Promise.all(renderPromises);
+  try {
+    const renderPromises = rootNodes.map(async ({ root, isTenantA }, index) => {
+      const start = performance.now();
+      // Yield execution to event loop to simulate actual asynchronous concurrency
+      await new Promise(resolve => setTimeout(resolve, Math.random() * 10));
+
+      const currentManifest = {
+        ...manifest,
+        version: isTenantA ? `v0.99-A-${index}` : `v0.99-B-${index}`,
+        build_number: index + 100
+      };
+
+      // We verify the global fetch isn't called due to the offline-first poison in beforeEach
+      const { unmount, queryByText } = render(
+        <AutoUpdateModal
+          isOpen={true}
+          onClose={onCloseMock}
+          manifest={currentManifest}
+          currentVersion="v0.61"
+          currentBuild={18}
+        />,
+        { container: root }
+      );
+
+      // Yield again so renders interleave
+      await new Promise(resolve => setTimeout(resolve, Math.random() * 5));
+
+      // Assert deterministic text
+      assert.ok(queryByText(`v0.61 (Build 18) ➔ ${currentManifest.version} (Build ${currentManifest.build_number})`));
+
+      // Cleanup and track latency
+      unmount();
+      latencies.push(performance.now() - start);
+    });
+
+    await Promise.all(renderPromises);
+  } finally {
+    rootNodes.forEach(({ root }) => {
+      if (document.body.contains(root)) {
+        document.body.removeChild(root);
+      }
+    });
+  }
 
   const avgLatency = latencies.reduce((a, b) => a + b, 0) / latencies.length;
   // Assert rendering latency remains reasonable under load
