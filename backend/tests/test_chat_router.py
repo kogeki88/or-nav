@@ -406,3 +406,107 @@ class TestChatRouterMultiTenant:
         # Verify cross tenant with bad format is rejected
         respD = client.post("/api/chat", json={"message": "where is 3-0 silk", "tenant_id": "other_hospital::er"})
         assert respD.status_code in [404, 400]
+
+    @settings(max_examples=50, deadline=None)
+    @given(question_text=st.text(min_size=3, max_size=1000), tenant_id=st.text(min_size=1, max_size=50))
+    def test_questions_fuzzing(self, question_text, tenant_id):
+        client = TestClient(app)
+        resp = client.post("/api/questions", json={
+            "question_text": question_text,
+            "tenant_id": tenant_id
+        })
+        assert resp.status_code in [200, 400, 404, 422]
+
+    @settings(max_examples=50, deadline=None)
+    @given(item=st.text(min_size=1, max_size=500), expected_location=st.text(min_size=1, max_size=500), tenant_id=st.text(min_size=1, max_size=50))
+    def test_verify_move_fuzzing(self, item, expected_location, tenant_id):
+        client = TestClient(app)
+        resp = client.post("/api/inventory/verify-move", json={
+            "item": item,
+            "expected_location": expected_location,
+            "tenant_id": tenant_id
+        })
+        assert resp.status_code in [200, 400, 404, 422]
+
+    def test_multi_tenant_boundary_add_item(self):
+        client = TestClient(app)
+
+        # Add item to tenant A
+        respA_add = client.post("/api/inventory/add-item", json={
+            "tenant_id": "general_memorial_cvor",
+            "item": "Secret Isolated Item",
+            "location": "A Location",
+            "category": "Instruments",
+            "surgeon_notes": "",
+            "learned_aliases": []
+        })
+        assert respA_add.status_code == 200
+
+        # Try to find item in tenant A
+        respA_chat = client.post("/api/chat", json={
+            "message": "where is Secret Isolated Item",
+            "tenant_id": "general_memorial_cvor"
+        })
+        assert respA_chat.status_code == 200
+        assert respA_chat.json()["coordinate_card"]["item"] == "Secret Isolated Item"
+
+        # Try to find item in tenant B
+        respB_chat = client.post("/api/chat", json={
+            "message": "where is Secret Isolated Item",
+            "tenant_id": "or_main"
+        })
+        assert respB_chat.status_code == 200
+        # Assert the item is not found, coordinate_card is None
+        assert respB_chat.json()["coordinate_card"] is None
+
+    def test_multi_tenant_boundary_questions(self):
+        client = TestClient(app)
+
+        # Tenant A adds question
+        respA_q = client.post("/api/questions", json={
+            "tenant_id": "general_memorial_cvor",
+            "question_text": "Is this tenant A only?",
+            "asked_by_role": "RN"
+        })
+        assert respA_q.status_code == 200
+
+        # Tenant A gets questions
+        respA_list = client.get("/api/questions?tenant_id=general_memorial_cvor")
+        assert respA_list.status_code == 200
+        q_texts_A = [q["question_text"] for q in respA_list.json()["questions"]]
+        assert "Is this tenant A only?" in q_texts_A
+
+        # Tenant B gets questions
+        respB_list = client.get("/api/questions?tenant_id=or_main")
+        assert respB_list.status_code == 200
+        q_texts_B = [q["question_text"] for q in respB_list.json()["questions"]]
+        assert "Is this tenant A only?" not in q_texts_B
+
+    def test_offline_mutation_replay_idempotency_verify_move(self):
+        client = TestClient(app)
+
+        payload = {
+            "tenant_id": "general_memorial_cvor",
+            "item": "3-0 Silk Suture",
+            "expected_location": "OR 21 Cabinet 2",
+            "timestamp": "2024-05-15T12:00:00Z"
+        }
+
+        # Issue 3 sequential identical requests simulating offline replays
+        resp1 = client.post("/api/inventory/verify-move", json=payload)
+        resp2 = client.post("/api/inventory/verify-move", json=payload)
+        resp3 = client.post("/api/inventory/verify-move", json=payload)
+
+        assert resp1.status_code == 200
+        assert resp2.status_code == 200
+        assert resp3.status_code == 200
+
+        data1 = resp1.json()
+        data2 = resp2.json()
+        data3 = resp3.json()
+
+        for data in [data1, data2, data3]:
+            if "latency_ms" in data:
+                del data["latency_ms"]
+
+        assert data1 == data2 == data3
