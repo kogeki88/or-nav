@@ -91,4 +91,28 @@ describe('Sidebar', () => {
 
     expect(settingsToggle.getAttribute('aria-expanded')).toBe('true');
   });
+
+  it('renders a department selector that calls onSelectTenant', () => {
+    const onSelectTenantMock = vi.fn();
+    const props = { ...mockProps, onSelectTenant: onSelectTenantMock };
+    render(<Sidebar {...props} />);
+
+    const selector = screen.getByTestId('department-selector') as HTMLSelectElement;
+    expect(selector).toBeTruthy();
+
+    const firstValidOption = selector.options[0]?.value;
+    expect(firstValidOption).toBeDefined();
+
+    fireEvent.change(selector, { target: { value: firstValidOption } });
+    expect(onSelectTenantMock).toHaveBeenCalledTimes(1);
+    expect(onSelectTenantMock).toHaveBeenCalledWith(firstValidOption);
+  });
+
+  it('has touch targets with minimum 44px size', () => {
+    render(<Sidebar {...mockProps} />);
+
+    const newCaseBtn = screen.getByTestId('sidebar-new-case-btn');
+    expect(newCaseBtn).toBeTruthy();
+    expect(newCaseBtn.className).toContain('min-h-[44px]');
+  });
 });

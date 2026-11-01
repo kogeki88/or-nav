@@ -402,7 +402,7 @@ export default function Sidebar({
         <button
           onClick={onNewCase}
           data-testid="sidebar-new-case-btn"
-          className="w-full mt-3 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-100 hover:bg-white active:bg-zinc-200 text-zinc-950 font-medium text-xs transition-colors shadow-sm cursor-pointer"
+          className="w-full mt-3 min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-100 hover:bg-white active:bg-zinc-200 text-zinc-950 font-medium text-xs transition-colors shadow-sm cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
           <span>New Case</span>
