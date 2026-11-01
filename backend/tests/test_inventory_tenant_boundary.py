@@ -39,7 +39,25 @@ MaliciousItem,Instruments,Room1,Cab1,Shelf1,Cont1
         assert tenant_1_config.inventory_path.read_text() == t1_inv
         assert tenant_2_config.inventory_path.read_text() == t2_inv
 
-        # Test 2: Upload correctly to tenant 1
+        # Test 2: Upload CSV that contains records belonging to a different tenant/facility
+        malicious_cross_tenant_csv = """item,category,room,cabinet,shelf,container,tenant_id
+CrossTenantItem,Instruments,Room1,Cab1,Shelf1,Cont1,er_trauma
+CrossFacilityItem,Instruments,Room1,Cab1,Shelf1,Cont1,county_general::er_trauma
+"""
+
+        r = client.post(
+            "/api/ingest",
+            data={"tenant_id": tenant_1},
+            files={"file": ("inventory.csv", malicious_cross_tenant_csv, "text/csv")}
+        )
+        # Should be rejected with 400 because CSV contains items with cross-facility or cross-tenant IDs
+        assert r.status_code == 400
+
+        # Verify both tenants were NOT modified
+        assert tenant_1_config.inventory_path.read_text() == t1_inv
+        assert tenant_2_config.inventory_path.read_text() == t2_inv
+
+        # Test 3: Upload correctly to tenant 1
         r = client.post(
             "/api/ingest",
             data={"tenant_id": tenant_1},
