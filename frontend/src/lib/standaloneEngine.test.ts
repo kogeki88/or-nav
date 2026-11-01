@@ -76,6 +76,21 @@ describe("standaloneEngine", () => {
       assert.strictEqual(match.row.item, "Scalpel");
       assert.strictEqual(match.row.surgeon_notes, "Dr. Smith prefers #11; Dr. Jones prefers #15");
     });
+
+    test("handles adversarial queries and regex injection safely", () => {
+      const queries = [
+        ".*",
+        "[a-z]+(a+)+$",
+        "' DROP TABLE items; --",
+        "\"",
+        "\\\\",
+        ".*.*.*.*.*.*.*.*.*.*.*.*.*"
+      ];
+      for (const q of queries) {
+        const match = findMatchingRow(q, MOCK_ROWS);
+        assert.strictEqual(match.row, null);
+      }
+    });
   });
 
   describe("normalizeLocationCoordinate", () => {
@@ -159,6 +174,21 @@ describe("standaloneEngine", () => {
       const family = searchFamily("suture", MOCK_ROWS);
       assert.strictEqual(family.length, 1);
       assert.strictEqual(family[0].item, "Suture 2-0 Silk");
+    });
+
+    test("handles adversarial queries safely", () => {
+      const queries = [
+        ".*",
+        "[a-z]+(a+)+$",
+        "' DROP TABLE items; --",
+        "\"",
+        "\\\\",
+        ".*.*.*.*.*.*.*.*.*.*.*.*.*"
+      ];
+      for (const q of queries) {
+        const family = searchFamily(q, MOCK_ROWS);
+        assert.ok(Array.isArray(family));
+      }
     });
   });
 
