@@ -1,5 +1,5 @@
-import type { VersionManifest } from "./version.ts";
-import { isNewerVersion, GITHUB_REPO_OWNER, GITHUB_REPO_NAME } from './version.ts';
+import type { VersionManifest } from "./version";
+import { isNewerVersion, GITHUB_REPO_OWNER, GITHUB_REPO_NAME } from './version';
 
 export interface OTAManifest extends VersionManifest {
   sha256?: string;
