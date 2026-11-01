@@ -362,7 +362,7 @@ describe('appSettings', () => {
     assert.strictEqual(finalSettings.voiceSettings, `voice-${iterations - 1}`);
   });
 
-  test('multi-tenant boundary enforcement (facility_id::dept_id) - enforces multi-tenant isolation by dropping cross-tenant payload pollution', () => {
+  test('multi-tenant boundary enforcement (facility_id::dept_id) - enforces multi-tenant isolation by dropping cross-tenant payload pollution via saveAppSettings', () => {
     localStorage.clear();
 
     // Attempt to inject tenant-specific boundary keys into the global app settings
@@ -379,6 +379,30 @@ describe('appSettings', () => {
     const settings = getAppSettings();
 
     // Ensure only valid settings are preserved, and tenant boundary keys are scrubbed
+    assert.strictEqual(settings.darkMode, true);
+    assert.strictEqual((settings as any)["facility_id::dept_id"], undefined);
+    assert.strictEqual((settings as any).facility_id, undefined);
+    assert.strictEqual((settings as any).dept_id, undefined);
+    assert.strictEqual((settings as any).tenantId, undefined);
+  });
+
+  test('multi-tenant boundary enforcement (facility_id::dept_id) - enforces multi-tenant isolation by dropping cross-tenant payload pollution from raw localStorage', () => {
+    localStorage.clear();
+
+    const maliciousPayload = {
+      darkMode: true,
+      "facility_id::dept_id": "fac1::dept1",
+      facility_id: "fac1",
+      dept_id: "dept1",
+      tenantId: "tenant-123"
+    };
+
+    // Inject directly into localStorage
+    localStorage.setItem(APP_SETTINGS_STORAGE_KEY, JSON.stringify(maliciousPayload));
+
+    const settings = getAppSettings();
+
+    // Ensure getAppSettings strips invalid/tenant keys
     assert.strictEqual(settings.darkMode, true);
     assert.strictEqual((settings as any)["facility_id::dept_id"], undefined);
     assert.strictEqual((settings as any).facility_id, undefined);
