@@ -10,7 +10,7 @@
 
 import { extractEponyms } from "./surgicalOntology";
 
-export interface LearnedAliasEntry {
+export interface BaseAliasEntry {
   aliasId: string;
   facilityId: string;
   departmentId: string;
@@ -23,10 +23,21 @@ export interface LearnedAliasEntry {
   updatedAt: string;
 }
 
+export interface SemanticAliasEntry extends BaseAliasEntry {
+  type: "semantic";
+}
+
+export interface PhoneticCorrectionEntry extends BaseAliasEntry {
+  type: "phonetic";
+}
+
+export type LearnedAliasEntry = SemanticAliasEntry | PhoneticCorrectionEntry;
+
 const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
   sacred_heart: [
     {
       aliasId: "sh_lex_1",
+      type: "semantic",
       facilityId: "sacred_heart",
       departmentId: "or",
       spokenTerm: "adson pickups",
@@ -39,6 +50,7 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
     },
     {
       aliasId: "sh_lex_2",
+      type: "semantic",
       facilityId: "sacred_heart",
       departmentId: "or",
       spokenTerm: "toothed adson",
@@ -51,6 +63,7 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
     },
     {
       aliasId: "sh_lex_3",
+      type: "semantic",
       facilityId: "sacred_heart",
       departmentId: "or",
       spokenTerm: "gemini",
@@ -63,6 +76,7 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
     },
     {
       aliasId: "sh_lex_4",
+      type: "semantic",
       facilityId: "sacred_heart",
       departmentId: "or",
       spokenTerm: "peanut",
@@ -75,6 +89,7 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
     },
     {
       aliasId: "sh_lex_5",
+      type: "semantic",
       facilityId: "sacred_heart",
       departmentId: "or",
       spokenTerm: "stat",
@@ -87,6 +102,7 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
     },
     {
       aliasId: "sh_lex_6",
+      type: "semantic",
       facilityId: "sacred_heart",
       departmentId: "or",
       spokenTerm: "pillowcase",
@@ -101,6 +117,7 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
   princeton_plainsboro: [
     {
       aliasId: "ppth_lex_1",
+      type: "semantic",
       facilityId: "princeton_plainsboro",
       departmentId: "or",
       spokenTerm: "rat tooth",
@@ -113,6 +130,7 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
     },
     {
       aliasId: "ppth_lex_2",
+      type: "semantic",
       facilityId: "princeton_plainsboro",
       departmentId: "or",
       spokenTerm: "right angle",
@@ -125,6 +143,7 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
     },
     {
       aliasId: "ppth_lex_3",
+      type: "semantic",
       facilityId: "princeton_plainsboro",
       departmentId: "or",
       spokenTerm: "cherry",
@@ -139,6 +158,7 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
   county_general: [
     {
       aliasId: "cg_lex_1",
+      type: "semantic",
       facilityId: "county_general",
       departmentId: "or",
       spokenTerm: "1x2 pickups",
@@ -151,6 +171,7 @@ const DEFAULT_PRESEEDED_LEXICONS: Record<string, LearnedAliasEntry[]> = {
     },
     {
       aliasId: "cg_lex_2",
+      type: "semantic",
       facilityId: "county_general",
       departmentId: "or",
       spokenTerm: "mixter clamp",
@@ -281,11 +302,64 @@ export function learnAliasClient(
 
   const newEntry: LearnedAliasEntry = {
     aliasId: `${facilityId}_${Date.now()}_${entries.length + 1}`,
+    type: "semantic",
     facilityId,
     departmentId: departmentId || "or",
     spokenTerm: normTerm,
     displayPreferredName: disp,
     canonicalItemName: canonicalItem,
+    usageCount: 1,
+    usedByUsers: cleanUser && cleanUser !== "anonymous" ? [cleanUser] : [],
+    confidence: cleanUser === "admin" || cleanUser.includes("sean") ? "facility_consensus" : "personal",
+    updatedAt: nowIso,
+  };
+  entries.push(newEntry);
+  saveFacilityLexicon(facilityId, entries);
+  return newEntry;
+}
+
+export function recordPhoneticCorrection(
+  facilityId: string,
+  departmentId: string,
+  misheardTerm: string,
+  actualTerm: string,
+  userId: string = "anonymous"
+): PhoneticCorrectionEntry {
+  if (!misheardTerm || !actualTerm) {
+    throw new Error("misheardTerm and actualTerm must not be null or empty.");
+  }
+  const normTerm = misheardTerm.trim().toLowerCase();
+  const entries = loadFacilityLexicon(facilityId);
+  const nowIso = new Date().toISOString();
+  const cleanUser = (userId || "anonymous").trim().toLowerCase();
+  const disp = titleCaseTerm(misheardTerm);
+
+  const existing = entries.find((e) => e.spokenTerm.toLowerCase() === normTerm && e.type === "phonetic") as PhoneticCorrectionEntry | undefined;
+  if (existing) {
+    existing.usageCount = (existing.usageCount || 1) + 1;
+    const userSet = new Set(existing.usedByUsers || []);
+    if (cleanUser && cleanUser !== "anonymous") userSet.add(cleanUser);
+    existing.usedByUsers = Array.from(userSet);
+    existing.canonicalItemName = actualTerm;
+    existing.displayPreferredName = disp;
+    existing.updatedAt = nowIso;
+    if (existing.usedByUsers.length >= 2 || existing.usageCount >= 2) {
+      existing.confidence = "facility_consensus";
+    } else {
+      existing.confidence = "facility_learned";
+    }
+    saveFacilityLexicon(facilityId, entries);
+    return existing;
+  }
+
+  const newEntry: PhoneticCorrectionEntry = {
+    aliasId: `${facilityId}_phonetic_${Date.now()}_${entries.length + 1}`,
+    type: "phonetic",
+    facilityId,
+    departmentId: departmentId || "or",
+    spokenTerm: normTerm,
+    displayPreferredName: disp,
+    canonicalItemName: actualTerm,
     usageCount: 1,
     usedByUsers: cleanUser && cleanUser !== "anonymous" ? [cleanUser] : [],
     confidence: cleanUser === "admin" || cleanUser.includes("sean") ? "facility_consensus" : "personal",
