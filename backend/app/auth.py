@@ -15,7 +15,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 import uuid
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
+from app.limiter import limiter
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -129,7 +130,8 @@ class UpdateProfileRequest(BaseModel):
 # --- REST Endpoints ---
 
 @router.post("/register")
-async def register(req: RegisterRequest):
+@limiter.limit("5/minute")
+async def register(request: Request, req: RegisterRequest):
     """Register a brand-new user account with onboardingCompleted: False."""
     email = req.email.strip().lower()
     if not email or "@" not in email:
@@ -166,7 +168,8 @@ async def register(req: RegisterRequest):
 
 
 @router.post("/login")
-async def login(req: LoginRequest):
+@limiter.limit("10/minute")
+async def login(request: Request, req: LoginRequest):
     """Authenticate user with email and password."""
     email = req.email.strip().lower()
     users = load_users()
@@ -188,7 +191,8 @@ async def login(req: LoginRequest):
 
 
 @router.post("/reset-password")
-async def reset_password(req: ResetPasswordRequest):
+@limiter.limit("5/minute")
+async def reset_password(request: Request, req: ResetPasswordRequest):
     """Reset password for an existing account."""
     email = req.email.strip().lower()
     new_pw = (req.newPassword or req.new_password or "").strip()
