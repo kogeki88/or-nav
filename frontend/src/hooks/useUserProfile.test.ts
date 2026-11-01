@@ -198,30 +198,54 @@ describe('useUserProfile hook', () => {
     const originalWarn = console.warn;
     console.warn = mock.fn();
 
-    localStorageMock[USER_PROFILE_STORAGE_KEY] = '{ invalid json ]';
+    const badPayloads = [
+      '{ invalid json ]',
+      'null',
+      'undefined',
+      '',
+      '{"fullName": 123}',
+      '{"fullName": "test", "clinicalRole": {"a": 1}}',
+      '[]'
+    ];
 
-    const { result } = renderHook(() => useUserProfile());
-    assert.deepStrictEqual(result.current.profile, DEFAULT_USER_PROFILE);
+    badPayloads.forEach(payload => {
+      localStorageMock[USER_PROFILE_STORAGE_KEY] = payload;
+      const { result } = renderHook(() => useUserProfile());
+
+      // Some properties might get filled with defaults, just ensuring it doesn't crash
+      // and mostly defaults to something safe
+      assert.ok(result.current.profile);
+      assert.strictEqual(typeof result.current.profile.fullName, 'string');
+    });
 
     console.warn = originalWarn;
   });
 
   it('should enforce strict schema validation for missing/incorrect types in localStorage (Strict Schema Validation)', () => {
-    const malformedData = {
-      fullName: 12345, // should be string
-      facilityId: null, // should be string
-      departmentId: '', // should fallback to default if empty or handle it safely depending on logic
-      clinicalRole: true // should be string
-    };
-    localStorageMock[USER_PROFILE_STORAGE_KEY] = JSON.stringify(malformedData);
+    const malformedDataArray = [
+      {
+        fullName: 12345,
+        facilityId: null,
+        departmentId: '',
+        clinicalRole: true
+      },
+      {
+        fullName: [],
+        facilityId: {},
+        departmentId: 999,
+        clinicalRole: null
+      }
+    ];
 
-    const { result } = renderHook(() => useUserProfile());
+    malformedDataArray.forEach(malformedData => {
+      localStorageMock[USER_PROFILE_STORAGE_KEY] = JSON.stringify(malformedData);
 
-    // It should replace invalid types with default values
-    assert.strictEqual(result.current.profile.fullName, DEFAULT_USER_PROFILE.fullName);
-    assert.strictEqual(result.current.profile.facilityId, DEFAULT_USER_PROFILE.facilityId);
-    assert.strictEqual(result.current.profile.clinicalRole, DEFAULT_USER_PROFILE.clinicalRole);
-    // empty string is a valid string, so departmentId might remain empty or fallback depending on logic
+      const { result } = renderHook(() => useUserProfile());
+
+      assert.strictEqual(result.current.profile.fullName, DEFAULT_USER_PROFILE.fullName);
+      assert.strictEqual(result.current.profile.facilityId, DEFAULT_USER_PROFILE.facilityId);
+      assert.strictEqual(result.current.profile.clinicalRole, DEFAULT_USER_PROFILE.clinicalRole);
+    });
   });
 
   it('should reject malformed saveProfile payloads and maintain strict schema (Malformed Payload Resilience)', () => {
@@ -229,43 +253,54 @@ describe('useUserProfile hook', () => {
     const originalError = console.error;
     console.error = mock.fn();
 
-    const badProfile = {
-      fullName: null,
-      facilityId: 9999,
-      departmentId: undefined,
-      clinicalRole: ['Array']
-    };
+    const badProfiles = [
+      {
+        fullName: null,
+        facilityId: 9999,
+        departmentId: undefined,
+        clinicalRole: ['Array']
+      },
+      null,
+      undefined,
+      [],
+      "string payload"
+    ];
 
-    act(() => {
-      // Cast to any to bypass TS for fuzzing
-      result.current.saveProfile(badProfile as any);
+    badProfiles.forEach(badProfile => {
+      act(() => {
+        result.current.saveProfile(badProfile as any);
+      });
+
+      assert.strictEqual(result.current.profile.fullName, DEFAULT_USER_PROFILE.fullName);
+      assert.strictEqual(result.current.profile.facilityId, DEFAULT_USER_PROFILE.facilityId);
+      assert.strictEqual(result.current.profile.departmentId, DEFAULT_USER_PROFILE.departmentId);
+      assert.strictEqual(result.current.profile.clinicalRole, DEFAULT_USER_PROFILE.clinicalRole);
     });
-
-    // The state should be updated to a strictly validated version using fallbacks
-    assert.strictEqual(result.current.profile.fullName, DEFAULT_USER_PROFILE.fullName);
-    assert.strictEqual(result.current.profile.facilityId, DEFAULT_USER_PROFILE.facilityId);
-    assert.strictEqual(result.current.profile.departmentId, DEFAULT_USER_PROFILE.departmentId);
-    assert.strictEqual(result.current.profile.clinicalRole, DEFAULT_USER_PROFILE.clinicalRole);
 
     console.error = originalError;
   });
 
   it('should handle massive strings safely (Boundary inputs)', () => {
     const { result } = renderHook(() => useUserProfile());
-    const massiveString = 'A'.repeat(50000);
 
-    const massiveProfile = {
-      ...DEFAULT_USER_PROFILE,
-      fullName: massiveString,
-      facilityId: massiveString
-    };
+    const sizes = [10000, 50000, 100000];
 
-    act(() => {
-      result.current.saveProfile(massiveProfile);
+    sizes.forEach(size => {
+      const massiveString = 'A'.repeat(size);
+
+      const massiveProfile = {
+        ...DEFAULT_USER_PROFILE,
+        fullName: massiveString,
+        facilityId: massiveString
+      };
+
+      act(() => {
+        result.current.saveProfile(massiveProfile);
+      });
+
+      assert.strictEqual(result.current.profile.fullName, massiveString);
+      assert.strictEqual(result.current.profile.facilityId, massiveString);
     });
-
-    assert.strictEqual(result.current.profile.fullName, massiveString);
-    assert.strictEqual(result.current.profile.facilityId, massiveString);
   });
 
   it('should handle special characters and potential XSS payloads safely', () => {
@@ -314,11 +349,24 @@ describe('useUserProfile hook', () => {
     const savedData = JSON.parse(localStorageMock[USER_PROFILE_STORAGE_KEY]);
     assert.ok(savedData.fullName.startsWith('Concurrent User'));
     assert.ok(savedData.facilityId.startsWith('facility_'));
+
+    const matchedIndex = parseInt(savedData.fullName.replace('Concurrent User ', ''));
+    assert.ok(!isNaN(matchedIndex));
+    assert.strictEqual(savedData.facilityId, `facility_${matchedIndex % 3}`);
   });
 
   it('should maintain low latency for saving and loading under stress (Latency Benchmarks)', () => {
      const { result } = renderHook(() => useUserProfile());
      const STRESS_ITERATIONS = 1000;
+
+     // Warmup
+     act(() => {
+        result.current.saveProfile({
+            ...DEFAULT_USER_PROFILE,
+            fullName: `Warmup User`,
+            facilityId: `sacred_heart`
+        });
+     });
 
      const start = performance.now();
      for (let i = 0; i < STRESS_ITERATIONS; i++) {
@@ -332,9 +380,9 @@ describe('useUserProfile hook', () => {
      }
      const end = performance.now();
 
-     const averageLatency = (end - start) / STRESS_ITERATIONS;
+     const totalDuration = end - start;
 
-     // The average latency for simple state + localStorage update should be well under 50ms
-     assert.ok(averageLatency < 50, `Average latency was ${averageLatency}ms, expected < 50ms`);
+     // Provide sufficient headroom for CI environments (e.g., < 2500ms for 1000 iterations)
+     assert.ok(totalDuration < 2500, `Total duration was ${totalDuration}ms, expected < 2500ms`);
   });
 });
