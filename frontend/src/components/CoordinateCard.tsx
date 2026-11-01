@@ -191,6 +191,7 @@ const CoordinateCard = React.memo(function CoordinateCard({
             data-testid="card-speaker-btn"
             onClick={handleSpeakCard}
             title="Read coordinate aloud (Single-Response TTS)"
+            aria-label="Read coordinate aloud"
             className={`p-1 rounded transition-colors cursor-pointer ${
               speakingCard
                 ? "text-emerald-400 bg-emerald-950/50"

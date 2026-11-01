@@ -576,6 +576,7 @@ export default function Sidebar({
                             onDeleteSession(session.sessionId);
                           }}
                           title="Delete case"
+                          aria-label="Delete case"
                           data-testid={`delete-case-${session.sessionId}`}
                           className="opacity-0 group-hover:opacity-100 p-1 text-zinc-500 hover:text-rose-400 hover:bg-rose-950/30 rounded transition-all cursor-pointer ml-1 shrink-0"
                         >

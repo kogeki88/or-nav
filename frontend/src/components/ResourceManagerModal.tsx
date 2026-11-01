@@ -289,6 +289,7 @@ export default function ResourceManagerModal({
                           onClick={() => handleDelete(pack.packId, pack.title)}
                           disabled={isBusy}
                           title="Delete Pack"
+                          aria-label="Delete Pack"
                           className="p-1.5 rounded-md bg-zinc-800 hover:bg-red-950/80 hover:text-red-400 text-zinc-400 transition-colors disabled:opacity-50 cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -326,6 +327,7 @@ export default function ResourceManagerModal({
                         onClick={() => handleDelete(pack.packId, pack.title)}
                         disabled={isBusy}
                         title="Delete Pack"
+                        aria-label="Delete Pack"
                         className="p-1 rounded bg-zinc-900 hover:bg-red-950/80 hover:text-red-400 text-zinc-400 transition-colors cursor-pointer"
                       >
                         <Trash2 className="w-3 h-3" />
