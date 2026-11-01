@@ -181,3 +181,25 @@ def test_intent_parser_concurrent_burst():
     # Assert correctness (no race conditions and correct behavior under concurrency)
     for res, expected_intent, tenant in results:
         assert res.intent == expected_intent, f"Race condition or bad parse for {expected_intent}. got {res.intent}"
+def test_intent_parser_supplementary_isolation(monkeypatch):
+    orig_socket = socket.socket
+    def poison(*args, **kwargs):
+        if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
+        if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
+        raise RuntimeError("Network call attempted! Offline invariant violated.")
+
+    monkeypatch.setattr(socket, "socket", poison)
+    monkeypatch.setattr(httpx, "get", poison)
+    monkeypatch.setattr(httpx, "post", poison)
+    monkeypatch.setattr(httpx, "request", poison)
+
+    monkeypatch.setenv("HOSPITAL_TENANT", "hospital_c")
+    res1 = parse_clinical_intent("hospital_c::dept_1 find the scalpel")
+
+    monkeypatch.setenv("HOSPITAL_TENANT", "hospital_d")
+    res2 = parse_clinical_intent("hospital_d::dept_2 find the scalpel")
+
+    assert res1.intent == res2.intent
+    assert res1.entities == res2.entities
