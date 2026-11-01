@@ -64,3 +64,7 @@ Fix applied:
 **Vulnerability:** The `/register`, `/login`, and `/reset-password` authentication endpoints in `backend/app/auth.py` completely lacked rate limiting.
 **Learning:** This oversight allowed unbounded brute-force attacks and credential stuffing, which is a critical security vulnerability for any authentication flow.
 **Prevention:** Always wrap authentication and sensitive mutation endpoints with `@limiter.limit` (from `slowapi` or similar) and ensure the function signature accepts `request: Request`.
+## 2024-05-24 - CORS and Security Headers Verification
+**Vulnerability:** Untrusted origins may attempt to make cross-origin requests, and missing security headers may expose the application to MIME-sniffing, clickjacking, and XSS attacks.
+**Learning:** Security headers like X-Content-Type-Options, X-Frame-Options, and Content-Security-Policy must be present to enforce boundaries.
+**Prevention:** Wrote tests to strictly enforce hospital domain boundaries for CORS origins and ensure essential security headers are present.
