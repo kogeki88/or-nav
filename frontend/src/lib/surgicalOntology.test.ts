@@ -8,7 +8,7 @@ import {
   isGenericClassOnly,
   isEponymConflict,
   lingoCache,
-  cacheStats
+  cacheStats, // Caching exports needed for performance tests
 } from "./surgicalOntology.ts";
 import { extractGaugeAndSpecs } from "./standaloneEngine.ts";
 
@@ -173,6 +173,27 @@ describe("Surgical Ontology & Engine Spec Extraction", () => {
       assert.strictEqual(isEponymConflict("mayo scissors", "mayo scissors"), false);
       assert.strictEqual(isEponymConflict("kelly clamp", "kelly clamp"), false);
       assert.strictEqual(isEponymConflict("army navy retractor", "army navy retractor"), false);
+    });
+  });
+
+  describe("Optimization: caching canonical gauge and instrument mappings", () => {
+    test("tests 10,000 rapid lookup iterations and verifies cache hit rate > 95% on repetitive clinical terms", () => {
+      lingoCache.clear();
+      cacheStats.hits = 0;
+      cacheStats.misses = 0;
+
+      const iterations = 10000;
+      const queries = ["vicryl 3-0 gauge", "prolene 0 instrument", "kelly clamp", "mayo scissors", "metz", "pickups"];
+
+      for (let i = 0; i < iterations; i++) {
+        normalizeOrLingo(queries[i % queries.length]);
+      }
+
+      const totalLookups = cacheStats.hits + cacheStats.misses;
+      const hitRate = cacheStats.hits / totalLookups;
+
+      assert.strictEqual(totalLookups, iterations);
+      assert.ok(hitRate > 0.95, `Expected hit rate > 95%, but got ${(hitRate * 100).toFixed(2)}%`);
     });
   });
 });
