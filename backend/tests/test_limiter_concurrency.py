@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import httpx
 import pytest
+from hypothesis import given, settings, strategies as st, HealthCheck
 from fastapi.testclient import TestClient
 from fastapi import Request
 
@@ -276,3 +277,51 @@ class TestLimiterConcurrencyThrottling:
         # Because we passed a static timestamp from the past.
         matched_row, _ = inv_service._find_matching_row("prolene suture")
         assert matched_row["verify_count"] == 1
+
+    @settings(deadline=None, suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @given(
+        item=st.text(),
+        expected_location=st.one_of(st.none(), st.text()),
+        timestamp=st.one_of(st.none(), st.text())
+    )
+    def test_fuzz_verify_move_schema(self, mock_tenant_dir, item, expected_location, timestamp):
+        """
+        Verify malformed payload resilience by fuzzing fields using property-based testing.
+        Ensures the application raises 422 or 404 cleanly without throwing internal 500s.
+        """
+        client = TestClient(fastapi_app)
+        limiter.reset()
+
+        payload = {
+            "tenant_id": "sacred_heart::or",
+            "item": item,
+            "expected_location": expected_location,
+            "timestamp": timestamp
+        }
+
+        response = client.post("/api/inventory/verify-move", json=payload)
+        assert response.status_code in [200, 404, 422], f"Fuzzing caused unhandled status: {response.status_code}"
+
+    def test_malformed_payload_resilience(self, mock_tenant_dir):
+        """
+        Test that posting incomplete payloads correctly triggers strict schema validation (422)
+        and details the missing boundary properties.
+        """
+        client = TestClient(fastapi_app)
+        limiter.reset()
+
+        # Missing required field 'item'
+        payload = {
+            "tenant_id": "sacred_heart::or",
+            "expected_location": "R1"
+        }
+
+        response = client.post("/api/inventory/verify-move", json=payload)
+
+        assert response.status_code == 422
+        resp_json = response.json()
+        assert "detail" in resp_json
+
+        # We ensure it explicitly indicates item is missing
+        missing_fields = [error for error in resp_json["detail"] if error["loc"] == ["body", "item"]]
+        assert missing_fields, "Expected validation error to point out missing 'item'"
