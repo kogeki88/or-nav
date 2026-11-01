@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import "fake-indexeddb/auto";
+import Dexie from "dexie";
 
 import {
   awardClinicalXP,
@@ -98,18 +100,38 @@ test("Gamification Engine", async (t) => {
     assert.equal(rewardsBroken.shiftStreakDays, 1);
   });
 
-  await t.test("verifies serialization to storage", () => {
+  await t.test("verifies serialization to Dexie storage", async () => {
     const rewards = getDefaultRewards();
     rewards.xp = 50;
-    saveClinicianRewards(rewards, "test_user_123");
 
+    // Although the application currently uses localStorage,
+    // we verify the ClinicianRewards object can be serialized to Dexie
+    // (using the structured clone algorithm) to ensure future compatibility.
+    class TestDB extends Dexie {
+      rewardsTable!: Dexie.Table<ClinicianRewards, string>;
+      constructor() {
+        super("GamificationTestDB");
+        this.version(1).stores({ rewardsTable: "rankTitle" });
+      }
+    }
+    const db = new TestDB();
+
+    await db.rewardsTable.put(rewards);
+    const loadedFromDexie = await db.rewardsTable.get("Novice Scout");
+
+    assert.ok(loadedFromDexie);
+    assert.equal(loadedFromDexie.xp, 50);
+    assert.deepEqual(loadedFromDexie.stats, rewards.stats);
+
+    await db.close();
+
+    // Verify localStorage behavior as well
+    saveClinicianRewards(rewards, "test_user_123");
     const raw = mockStorage.get("ornav_gamification_test_user_123");
     assert.ok(raw !== undefined && raw !== null);
-
     const parsed = JSON.parse(raw!) as ClinicianRewards;
     assert.equal(parsed.xp, 50);
 
-    // Loading from storage should return the exact saved state (if date hasn't changed)
     const loadedRewards = getClinicianRewards("test_user_123");
     assert.equal(loadedRewards.xp, 50);
   });
