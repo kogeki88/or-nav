@@ -617,3 +617,19 @@ test('high-concurrency burst execution, race conditions, latency, and multi-tena
     roots.forEach(r => r.remove());
   }
 });
+
+test('boundary input: exactly 2001 characters is rejected', async () => {
+  const onSendMessage = mock.fn();
+  render(<Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />);
+
+  const input = screen.getByTestId('omnibar-input');
+  const exactMaxText = 'a'.repeat(2001);
+
+  fireEvent.change(input, { target: { value: exactMaxText } });
+
+  // Submit by firing click on the submit button based on earlier tests
+  const submitBtn = screen.getByTestId('omnibar-submit-btn');
+  fireEvent.click(submitBtn);
+
+  assert.strictEqual(onSendMessage.mock.calls.length, 0);
+});
