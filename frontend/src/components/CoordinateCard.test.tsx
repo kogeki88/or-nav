@@ -1,78 +1,83 @@
-import 'jsdom-global/register';
-import { test, afterEach, mock } from 'node:test';
+import 'jsdom-global/register.js';
+import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
 import { render, screen, cleanup } from '@testing-library/react';
 
-// Using proxyquire to mock Next.js / API dependencies
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const proxyquire = require('proxyquire');
-
-const CoordinateCardMod = proxyquire('./CoordinateCard', {
-  '@/lib/lexiconLearning': {
-    learnAliasClient: mock.fn(),
-    getFacilityIdFromTenant: mock.fn(() => ({ facilityId: 'test_facility' })),
-    titleCaseTerm: mock.fn((val: string) => val),
-  },
-});
-
-const CoordinateCard = CoordinateCardMod.default;
+import CoordinateCard from './CoordinateCard';
 import { CoordinateCardData } from '@/lib/api';
 
-const mockCardData: CoordinateCardData = {
-  item: 'Suture',
-  room: 'OR 1',
-  cabinet: 'A',
-  shelf: '2',
-  container: '1',
-  full_code: 'OR1-A-2-1',
-  category: 'Supplies',
-  surgeon_notes: '',
-  pending_location: '',
-  verify_count: 0
-};
-
-const partialMockCardData: CoordinateCardData = {
-  item: 'Bandage',
-  room: 'Main Supply',
-  cabinet: '',
-  shelf: '',
-  container: 'Cart B',
-  full_code: 'Main-CartB',
-  category: 'Supplies',
-  surgeon_notes: '',
-  pending_location: '',
-  verify_count: 0
-};
+beforeEach(() => {
+});
 
 afterEach(() => {
   cleanup();
+  mock.restoreAll();
 });
+test('renders full coordinates and validates aria-labels (Room, Cabinet, Shelf, Bin)', () => {
+  const cardData: CoordinateCardData = {
+    item: 'Item A',
+    room: 'OR 1',
+    cabinet: '2',
+    shelf: '3',
+    container: '4',
+    full_code: 'OR 1-2-3-4',
+    category: 'Surgical',
+    surgeon_notes: '',
+    pending_location: '',
+    verify_count: 0,
+  };
 
-test('renders correctly with full coordinates and accessible aria-labels', () => {
-  render(<CoordinateCard card={mockCardData} />);
-  assert.ok(screen.getByTestId('coordinate-card'));
+  render(<CoordinateCard card={cardData} />);
+
+  // Check the title
+  const title = screen.getByTestId('coordinate-card-title');
+  assert.strictEqual(title.textContent, 'Item A');
+
+  // Verify the values
   assert.ok(screen.getByText('OR 1'));
-  assert.ok(screen.getByText('A'));
   assert.ok(screen.getByText('2'));
-  assert.ok(screen.getByText('1'));
+  assert.ok(screen.getByText('3'));
+  assert.ok(screen.getByText('4'));
 
-  // Check aria-labels using document queries because these are div elements not form controls
-  assert.ok(document.querySelector('[aria-label="Room OR 1"]'));
-  assert.ok(document.querySelector('[aria-label="Cabinet A"]'));
-  assert.ok(document.querySelector('[aria-label="Shelf 2"]'));
-  assert.ok(document.querySelector('[aria-label="Bin 1"]'));
+  // Verify aria labels exist (divs with aria-label)
+  const roomDiv = screen.getByLabelText('Room OR 1');
+  const cabinetDiv = screen.getByLabelText('Cabinet 2');
+  const shelfDiv = screen.getByLabelText('Shelf 3');
+  const binDiv = screen.getByLabelText('Bin 4');
+
+  assert.ok(roomDiv);
+  assert.ok(cabinetDiv);
+  assert.ok(shelfDiv);
+  assert.ok(binDiv);
 });
+test('renders partial coordinates and handles missing values gracefully', () => {
+  const cardData: CoordinateCardData = {
+    item: 'Item B',
+    room: 'OR 2',
+    cabinet: '',
+    shelf: 'Top',
+    container: '',
+    full_code: 'OR 2--Top-',
+    category: 'Surgical',
+    surgeon_notes: '',
+    pending_location: '',
+    verify_count: 0,
+  };
 
-test('renders correctly with partial coordinates and accessible aria-labels', () => {
-  render(<CoordinateCard card={partialMockCardData} />);
-  assert.ok(screen.getByTestId('coordinate-card'));
-  assert.ok(screen.getByText('Main Supply'));
-  assert.ok(screen.getByText('Cart B')); // Assuming empty fields just render empty strings and Cart B for Bin
+  render(<CoordinateCard card={cardData} />);
 
-  // Check aria-labels using document queries because these are div elements not form controls
-  assert.ok(document.querySelector('[aria-label="Room Main Supply"]'));
-  assert.ok(document.querySelector('[aria-label="Cabinet "]'));
-  assert.ok(document.querySelector('[aria-label="Shelf "]'));
-  assert.ok(document.querySelector('[aria-label="Bin Cart B"]'));
+  const container = screen.getByTestId('coordinate-card');
+  assert.ok(container.innerHTML.includes('OR 2'));
+  assert.ok(container.innerHTML.includes('Top'));
+
+  const roomDiv = container.querySelector('[aria-label="Room OR 2"]');
+  const cabinetDiv = container.querySelector('[aria-label="Cabinet "]');
+  const shelfDiv = container.querySelector('[aria-label="Shelf Top"]');
+  const binDiv = container.querySelector('[aria-label="Bin "]');
+
+  assert.ok(roomDiv);
+  assert.ok(cabinetDiv);
+  assert.ok(shelfDiv);
+  assert.ok(binDiv);
 });
