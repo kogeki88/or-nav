@@ -486,3 +486,47 @@ async def test_supplementary_concurrent_burst_latency_and_race_condition_extende
     res = inv_svc.search("rapid infuser")
     assert res.pending_location.upper().startswith("ER TRAUMA ROOM")
     assert res.verify_count > 0
+
+
+@pytest.mark.asyncio
+async def test_supplementary_offline_mutation_replay_idempotency_multi_tenant(monkeypatch):
+    """Verify offline mutation replay idempotency with explicit multi-tenant validation."""
+    import socket
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+        return original_socket(*args, **kwargs)
+
+    def raise_offline_error(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+    monkeypatch.setattr("socket.socket", mock_socket)
+    monkeypatch.setattr("httpx.get", raise_offline_error)
+    monkeypatch.setattr("httpx.post", raise_offline_error)
+    monkeypatch.setattr("httpx.request", raise_offline_error)
+
+    # Move item once
+    res1 = await report_item_move(
+        item_name="debakey 12in",
+        new_location="OR 10",
+        tenant_id="county_general::or"
+    )
+
+    # Replay same mutation
+    res2 = await report_item_move(
+        item_name="debakey 12in",
+        new_location="OR 10",
+        tenant_id="county_general::or"
+    )
+
+    assert res1 == res2
+    assert "Relocation logged" in res1
+
+    # Check that another tenant cannot see this move
+    spoken_cvor = await lookup_item_location(
+        item_query="debakey 12in",
+        tenant_id="county_general::er"
+    )
+    assert "could not locate" in spoken_cvor.lower()
