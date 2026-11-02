@@ -175,7 +175,7 @@ class AddItemRequest(BaseModel):
 
 class VerifyMoveRequest(BaseModel):
     """Request body for POST /api/inventory/verify-move."""
-    tenant_id: str = Field(default=settings.default_tenant)
+    tenant_id: str = Field(default=settings.default_tenant, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
     item: str = Field(..., min_length=1, max_length=200, description="Exact item name to verify move for")
     expected_location: Optional[str] = Field(
         default=None, max_length=200, description="Expected pending coordinate target (prevents stale confirms)")
@@ -197,18 +197,18 @@ class VerifyMoveResponse(BaseModel):
 
 class FlagWrongRequest(BaseModel):
     """Request body for POST /api/inventory/flag-wrong."""
-    tenant_id: str = Field(default=settings.default_tenant)
+    tenant_id: str = Field(default=settings.default_tenant, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
     item: str = Field(..., min_length=1, max_length=200)
-    reason: str = Field(default="Location empty or item moved", max_length=500)
+    reason: str = Field(default="Location empty or item moved", min_length=1, max_length=500)
     timestamp: Optional[str] = Field(
         default=None, max_length=50, description="Mutation timestamp for offline conflict resolution")
 
 
 class CreateQuestionRequest(BaseModel):
     """Request body for POST /api/questions."""
-    tenant_id: str = Field(default=settings.default_tenant)
+    tenant_id: str = Field(default=settings.default_tenant, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
     question_text: str = Field(..., min_length=3, max_length=1000)
-    asked_by_role: str = Field(default="Clinical Orientee RN", max_length=100)
+    asked_by_role: str = Field(default="Clinical Orientee RN", min_length=1, max_length=100)
 
 
 class AnswerQuestionRequest(BaseModel):

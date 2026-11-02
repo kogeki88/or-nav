@@ -49,11 +49,13 @@ class PeerQuestion(BaseModel):
     idempotencyKey: Optional[str] = None
 
 
+from pydantic import Field
+
 class CreateQuestionRequest(BaseModel):
-    tenant_id: Optional[str] = None
-    tenantId: Optional[str] = None
-    question_text: Optional[str] = None
-    questionText: Optional[str] = None
+    tenant_id: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
+    tenantId: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
+    question_text: Optional[str] = Field(default=None, min_length=1, max_length=1000)
+    questionText: Optional[str] = Field(default=None, min_length=1, max_length=1000)
     asked_by: Optional[str] = "Sean Iglesia, RN (Orientee)"
     askedBy: Optional[str] = None
     role: Optional[str] = "Orientee"
