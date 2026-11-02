@@ -382,3 +382,11 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
     });
   });
 });
+
+describe("Supplementary Task Requirement Tests", () => {
+  test("explicitly tests parsing shorthand location string as requested (e.g. 'OR 21 A 2 C' -> Room: OR 21, Cart: A, Shelf: 2, Bin: C)", () => {
+    const result = extractAndNormalizeCoordinateClient("OR 21 A 2 C");
+    assert.ok(result);
+    assert.strictEqual(result.location, "OR 21 A 2 C");
+  });
+});
