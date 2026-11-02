@@ -317,8 +317,8 @@ const ChatCanvas = React.memo(function ChatCanvas({
               {(() => {
                 const cards =
                   msg.coordinateCards && msg.coordinateCards.length > 0
-                    ? msg.coordinateCards
-                    : msg.coordinateCard
+                    ? msg.coordinateCards.filter(c => c && typeof c === 'object' && typeof (c as any).item === 'string')
+                    : msg.coordinateCard && typeof (msg.coordinateCard as any).item === 'string'
                     ? [msg.coordinateCard]
                     : [];
 
@@ -444,7 +444,7 @@ const ChatCanvas = React.memo(function ChatCanvas({
               )}
 
               {/* Inline Quick-Add Item Widget */}
-              {msg.quickAddWidget && (
+              {msg.quickAddWidget && typeof msg.quickAddWidget.item === 'string' && (
                 <InlineQuickAddCard
                   item={msg.quickAddWidget.item}
                   initialNotes={msg.quickAddWidget.notes}
@@ -455,7 +455,7 @@ const ChatCanvas = React.memo(function ChatCanvas({
               )}
 
               {/* Pathway A: Conversational Slang Teaching Confirmation Card */}
-              {msg.teachingCard && (
+              {msg.teachingCard && typeof msg.teachingCard.slang === 'string' && typeof msg.teachingCard.canonical === 'string' && (
                 <div
                   data-testid="teaching-card"
                   className="mt-2 w-full max-w-md rounded-xl bg-purple-950/40 border border-purple-800/60 p-3.5 text-purple-100 text-xs flex flex-col gap-1.5 shadow-sm"
