@@ -307,4 +307,107 @@ describe("QuestionsDrawer", () => {
     assert.strictEqual((input as HTMLInputElement).value, "");
     assert.strictEqual(onRefreshQuestions.mock.calls.length, 1);
   });
+  it("should resist malformed payload submissions gracefully", async () => {
+    // Clear the mock calls specifically for this test
+    fetchMock.mock.calls = [];
+
+    render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const inputs = screen.getAllByPlaceholderText("Write a peer answer for the orientee...");
+    const draftInput = inputs[0];
+
+    // Intentionally bypass UI validation logic to force an extremely long string
+    // using paste instead of type to prevent timeout
+    await userEvent.click(draftInput);
+    await userEvent.paste("A".repeat(5000));
+    const confidentButtons = screen.getAllByText("Confident");
+    await userEvent.click(confidentButtons[0]);
+
+    // Since mock fetch intercepts the payload, check that it attempts gracefully or validates properly
+    // It shouldn't crash the app components
+    await waitFor(() => {
+        const fetchCalls = fetchMock.mock.calls;
+        assert.ok(fetchCalls.length > 0);
+    });
+  });
+
+  it("should handle boundary inputs dynamically via fuzzing for new questions", async () => {
+    // Simulate offline correctly by rejecting fetch
+    global.fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch"))) as any;
+
+    const { unmount } = render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const fuzzedInputs = [
+      "Drop Table Questions;",
+      "🤡🎃👩‍🚀", // Emojis
+      "1234567890", // Numbers only
+      "A".repeat(500),
+    ];
+
+    for (const fuzzed of fuzzedInputs) {
+      const input = screen.getByPlaceholderText("e.g. Where are backup 5-0 Prolene sutures kept?") as HTMLInputElement;
+      const askButton = screen.getByText("Ask") as HTMLButtonElement;
+
+      // Update form
+      await userEvent.clear(input);
+      if (fuzzed.length > 50) {
+        await userEvent.paste(fuzzed);
+      } else {
+        await userEvent.type(input, fuzzed);
+      }
+
+      // The component disables the button if input is empty or submitting. Let's just assert value is typed
+      assert.strictEqual(input.value, fuzzed);
+
+      // Ensure form submission isn't blocked by missing properties, directly call click
+      await userEvent.click(askButton);
+
+      await waitFor(() => {
+        const checkInput = screen.getByPlaceholderText("e.g. Where are backup 5-0 Prolene sutures kept?") as HTMLInputElement;
+        assert.strictEqual(checkInput.value, "");
+      });
+    }
+    unmount();
+
+    // Restore fetch manually if needed (afterEach handles it generally, but just to be safe here)
+    global.fetch = fetchMock;
+  });
+
+  it("should rigidly validate mock backend endpoint structures", async () => {
+    // Ensuring our components enforce specific schema shapes expected by UI
+    const incompleteQuestions = [
+      { id: "q_bad_1", question_text: "Missing some fields" } // Missing status, asked_by_role, answers
+    ];
+
+    // We expect it handles it gracefully without crashing, e.g. mapping defaults
+    render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={incompleteQuestions as any}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    assert.ok(screen.getByText("Missing some fields"));
+    // Default open badge fallback should happen or error out safely
+    assert.ok(screen.getByText("Open Question"));
+  });
 });
