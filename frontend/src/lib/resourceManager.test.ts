@@ -33,7 +33,7 @@ describe("ResourceManagerChecksum", () => {
       };
     });
 
-    const burstSize = 50;
+    const burstSize = 100;
     const startTime = Date.now();
 
     // Fire installs concurrently for both tenants
@@ -62,6 +62,10 @@ describe("ResourceManagerChecksum", () => {
 
     const latency = Date.now() - startTime;
     assert.ok(latency < 5000, `Latency too high: ${latency}ms`); // Expect burst to finish within 5 seconds
+
+    // Check average latency per request
+    const avgLatency = latency / burstSize;
+    assert.ok(avgLatency < 100, `Average latency per request too high: ${avgLatency}ms`);
 
     // Verify all packs are installed
     const packs = await resourceManager.getInstalledPacks();
