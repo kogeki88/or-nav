@@ -135,4 +135,59 @@ test("Gamification Engine", async (t) => {
     const loadedRewards = getClinicianRewards("test_user_123");
     assert.equal(loadedRewards.xp, 50);
   });
+  await t.test("enforces multi-tenant isolation by user ID", () => {
+    const user1 = "tenant_A_user_1";
+    const user2 = "tenant_B_user_2";
+
+    awardClinicalXP("lookup", undefined, user1);
+    awardClinicalXP("peer_answer", undefined, user2);
+
+    const rewards1 = getClinicianRewards(user1);
+    const rewards2 = getClinicianRewards(user2);
+
+    assert.equal(rewards1.stats.lookupsCount, 1);
+    assert.equal(rewards1.stats.peerAnswersCount, 0);
+
+    assert.equal(rewards2.stats.lookupsCount, 0);
+    assert.equal(rewards2.stats.peerAnswersCount, 1);
+
+    // Check that storage keys are separate
+    const raw1 = mockStorage.get("ornav_gamification_" + user1);
+    const raw2 = mockStorage.get("ornav_gamification_" + user2);
+    assert.ok(raw1 !== raw2);
+  });
+
+  await t.test("enforces offline-first invariants and gracefully handles storage errors", () => {
+    const tempWindow = (global as any).window;
+
+    // 1. window is undefined (e.g. SSR or completely offline worker without window)
+    (global as any).window = undefined;
+
+    const offlineRewards = getClinicianRewards("offline_user");
+    assert.equal(offlineRewards.xp, 0);
+
+    // saveClinicianRewards should not throw when window is undefined
+    assert.doesNotThrow(() => {
+      saveClinicianRewards(offlineRewards, "offline_user");
+    });
+
+    // 2. window exists but localStorage throws (e.g. quota exceeded or privacy blockers)
+    (global as any).window = tempWindow;
+    const tempLocalStorage = (global as any).localStorage;
+
+    (global as any).localStorage = {
+      getItem: () => { throw new Error("Storage disabled"); },
+      setItem: () => { throw new Error("Storage disabled"); }
+    };
+
+    const errorRewards = getClinicianRewards("error_user");
+    assert.equal(errorRewards.xp, 0);
+
+    // Should not throw on save
+    assert.doesNotThrow(() => {
+      saveClinicianRewards(errorRewards, "error_user");
+    });
+
+    (global as any).localStorage = tempLocalStorage;
+  });
 });
