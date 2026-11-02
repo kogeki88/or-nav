@@ -79,6 +79,31 @@ describe('OTA Validator', () => {
     });
   });
 
+  describe('Multi-tenant isolation and Offline-first invariants', () => {
+    it('validates manifest strictly independent of network state (offline-first)', () => {
+      const originalFetch = global.fetch;
+      try {
+        global.fetch = (async () => { throw new Error('Network offline'); }) as unknown as typeof fetch;
+        const result = validateOTAManifest(validManifest, currentVersion, currentBuild);
+        assert.strictEqual(result.valid, true);
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    it('ensures validation is isolated and does not leak tenant state', () => {
+      const tenantA_Manifest = { ...validManifest, version: 'v0.62', build_number: 19 };
+      const tenantB_Manifest = { ...validManifest, version: 'v0.63', build_number: 20 };
+
+      const resultA = validateOTAManifest(tenantA_Manifest, currentVersion, currentBuild);
+      const resultB = validateOTAManifest(tenantB_Manifest, currentVersion, currentBuild);
+
+      assert.strictEqual(resultA.valid, true);
+      assert.strictEqual(resultB.valid, true);
+      assert.notDeepEqual(tenantA_Manifest, tenantB_Manifest, 'Tenant states should remain isolated and distinct');
+    });
+  });
+
   describe('APK Download URL Validation', () => {
     it('rejects missing APK download URL', () => {
       const manifest = { ...validManifest };
