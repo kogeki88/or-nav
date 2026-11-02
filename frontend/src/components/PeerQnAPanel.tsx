@@ -87,6 +87,7 @@ const PeerQnAPanel = React.memo(function PeerQnAPanel({
       }
 
       // 2. Fetch fresh from backend with fast 1500ms timeout
+      if (typeof fetch === 'undefined') { throw new Error('Network offline'); }
       const res = await fetch(getPeerApiUrl(`/api/peer-questions?tenant_id=${encodeURIComponent(tenantId)}`), {
         signal: createTimeoutSignal(1500),
       });
@@ -122,6 +123,7 @@ const PeerQnAPanel = React.memo(function PeerQnAPanel({
     };
 
     try {
+      if (typeof fetch === 'undefined') { throw new Error('Network offline'); }
       const res = await fetch(getPeerApiUrl("/api/peer-questions"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -162,6 +164,7 @@ const PeerQnAPanel = React.memo(function PeerQnAPanel({
     if (!text || submitting) return;
     setSubmitting(true);
     try {
+      if (typeof fetch === 'undefined') { throw new Error('Network offline'); }
       const res = await fetch(getPeerApiUrl(`/api/peer-questions/${questionId}/answers`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -213,6 +216,7 @@ const PeerQnAPanel = React.memo(function PeerQnAPanel({
     if (submitting) return;
     setSubmitting(true);
     try {
+      if (typeof fetch === 'undefined') { throw new Error('Network offline'); }
       const res = await fetch(getPeerApiUrl(`/api/peer-questions/${questionId}/answers/${answerId}/verify`), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
