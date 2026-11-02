@@ -559,10 +559,11 @@
     "id": "backlog-57",
     "title": "Testing: Clinical Inventory Parity Tests for sacred_heart",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Task: Inventory Parity for sacred_heart\n\n**File:** `backend/tests/test_parity_sacred_heart.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `sacred_heart`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_sacred_heart.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
     "sessionId": "874105624994312564",
-    "dispatchedAt": "2026-11-02T19:59:05.285Z"
+    "dispatchedAt": "2026-11-02T19:59:05.285Z",
+    "completedAt": "2026-11-02T20:23:12.925Z"
   },
   {
     "id": "backlog-058",
@@ -1825,10 +1826,11 @@
     "id": "backlog-184",
     "title": "Sentinel: Offline Partition & Multi-Tenant Isolation Verification for ScrubberService",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Sentinel Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for ScrubberService\n\n**File:** `backend/tests/test_scrubber_service.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_scrubber_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "16779098596596560245",
-    "dispatchedAt": "2026-11-02T19:23:55.571Z"
+    "dispatchedAt": "2026-11-02T19:23:55.571Z",
+    "completedAt": "2026-11-02T20:13:44.502Z"
   },
   {
     "id": "backlog-185",
@@ -1863,80 +1865,158 @@
     "id": "backlog-188",
     "title": "Testing: Rigorous Unit & Regression Tests for ClinicalGraph",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for ClinicalGraph\n\n**File:** `frontend/src/lib/clinicalGraph.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/clinicalGraph.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for ClinicalGraph\n\n**File:** `frontend/src/lib/clinicalGraph.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/clinicalGraph.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "10443991819987571758",
+    "dispatchedAt": "2026-11-02T20:24:02.482Z"
   },
   {
     "id": "backlog-189",
     "title": "Bolt: Rigorous Unit & Regression Tests for DeltaSyncPayload",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task (Phase 1): Rigorous Unit & Regression Tests for DeltaSyncPayload\n\n**File:** `frontend/src/lib/deltaSyncPayload.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/deltaSyncPayload.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "16457682380672443771",
-    "dispatchedAt": "2026-11-02T20:04:28.666Z"
+    "dispatchedAt": "2026-11-02T20:04:28.666Z",
+    "completedAt": "2026-11-02T20:23:38.726Z"
   },
   {
     "id": "backlog-190",
     "title": "Code Health: Rigorous Unit & Regression Tests for Departments",
     "category": "Code Health",
-    "status": "pending",
-    "prompt": "# 🚀 Code Health Task (Phase 1): Rigorous Unit & Regression Tests for Departments\n\n**File:** `frontend/src/lib/departments.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/departments.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Code Health Task (Phase 1): Rigorous Unit & Regression Tests for Departments\n\n**File:** `frontend/src/lib/departments.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/departments.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "15800357381324165550",
+    "dispatchedAt": "2026-11-02T20:13:47.976Z",
+    "completedAt": "2026-11-02T20:30:52.235Z"
   },
   {
     "id": "backlog-191",
     "title": "Testing: Rigorous Unit & Regression Tests for FeedbackEngine",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for FeedbackEngine\n\n**File:** `frontend/src/lib/feedbackEngine.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/feedbackEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for FeedbackEngine\n\n**File:** `frontend/src/lib/feedbackEngine.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/feedbackEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "6194725028966335252",
+    "dispatchedAt": "2026-11-02T20:24:03.837Z"
   },
   {
     "id": "backlog-192",
     "title": "Code Health: Rigorous Unit & Regression Tests for Gamification",
     "category": "Code Health",
-    "status": "pending",
-    "prompt": "# 🚀 Code Health Task (Phase 1): Rigorous Unit & Regression Tests for Gamification\n\n**File:** `frontend/src/lib/gamification.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/gamification.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Code Health Task (Phase 1): Rigorous Unit & Regression Tests for Gamification\n\n**File:** `frontend/src/lib/gamification.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/gamification.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "8756268049838370141",
+    "dispatchedAt": "2026-11-02T20:24:00.230Z"
   },
   {
     "id": "backlog-193",
     "title": "Bolt: Rigorous Unit & Regression Tests for LexiconLearning",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task (Phase 1): Rigorous Unit & Regression Tests for LexiconLearning\n\n**File:** `frontend/src/lib/lexiconLearning.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/lexiconLearning.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "3058596050157458927",
-    "dispatchedAt": "2026-11-02T20:04:30.815Z"
+    "dispatchedAt": "2026-11-02T20:04:30.815Z",
+    "completedAt": "2026-11-02T20:23:24.799Z"
   },
   {
     "id": "backlog-194",
     "title": "Testing: Rigorous Unit & Regression Tests for LivekitClient",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for LivekitClient\n\n**File:** `frontend/src/lib/livekitClient.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/livekitClient.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for LivekitClient\n\n**File:** `frontend/src/lib/livekitClient.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/livekitClient.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "2970554353923566955",
+    "dispatchedAt": "2026-11-02T20:24:06.474Z"
   },
   {
     "id": "backlog-195",
     "title": "Sentinel: Rigorous Unit & Regression Tests for OtaValidator",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for OtaValidator\n\n**File:** `frontend/src/lib/otaValidator.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/otaValidator.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "11044500038942991716",
-    "dispatchedAt": "2026-11-02T20:04:24.979Z"
+    "dispatchedAt": "2026-11-02T20:04:24.979Z",
+    "completedAt": "2026-11-02T20:23:19.180Z"
   },
   {
     "id": "backlog-196",
     "title": "Sentinel: Rigorous Unit & Regression Tests for ScrubClient",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for ScrubClient\n\n**File:** `frontend/src/lib/scrubClient.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/scrubClient.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "15193540814253278445",
-    "dispatchedAt": "2026-11-02T20:04:26.617Z"
+    "dispatchedAt": "2026-11-02T20:04:26.617Z",
+    "completedAt": "2026-11-02T20:23:07.229Z"
   },
   {
     "id": "backlog-197",
     "title": "Bolt: Rigorous Unit & Regression Tests for ChatCanvasVirtual",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task (Phase 1): Rigorous Unit & Regression Tests for ChatCanvasVirtual\n\n**File:** `frontend/src/components/ChatCanvasVirtual.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/ChatCanvasVirtual.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "17787017083236601040",
-    "dispatchedAt": "2026-11-02T20:04:32.250Z"
+    "dispatchedAt": "2026-11-02T20:04:32.250Z",
+    "completedAt": "2026-11-02T20:23:31.259Z"
+  },
+  {
+    "id": "backlog-198",
+    "title": "Testing: Rigorous Unit & Regression Tests for CoordinateCard",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for CoordinateCard\n\n**File:** `frontend/src/components/CoordinateCard.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/CoordinateCard.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "18337139484479093076",
+    "dispatchedAt": "2026-11-02T20:31:02.528Z"
+  },
+  {
+    "id": "backlog-199",
+    "title": "Testing: Rigorous Unit & Regression Tests for FeedbackModal",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for FeedbackModal\n\n**File:** `frontend/src/components/FeedbackModal.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/FeedbackModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-200",
+    "title": "Sentinel: Rigorous Unit & Regression Tests for QRPairModal",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for QRPairModal\n\n**File:** `frontend/src/components/QRPairModal.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/QRPairModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11524994095662936987",
+    "dispatchedAt": "2026-11-02T20:23:56.548Z"
+  },
+  {
+    "id": "backlog-201",
+    "title": "Testing: Rigorous Unit & Regression Tests for QuestionsDrawer",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for QuestionsDrawer\n\n**File:** `frontend/src/components/QuestionsDrawer.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/QuestionsDrawer.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-202",
+    "title": "Testing: Rigorous Unit & Regression Tests for ResourceInspectorModal",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for ResourceInspectorModal\n\n**File:** `frontend/src/components/ResourceInspectorModal.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/ResourceInspectorModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-203",
+    "title": "Testing: Rigorous Unit & Regression Tests for UserProfileModal",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for UserProfileModal\n\n**File:** `frontend/src/components/UserProfileModal.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/UserProfileModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-204",
+    "title": "Sentinel: Rigorous Unit & Regression Tests for AuthBackend",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for AuthBackend\n\n**File:** `backend/tests/test_auth.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_auth.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "4825361673496697405",
+    "dispatchedAt": "2026-11-02T20:23:58.694Z"
+  },
+  {
+    "id": "backlog-205",
+    "title": "Testing: Rigorous Unit & Regression Tests for PeerQnABackend",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for PeerQnABackend\n\n**File:** `backend/tests/test_peer_qna.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_peer_qna.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]
