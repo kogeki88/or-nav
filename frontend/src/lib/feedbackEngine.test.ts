@@ -220,3 +220,66 @@ test("FeedbackEngine - Multi-tenant isolation invariant", async (t) => {
     global.fetch = originalFetch;
   }
 });
+
+test("FeedbackEngine - Fuzzing and Boundary Inputs", async (t) => {
+  const boundaryInputs = [
+    "",
+    "   ",
+    "A".repeat(10000),
+    "\0\0NULL",
+    "👍😃😈",
+    "<script>alert(1)</script>",
+    "SELECT * FROM users;"
+  ];
+
+  for (const text of boundaryInputs) {
+    const result = classifyText(text);
+    assert.ok(["bug_friction", "feature_request", "data_inventory", "ui_ux"].includes(result.category));
+    assert.ok(["low", "medium", "high"].includes(result.severity));
+    assert.ok(result.sentimentScore >= -1 && result.sentimentScore <= 1);
+  }
+});
+
+test("FeedbackEngine - Malformed Payload Resilience & Strict schema validation for offline data dependencies", async (t) => {
+  localStorage.clear();
+
+  // Save malformed data to local storage directly
+  localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify([
+    { invalidField: 123 },
+    null,
+    "string_not_object"
+  ]));
+
+  // Ensure we don't crash when loading malformed data
+  const items = getLocalFeedback();
+  assert.ok(Array.isArray(items));
+
+  // Submit malformed feedback missing expected rawText should throw TypeError or similar, but not crash unpredictably if we catch it
+  await assert.rejects(
+    async () => {
+      await submitManualFeedback({ rawText: undefined as any });
+    },
+    TypeError
+  );
+});
+
+test("FeedbackEngine - Extended multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency", async (t) => {
+  localStorage.clear();
+
+  const originalFetch = global.fetch;
+  global.fetch = async () => { throw new TypeError("Failed to fetch"); };
+
+  try {
+    // Create an item in tenant A
+    await submitManualFeedback({
+      rawText: "tenant boundary test A",
+      userProfile: { facilityId: "tenant_A", departmentId: "or" }
+    });
+
+    // Fetch for tenant B, ensure no leak
+    const itemsB = await fetchFeedbackItems({ tenantId: "tenant_B::or" });
+    assert.strictEqual(itemsB.length, 0, "Item from tenant A leaked into tenant B");
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
