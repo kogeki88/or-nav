@@ -10,6 +10,10 @@ export function validateOTAManifest(
   currentVersion: string,
   currentBuild: number
 ): { valid: boolean; reason?: string } {
+  if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+    return { valid: false, reason: 'Invalid manifest format' };
+  }
+
   // 1. Missing or invalid SHA-256
   if (!manifest.sha256 || typeof manifest.sha256 !== 'string') {
     return { valid: false, reason: 'Missing SHA-256 hash' };
@@ -19,7 +23,7 @@ export function validateOTAManifest(
   }
 
   // 2. Prevent downgrade attacks
-  if (!manifest.version || typeof manifest.build_number !== 'number') {
+  if (!manifest.version || typeof manifest.version !== 'string' || typeof manifest.build_number !== 'number' || isNaN(manifest.build_number)) {
     return { valid: false, reason: 'Missing version or build number' };
   }
 
