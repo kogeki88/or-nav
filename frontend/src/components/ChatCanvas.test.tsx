@@ -178,3 +178,58 @@ test('renders action buttons like disambiguation chips', () => {
   assert.ok(screen.getByText('2-0'));
   assert.ok(screen.getByText('3-0'));
 });
+
+test('renders empty state, user message, agent clinical response, and structured card list rendering explicitly requested', () => {
+  const messages: MessageItem[] = [
+    {
+      id: '99',
+      sender: 'user',
+      text: 'Hello, where is the silk?',
+      timestamp: new Date().toISOString(),
+    },
+    {
+      id: '100',
+      sender: 'assistant',
+      text: '### 📋 Clinical Guidance\nThe silk is located in OR 1.',
+      timestamp: new Date().toISOString(),
+      coordinateCard: {
+        item: '3-0 Silk',
+        room: 'OR 1',
+        cabinet: 'A',
+        shelf: '2',
+        container: '1',
+        full_code: 'OR1-A-2-1',
+      }
+    }
+  ];
+
+  const { container } = render(
+    <ChatCanvas
+      messages={messages}
+      loading={false}
+      tenantId="or_main"
+      onVerifyPendingMove={async () => {}}
+    />
+  );
+  assert.ok(screen.getByText('Hello, where is the silk?'));
+  assert.ok(screen.getByTestId('hybrid-clinical-guidance'));
+  assert.ok(screen.getByText('Clinical Guidance'));
+  assert.ok(screen.getByText(/The silk is located in OR 1/));
+  assert.ok(screen.getByText('3-0 Silk'));
+  assert.ok(screen.getByText('OR 1'));
+  assert.ok(screen.getByText('A'));
+  assert.ok(screen.getByText('2'));
+});
+
+test('renders empty state specifically', () => {
+  const { container } = render(
+    <ChatCanvas
+      messages={[]}
+      loading={false}
+      tenantId="or_main"
+      onVerifyPendingMove={async () => {}}
+    />
+  );
+  assert.ok(screen.getByText('What do you need for this case?'));
+  assert.ok(screen.getByText('Where is 3-0 Silk?'));
+});
