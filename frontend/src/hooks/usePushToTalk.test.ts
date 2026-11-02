@@ -685,4 +685,66 @@ describe('usePushToTalk', () => {
       assert.strictEqual(hook.result.current.voiceMode, "BROWSER_WEB_SPEECH");
     }
   });
+
+  test("supplementary test: multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency", async () => {
+    const originalMockFetchVoiceToken = mockFetchVoiceToken;
+    const originalFetch = global.fetch;
+
+    const root1 = document.createElement("div");
+    root1.setAttribute("data-tenant", "facility_id::dept_id");
+    document.body.appendChild(root1);
+
+    const root2 = document.createElement("div");
+    root2.setAttribute("data-tenant", "facility_id::other_dept");
+    document.body.appendChild(root2);
+
+    let unmount1;
+    let unmount2;
+
+    try {
+      global.fetch = undefined as any;
+      mockFetchVoiceToken = mock.fn(async () => {
+        throw new Error("Network offline");
+      });
+
+      const hook1 = renderHook(() => usePushToTalk({ tenantId: "facility_id::dept_id" }), { container: root1 });
+      unmount1 = hook1.unmount;
+      const result1 = hook1.result;
+
+      const hook2 = renderHook(() => usePushToTalk({ tenantId: "facility_id::other_dept" }), { container: root2 });
+      unmount2 = hook2.unmount;
+      const result2 = hook2.result;
+
+      await waitFor(() => {
+        assert.strictEqual(result1.current.voiceMode, "BROWSER_WEB_SPEECH");
+        assert.strictEqual(result2.current.voiceMode, "BROWSER_WEB_SPEECH");
+      });
+
+      await act(async () => {
+        await result1.current.startPTT();
+      });
+      assert.strictEqual(result1.current.isHoldingPTT, true);
+
+      // Replays
+      for (let i = 0; i < 3; i++) {
+        await act(async () => {
+          await result1.current.startPTT();
+        });
+        assert.strictEqual(result1.current.isHoldingPTT, true);
+        assert.strictEqual(result1.current.voiceMode, "BROWSER_WEB_SPEECH");
+      }
+
+      assert.strictEqual(result2.current.isHoldingPTT, false);
+
+    } finally {
+      mockFetchVoiceToken = originalMockFetchVoiceToken;
+      global.fetch = originalFetch;
+
+      if (unmount1) unmount1();
+      if (unmount2) unmount2();
+
+      document.body.removeChild(root1);
+      document.body.removeChild(root2);
+    }
+  });
 });
