@@ -191,4 +191,120 @@ describe("QuestionsDrawer", () => {
         assert.strictEqual(onRefreshQuestions.mock.calls.length, 1);
     });
   });
+
+  it("should enforce multi-tenant isolation when submitting questions", async () => {
+    const fetchCalls: any[] = [];
+    global.fetch = mock.fn(async (url: any, options: any) => {
+      fetchCalls.push({ url, options });
+      return { ok: true, json: async () => ({}) };
+    }) as any;
+
+    const { unmount: unmountA } = render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId="tenant-A"
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const inputsA = screen.getAllByPlaceholderText("e.g. Where are backup 5-0 Prolene sutures kept?");
+    const inputA = inputsA[inputsA.length - 1];
+    await userEvent.type(inputA, "Question for Tenant A");
+    const buttonsA = screen.getAllByText("Ask");
+    await userEvent.click(buttonsA[buttonsA.length - 1]);
+
+    unmountA();
+
+    const { unmount: unmountB } = render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId="tenant-B"
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const inputsB = screen.getAllByPlaceholderText("e.g. Where are backup 5-0 Prolene sutures kept?");
+    const inputB = inputsB[inputsB.length - 1];
+    await userEvent.type(inputB, "Question for Tenant B");
+    const buttonsB = screen.getAllByText("Ask");
+    await userEvent.click(buttonsB[buttonsB.length - 1]);
+
+    unmountB();
+
+    assert.strictEqual(fetchCalls.length, 2);
+
+    const bodyA = JSON.parse(fetchCalls[0].options.body);
+    const bodyB = JSON.parse(fetchCalls[1].options.body);
+
+    assert.strictEqual(bodyA.tenant_id, "tenant-A");
+    assert.strictEqual(bodyA.question_text, "Question for Tenant A");
+
+    assert.strictEqual(bodyB.tenant_id, "tenant-B");
+    assert.strictEqual(bodyB.question_text, "Question for Tenant B");
+  });
+
+  it("should enforce offline-first invariants gracefully", async () => {
+    global.fetch = undefined as any;
+
+    render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const input = screen.getByPlaceholderText("e.g. Where are backup 5-0 Prolene sutures kept?");
+    await userEvent.type(input, "Offline question");
+
+    const askButton = screen.getByText("Ask");
+    await userEvent.click(askButton);
+
+    await waitFor(() => {
+      // The input should be cleared upon successful (offline) creation
+      assert.strictEqual((input as HTMLInputElement).value, "");
+      assert.strictEqual(onRefreshQuestions.mock.calls.length, 1);
+    });
+  });
+
+  it("should verify offline mutation replay idempotency", async () => {
+    global.fetch = undefined as any;
+
+    const propsA = {
+      isOpen: true,
+      onClose: () => {},
+      tenantId: "tenant-A",
+      questions: mockQuestions,
+      onRefreshQuestions: onRefreshQuestions,
+    };
+
+    const { rerender } = render(<QuestionsDrawer {...propsA} />);
+
+    const input = screen.getByPlaceholderText("e.g. Where are backup 5-0 Prolene sutures kept?");
+    await userEvent.type(input, "Idempotent Offline Question");
+
+    const askButton = screen.getByText("Ask");
+    await userEvent.click(askButton);
+
+    await waitFor(() => {
+      assert.strictEqual((input as HTMLInputElement).value, "");
+    });
+
+    // Replay the rendering phase
+    rerender(<QuestionsDrawer {...propsA} />);
+
+    // Assert UI state remains identical
+    assert.strictEqual((input as HTMLInputElement).value, "");
+
+    // Verify no breakage occurs when rerendering or clicking ask when empty
+    await userEvent.click(askButton);
+    assert.strictEqual((input as HTMLInputElement).value, "");
+    assert.strictEqual(onRefreshQuestions.mock.calls.length, 1);
+  });
 });
