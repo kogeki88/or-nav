@@ -435,3 +435,54 @@ async def test_supplementary_fuzz_lookup_item_location_explicit(item_query, tena
     except Exception:
         # Expected to fail gracefully for arbitrary fuzzed input strings
         pass
+import asyncio
+import time
+import pytest
+from app.voice.worker import lookup_item_location, report_item_move
+from app.services.inventory_search import get_inventory_service
+
+@pytest.mark.asyncio
+async def test_supplementary_concurrent_burst_latency_and_race_condition_extended(monkeypatch):
+    """Supplementary test for extended concurrent burst execution, latency, race condition resistance, multi-tenant isolation, and offline-first invariants."""
+    def raise_offline_error(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+    monkeypatch.setattr("socket.socket", raise_offline_error)
+    monkeypatch.setattr("httpx.get", raise_offline_error)
+    monkeypatch.setattr("httpx.post", raise_offline_error)
+    monkeypatch.setattr("httpx.request", raise_offline_error)
+
+    num_requests = 200
+    tasks = []
+
+    for i in range(num_requests):
+        if i % 4 == 0:
+            tasks.append(lookup_item_location(item_query="rapid infuser", tenant_id="general_memorial/er"))
+        elif i % 4 == 1:
+            tasks.append(lookup_item_location(item_query="3-0 silk", tenant_id="general_memorial_cvor"))
+        elif i % 4 == 2:
+            tasks.append(report_item_move(item_name="rapid infuser", new_location=f"ER Trauma Room {i}", tenant_id="general_memorial/er"))
+        else:
+            tasks.append(report_item_move(item_name="rapid infuser", new_location="OR 12", tenant_id="general_memorial_cvor"))
+
+    start_time = time.time()
+    results = await asyncio.gather(*tasks)
+    end_time = time.time()
+
+    avg_latency = (end_time - start_time)
+    assert avg_latency < 100.0, f"Latency benchmark failed: {avg_latency}s"
+
+    for i, result in enumerate(results):
+        if i % 4 == 0:
+            assert "Belmont" in result and "Rapid Infuser" in result
+        elif i % 4 == 1:
+            assert "3-0 Silk Suture" in result
+        elif i % 4 == 2:
+            assert "Relocation logged" in result
+        else:
+            assert "Could not find" in result
+
+    inv_svc = get_inventory_service("general_memorial/er")
+    res = inv_svc.search("rapid infuser")
+    assert res.pending_location.upper().startswith("ER TRAUMA ROOM")
+    assert res.verify_count > 0
