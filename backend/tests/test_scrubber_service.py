@@ -297,6 +297,68 @@ class TestScrubberServiceMultiTenantIsolation:
             assert "3333333" not in r.text
             assert "Bob Smith" not in r.text
 
+    def test_scrub_phi_concurrent_burst_latency_and_race_conditions(self, monkeypatch):
+        """
+        Extend concurrent burst execution, race condition resistance, and latency benchmarks.
+        Explicitly include unique identifiers (worker_seq, item_seq) in payloads and
+        strictly verify that results do not contain leaked data from adjacent requests or other tenants.
+        Enforce multi-tenant isolation and offline-first invariants.
+        """
+        def poison(*args, **kwargs):
+            raise RuntimeError("Network call attempted during offline-first function execution")
+
+        monkeypatch.setattr(socket, "socket", poison)
+        monkeypatch.setattr(httpx, "get", poison)
+        monkeypatch.setattr(httpx, "post", poison)
+        monkeypatch.setattr(httpx.Client, "get", poison)
+        monkeypatch.setattr(httpx.Client, "post", poison)
+        monkeypatch.setattr(httpx.AsyncClient, "get", poison)
+        monkeypatch.setattr(httpx.AsyncClient, "post", poison)
+        monkeypatch.setattr(httpx, "request", poison)
+
+        num_requests = 500
+        start_time = time.time()
+
+        # We will generate payloads with worker_seq and item_seq
+        def worker_task(tenant_id, worker_seq, item_seq):
+            payload = f"Tenant {tenant_id} worker_seq {worker_seq} item_seq {item_seq} MRN {9990000 + worker_seq} patient Firstname Lastname{item_seq}"
+            start_req_time = time.time()
+            result = scrub_phi(payload)
+            req_latency = time.time() - start_req_time
+            return tenant_id, worker_seq, item_seq, result, req_latency
+
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+            futures = []
+            for i in range(num_requests):
+                tenant_id = "tenant_a" if i % 2 == 0 else "tenant_b"
+                futures.append(executor.submit(worker_task, tenant_id, i % 50, i))
+
+            for f in concurrent.futures.as_completed(futures):
+                results.append(f.result())
+
+        end_time = time.time()
+        total_makespan = end_time - start_time
+
+        assert total_makespan < 5.0, f"Total makespan {total_makespan}s exceeded 5.0s for {num_requests} requests"
+
+        total_latency = sum(r[4] for r in results)
+        avg_latency = total_latency / num_requests
+        assert avg_latency < 0.05, f"Average per-request latency {avg_latency} exceeded 0.05s"
+
+        for tenant_id, worker_seq, item_seq, result, req_latency in results:
+            assert result.redaction_count == 2
+            assert str(9990000 + worker_seq) not in result.text
+            assert f"Firstname Lastname{item_seq}" not in result.text
+            assert f"worker_seq {worker_seq}" in result.text
+            assert f"item_seq {item_seq}" in result.text
+
+            # Check for leaked data
+            other_item_seq = (item_seq + 1) % num_requests
+            assert f"Lastname{other_item_seq}" not in result.text
+            if other_item_seq != item_seq:
+                assert f"item_seq {other_item_seq}" not in result.text
+
 
 from hypothesis import given, strategies as st
 from hypothesis import settings
