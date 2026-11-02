@@ -443,20 +443,47 @@ def test_surgical_ontology_offline_first_invariant(monkeypatch):
     assert normalize_acoustic_speech("add son") == "adson"
 
 def test_surgical_ontology_multi_tenant_isolation():
-    from app.services.surgical_ontology import normalize_or_lingo
+    from app.services.surgical_ontology import (
+        normalize_or_lingo,
+        normalize_acoustic_speech,
+        extract_eponyms,
+        is_eponym_conflict,
+        is_generic_class_only
+    )
     # Surgical ontology operates on pure deterministic logic regardless of tenant state
     tenant_1 = "facility_id::dept_id_1"
     tenant_2 = "facility_id::dept_id_2"
 
-    res1 = normalize_or_lingo(f"{tenant_1} ad son pickups")
-    res2 = normalize_or_lingo(f"{tenant_2} ad son pickups")
+    query_1 = f"{tenant_1} ad son pickups"
+    query_2 = f"{tenant_2} ad son pickups"
 
-    assert res1 == f"{tenant_1} adson forceps"
-    assert res2 == f"{tenant_2} adson forceps"
+    res1_lingo = normalize_or_lingo(query_1)
+    res2_lingo = normalize_or_lingo(query_2)
 
-    # Offline mutation replay idempotency
-    assert normalize_or_lingo(res1) == res1
-    assert normalize_or_lingo(res2) == res2
+    assert res1_lingo == f"{tenant_1} adson forceps"
+    assert res2_lingo == f"{tenant_2} adson forceps"
+
+    res1_acoustic = normalize_acoustic_speech(query_1)
+    res2_acoustic = normalize_acoustic_speech(query_2)
+
+    assert res1_acoustic == f"{tenant_1} adson pickups"
+    assert res2_acoustic == f"{tenant_2} adson pickups"
+
+    res1_eponyms = extract_eponyms(normalize_or_lingo(query_1))
+    res2_eponyms = extract_eponyms(normalize_or_lingo(query_2))
+
+    assert "adson" in res1_eponyms
+    assert "adson" in res2_eponyms
+
+    # Offline mutation replay idempotency (Sequential replay yields exactly the same outputs)
+    assert normalize_or_lingo(res1_lingo) == res1_lingo
+    assert normalize_or_lingo(res2_lingo) == res2_lingo
+
+    assert normalize_acoustic_speech(res1_acoustic) == res1_acoustic
+    assert normalize_acoustic_speech(res2_acoustic) == res2_acoustic
+
+    assert extract_eponyms(normalize_or_lingo(query_1)) == res1_eponyms
+    assert extract_eponyms(normalize_or_lingo(query_2)) == res2_eponyms
 
 def test_strip_spoken_disfluencies():
     from app.services.surgical_ontology import strip_spoken_disfluencies
