@@ -228,4 +228,31 @@ describe("scrubClient standard and adversarial tests", () => {
       }
     });
   });
+
+  describe("Offline-first and Multi-tenant Isolation", () => {
+    test("scrubPhi executes successfully completely offline (offline-first invariant)", async () => {
+      const originalFetch = global.fetch;
+      try {
+        global.fetch = async () => { throw new Error('Network offline'); };
+        const result = scrubPhi("Patient MRN 123456 needs 3-0 silk");
+        assert.strictEqual(result.text, `Patient ${REDACTION} needs 3-0 silk`);
+        assert.strictEqual(result.redactionCount, 1);
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    test("scrubPhi maintains stateless multi-tenant isolation", () => {
+      const tenantAData = "Tenant A patient John Smith MRN 111111";
+      const tenantBData = "Tenant B pt Jane Doe MRN 222222";
+
+      const resultA = scrubPhi(tenantAData);
+      const resultB = scrubPhi(tenantBData);
+
+      assert.strictEqual(resultA.text, `Tenant A patient ${REDACTION} ${REDACTION}`);
+      assert.strictEqual(resultB.text, `Tenant B pt ${REDACTION} ${REDACTION}`);
+      assert.strictEqual(resultA.redactionCount, 2);
+      assert.strictEqual(resultB.redactionCount, 2);
+    });
+  });
 });
