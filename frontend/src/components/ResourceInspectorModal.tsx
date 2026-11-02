@@ -1017,6 +1017,7 @@ export default function ResourceInspectorModal({
                                 data-testid={`btn-edit-item-${item.item.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}
                                 className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors cursor-pointer"
                                 title="Edit Item"
+                                aria-label="Edit Item"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
@@ -1025,6 +1026,7 @@ export default function ResourceInspectorModal({
                                 data-testid={`btn-delete-item-${item.item.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}
                                 className="p-1.5 rounded-lg bg-zinc-800 hover:bg-rose-950/60 text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer"
                                 title="Delete Item"
+                                aria-label="Delete Item"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1224,6 +1226,7 @@ export default function ResourceInspectorModal({
                                 data-testid="btn-delete-preference-card"
                                 className="p-1.5 bg-zinc-800 hover:bg-rose-950/60 text-zinc-400 hover:text-rose-400 rounded-lg"
                                 title="Delete Card"
+                                aria-label="Delete Card"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -1585,6 +1588,7 @@ export default function ResourceInspectorModal({
                         data-testid={`btn-delete-alias-${a.spokenTerm.toLowerCase().replace(/[^a-z0-9]/g, "-")}`}
                         className="p-1.5 rounded-lg bg-zinc-800 hover:bg-rose-950/60 text-zinc-400 hover:text-rose-400 transition-colors"
                         title="Delete Alias"
+                        aria-label="Delete Alias"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
