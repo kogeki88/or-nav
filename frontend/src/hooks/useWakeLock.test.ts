@@ -365,3 +365,63 @@ describe("useWakeLock", () => {
     assert.strictEqual(mockRequest.mock.calls.length, iterations);
   });
 });
+
+describe("useWakeLock additional concurrent tests", () => {
+  let mockRequest: any;
+  let mockRelease: any;
+  let mockAddEventListener: any;
+
+  beforeEach(() => {
+    mockRelease = mock.fn(async () => undefined);
+    mockAddEventListener = mock.fn();
+    mockRequest = mock.fn(async () => ({
+      addEventListener: mockAddEventListener,
+      release: mockRelease,
+      released: false,
+    }));
+
+    Object.defineProperty(global.navigator, "wakeLock", {
+      value: {
+        request: mockRequest,
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    mock.method(console, 'debug', () => {});
+  });
+
+  afterEach(() => {
+    mock.restoreAll();
+  });
+
+  it("should meet strict latency benchmarks under extreme concurrent load", async () => {
+    mockRequest.mock.resetCalls();
+    mockRelease.mock.resetCalls();
+
+    const iterations = 150;
+    const start = performance.now();
+
+    const promises = [];
+    for (let i = 0; i < iterations; i++) {
+      promises.push((async () => {
+        const { unmount } = renderHook(() => useWakeLock(true));
+        await Promise.resolve();
+        unmount();
+        await Promise.resolve();
+      })());
+    }
+
+    await Promise.all(promises);
+
+    const end = performance.now();
+    const totalTime = end - start;
+    const averageLatency = totalTime / iterations;
+
+    assert.ok(
+      averageLatency < 2500,
+      `Average concurrent latency of ${averageLatency.toFixed(2)}ms exceeded the 2500ms threshold`
+    );
+    assert.strictEqual(mockRequest.mock.calls.length, iterations);
+  });
+});
