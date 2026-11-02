@@ -655,7 +655,8 @@ def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
     def worker(payload, idx):
         # 2. Assert multi-tenant isolation and correct returns under load
         # Add multi-tenant isolation payload formatting
-        tenant_payload = f"facility_{idx}::dept_{idx} {payload}"
+        unique_tenant_id = f"facility_{idx}::dept_{idx}"
+        tenant_payload = f"{unique_tenant_id} {payload}"
 
         res_lingo = normalize_or_lingo(tenant_payload)
         res_acoust = normalize_acoustic_speech(tenant_payload)
@@ -671,6 +672,18 @@ def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
         assert isinstance(res_gen, bool)
         assert isinstance(res_disf, str)
 
+        # Strictly verify that results do not contain leaked data from adjacent requests or other tenants
+        assert unique_tenant_id in res_lingo, f"Expected {unique_tenant_id} in {res_lingo}"
+        assert unique_tenant_id in res_acoust, f"Expected {unique_tenant_id} in {res_acoust}"
+        assert unique_tenant_id in res_disf, f"Expected {unique_tenant_id} in {res_disf}"
+
+        # Verify no cross-tenant leakage by checking a neighboring tenant ID is not present
+        other_idx = (idx + 1) % CONCURRENCY
+        other_tenant_id = f"facility_{other_idx}::dept_{other_idx}"
+        assert other_tenant_id not in res_lingo, f"Leaked {other_tenant_id} in {res_lingo}"
+        assert other_tenant_id not in res_acoust, f"Leaked {other_tenant_id} in {res_acoust}"
+        assert other_tenant_id not in res_disf, f"Leaked {other_tenant_id} in {res_disf}"
+
         return True
 
     def worker_with_timing(payload, idx):
@@ -679,12 +692,17 @@ def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
         end = time.time()
         return end - start
 
+    start_total = time.time()
     with concurrent.futures.ThreadPoolExecutor(max_workers=CONCURRENCY) as executor:
         futures = [executor.submit(worker_with_timing, payloads[i], i) for i in range(CONCURRENCY)]
         latencies = [f.result() for f in concurrent.futures.as_completed(futures)]
+    total_time = time.time() - start_total
 
     assert len(latencies) == CONCURRENCY
 
     # 3. Assess total average wall latency (< 50ms) per individual request
     avg_latency = sum(latencies) / len(latencies)
     assert avg_latency < 0.05, f"Average latency too high: {avg_latency * 1000:.2f}ms"
+
+    # 4. Assess total wall execution time is well within burst limits
+    assert total_time < 2.5, f"Total execution time too high: {total_time:.2f}s"
