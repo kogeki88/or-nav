@@ -386,3 +386,87 @@ describe('useUserProfile hook', () => {
      assert.ok(totalDuration < 2500, `Total duration was ${totalDuration}ms, expected < 2500ms`);
   });
 });
+
+describe('Supplementary tests', () => {
+    let localStorageMock: Record<string, string>;
+    let originalLocalStorage: any;
+    let originalFetch: any;
+
+    beforeEach(() => {
+        localStorageMock = {};
+        originalLocalStorage = global.localStorage;
+        originalFetch = global.fetch;
+
+        global.fetch = mock.fn(() => {
+            throw new Error('fetch should not be called in offline-first useUserProfile hook');
+        });
+
+        const mockStorage = {
+            getItem: (key: string) => localStorageMock[key] || null,
+            setItem: (key: string, value: string) => {
+                localStorageMock[key] = value;
+            },
+            removeItem: (key: string) => {
+                delete localStorageMock[key];
+            },
+            clear: () => {
+                localStorageMock = {};
+            },
+        };
+
+        Object.defineProperty(global, 'localStorage', {
+            value: mockStorage,
+            writable: true,
+            configurable: true,
+        });
+
+        Object.defineProperty(window, 'localStorage', {
+            value: mockStorage,
+            writable: true,
+            configurable: true,
+        });
+    });
+
+    afterEach(() => {
+        cleanup();
+        mock.restoreAll();
+        Object.defineProperty(global, 'localStorage', {
+            value: originalLocalStorage,
+            writable: true,
+            configurable: true,
+        });
+        Object.defineProperty(window, 'localStorage', {
+            value: originalLocalStorage,
+            writable: true,
+            configurable: true,
+        });
+        global.fetch = originalFetch;
+    });
+
+    it('should handle extreme concurrent bursts gracefully (High-Concurrency & Latency Benchmarks)', async () => {
+        const hooks = Array.from({ length: 10 }).map(() => renderHook(() => useUserProfile()));
+        const start = performance.now();
+        await Promise.all(
+            hooks.map(async (hook, i) => {
+                act(() => {
+                    hook.result.current.saveProfile({
+                        ...DEFAULT_USER_PROFILE,
+                        fullName: `Burst User ${i}`
+                    });
+                });
+            })
+        );
+        const end = performance.now();
+        assert.ok(end - start < 1000, `High concurrency latency should be under 1000ms. Got ${end - start}ms`);
+
+        const savedData = JSON.parse(localStorageMock[USER_PROFILE_STORAGE_KEY]);
+        assert.ok(savedData.fullName.startsWith('Burst User'));
+    });
+
+    it('should supplement multi-tenant isolation invariants', () => {
+        const tenantProfile = { ...DEFAULT_USER_PROFILE, facilityId: 'test_facility' };
+        localStorageMock[USER_PROFILE_STORAGE_KEY] = JSON.stringify(tenantProfile);
+        const { result } = renderHook(() => useUserProfile());
+        assert.strictEqual(result.current.profile.facilityId, 'test_facility');
+    });
+});
