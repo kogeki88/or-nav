@@ -367,3 +367,67 @@ def test_lexicon_service_latency_under_load(mock_lexicon_dir):
     avg_latency = sum(latencies) / len(latencies)
     # Expect avg latency to be under 100ms
     assert avg_latency < 0.1, f"Latency too high: {avg_latency * 1000} ms"
+
+def test_stress_test_extreme_concurrency(mock_lexicon_dir):
+    """Stress test extreme concurrency for multi-tenant isolation and race condition resistance."""
+    facilities = ["stress_fac_1", "stress_fac_2", "stress_fac_3", "stress_fac_4", "stress_fac_5"]
+
+    def worker(i):
+        fac = facilities[i % len(facilities)]
+        return learn_alias(
+            facility_id=fac,
+            department_id="or",
+            spoken_term=f"term_{i % 5}",
+            canonical_item=f"Canonical Item {i % 5}",
+            user_id=f"user_{i}"
+        )
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+        futures = [executor.submit(worker, i) for i in range(200)]
+        for f in concurrent.futures.as_completed(futures):
+            f.result()
+
+    for fac in facilities:
+        entries = load_facility_lexicon(fac)
+        assert len(entries) == 1, f"Expected 1 unique entry for {fac}, got {len(entries)}"
+        for entry in entries:
+            assert entry["usageCount"] == 200 // len(facilities)
+
+def test_burst_latency_large_lexicon(mock_lexicon_dir):
+    """Test latency under burst traffic with a large lexicon."""
+    facility = "burst_latency_fac"
+
+    entries = []
+    for i in range(2000):
+        entries.append({
+            "aliasId": f"id_{i}",
+            "facilityId": facility,
+            "departmentId": "or",
+            "spokenTerm": f"term_{i}",
+            "canonicalItemName": f"Item {i}",
+            "usageCount": 1,
+            "usedByUsers": ["user1"],
+            "confidence": "personal",
+            "updatedAt": "2023-01-01T00:00:00Z",
+            "displayPreferredName": f"Term {i}"
+        })
+    save_facility_lexicon(facility, entries)
+
+    resolve_spoken_alias(facility, "term_0")
+
+    num_resolves = 200
+    latencies = []
+
+    def resolve_with_latency(i):
+        start = time.perf_counter()
+        resolve_spoken_alias(facility, f"term_{i * 5}")
+        end = time.perf_counter()
+        return end - start
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+        futures = [executor.submit(resolve_with_latency, i) for i in range(num_resolves)]
+        for f in concurrent.futures.as_completed(futures):
+            latencies.append(f.result())
+
+    avg_latency = sum(latencies) / len(latencies)
+    assert avg_latency < 0.250, f"Latency too high: {avg_latency * 1000} ms"
