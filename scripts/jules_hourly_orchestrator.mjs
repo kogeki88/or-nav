@@ -815,7 +815,7 @@ async function replenishPool(apiKey, currentActive) {
 
   backlog = ensureBacklogCapacity(backlog, needed);
 
-  const CATEGORY_PRIORITY = { 'Code Health': 1, 'Security': 2, 'Performance': 3, 'Testing': 4 };
+  const CATEGORY_PRIORITY = { 'Security': 1, 'Performance': 2, 'Code Health': 3, 'Testing': 4 };
   const pendingTasks = backlog
     .filter(t => t.status === 'pending')
     .sort((a, b) => {

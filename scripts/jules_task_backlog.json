@@ -183,8 +183,10 @@
     "id": "backlog-19",
     "title": "Testing: Standalone Offline Matching Engine Unit Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: Standalone Engine\n\n## Task Details\n**File:** `frontend/src/lib/standaloneEngine.test.ts`\n**Issue:** Add comprehensive tests for standaloneEngine.ts in-browser fuzzy matching.\n\n## Objective:\n1. Create `frontend/src/lib/standaloneEngine.test.ts`.\n2. Test matching items by item name, aliases, surgeon notes, and coordinate tokens without backend connection.\n3. Ensure tests pass with 100% success and create a pull request."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Improvement Task: Standalone Engine\n\n## Task Details\n**File:** `frontend/src/lib/standaloneEngine.test.ts`\n**Issue:** Add comprehensive tests for standaloneEngine.ts in-browser fuzzy matching.\n\n## Objective:\n1. Create `frontend/src/lib/standaloneEngine.test.ts`.\n2. Test matching items by item name, aliases, surgeon notes, and coordinate tokens without backend connection.\n3. Ensure tests pass with 100% success and create a pull request.",
+    "sessionId": "13457068479892274441",
+    "dispatchedAt": "2026-11-02T17:01:12.342Z"
   },
   {
     "id": "backlog-20",
@@ -290,22 +292,31 @@
     "id": "backlog-30",
     "title": "Testing: Spoken Disfluency and Vocal Filler Filter Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: Disfluency Filter\n\n## Task Details\n**File:** `backend/tests/test_disfluency.py`\n**Issue:** Test removing speech hesitation tokens ('um', 'uh', 'you know', 'please find me') before search.\n\n## Objective:\n1. Create `backend/tests/test_disfluency.py`.\n2. Test stripping vocal fillers while strictly preserving critical medical tokens (e.g. '4-0', 'no. 10 blade').\n3. When complete, create a pull request."
+    "status": "completed",
+    "prompt": "# 🧪 Testing Improvement Task: Disfluency Filter\n\n## Task Details\n**File:** `backend/tests/test_disfluency.py`\n**Issue:** Test removing speech hesitation tokens ('um', 'uh', 'you know', 'please find me') before search.\n\n## Objective:\n1. Create `backend/tests/test_disfluency.py`.\n2. Test stripping vocal fillers while strictly preserving critical medical tokens (e.g. '4-0', 'no. 10 blade').\n3. When complete, create a pull request.",
+    "sessionId": "7656670579232628970",
+    "dispatchedAt": "2026-11-02T17:01:13.981Z",
+    "completedAt": "2026-11-02T17:29:16.462Z"
   },
   {
     "id": "backlog-31",
     "title": "Testing: Packed Coordinate Parser Tests (Room, Cart, Shelf, Bin)",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: Coordinate Parser\n\n## Task Details\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Issue:** Test parsing shorthand location strings (e.g. 'OR 21 A 2 C' -> Room: OR 21, Cart: A, Shelf: 2, Bin: C).\n\n## Objective:\n1. Create `frontend/src/lib/coordinateParser.test.ts`.\n2. Test variations in spacing, dashes, and bullet points.\n3. When complete, create a pull request."
+    "status": "completed",
+    "prompt": "# 🧪 Testing Improvement Task: Coordinate Parser\n\n## Task Details\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Issue:** Test parsing shorthand location strings (e.g. 'OR 21 A 2 C' -> Room: OR 21, Cart: A, Shelf: 2, Bin: C).\n\n## Objective:\n1. Create `frontend/src/lib/coordinateParser.test.ts`.\n2. Test variations in spacing, dashes, and bullet points.\n3. When complete, create a pull request.",
+    "sessionId": "15793385103888259914",
+    "dispatchedAt": "2026-11-02T17:01:16.746Z",
+    "completedAt": "2026-11-02T17:44:15.029Z"
   },
   {
     "id": "backlog-32",
     "title": "Testing: Direct Gemini Fallback When LiveKit Server Disconnects",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Improvement Task: Direct Gemini Fallback\n\n## Task Details\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Issue:** Test direct HTTP Gemini API fallback when LiveKit voice server is down or unreachable.\n\n## Objective:\n1. Create `frontend/src/lib/directGemini.test.ts`.\n2. Mock LiveKit failure and verify automatic fallback query execution directly to backend Gemini endpoint.\n3. When complete, create a pull request."
+    "status": "completed",
+    "prompt": "# 🧪 Testing Improvement Task: Direct Gemini Fallback\n\n## Task Details\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Issue:** Test direct HTTP Gemini API fallback when LiveKit voice server is down or unreachable.\n\n## Objective:\n1. Create `frontend/src/lib/directGemini.test.ts`.\n2. Mock LiveKit failure and verify automatic fallback query execution directly to backend Gemini endpoint.\n3. When complete, create a pull request.",
+    "sessionId": "14330322691548419565",
+    "dispatchedAt": "2026-11-02T17:01:19.027Z",
+    "completedAt": "2026-11-02T17:29:10.589Z"
   },
   {
     "id": "backlog-33",
@@ -461,36 +472,51 @@
     "id": "backlog-48",
     "title": "Testing: ChatCanvas Multi-Item Clinical Display Component Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: ChatCanvas Multi-Item Display Tests\n\n**File:** `frontend/src/components/ChatCanvas.test.tsx`\n**Issue:** Add unit tests for ChatCanvas verifying rendering of message bubbles, preference card carousels, and action buttons.\n\n**Objective:**\n1. Create `frontend/src/components/ChatCanvas.test.tsx`.\n2. Test empty state, user message, agent clinical response, and structured card list rendering.\n3. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🧪 Testing Task: ChatCanvas Multi-Item Display Tests\n\n**File:** `frontend/src/components/ChatCanvas.test.tsx`\n**Issue:** Add unit tests for ChatCanvas verifying rendering of message bubbles, preference card carousels, and action buttons.\n\n**Objective:**\n1. Create `frontend/src/components/ChatCanvas.test.tsx`.\n2. Test empty state, user message, agent clinical response, and structured card list rendering.\n3. Submit PR immediately upon verification.",
+    "sessionId": "13030955150873492169",
+    "dispatchedAt": "2026-11-02T17:01:20.508Z",
+    "completedAt": "2026-11-02T17:31:36.304Z"
   },
   {
     "id": "backlog-49",
     "title": "Testing: Backend Clinical Graph Service Relationship Query Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: Clinical Graph Service Tests\n\n**File:** `backend/tests/test_clinical_graph_service.py`\n**Issue:** Add unit tests for `backend/app/services/clinical_graph.py` verifying multi-tenant relationship queries.\n\n**Objective:**\n1. Create `backend/tests/test_clinical_graph_service.py`.\n2. Test node addition, edge connections, and BFS path queries.\n3. Verify isolation between different facility graphs.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🧪 Testing Task: Clinical Graph Service Tests\n\n**File:** `backend/tests/test_clinical_graph_service.py`\n**Issue:** Add unit tests for `backend/app/services/clinical_graph.py` verifying multi-tenant relationship queries.\n\n**Objective:**\n1. Create `backend/tests/test_clinical_graph_service.py`.\n2. Test node addition, edge connections, and BFS path queries.\n3. Verify isolation between different facility graphs.\n4. Submit PR immediately upon verification.",
+    "sessionId": "4240749731129345019",
+    "dispatchedAt": "2026-11-02T17:01:22.890Z",
+    "completedAt": "2026-11-02T17:28:59.775Z"
   },
   {
     "id": "backlog-50",
     "title": "Testing: Clinical Query Planner Ambiguous Gauge & Size Resolution",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: Clinical Query Planner Gauge Resolution\n\n**File:** `backend/tests/test_planner_gauge_resolution.py`\n**Issue:** Test clinical query planner disambiguation between needle gauge (e.g. 22G), suture size (e.g. 2-0, 3-0), and catheter Fr.\n\n**Objective:**\n1. Create `backend/tests/test_planner_gauge_resolution.py`.\n2. Test queries like \"22 gauge spinal needle vs 2-0 prolene vs 16 Fr foley\".\n3. Verify extraction maps correctly to item attributes.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🧪 Testing Task: Clinical Query Planner Gauge Resolution\n\n**File:** `backend/tests/test_planner_gauge_resolution.py`\n**Issue:** Test clinical query planner disambiguation between needle gauge (e.g. 22G), suture size (e.g. 2-0, 3-0), and catheter Fr.\n\n**Objective:**\n1. Create `backend/tests/test_planner_gauge_resolution.py`.\n2. Test queries like \"22 gauge spinal needle vs 2-0 prolene vs 16 Fr foley\".\n3. Verify extraction maps correctly to item attributes.\n4. Submit PR immediately upon verification.",
+    "sessionId": "17544893428002172476",
+    "dispatchedAt": "2026-11-02T17:01:24.630Z",
+    "completedAt": "2026-11-02T17:52:57.343Z"
   },
   {
     "id": "backlog-51",
     "title": "Testing: Offline Outbox Replay Idempotency After Network Drop",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: Offline Outbox Replay Idempotency\n\n**File:** `frontend/src/lib/outboxReplay.test.ts`\n**Issue:** Ensure offline outbox actions (e.g. move item, mark verified) are idempotent when replayed multiple times.\n\n**Objective:**\n1. Create `frontend/src/lib/outboxReplay.test.ts`.\n2. Simulate duplicate mutation replay and assert final state matches single application.\n3. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🧪 Testing Task: Offline Outbox Replay Idempotency\n\n**File:** `frontend/src/lib/outboxReplay.test.ts`\n**Issue:** Ensure offline outbox actions (e.g. move item, mark verified) are idempotent when replayed multiple times.\n\n**Objective:**\n1. Create `frontend/src/lib/outboxReplay.test.ts`.\n2. Simulate duplicate mutation replay and assert final state matches single application.\n3. Submit PR immediately upon verification.",
+    "sessionId": "16314294847982992755",
+    "dispatchedAt": "2026-11-02T17:01:26.064Z",
+    "completedAt": "2026-11-02T17:31:29.657Z"
   },
   {
     "id": "backlog-52",
     "title": "Testing: Hospital Manifest Validation & Department Hierarchy Tests",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: Hospital Manifest Validation\n\n**File:** `backend/tests/test_manifest_validation.py`\n**Issue:** Test hospital manifest.json parsing and department schema integrity.\n\n**Objective:**\n1. Create `backend/tests/test_manifest_validation.py`.\n2. Verify loading all configured hospitals (County General, Memorial, etc.) without missing key errors.\n3. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🧪 Testing Task: Hospital Manifest Validation\n\n**File:** `backend/tests/test_manifest_validation.py`\n**Issue:** Test hospital manifest.json parsing and department schema integrity.\n\n**Objective:**\n1. Create `backend/tests/test_manifest_validation.py`.\n2. Verify loading all configured hospitals (County General, Memorial, etc.) without missing key errors.\n3. Submit PR immediately upon verification.",
+    "sessionId": "17740527141664456949",
+    "dispatchedAt": "2026-11-02T17:01:27.805Z",
+    "completedAt": "2026-11-02T17:29:05.445Z"
   },
   {
     "id": "backlog-53",
@@ -1332,42 +1358,329 @@
     "id": "backlog-138",
     "title": "Performance: High-Concurrency & Stress Benchmarks for OfflineDb",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Performance Task (Phase 3): High-Concurrency & Stress Benchmarks for OfflineDb\n\n**File:** `frontend/src/lib/offlineDbBench.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/offlineDbBench.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Performance Task (Phase 3): High-Concurrency & Stress Benchmarks for OfflineDb\n\n**File:** `frontend/src/lib/offlineDbBench.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/offlineDbBench.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "12207736261083905709",
+    "dispatchedAt": "2026-11-02T17:01:02.717Z",
+    "completedAt": "2026-11-02T17:38:01.746Z"
   },
   {
     "id": "backlog-139",
     "title": "Testing: High-Concurrency & Stress Benchmarks for DeltaSync",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "277393627988556988",
+    "dispatchedAt": "2026-11-02T17:01:07.223Z",
+    "completedAt": "2026-11-02T17:28:54.098Z"
   },
   {
     "id": "backlog-140",
     "title": "Sentinel: High-Concurrency & Stress Benchmarks for AuthTokenRotation",
     "category": "Security",
-    "status": "pending",
-    "prompt": "# 🚀 Sentinel Task (Phase 3): High-Concurrency & Stress Benchmarks for AuthTokenRotation\n\n**File:** `backend/tests/test_auth_token_rotation.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_auth_token_rotation.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Sentinel Task (Phase 3): High-Concurrency & Stress Benchmarks for AuthTokenRotation\n\n**File:** `backend/tests/test_auth_token_rotation.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_auth_token_rotation.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11453855525828191194",
+    "dispatchedAt": "2026-11-02T17:00:59.186Z",
+    "completedAt": "2026-11-02T17:44:32.455Z"
   },
   {
     "id": "backlog-141",
     "title": "Testing: High-Concurrency & Stress Benchmarks for FeedbackPipeline",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for FeedbackPipeline\n\n**File:** `backend/tests/test_feedback_pipeline.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_feedback_pipeline.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for FeedbackPipeline\n\n**File:** `backend/tests/test_feedback_pipeline.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_feedback_pipeline.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "803738179649860689",
+    "dispatchedAt": "2026-11-02T17:01:08.647Z"
   },
   {
     "id": "backlog-142",
     "title": "Testing: High-Concurrency & Stress Benchmarks for IntentParser",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11057738462963929109",
+    "dispatchedAt": "2026-11-02T17:01:10.191Z",
+    "completedAt": "2026-11-02T17:44:26.961Z"
   },
   {
     "id": "backlog-143",
     "title": "Bolt: High-Concurrency & Stress Benchmarks for InventorySearch",
     "category": "Performance",
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 3): High-Concurrency & Stress Benchmarks for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "10874784605294476151",
+    "dispatchedAt": "2026-11-02T17:01:04.357Z",
+    "completedAt": "2026-11-02T17:44:08.693Z"
+  },
+  {
+    "id": "backlog-144",
+    "title": "Code Health: High-Concurrency & Stress Benchmarks for LexiconLearningService",
+    "category": "Code Health",
+    "status": "completed",
+    "prompt": "# 🚀 Code Health Task (Phase 3): High-Concurrency & Stress Benchmarks for LexiconLearningService\n\n**File:** `backend/tests/test_lexicon_service.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_lexicon_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "8446246990002114169",
+    "dispatchedAt": "2026-11-02T17:29:19.563Z",
+    "completedAt": "2026-11-02T17:44:45.303Z"
+  },
+  {
+    "id": "backlog-145",
+    "title": "Testing: High-Concurrency & Stress Benchmarks for VoiceWorker",
+    "category": "Testing",
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "2120459727146502688",
+    "dispatchedAt": "2026-11-02T17:32:52.694Z",
+    "completedAt": "2026-11-02T18:33:32.432Z"
+  },
+  {
+    "id": "backlog-146",
+    "title": "Testing: High-Concurrency & Stress Benchmarks for PushToTalkHook",
+    "category": "Testing",
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for PushToTalkHook\n\n**File:** `frontend/src/hooks/usePushToTalk.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/hooks/usePushToTalk.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "2951185643592742639",
+    "dispatchedAt": "2026-11-02T17:32:54.334Z",
+    "completedAt": "2026-11-02T17:44:38.852Z"
+  },
+  {
+    "id": "backlog-147",
+    "title": "Code Health: High-Concurrency & Stress Benchmarks for WakeLockHook",
+    "category": "Code Health",
+    "status": "completed",
+    "prompt": "# 🚀 Code Health Task (Phase 3): High-Concurrency & Stress Benchmarks for WakeLockHook\n\n**File:** `frontend/src/hooks/useWakeLock.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/hooks/useWakeLock.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1328091814090699992",
+    "dispatchedAt": "2026-11-02T17:29:20.943Z",
+    "completedAt": "2026-11-02T17:53:03.551Z"
+  },
+  {
+    "id": "backlog-148",
+    "title": "Testing: High-Concurrency & Stress Benchmarks for UserProfileHook",
+    "category": "Testing",
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for UserProfileHook\n\n**File:** `frontend/src/hooks/useUserProfile.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/hooks/useUserProfile.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "12378799306879026841",
+    "dispatchedAt": "2026-11-02T17:32:56.177Z",
+    "completedAt": "2026-11-02T18:04:42.636Z"
+  },
+  {
+    "id": "backlog-149",
+    "title": "Code Health: High-Concurrency & Stress Benchmarks for AutoUpdateModal",
+    "category": "Code Health",
+    "status": "completed",
+    "prompt": "# 🚀 Code Health Task (Phase 3): High-Concurrency & Stress Benchmarks for AutoUpdateModal\n\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "2185495633674623597",
+    "dispatchedAt": "2026-11-02T17:32:47.346Z",
+    "completedAt": "2026-11-02T17:53:18.638Z"
+  },
+  {
+    "id": "backlog-150",
+    "title": "Bolt: High-Concurrency & Stress Benchmarks for OmnibarSearch",
+    "category": "Performance",
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 3): High-Concurrency & Stress Benchmarks for OmnibarSearch\n\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/components/Omnibar.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "5179278679691387605",
+    "dispatchedAt": "2026-11-02T17:32:50.236Z",
+    "completedAt": "2026-11-02T17:44:20.932Z"
+  },
+  {
+    "id": "backlog-151",
+    "title": "Testing: High-Concurrency & Stress Benchmarks for PeerQnAPanel",
+    "category": "Testing",
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for PeerQnAPanel\n\n**File:** `frontend/src/components/PeerQnAPanel.test.tsx`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/components/PeerQnAPanel.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "3584377900360203990",
+    "dispatchedAt": "2026-11-02T17:38:05.206Z",
+    "completedAt": "2026-11-02T17:53:10.446Z"
+  },
+  {
+    "id": "backlog-152",
+    "title": "Performance: High-Concurrency & Stress Benchmarks for SyncEngineOutbox",
+    "category": "Performance",
+    "status": "completed",
+    "prompt": "# 🚀 Performance Task (Phase 3): High-Concurrency & Stress Benchmarks for SyncEngineOutbox\n\n**File:** `frontend/src/lib/syncEngine.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/syncEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11332009432974319226",
+    "dispatchedAt": "2026-11-02T18:03:17.855Z",
+    "completedAt": "2026-11-02T18:23:27.102Z"
+  },
+  {
+    "id": "backlog-153",
+    "title": "Sentinel: High-Concurrency & Stress Benchmarks for ResourceManagerChecksum",
+    "category": "Security",
+    "status": "completed",
+    "prompt": "# 🚀 Sentinel Task (Phase 3): High-Concurrency & Stress Benchmarks for ResourceManagerChecksum\n\n**File:** `frontend/src/lib/resourceManager.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/resourceManager.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "12100819952667091610",
+    "dispatchedAt": "2026-11-02T17:44:49.405Z",
+    "completedAt": "2026-11-02T18:03:03.310Z"
+  },
+  {
+    "id": "backlog-154",
+    "title": "Bolt: High-Concurrency & Stress Benchmarks for ClinicalQueryPlannerService",
+    "category": "Performance",
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 3): High-Concurrency & Stress Benchmarks for ClinicalQueryPlannerService\n\n**File:** `backend/tests/test_clinical_query_planner.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_clinical_query_planner.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1941425085308498325",
+    "dispatchedAt": "2026-11-02T18:03:19.421Z",
+    "completedAt": "2026-11-02T18:24:09.127Z"
+  },
+  {
+    "id": "backlog-155",
+    "title": "Bolt: High-Concurrency & Stress Benchmarks for SurgicalOntologyService",
+    "category": "Performance",
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 3): High-Concurrency & Stress Benchmarks for SurgicalOntologyService\n\n**File:** `backend/tests/test_surgical_ontology.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_surgical_ontology.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "14047612276662214396",
+    "dispatchedAt": "2026-11-02T18:03:21.162Z",
+    "completedAt": "2026-11-02T18:23:05.330Z"
+  },
+  {
+    "id": "backlog-156",
+    "title": "Sentinel: High-Concurrency & Stress Benchmarks for ScrubberService",
+    "category": "Security",
+    "status": "completed",
+    "prompt": "# 🚀 Sentinel Task (Phase 3): High-Concurrency & Stress Benchmarks for ScrubberService\n\n**File:** `backend/tests/test_scrubber_service.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_scrubber_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "2561706873348411158",
+    "dispatchedAt": "2026-11-02T17:44:52.164Z",
+    "completedAt": "2026-11-02T18:08:03.383Z"
+  },
+  {
+    "id": "backlog-157",
+    "title": "Sentinel: High-Concurrency & Stress Benchmarks for ChatRouterMultiTenant",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Phase 3): High-Concurrency & Stress Benchmarks for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "14582147861472718096",
+    "dispatchedAt": "2026-11-02T18:03:13.065Z"
+  },
+  {
+    "id": "backlog-158",
+    "title": "Testing: High-Concurrency & Stress Benchmarks for VoiceRouterLiveKit",
+    "category": "Testing",
     "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Phase 3): High-Concurrency & Stress Benchmarks for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for VoiceRouterLiveKit\n\n**File:** `backend/tests/test_voice_router.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_voice_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-159",
+    "title": "Sentinel: High-Concurrency & Stress Benchmarks for LimiterConcurrencyThrottling",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Phase 3): High-Concurrency & Stress Benchmarks for LimiterConcurrencyThrottling\n\n**File:** `backend/tests/test_limiter_concurrency.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_limiter_concurrency.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "14731225286962293537",
+    "dispatchedAt": "2026-11-02T18:03:15.208Z"
+  },
+  {
+    "id": "backlog-160",
+    "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for DirectGemini",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-161",
+    "title": "Bolt: Offline Partition & Multi-Tenant Isolation Verification for SemanticParser",
+    "category": "Performance",
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for SemanticParser\n\n**File:** `frontend/src/lib/semanticParser.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/semanticParser.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "6527063331115987479",
+    "dispatchedAt": "2026-11-02T18:03:23.170Z",
+    "completedAt": "2026-11-02T18:23:36.353Z"
+  },
+  {
+    "id": "backlog-162",
+    "title": "Code Health: Offline Partition & Multi-Tenant Isolation Verification for AppSettings",
+    "category": "Code Health",
+    "status": "completed",
+    "prompt": "# 🚀 Code Health Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for AppSettings\n\n**File:** `frontend/src/lib/appSettings.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/appSettings.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "6159101093583593739",
+    "dispatchedAt": "2026-11-02T18:03:11.528Z",
+    "completedAt": "2026-11-02T18:23:17.986Z"
+  },
+  {
+    "id": "backlog-163",
+    "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for HospitalMapping",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for HospitalMapping\n\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/hospitalMapping.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-164",
+    "title": "Bolt: Offline Partition & Multi-Tenant Isolation Verification for CoordinateParser",
+    "category": "Performance",
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for CoordinateParser\n\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/coordinateParser.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "2933775966620911257",
+    "dispatchedAt": "2026-11-02T18:08:11.938Z",
+    "completedAt": "2026-11-02T18:23:12.084Z"
+  },
+  {
+    "id": "backlog-165",
+    "title": "Bolt: Offline Partition & Multi-Tenant Isolation Verification for MoveDebouncer",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for MoveDebouncer\n\n**File:** `frontend/src/lib/moveDebouncer.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/moveDebouncer.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "7670148402464859404",
+    "dispatchedAt": "2026-11-02T18:33:39.595Z"
+  },
+  {
+    "id": "backlog-166",
+    "title": "Performance: Offline Partition & Multi-Tenant Isolation Verification for OfflineDb",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Performance Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for OfflineDb\n\n**File:** `frontend/src/lib/offlineDbBench.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/offlineDbBench.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "4791432338313832587",
+    "dispatchedAt": "2026-11-02T18:33:40.986Z"
+  },
+  {
+    "id": "backlog-167",
+    "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for DeltaSync",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-168",
+    "title": "Sentinel: Offline Partition & Multi-Tenant Isolation Verification for AuthTokenRotation",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for AuthTokenRotation\n\n**File:** `backend/tests/test_auth_token_rotation.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_auth_token_rotation.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1276426940708323102",
+    "dispatchedAt": "2026-11-02T18:33:37.374Z"
+  },
+  {
+    "id": "backlog-169",
+    "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for FeedbackPipeline",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for FeedbackPipeline\n\n**File:** `backend/tests/test_feedback_pipeline.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_feedback_pipeline.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-170",
+    "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for IntentParser",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-171",
+    "title": "Bolt: Offline Partition & Multi-Tenant Isolation Verification for InventorySearch",
+    "category": "Performance",
+    "status": "pending",
+    "prompt": "# 🚀 Bolt Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-172",
+    "title": "Code Health: Offline Partition & Multi-Tenant Isolation Verification for LexiconLearningService",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🚀 Code Health Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for LexiconLearningService\n\n**File:** `backend/tests/test_lexicon_service.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_lexicon_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "4407956948595311149",
+    "dispatchedAt": "2026-11-02T18:33:35.907Z"
+  },
+  {
+    "id": "backlog-173",
+    "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for VoiceWorker",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]
