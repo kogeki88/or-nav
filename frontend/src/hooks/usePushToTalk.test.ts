@@ -639,4 +639,50 @@ describe('usePushToTalk', () => {
       unmount();
     }
   });
+
+  test("supplementary test: latency benchmarks and concurrent burst execution for PTT operations", async () => {
+    const hooks: any[] = [];
+
+    await act(async () => {
+      for (let i = 0; i < 25; i++) {
+        hooks.push(renderHook(() => usePushToTalk({ tenantId: "benchmark-tenant-" + i })));
+      }
+      await new Promise(r => setTimeout(r, 100));
+    });
+
+    for (const hook of hooks) {
+      await waitFor(() => {
+        assert.strictEqual(hook.result.current.isConnected, true);
+      });
+    }
+
+    const start = performance.now();
+    await act(async () => {
+      await Promise.all(hooks.map(async (hook) => {
+        await hook.result.current.startPTT();
+      }));
+    });
+    const end = performance.now();
+    const duration = end - start;
+
+    for (const hook of hooks) {
+      assert.strictEqual(hook.result.current.isHoldingPTT, true);
+    }
+
+    // Benchmark assertion: 25 concurrent operations should complete quickly
+    assert.ok(duration < 2000, `Latency benchmark exceeded limit: ${duration}ms`);
+
+    // Race condition resistance: toggling modes rapidly
+    await act(async () => {
+      await Promise.all(hooks.map(async (hook) => {
+        hook.result.current.toggleVoiceMode();
+        hook.result.current.toggleVoiceMode();
+        hook.result.current.toggleVoiceMode();
+      }));
+    });
+
+    for (const hook of hooks) {
+      assert.strictEqual(hook.result.current.voiceMode, "BROWSER_WEB_SPEECH");
+    }
+  });
 });
