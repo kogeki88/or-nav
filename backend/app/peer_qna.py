@@ -33,6 +33,7 @@ class PeerAnswer(BaseModel):
     answerText: str
     verifiedBy: List[str] = Field(default_factory=list)
     isVerifiedConsensus: bool = False
+    idempotencyKey: Optional[str] = None
 
 
 class PeerQuestion(BaseModel):
@@ -45,6 +46,7 @@ class PeerQuestion(BaseModel):
     answers: List[PeerAnswer] = Field(default_factory=list)
     status: str = "unverified"  # "unverified" | "verified"
     verificationsCount: int = 0
+    idempotencyKey: Optional[str] = None
 
 
 class CreateQuestionRequest(BaseModel):
@@ -55,6 +57,7 @@ class CreateQuestionRequest(BaseModel):
     asked_by: Optional[str] = "Sean Iglesia, RN (Orientee)"
     askedBy: Optional[str] = None
     role: Optional[str] = "Orientee"
+    idempotency_key: Optional[str] = None
 
 
 class CreateAnswerRequest(BaseModel):
@@ -62,6 +65,7 @@ class CreateAnswerRequest(BaseModel):
     answeredBy: Optional[str] = None
     answer_text: Optional[str] = None
     answerText: Optional[str] = None
+    idempotency_key: Optional[str] = None
 
 
 class VerifyAnswerRequest(BaseModel):
@@ -237,6 +241,14 @@ async def create_peer_question(req: CreateQuestionRequest):
     role = req.role or "Orientee"
     now_iso = datetime.now(timezone.utc).isoformat()
 
+    questions = load_peer_questions()
+
+    # Idempotency check
+    if getattr(req, 'idempotency_key', None):
+        for q in questions:
+            if getattr(q, 'idempotencyKey', None) == getattr(req, 'idempotency_key', None):
+                return q
+
     new_q = PeerQuestion(
         id=f"pq-{uuid.uuid4().hex[:8]}",
         tenantId=t_id.strip(),
@@ -247,9 +259,9 @@ async def create_peer_question(req: CreateQuestionRequest):
         answers=[],
         status="unverified",
         verificationsCount=0,
+        idempotencyKey=getattr(req, 'idempotency_key', None),
     )
 
-    questions = load_peer_questions()
     questions.insert(0, new_q)
     save_peer_questions(questions)
     return new_q
@@ -303,12 +315,19 @@ async def answer_peer_question(question_id: str, req: CreateAnswerRequest):
     if not target_q:
         raise HTTPException(status_code=404, detail=f"Question {question_id} not found.")
 
+    # Idempotency check for answers
+    if getattr(req, 'idempotency_key', None):
+        for ans in target_q.answers:
+            if getattr(ans, 'idempotencyKey', None) == getattr(req, 'idempotency_key', None):
+                return target_q
+
     new_answer = PeerAnswer(
         answerId=f"pa-{uuid.uuid4().hex[:8]}",
         answeredBy=answered_by.strip(),
         answerText=a_text.strip(),
         verifiedBy=[],
         isVerifiedConsensus=False,
+        idempotencyKey=getattr(req, 'idempotency_key', None),
     )
 
     target_q.answers.append(new_answer)
