@@ -209,3 +209,29 @@ def test_intent_parser_supplementary_isolation(monkeypatch):
 
     assert res1.intent == res2.intent
     assert res1.entities == res2.entities
+
+def test_intent_parser_offline_mutation_replay_idempotency_extended(monkeypatch):
+    import socket
+    import httpx
+    orig_socket = socket.socket
+    def poison(*args, **kwargs):
+        if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
+        if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
+        raise RuntimeError("Network call attempted! Offline invariant violated.")
+
+    monkeypatch.setattr(socket, "socket", poison)
+    monkeypatch.setattr(httpx, "get", poison)
+    monkeypatch.setattr(httpx, "post", poison)
+    monkeypatch.setattr(httpx, "request", poison)
+
+    # Replay sequentially with the exact same input including facility_id::dept_id prefix
+    input_str = "fac123::dept456 add 3-0 vicryl to shelf B"
+    res1 = parse_clinical_intent(input_str)
+    res2 = parse_clinical_intent(input_str)
+    res3 = parse_clinical_intent(input_str)
+
+    assert res1.intent == res2.intent == res3.intent == ClinicalIntent.MUTATE_INVENTORY
+    assert res1.entities == res2.entities == res3.entities
+    assert res1.confidence == res2.confidence == res3.confidence
