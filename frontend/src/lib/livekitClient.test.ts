@@ -144,4 +144,68 @@ describe("LiveKitAudioVisualizer Client Cleanup", () => {
       global.fetch = originalFetch;
     }
   });
+  it("should handle boundary inputs and fuzzing gracefully (null/undefined inputs)", () => {
+    // 1. null canvas
+    try {
+      new LiveKitAudioVisualizer(null as any);
+      assert.fail("Should have thrown error on null canvas");
+    } catch (e: any) {
+      assert.match(e.message, /Invalid canvas element provided/);
+    }
+
+    // 2. undefined canvas
+    try {
+      new LiveKitAudioVisualizer(undefined as any);
+      assert.fail("Should have thrown error on undefined canvas");
+    } catch (e: any) {
+      assert.match(e.message, /Invalid canvas element provided/);
+    }
+
+    // 3. invalid canvas object missing getContext
+    try {
+      new LiveKitAudioVisualizer({} as HTMLCanvasElement);
+      assert.fail("Should have thrown error on invalid canvas");
+    } catch (e: any) {
+      assert.match(e.message, /Invalid canvas element provided/);
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+    const visualizer = new LiveKitAudioVisualizer(canvas);
+
+    // 4. null track passed to start
+    try {
+      visualizer.start(null as any);
+      assert.fail("Should have thrown error on null track");
+    } catch (e: any) {
+      assert.match(e.message, /Invalid audio track provided/);
+    }
+  });
+});
+
+describe("Fuzzing & Invariants", () => {
+  it("should implement strict schema validation and fuzzing for tenant IDs via Zod and fast-check", async () => {
+    const fc = (await import('fast-check')).default || await import('fast-check');
+    const { ZodError } = await import('zod');
+
+    const canvas = document.createElement('canvas');
+    canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+    const visualizer = new LiveKitAudioVisualizer(canvas);
+
+    // Schema validation - valid UUID
+    visualizer.setTenantId('123e4567-e89b-12d3-a456-426614174000');
+    assert.strictEqual(visualizer.getTenantId(), '123e4567-e89b-12d3-a456-426614174000');
+
+    // Fuzzing with fast-check to ensure malformed inputs are caught by Zod
+    fc.assert(
+      fc.property(fc.string().filter(s => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)), (invalidTenantId) => {
+        try {
+          visualizer.setTenantId(invalidTenantId);
+          return false; // Should not reach here
+        } catch (e) {
+          return e instanceof ZodError;
+        }
+      })
+    );
+  });
 });
