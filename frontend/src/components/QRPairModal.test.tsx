@@ -1,6 +1,7 @@
 import 'jsdom-global/register.js';
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
+import fc from 'fast-check';
 import React from 'react';
 import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
 
@@ -269,4 +270,32 @@ test('enforces multi-tenant isolation by ensuring network settings are not impro
     assert.ok(args.some((arg: string) => arg.includes('10.0.0.5')), 'Tenant B data should be used');
     assert.ok(!args.some((arg: string) => arg.includes('192.168.1.100')), 'Tenant A data should not leak to Tenant B');
   });
+});
+
+test('handles malformed payload correctly with fast-check (boundary inputs)', async () => {
+  await fc.assert(
+    fc.asyncProperty(
+      fc.record({
+        lan_ip: fc.oneof(fc.string(), fc.integer(), fc.constant(null), fc.constant(undefined)),
+        lan_url: fc.oneof(fc.string(), fc.constant(null), fc.constant(undefined)),
+        mobile_url: fc.oneof(fc.string(), fc.constant(null), fc.constant(undefined)),
+        https_url: fc.oneof(fc.string(), fc.constant(null), fc.constant(undefined)),
+        https_active: fc.oneof(fc.boolean(), fc.string(), fc.constant(null), fc.constant(undefined)),
+      }, { withDeletedKeys: true }),
+      async (networkInfo: any) => {
+        fetchNetworkInfoMock.mock.resetCalls();
+        fetchNetworkInfoMock.mock.mockImplementation(async () => networkInfo);
+        const { unmount } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+        await waitFor(() => {
+          const qrImage = screen.getByRole('img');
+          const alt = qrImage.getAttribute('alt') || '';
+          assert.ok(alt.length > 0);
+        });
+
+        unmount();
+      }
+    ),
+    { numRuns: 20 }
+  );
 });
