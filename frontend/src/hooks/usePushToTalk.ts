@@ -70,6 +70,7 @@ export function usePushToTalk({
             if (topic === "or_nav_ui_sync") {
               try {
                 const text = new TextDecoder().decode(payload);
+                if (text.trim() === "") return;
                 const data = JSON.parse(text);
                 if (onDataChannelSync) {
                   onDataChannelSync(data);
