@@ -170,6 +170,36 @@ describe('directGemini', () => {
     assert.strictEqual(response.silence, false);
   });
 
+  test('sendVoiceAudioQuery correctly executes backend query then falls back on LiveKit/backend failure', async () => {
+    setClientGeminiApiKey("test-api-key");
+    let fetchCount = 0;
+    const mockFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = input.toString();
+      fetchCount++;
+      if (url.includes('/api/v1/voice-query')) {
+        throw new TypeError('LiveKit/Backend Unreachable');
+      }
+      if (url.includes('generativelanguage.googleapis.com')) {
+        return {
+          ok: true,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: "Direct Gemini fallback transcript" }] } }]
+          }),
+          text: async () => "{}",
+        } as unknown as Response;
+      }
+      return { ok: true, json: async () => ({}) } as unknown as Response;
+    };
+    global.fetch = mockFetch;
+
+    const blob = new Blob(["offline audio"], { type: "audio/webm" });
+    const response = await sendVoiceAudioQuery(blob, "tenant-456");
+
+    assert.ok(fetchCount >= 2, 'Should attempt backend and then fallback');
+    assert.strictEqual(response.safe_transcript, "Direct Gemini fallback transcript");
+    assert.strictEqual(response.silence, false);
+  });
+
   test('Multi-tenant isolation: directGeminiRAG yields different context for different departments', async () => {
     setClientGeminiApiKey("test-api-key");
     const capturedPayloads: any[] = [];
