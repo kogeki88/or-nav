@@ -12,6 +12,7 @@ import {
   Building2,
   Layers,
   UserCheck,
+  FolderTree,
 } from "lucide-react";
 import {
   fetchPacksManifest,
@@ -36,6 +37,7 @@ interface ResourceManagerModalProps {
   onClose: () => void;
   activeProfile?: UserProfile;
   onPacksUpdated?: () => void;
+  onOpenInspector?: () => void;
 }
 
 export default function ResourceManagerModal({
@@ -43,6 +45,7 @@ export default function ResourceManagerModal({
   onClose,
   activeProfile,
   onPacksUpdated,
+  onOpenInspector,
 }: ResourceManagerModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
   const [manifest, setManifest] = useState<HospitalPacksManifest | null>(null);
@@ -342,15 +345,29 @@ export default function ResourceManagerModal({
 
         {/* Global Action Footer */}
         <div className="p-3 border-t border-zinc-800/80 bg-zinc-950/80 flex items-center justify-between gap-2 text-xs">
-          <button
-            type="button"
-            onClick={handlePurgeUnassigned}
-            disabled={actionInProgress !== null || otherInstalled.length === 0}
-            className="px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-medium text-[11px] transition-colors disabled:opacity-40 cursor-pointer flex items-center gap-1.5"
-          >
-            <Trash2 className="w-3 h-3 text-red-400" />
-            <span>Purge Unassigned</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePurgeUnassigned}
+              disabled={actionInProgress !== null || otherInstalled.length === 0}
+              className="px-2.5 py-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 font-medium text-[11px] transition-colors disabled:opacity-40 cursor-pointer flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3 h-3 text-red-400" />
+              <span>Purge</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onOpenInspector?.();
+              }}
+              data-testid="btn-open-resource-inspector"
+              className="px-2.5 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 font-medium text-[11px] transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <FolderTree className="w-3 h-3 text-cyan-400" />
+              <span>📂 View &amp; Edit Data</span>
+            </button>
+          </div>
 
           <button
             type="button"

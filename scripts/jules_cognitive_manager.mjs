@@ -145,6 +145,10 @@ export function evaluateContext(extracted) {
   const asksAboutMissingFeature =
     /should I add|can you advise|how should I|does not exist|doesn't explicitly exist|not present in|should I implement/i.test(q);
 
+  // Detect inquiries about file already implemented, existing on main, or redundant work
+  const asksAboutAlreadyImplemented =
+    /already exists? in the main branch|exists? in the main branch|file exists|reviewer indicated that i did not provide an implementation|rewrite it from scratch|already implemented/i.test(q);
+
   return {
     ...extracted,
     inspectedFiles,
@@ -154,6 +158,7 @@ export function evaluateContext(extracted) {
     isPlanApproval,
     isAmbiguous,
     asksAboutMissingFeature,
+    asksAboutAlreadyImplemented,
     hasRecentQuery: !!latestAgentQuery
   };
 }
@@ -192,6 +197,20 @@ export function decideAction(evaluated) {
     return {
       intent: 'FEATURE_SCOPE_CLARIFICATION',
       strategy: 'PRUNE_EXTRA_SCOPE_AND_SUBMIT',
+      responsePayload: decisionText,
+      needsApprovePlan: evaluated.state === 'AWAITING_PLAN_APPROVAL'
+    };
+  }
+
+  // Branch 1c: Already implemented or duplicate task on main
+  if (evaluated.asksAboutAlreadyImplemented) {
+    const decisionText =
+      `Clarification for '${title}': The implementation and tests for '${targetFile}' already exist and are verified on 'main'. ` +
+      `Do not rewrite or force redundant code changes. Ensure all test suites pass with zero new regressions and conclude the task cleanly.`;
+
+    return {
+      intent: 'ALREADY_IMPLEMENTED_VERIFICATION',
+      strategy: 'CONFIRM_EXISTING_IMPLEMENTATION_ON_MAIN',
       responsePayload: decisionText,
       needsApprovePlan: evaluated.state === 'AWAITING_PLAN_APPROVAL'
     };

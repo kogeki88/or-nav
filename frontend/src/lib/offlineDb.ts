@@ -12,16 +12,60 @@ import {
   SEED_UNANSWERED_QUESTIONS,
   getSeedQuestions,
   getSeedInventoryItems,
+  getSeedPreferenceCards,
+  getSeedOrientationMd,
   DEFAULT_TENANT,
 } from "./seedData";
 import { CURRENT_BUILD_NUMBER } from "./version";
 import type { MessageItem } from "@/components/ChatCanvas";
+import {
+  loadFacilityLexicon,
+  learnAliasClient,
+  titleCaseTerm,
+} from "./lexiconLearning";
 
 export interface OfflineInventoryRecord extends CoordinateCardData {
   id?: string;
   tenant_id: string;
   aliases?: string;
   normalized_name?: string;
+  isCustomEdited?: boolean;
+  deleted?: boolean;
+  updatedAt?: number;
+}
+
+export interface OfflinePreferenceCard {
+  id: string;
+  tenant_id: string;
+  surgeon: string;
+  procedure: string;
+  specialty?: string;
+  gloves?: string;
+  positioning?: string;
+  prep?: string;
+  instruments?: string[];
+  sutures?: string[];
+  pearls?: string[];
+  notes?: string;
+  isCustomEdited?: boolean;
+  deleted?: boolean;
+  updatedAt?: number;
+}
+
+export interface OfflineLexiconEntry {
+  id: string;
+  tenant_id: string;
+  spokenTerm: string;
+  canonicalItem: string;
+  displayPreferredName?: string;
+  category?: string;
+  confidence?: "personal" | "facility_learned" | "facility_consensus";
+  usageCount?: number;
+  usedByUsers?: string[];
+  notes?: string;
+  isCustomEdited?: boolean;
+  deleted?: boolean;
+  updatedAt?: number;
 }
 
 export interface OutboxMutation {
@@ -90,6 +134,8 @@ class ORNavOfflineDatabase extends Dexie {
   installedPacks!: Table<InstalledResourcePack, string>;
   chatSessions!: Table<ChatSession, string>;
   peerQuestions!: Table<PeerQuestion, string>;
+  preferenceCards!: Table<OfflinePreferenceCard, string>;
+  lexiconAliases!: Table<OfflineLexiconEntry, string>;
 
   constructor() {
     super("ORNavOfflineDB");
@@ -127,11 +173,43 @@ class ORNavOfflineDatabase extends Dexie {
       chatSessions: "sessionId, tenantId, title, updatedAt",
       peerQuestions: "id, tenantId, status, createdAt",
     });
+    this.version(8).stores({
+      inventoryItems: "id, tenant_id, item, full_code, phonetic_code, [tenant_id+status]",
+      offlineOutbox: "++id, tenant_id, type, timestamp",
+      unansweredQuestions: "id, hospital_id, status",
+      installedPacks: "packId, facilityId, departmentId, roleId, category, versionHash, installedAt",
+      chatSessions: "sessionId, tenantId, title, updatedAt",
+      peerQuestions: "id, tenantId, status, createdAt",
+      preferenceCards: "id, tenant_id, surgeon, procedure, [tenant_id+surgeon]",
+      lexiconAliases: "id, tenant_id, spokenTerm, canonicalItem",
+    });
   }
 }
 
+const isStorageSupported = typeof window !== "undefined" || typeof indexedDB !== "undefined";
+const memoryFallbackStorage = new Map<string, string>();
+
+export function safeGetStorage(key: string): string | null {
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    try {
+      return localStorage.getItem(key);
+    } catch {}
+  }
+  return memoryFallbackStorage.get(key) || null;
+}
+
+export function safeSetStorage(key: string, val: string): void {
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    try {
+      localStorage.setItem(key, val);
+      return;
+    } catch {}
+  }
+  memoryFallbackStorage.set(key, val);
+}
+
 let activeDb: ORNavOfflineDatabase | null =
-  typeof window !== "undefined" ? new ORNavOfflineDatabase() : null;
+  isStorageSupported ? new ORNavOfflineDatabase() : null;
 
 export const offlineDb = activeDb;
 
@@ -280,7 +358,7 @@ export async function flushOfflineOutbox(apiBase: string = ""): Promise<number> 
  * or storage corruption, wipes and re-initializes the database automatically.
  */
 export async function selfHealOfflineDatabase(): Promise<ORNavOfflineDatabase | null> {
-  if (typeof window === "undefined") return null;
+  if (!isStorageSupported) return null;
   try {
     if (activeDb) {
       try {
@@ -636,7 +714,7 @@ export async function hydrateOrUpgradeOfflineInventory(
   tenantId: string = DEFAULT_TENANT,
   forceRebuild: boolean = false
 ): Promise<number> {
-  if (typeof window === "undefined") return 0;
+  if (!isStorageSupported) return 0;
   const db = activeDb || (await selfHealOfflineDatabase());
   if (!db) return 0;
 
@@ -652,7 +730,7 @@ export async function hydrateOrUpgradeOfflineInventory(
 
     const storedBuildKey = `ornav_dexie_build_${normTenant}`;
     const storedBuild = parseInt(
-      localStorage.getItem(storedBuildKey) || "0",
+      safeGetStorage(storedBuildKey) || "0",
       10
     );
 
@@ -670,6 +748,8 @@ export async function hydrateOrUpgradeOfflineInventory(
     const userItems = existingItems.filter(
       (item) =>
         item.status === "user_added" ||
+        item.isCustomEdited === true ||
+        item.deleted === true ||
         (item.verify_count !== undefined && item.verify_count < 3) ||
         !seedItems.some(
           (s) => s.item.toLowerCase() === item.item.toLowerCase()
@@ -746,13 +826,26 @@ export async function hydrateOrUpgradeOfflineInventory(
     }
 
     // 4. Overlay user-added items so custom clinician modifications are never lost
+    const tombstonesToPersist: OfflineInventoryRecord[] = [];
     for (const u of userItems) {
-      recordMap.set(u.item.toLowerCase(), {
-        ...u,
-        id: `${normTenant}::${u.item.toLowerCase()}`,
-        tenant_id: normTenant,
-        normalized_name: normalizeClientQuery(u.item),
-      });
+      if (u.deleted) {
+        recordMap.delete(u.item.toLowerCase());
+        tombstonesToPersist.push({
+          ...u,
+          id: `${normTenant}::${u.item.toLowerCase()}`,
+          tenant_id: normTenant,
+          deleted: true,
+          isCustomEdited: true,
+          updatedAt: u.updatedAt || Date.now(),
+        });
+      } else {
+        recordMap.set(u.item.toLowerCase(), {
+          ...u,
+          id: `${normTenant}::${u.item.toLowerCase()}`,
+          tenant_id: normTenant,
+          normalized_name: normalizeClientQuery(u.item),
+        });
+      }
     }
 
     const mergedRecords = Array.from(recordMap.values());
@@ -765,8 +858,8 @@ export async function hydrateOrUpgradeOfflineInventory(
     }
 
     // 6. Bulk put merged records into Dexie
-    await db.inventoryItems.bulkPut(mergedRecords);
-    localStorage.setItem(storedBuildKey, String(CURRENT_BUILD_NUMBER));
+    await db.inventoryItems.bulkPut([...mergedRecords, ...tombstonesToPersist]);
+    safeSetStorage(storedBuildKey, String(CURRENT_BUILD_NUMBER));
 
     return mergedRecords.length;
   } catch (err) {
@@ -778,6 +871,590 @@ export async function hydrateOrUpgradeOfflineInventory(
 if (typeof window !== "undefined") {
   (window as any).hydrateOrUpgradeOfflineInventory = hydrateOrUpgradeOfflineInventory;
   (window as any).offlineDb = activeDb;
+}
+
+/**
+ * Retrieve offline inventory items for a tenant, filtering out deleted items.
+ * Automatically runs hydrateOrUpgradeOfflineInventory if empty.
+ */
+export async function getOfflineInventory(
+  tenantId: string = DEFAULT_TENANT
+): Promise<OfflineInventoryRecord[]> {
+  const normTenant = tenantId.includes("::") ? tenantId : tenantId.replace("_", "::");
+  const db = activeDb || (await selfHealOfflineDatabase());
+  if (!db) {
+    return (getSeedInventoryItems(normTenant) as OfflineInventoryRecord[]).filter((i) => !i.deleted);
+  }
+  try {
+    let items = await db.inventoryItems
+      .where("tenant_id")
+      .equals(normTenant)
+      .toArray();
+
+    if (!items || items.length === 0) {
+      await hydrateOrUpgradeOfflineInventory(normTenant, true);
+      items = await db.inventoryItems
+        .where("tenant_id")
+        .equals(normTenant)
+        .toArray();
+    }
+    return items.filter((i) => !i.deleted);
+  } catch (err) {
+    console.warn("[offlineDb] getOfflineInventory error:", err);
+    return (getSeedInventoryItems(normTenant) as OfflineInventoryRecord[]).filter((i) => !i.deleted);
+  }
+}
+
+/**
+ * Update an existing inventory item in Dexie.
+ * Marks the item with isCustomEdited: true and status: 'user_added' so seed hydration
+ * never overwrites the clinician's custom changes.
+ */
+export async function updateOfflineInventoryItem(
+  tenantKey: string,
+  itemId: string,
+  updates: Partial<OfflineInventoryRecord>
+): Promise<OfflineInventoryRecord | null> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  const normTenant = tenantKey.includes("::") ? tenantKey : tenantKey.replace("_", "::");
+  if (!db) return null;
+
+  try {
+    let existing = await db.inventoryItems.get(itemId);
+    if (!existing) {
+      const all = await db.inventoryItems.where("tenant_id").equals(normTenant).toArray();
+      existing = all.find(
+        (i) => i.id === itemId || i.item.toLowerCase() === itemId.toLowerCase()
+      );
+    }
+    if (!existing) return null;
+
+    const updatedItemName = updates.item ? updates.item.trim() : existing.item;
+    const room = updates.room ?? existing.room;
+    const cabinet = updates.cabinet ?? existing.cabinet;
+    const shelf = updates.shelf ?? existing.shelf;
+    const container = updates.container ?? existing.container;
+    const fullCode = updates.full_code ?? `${room} ${cabinet} ${shelf} ${container}`;
+    const phoneticCode = updates.phonetic_code ?? fullCode;
+
+    const merged: OfflineInventoryRecord = {
+      ...existing,
+      ...updates,
+      item: updatedItemName,
+      room,
+      cabinet,
+      shelf,
+      container,
+      full_code: fullCode,
+      phonetic_code: phoneticCode,
+      human_alias: `${room} · Cart ${cabinet} · Shelf ${shelf} · Bin ${container}`,
+      normalized_name: normalizeClientQuery(updatedItemName),
+      status: "user_added",
+      isCustomEdited: true,
+      deleted: false,
+      updatedAt: Date.now(),
+    };
+
+    await db.inventoryItems.put(merged);
+
+    try {
+      await queueOfflineMutation({
+        tenant_id: normTenant,
+        type: "verify_move",
+        item: merged.item,
+        expected_location: merged.full_code,
+        reason: "Clinician manual update in Resource Inspector",
+        timestamp: new Date().toISOString(),
+      });
+    } catch {}
+
+    return merged;
+  } catch (err) {
+    console.warn("[offlineDb] updateOfflineInventoryItem failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Delete an inventory item from Dexie.
+ * Tombstones with deleted: true so seed hydration never resurrects the item.
+ */
+export async function deleteOfflineInventoryItem(
+  tenantKey: string,
+  itemId: string
+): Promise<boolean> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  const normTenant = tenantKey.includes("::") ? tenantKey : tenantKey.replace("_", "::");
+  if (!db) return false;
+
+  try {
+    let existing = await db.inventoryItems.get(itemId);
+    if (!existing) {
+      const all = await db.inventoryItems.where("tenant_id").equals(normTenant).toArray();
+      existing = all.find(
+        (i) => i.id === itemId || i.item.toLowerCase() === itemId.toLowerCase()
+      );
+    }
+    if (!existing) return false;
+
+    const tombstone: OfflineInventoryRecord = {
+      ...existing,
+      deleted: true,
+      isCustomEdited: true,
+      updatedAt: Date.now(),
+    };
+    await db.inventoryItems.put(tombstone);
+    return true;
+  } catch (err) {
+    console.warn("[offlineDb] deleteOfflineInventoryItem failed:", err);
+    return false;
+  }
+}
+
+/**
+ * Create a new inventory item in Dexie.
+ * Automatically computes codes and protects item from seed overwrites.
+ */
+export async function createOfflineInventoryItem(
+  tenantKey: string,
+  newItem: Partial<OfflineInventoryRecord> & { item: string }
+): Promise<OfflineInventoryRecord> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  const normTenant = tenantKey.includes("::") ? tenantKey : tenantKey.replace("_", "::");
+  const itemName = newItem.item.trim();
+  const id = newItem.id || `${normTenant}::${itemName.toLowerCase()}`;
+  const room = newItem.room || "Main OR";
+  const cabinet = newItem.cabinet || "A";
+  const shelf = newItem.shelf || "1";
+  const container = newItem.container || "A";
+  const fullCode = newItem.full_code || `${room} ${cabinet} ${shelf} ${container}`;
+  const phoneticCode = newItem.phonetic_code || fullCode;
+  const humanAlias = `${room} · Cart ${cabinet} · Shelf ${shelf} · Bin ${container}`;
+
+  const record: OfflineInventoryRecord = {
+    ...newItem,
+    id,
+    tenant_id: normTenant,
+    item: itemName,
+    room,
+    cabinet,
+    shelf,
+    container,
+    full_code: fullCode,
+    phonetic_code: phoneticCode,
+    human_alias: humanAlias,
+    category: newItem.category || "General Supplies",
+    surgeon_notes: newItem.surgeon_notes || "",
+    aliases: newItem.aliases || "",
+    status: "user_added",
+    verify_count: 3,
+    verification_score: 3.0,
+    pending_location: "",
+    normalized_name: normalizeClientQuery(itemName),
+    isCustomEdited: true,
+    deleted: false,
+    updatedAt: Date.now(),
+  };
+
+  if (db) {
+    await db.inventoryItems.put(record);
+    try {
+      await queueOfflineMutation({
+        tenant_id: normTenant,
+        type: "verify_move",
+        item: record.item,
+        expected_location: record.full_code,
+        reason: "Clinician manual creation in Resource Inspector",
+        timestamp: new Date().toISOString(),
+      });
+    } catch {}
+  }
+
+  return record;
+}
+
+/**
+ * Retrieve preference cards for a tenant from Dexie, hydrating from packs/seed if empty.
+ */
+export async function getOfflinePreferenceCards(
+  tenantId: string = DEFAULT_TENANT
+): Promise<OfflinePreferenceCard[]> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  const normTenant = tenantId.includes("::") ? tenantId : tenantId.replace("_", "::");
+  if (!db) {
+    return (getSeedPreferenceCards(normTenant) as OfflinePreferenceCard[]).filter((c) => !c.deleted);
+  }
+
+  try {
+    const existing = await db.preferenceCards
+      .where("tenant_id")
+      .equals(normTenant)
+      .toArray();
+
+    if (existing && existing.length > 0) {
+      return existing.filter((c) => !c.deleted);
+    }
+
+    // Hydrate from installed packs if available
+    let packCards: OfflinePreferenceCard[] = [];
+    try {
+      const packs = await db.installedPacks.toArray();
+      const [facId] = normTenant.split("::");
+      const pack = packs.find(
+        (p) => p.filePath.endsWith("preference_cards.json") && p.facilityId === facId
+      );
+      if (pack && pack.content) {
+        packCards = JSON.parse(pack.content);
+      }
+    } catch {}
+
+    const seedCards = packCards.length > 0 ? packCards : (getSeedPreferenceCards(normTenant) as OfflinePreferenceCard[]);
+    const formatted: OfflinePreferenceCard[] = seedCards.map((c, idx) => ({
+      ...c,
+      id: c.id || `${normTenant}::card_${idx}_${(c.surgeon || "surgeon").toLowerCase().replace(/[^a-z0-9]/g, "_")}`,
+      tenant_id: normTenant,
+      isCustomEdited: false,
+      deleted: false,
+    }));
+
+    if (formatted.length > 0) {
+      await db.preferenceCards.bulkPut(formatted);
+    }
+    return formatted;
+  } catch (err) {
+    console.warn("[offlineDb] getOfflinePreferenceCards error:", err);
+    return (getSeedPreferenceCards(normTenant) as OfflinePreferenceCard[]).filter((c) => !c.deleted);
+  }
+}
+
+/**
+ * Save or update a preference card in Dexie.
+ */
+export async function saveOfflinePreferenceCard(
+  tenantId: string,
+  card: Partial<OfflinePreferenceCard> & { surgeon: string; procedure: string }
+): Promise<OfflinePreferenceCard> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  const normTenant = tenantId.includes("::") ? tenantId : tenantId.replace("_", "::");
+  const cardId = card.id || `${normTenant}::card_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+  const record: OfflinePreferenceCard = {
+    ...card,
+    id: cardId,
+    tenant_id: normTenant,
+    surgeon: card.surgeon.trim(),
+    procedure: card.procedure.trim(),
+    specialty: card.specialty || "Surgery",
+    gloves: card.gloves || "",
+    positioning: card.positioning || "",
+    prep: card.prep || "",
+    instruments: card.instruments || [],
+    sutures: card.sutures || [],
+    pearls: card.pearls || [],
+    notes: card.notes || "",
+    isCustomEdited: true,
+    deleted: false,
+    updatedAt: Date.now(),
+  };
+
+  if (db) {
+    await db.preferenceCards.put(record);
+  }
+  return record;
+}
+
+/**
+ * Delete a preference card from Dexie (tombstoning to prevent resurrection).
+ */
+export async function deleteOfflinePreferenceCard(
+  tenantId: string,
+  cardId: string
+): Promise<boolean> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  if (!db) return false;
+  try {
+    const existing = await db.preferenceCards.get(cardId);
+    if (existing) {
+      await db.preferenceCards.put({
+        ...existing,
+        deleted: true,
+        isCustomEdited: true,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await db.preferenceCards.delete(cardId);
+    }
+    return true;
+  } catch (err) {
+    console.warn("[offlineDb] deleteOfflinePreferenceCard failed:", err);
+    return false;
+  }
+}
+
+/**
+ * Retrieve facility slang and spoken aliases from Dexie, hydrating from pre-seeded lexicon if empty.
+ */
+export async function getOfflineLexiconAliases(
+  tenantId: string = DEFAULT_TENANT
+): Promise<OfflineLexiconEntry[]> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  const normTenant = tenantId.includes("::") ? tenantId : tenantId.replace("_", "::");
+  const facId = normTenant.split("::")[0] || "sacred_heart";
+
+  if (!db) {
+    const seed = loadFacilityLexicon(facId);
+    return seed.map((s) => ({
+      id: `${normTenant}::lex_${s.aliasId}`,
+      tenant_id: normTenant,
+      spokenTerm: s.spokenTerm,
+      canonicalItem: s.canonicalItemName,
+      displayPreferredName: s.displayPreferredName,
+      confidence: s.confidence,
+      usageCount: s.usageCount,
+      usedByUsers: s.usedByUsers,
+    }));
+  }
+
+  try {
+    const existing = await db.lexiconAliases
+      .where("tenant_id")
+      .equals(normTenant)
+      .toArray();
+
+    if (existing && existing.length > 0) {
+      return existing.filter((a) => !a.deleted);
+    }
+
+    const seed = loadFacilityLexicon(facId);
+    const formatted: OfflineLexiconEntry[] = seed.map((s) => ({
+      id: `${normTenant}::lex_${s.aliasId}`,
+      tenant_id: normTenant,
+      spokenTerm: s.spokenTerm,
+      canonicalItem: s.canonicalItemName,
+      displayPreferredName: s.displayPreferredName,
+      confidence: s.confidence,
+      usageCount: s.usageCount,
+      usedByUsers: s.usedByUsers,
+      isCustomEdited: false,
+      deleted: false,
+      updatedAt: Date.now(),
+    }));
+
+    if (formatted.length > 0) {
+      await db.lexiconAliases.bulkPut(formatted);
+    }
+    return formatted;
+  } catch (err) {
+    console.warn("[offlineDb] getOfflineLexiconAliases error:", err);
+    return [];
+  }
+}
+
+/**
+ * Save or update a slang/alias entry in Dexie and sync with facility lexicon.
+ */
+export async function saveOfflineLexiconAlias(
+  tenantId: string,
+  alias: Partial<OfflineLexiconEntry> & { spokenTerm: string; canonicalItem: string }
+): Promise<OfflineLexiconEntry> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  const normTenant = tenantId.includes("::") ? tenantId : tenantId.replace("_", "::");
+  const facId = normTenant.split("::")[0] || "sacred_heart";
+  const id = alias.id || `${normTenant}::lex_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+
+  const record: OfflineLexiconEntry = {
+    ...alias,
+    id,
+    tenant_id: normTenant,
+    spokenTerm: alias.spokenTerm.trim().toLowerCase(),
+    canonicalItem: alias.canonicalItem.trim(),
+    displayPreferredName: alias.displayPreferredName || titleCaseTerm(alias.spokenTerm),
+    category: alias.category || "General",
+    confidence: alias.confidence || "facility_consensus",
+    usageCount: alias.usageCount ?? 5,
+    usedByUsers: alias.usedByUsers || ["clinician"],
+    notes: alias.notes || "",
+    isCustomEdited: true,
+    deleted: false,
+    updatedAt: Date.now(),
+  };
+
+  if (db) {
+    await db.lexiconAliases.put(record);
+  }
+
+  try {
+    learnAliasClient(facId, "or", record.spokenTerm, record.canonicalItem, "clinician", record.displayPreferredName);
+  } catch {}
+
+  return record;
+}
+
+/**
+ * Delete a slang/alias entry from Dexie.
+ */
+export async function deleteOfflineLexiconAlias(
+  tenantId: string,
+  aliasId: string
+): Promise<boolean> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  if (!db) return false;
+  try {
+    const existing = await db.lexiconAliases.get(aliasId);
+    if (existing) {
+      await db.lexiconAliases.put({
+        ...existing,
+        deleted: true,
+        isCustomEdited: true,
+        updatedAt: Date.now(),
+      });
+    } else {
+      await db.lexiconAliases.delete(aliasId);
+    }
+    return true;
+  } catch (err) {
+    console.warn("[offlineDb] deleteOfflineLexiconAlias failed:", err);
+    return false;
+  }
+}
+
+/**
+ * Retrieve offline department orientation guideline (custom or seed).
+ */
+export function getOfflineDepartmentGuideline(tenantId: string = DEFAULT_TENANT): string {
+  const normTenant = tenantId.includes("::") ? tenantId : tenantId.replace("_", "::");
+  const custom = safeGetStorage(`ornav_guideline_${normTenant}`);
+  if (custom && custom.trim().length > 0) {
+    return custom;
+  }
+  return getSeedOrientationMd(normTenant);
+}
+
+/**
+ * Save custom offline department orientation guideline.
+ */
+export function saveOfflineDepartmentGuideline(tenantId: string, markdownContent: string): void {
+  const normTenant = tenantId.includes("::") ? tenantId : tenantId.replace("_", "::");
+  safeSetStorage(`ornav_guideline_${normTenant}`, markdownContent);
+}
+
+export interface TenantResourcesExportBundle {
+  exportVersion: 1;
+  tenantId: string;
+  exportedAt: string;
+  inventory: OfflineInventoryRecord[];
+  preferenceCards: OfflinePreferenceCard[];
+  lexiconAliases: OfflineLexiconEntry[];
+  guideline: string;
+}
+
+/**
+ * Export all tenant items, cards, lexicon aliases, and guidelines to a single portable JSON backup.
+ */
+export async function exportTenantResourcesJson(tenantId: string = DEFAULT_TENANT): Promise<string> {
+  const normTenant = tenantId.includes("::") ? tenantId : tenantId.replace("_", "::");
+  const [inventory, preferenceCards, lexiconAliases] = await Promise.all([
+    getOfflineInventory(normTenant),
+    getOfflinePreferenceCards(normTenant),
+    getOfflineLexiconAliases(normTenant),
+  ]);
+  const guideline = getOfflineDepartmentGuideline(normTenant);
+
+  const bundle: TenantResourcesExportBundle = {
+    exportVersion: 1,
+    tenantId: normTenant,
+    exportedAt: new Date().toISOString(),
+    inventory,
+    preferenceCards,
+    lexiconAliases,
+    guideline,
+  };
+
+  return JSON.stringify(bundle, null, 2);
+}
+
+/**
+ * Import and validate resources from a JSON backup.
+ */
+export async function importTenantResourcesJson(
+  tenantId: string,
+  jsonString: string
+): Promise<{ success: boolean; importedItems: number; importedCards: number; importedAliases: number; message?: string }> {
+  const db = activeDb || (await selfHealOfflineDatabase());
+  const normTenant = tenantId.includes("::") ? tenantId : tenantId.replace("_", "::");
+  if (!db) {
+    return { success: false, importedItems: 0, importedCards: 0, importedAliases: 0, message: "Offline database unavailable." };
+  }
+
+  try {
+    const bundle = JSON.parse(jsonString) as Partial<TenantResourcesExportBundle>;
+    if (!bundle || (!bundle.inventory && !bundle.preferenceCards && !bundle.lexiconAliases)) {
+      return { success: false, importedItems: 0, importedCards: 0, importedAliases: 0, message: "Invalid JSON backup format." };
+    }
+
+    let importedItems = 0;
+    let importedCards = 0;
+    let importedAliases = 0;
+
+    if (Array.isArray(bundle.inventory) && bundle.inventory.length > 0) {
+      const records: OfflineInventoryRecord[] = bundle.inventory.map((item) => ({
+        ...item,
+        id: item.id || `${normTenant}::${item.item.toLowerCase()}`,
+        tenant_id: normTenant,
+        status: "user_added",
+        isCustomEdited: true,
+        deleted: false,
+        updatedAt: Date.now(),
+      }));
+      await db.inventoryItems.bulkPut(records);
+      importedItems = records.length;
+    }
+
+    if (Array.isArray(bundle.preferenceCards) && bundle.preferenceCards.length > 0) {
+      const cards: OfflinePreferenceCard[] = bundle.preferenceCards.map((c) => ({
+        ...c,
+        id: c.id || `${normTenant}::card_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        tenant_id: normTenant,
+        isCustomEdited: true,
+        deleted: false,
+        updatedAt: Date.now(),
+      }));
+      await db.preferenceCards.bulkPut(cards);
+      importedCards = cards.length;
+    }
+
+    if (Array.isArray(bundle.lexiconAliases) && bundle.lexiconAliases.length > 0) {
+      const aliases: OfflineLexiconEntry[] = bundle.lexiconAliases.map((a) => ({
+        ...a,
+        id: a.id || `${normTenant}::lex_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        tenant_id: normTenant,
+        isCustomEdited: true,
+        deleted: false,
+        updatedAt: Date.now(),
+      }));
+      await db.lexiconAliases.bulkPut(aliases);
+      importedAliases = aliases.length;
+    }
+
+    if (bundle.guideline && typeof bundle.guideline === "string") {
+      saveOfflineDepartmentGuideline(normTenant, bundle.guideline);
+    }
+
+    return {
+      success: true,
+      importedItems,
+      importedCards,
+      importedAliases,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      importedItems: 0,
+      importedCards: 0,
+      importedAliases: 0,
+      message: err?.message || "Failed to parse JSON file.",
+    };
+  }
 }
 
 const SUTURE_MATERIALS = [
@@ -930,7 +1607,7 @@ export async function searchOfflineTier0(
   query: string,
   tenantId: string
 ): Promise<CoordinateCardData | null> {
-  if (typeof window === "undefined") return null;
+  if (!isStorageSupported) return null;
   const db = activeDb || (await selfHealOfflineDatabase());
   if (!db) return null;
 
@@ -947,6 +1624,7 @@ export async function searchOfflineTier0(
       .toArray();
 
     for (const row of allItems) {
+      if (row.deleted) continue;
       const rowSpecs = extractClientSpecs(
         `${row.item} ${row.aliases || ""} ${row.surgeon_notes || ""}`
       );

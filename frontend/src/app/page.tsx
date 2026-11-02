@@ -9,6 +9,7 @@ import QuestionsDrawer from "@/components/QuestionsDrawer";
 import UserProfileModal from "@/components/UserProfileModal";
 import AutoUpdateModal from "@/components/AutoUpdateModal";
 import ResourceManagerModal from "@/components/ResourceManagerModal";
+import ResourceInspectorModal from "@/components/ResourceInspectorModal";
 import PeerQnAPanel from "@/components/PeerQnAPanel";
 import { FeedbackModal } from "@/components/FeedbackModal";
 import AuthScreen from "@/components/AuthScreen";
@@ -113,6 +114,7 @@ export default function Home() {
   const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
   const [profileModalTab, setProfileModalTab] = useState<"assignment" | "rewards">("assignment");
   const [resourceModalOpen, setResourceModalOpen] = useState<boolean>(false);
+  const [resourceInspectorOpen, setResourceInspectorOpen] = useState<boolean>(false);
   const [peerQnAOpen, setPeerQnAOpen] = useState<boolean>(false);
   const [peerQnAPrefill, setPeerQnAPrefill] = useState<string>("");
   const [feedbackModalOpen, setFeedbackModalOpen] = useState<boolean>(false);
@@ -1051,6 +1053,7 @@ export default function Home() {
               setProfileModalOpen(true);
             }}
             onOpenResourceManager={() => setResourceModalOpen(true)}
+            onOpenResourceInspector={() => setResourceInspectorOpen(true)}
             onOpenPeerQnA={() => {
               setPeerQnAPrefill("");
               setPeerQnAOpen(true);
@@ -1120,6 +1123,10 @@ export default function Home() {
               onOpenResourceManager={() => {
                 setMobileSidebarOpen(false);
                 setResourceModalOpen(true);
+              }}
+              onOpenResourceInspector={() => {
+                setMobileSidebarOpen(false);
+                setResourceInspectorOpen(true);
               }}
               onOpenPeerQnA={() => {
                 setMobileSidebarOpen(false);
@@ -1400,6 +1407,19 @@ export default function Home() {
         onClose={() => setResourceModalOpen(false)}
         activeProfile={profile}
         onPacksUpdated={handleRebuildOfflineCache}
+        onOpenInspector={() => {
+          setResourceModalOpen(false);
+          setResourceInspectorOpen(true);
+        }}
+      />
+
+      {/* Installed Resources Explorer, Inline Editor & Local Studio */}
+      <ResourceInspectorModal
+        isOpen={resourceInspectorOpen}
+        onClose={() => setResourceInspectorOpen(false)}
+        activeProfile={profile}
+        tenantId={selectedTenant}
+        onDataChanged={handleRebuildOfflineCache}
       />
 
       {/* Over-The-Air (OTA) Auto-Update Prompt Modal */}

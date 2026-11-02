@@ -26,6 +26,7 @@ import {
   Trash2,
   MessageSquare,
   Users,
+  FolderTree,
 } from "lucide-react";
 import { fetchGeminiStatus, saveGeminiKey } from "@/lib/api";
 import { DEPARTMENT_LIST, DEPARTMENTS } from "@/lib/departments";
@@ -90,6 +91,7 @@ interface SidebarProps {
   onCheckForUpdates?: () => Promise<CheckUpdateResult>;
   onManualSync?: () => Promise<SyncResult>;
   onOpenResourceManager?: () => void;
+  onOpenResourceInspector?: () => void;
   onOpenPeerQnA?: () => void;
   onOpenFeedbackModal?: () => void;
   pastSessions?: ChatSession[];
@@ -127,6 +129,7 @@ export default function Sidebar({
   onCheckForUpdates,
   onManualSync,
   onOpenResourceManager,
+  onOpenResourceInspector,
   onOpenPeerQnA,
   onOpenFeedbackModal,
   pastSessions = [],
@@ -924,6 +927,15 @@ export default function Sidebar({
                     <Package className="w-3.5 h-3.5" />
                     <span>📦 Manage Installed Resources</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={onOpenResourceInspector}
+                    data-testid="button-open-resource-inspector"
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 text-xs font-semibold transition-colors cursor-pointer mt-1"
+                  >
+                    <FolderTree className="w-3.5 h-3.5" />
+                    <span>📂 View &amp; Edit Stored Data</span>
+                  </button>
                 </div>
               )}
             </div>
@@ -1110,6 +1122,16 @@ export default function Sidebar({
                         className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 transition-colors cursor-pointer disabled:opacity-50"
                       >
                         <RefreshCw className={`w-3 h-3 ${isRebuildingCache ? "animate-spin text-emerald-400" : ""}`} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onOpenResourceInspector}
+                        title="Open Resource Inspector & Studio"
+                        aria-label="Open Resource Inspector"
+                        data-testid="sidebar-inspect-cache-btn"
+                        className="p-1 rounded hover:bg-zinc-800 text-zinc-400 hover:text-cyan-400 transition-colors cursor-pointer"
+                      >
+                        <FolderTree className="w-3 h-3" />
                       </button>
                     </div>
                   </div>

@@ -3,154 +3,171 @@
     "id": "backlog-01",
     "title": "Sentinel: Add rate limiting tests for chat and voice endpoints",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: API Rate Limiting\n\n## Task Details\n**File:** `backend/tests/test_rate_limiting.py`\n**Issue:** Add rate limiting tests for `/api/chat` and `/api/voice` endpoints to protect against DoS attacks in hospital networks.\n\n## Objective:\n1. Create `backend/tests/test_rate_limiting.py`.\n2. Verify that exceeding 60 requests per minute from a single client returns HTTP 429 Too Many Requests.\n3. Verify rate limit headers (Retry-After) are provided.\n4. When complete, create a pull request.",
-    "sessionId": "10757327915331612143",
-    "dispatchedAt": "2026-10-29T15:06:34.777Z"
+    "sessionId": "6174239380425745949",
+    "dispatchedAt": "2026-11-01T17:32:27.296Z",
+    "completedAt": "2026-11-01T18:00:37.334Z"
   },
   {
     "id": "backlog-02",
     "title": "Sentinel: Add CSRF and CORS header validation tests",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: CSRF and CORS Header Validation\n\n## Task Details\n**File:** `backend/tests/test_security_headers.py`\n**Issue:** Ensure CORS origins and security headers strictly enforce hospital domain boundaries.\n\n## Objective:\n1. Create `backend/tests/test_security_headers.py`.\n2. Test that cross-origin requests from untrusted origins are rejected.\n3. Verify presence of X-Content-Type-Options, X-Frame-Options, and Content-Security-Policy headers.\n4. When complete, create a pull request.",
-    "sessionId": "11630179678445886044",
-    "dispatchedAt": "2026-10-29T15:06:37.004Z"
+    "sessionId": "3410809288370317238",
+    "dispatchedAt": "2026-11-01T17:33:21.672Z",
+    "completedAt": "2026-11-01T18:00:22.599Z"
   },
   {
     "id": "backlog-03",
     "title": "Sentinel: Multilingual PHI Scrubber Tests (Spanish & Medical Abbreviations)",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: Multilingual PHI Scrubber\n\n## Task Details\n**File:** `frontend/src/lib/scrubClientMultilingual.test.ts`\n**Issue:** Expand client-side PHI scrubbing tests to handle Spanish clinical keywords and international patient records.\n\n## Objective:\n1. Create `frontend/src/lib/scrubClientMultilingual.test.ts`.\n2. Test patient identifiers in Spanish (e.g., 'Paciente: Juan Perez', 'Historial Medico: 9876543').\n3. Ensure zero medical terminology is falsely redacted.\n4. When complete, create a pull request.",
-    "sessionId": "15824805541286658452",
-    "dispatchedAt": "2026-10-29T15:06:38.349Z"
+    "sessionId": "18229564540536367845",
+    "dispatchedAt": "2026-11-01T18:00:59.029Z",
+    "completedAt": "2026-11-01T18:30:15.579Z"
   },
   {
     "id": "backlog-04",
     "title": "Sentinel: Tenant Isolation for File Uploads and Images",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: Tenant Isolation for Uploads\n\n## Task Details\n**File:** `backend/tests/test_upload_isolation.py`\n**Issue:** Ensure uploaded images and attachments are strictly scoped to the reporting tenant directory.\n\n## Objective:\n1. Create `backend/tests/test_upload_isolation.py`.\n2. Test uploading item photos and verify files cannot be read across tenant boundaries.\n3. Test path traversal prevention in filenames.\n4. When complete, create a pull request.",
-    "sessionId": "7342763983114699083",
-    "dispatchedAt": "2026-10-29T15:06:39.678Z"
+    "sessionId": "14223892710220969184",
+    "dispatchedAt": "2026-11-01T18:01:00.237Z",
+    "completedAt": "2026-11-01T20:42:39.145Z"
   },
   {
     "id": "backlog-05",
     "title": "Sentinel: Session Token Expiry and Invalidation Tests",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: Auth Token Lifecycle\n\n## Task Details\n**File:** `backend/tests/test_auth_tokens.py`\n**Issue:** Add unit tests verifying token expiration and logout invalidation.\n\n## Objective:\n1. Create `backend/tests/test_auth_tokens.py`.\n2. Test token verification, expired token rejection (HTTP 401), and logout revoking active tokens.\n3. When complete, create a pull request.",
-    "sessionId": "7115722261075429940",
-    "dispatchedAt": "2026-10-29T15:06:40.962Z"
+    "sessionId": "15847232328604930542",
+    "dispatchedAt": "2026-11-01T18:01:01.410Z",
+    "completedAt": "2026-11-01T18:34:07.345Z"
   },
   {
     "id": "backlog-06",
     "title": "Sentinel: LiveKit WebRTC Token Timeout & Verification Tests",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: Voice Token Verification\n\n## Task Details\n**File:** `backend/tests/test_voice_security.py`\n**Issue:** Validate LiveKit voice room tokens have strictly enforced time-to-live and identity claims.\n\n## Objective:\n1. Create `backend/tests/test_voice_security.py`.\n2. Test room token minting, verifying tenant_id claims, and rejecting expired voice tokens.\n3. When complete, create a pull request.",
-    "sessionId": "15275742522089676005",
-    "dispatchedAt": "2026-10-29T15:06:42.604Z"
+    "sessionId": "2970584068473893591",
+    "dispatchedAt": "2026-11-01T18:01:02.774Z",
+    "completedAt": "2026-11-01T19:01:18.060Z"
   },
   {
     "id": "backlog-07",
     "title": "Sentinel: Prevent Stack Trace Leaks on 500 Server Errors",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: Error Sanitization\n\n## Task Details\n**File:** `backend/tests/test_error_leakage.py`\n**Issue:** Ensure unexpected exceptions return generic sanitized messages without leaking filesystem paths or credentials.\n\n## Objective:\n1. Create `backend/tests/test_error_leakage.py`.\n2. Simulate server exceptions and verify responses do not expose python stack traces or environment variables.\n3. When complete, create a pull request.",
-    "sessionId": "2509777658992603418",
-    "dispatchedAt": "2026-10-29T15:06:44.546Z"
+    "sessionId": "18136086065938239198",
+    "dispatchedAt": "2026-11-01T18:01:05.479Z",
+    "completedAt": "2026-11-01T18:30:24.532Z"
   },
   {
     "id": "backlog-08",
     "title": "Bolt: IndexedDB Bulk Insert and Query Performance Benchmarks",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: Dexie Bulk Operation Benchmarks\n\n## Task Details\n**File:** `frontend/src/lib/offlineDbBench.test.ts`\n**Issue:** Ensure hydrating 500+ inventory items into Dexie finishes in under 200ms on mobile devices.\n\n## Objective:\n1. Create `frontend/src/lib/offlineDbBench.test.ts`.\n2. Benchmark `bulkPut` operations and compound index queries `[tenant_id+status]`.\n3. Assert operations finish within performance thresholds.\n4. When complete, create a pull request.",
-    "sessionId": "11010760498715445120",
-    "dispatchedAt": "2026-10-29T15:06:46.851Z"
+    "sessionId": "16654997921194693413",
+    "dispatchedAt": "2026-11-01T19:01:31.574Z",
+    "completedAt": "2026-11-01T19:13:11.850Z"
   },
   {
     "id": "backlog-09",
     "title": "Bolt: Debounce and Batch Rapid Move Verification Reports",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: Move Report Debouncing\n\n## Task Details\n**File:** `frontend/src/lib/moveDebouncer.test.ts`\n**Issue:** Add unit tests for batching rapid item move reports from multiple clinicians.\n\n## Objective:\n1. Create `frontend/src/lib/moveDebouncer.test.ts`.\n2. Test that rapid consecutive clicks or voice inputs debounce gracefully before triggering network sync.\n3. When complete, create a pull request.",
-    "sessionId": "6763403261481690907",
-    "dispatchedAt": "2026-10-29T16:06:55.153Z"
+    "sessionId": "1817115971627918078",
+    "dispatchedAt": "2026-11-01T19:13:27.479Z",
+    "completedAt": "2026-11-01T19:30:57.389Z"
   },
   {
     "id": "backlog-10",
     "title": "Bolt: Delta Sync Optimization for Dexie Offline Outbox",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: Delta Sync Optimization\n\n## Task Details\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Issue:** Optimize offline sync payload sizes by transferring only modified fields rather than full item records.\n\n## Objective:\n1. Create `frontend/src/lib/deltaSync.test.ts`.\n2. Test diffing local vs remote revisions and sending minimal JSON patches.\n3. When complete, create a pull request.",
-    "sessionId": "7799230962467877830",
-    "dispatchedAt": "2026-10-29T16:06:57.359Z"
+    "sessionId": "5553805411548638058",
+    "dispatchedAt": "2026-11-01T19:31:09.294Z",
+    "completedAt": "2026-11-01T19:36:46.587Z"
   },
   {
     "id": "backlog-11",
     "title": "Bolt: Gemini RAG In-Memory Cache Eviction Tests",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: RAG Cache Eviction\n\n## Task Details\n**File:** `backend/tests/test_rag_cache.py`\n**Issue:** Test LRU cache sizing and eviction policies in rag_fallback.py to prevent memory bloat.\n\n## Objective:\n1. Create `backend/tests/test_rag_cache.py`.\n2. Verify cached Gemini embeddings are evicted when cache capacity exceeds 1024 items.\n3. When complete, create a pull request.",
-    "sessionId": "12607924073299185406",
-    "dispatchedAt": "2026-10-29T16:06:59.511Z"
+    "sessionId": "11949114293631314133",
+    "dispatchedAt": "2026-11-01T19:31:10.833Z",
+    "completedAt": "2026-11-01T19:42:37.657Z"
   },
   {
     "id": "backlog-12",
     "title": "Bolt: Virtualized Search List Tests for ChatCanvas",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: Search List Virtualization\n\n## Task Details\n**File:** `frontend/src/components/ChatCanvasVirtual.test.tsx`\n**Issue:** Test rendering large search result sets without UI thread stutter in ChatCanvas.\n\n## Objective:\n1. Create `frontend/src/components/ChatCanvasVirtual.test.tsx`.\n2. Assert that only visible cards in viewport are rendered to DOM.\n3. When complete, create a pull request.",
-    "sessionId": "5747846671001798924",
-    "dispatchedAt": "2026-10-29T16:07:01.354Z"
+    "sessionId": "5674469843514066823",
+    "dispatchedAt": "2026-11-01T19:31:12.037Z",
+    "completedAt": "2026-11-01T20:06:46.895Z"
   },
   {
     "id": "backlog-13",
     "title": "Bolt: Streaming CSV Reader Benchmarks in Inventory Search",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: CSV Streaming\n\n## Task Details\n**File:** `backend/tests/test_csv_streaming.py`\n**Issue:** Benchmark memory footprint and parse speed when loading multi-megabyte hospital inventory files.\n\n## Objective:\n1. Create `backend/tests/test_csv_streaming.py`.\n2. Verify parsing executes with minimal allocations and constant memory usage.\n3. When complete, create a pull request.",
-    "sessionId": "15866431802433937836",
-    "dispatchedAt": "2026-10-29T16:07:03.402Z"
+    "sessionId": "10508449644878519505",
+    "dispatchedAt": "2026-11-01T19:34:21.648Z",
+    "completedAt": "2026-11-01T20:00:19.186Z"
   },
   {
     "id": "backlog-14",
     "title": "Code Health: Dead Import Cleanup in backend/app/routers/chat.py",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: Clean up imports in chat.py\n\n## Task Details\n**File:** `backend/app/routers/chat.py`\n**Issue:** Audit and remove all unused imports, redundant type declarations, and dead helper references.\n\n## Objective:\n1. Inspect `backend/app/routers/chat.py`.\n2. Remove any unused imports.\n3. Verify all pytest test suites continue passing with 100% success.\n4. When complete, create a pull request.",
-    "sessionId": "18189642773123328552",
-    "dispatchedAt": "2026-10-29T16:07:04.835Z"
+    "sessionId": "16360571330924745017",
+    "dispatchedAt": "2026-11-01T16:50:26.655Z",
+    "completedAt": "2026-11-01T18:06:46.485Z"
   },
   {
     "id": "backlog-15",
     "title": "Code Health: TypeScript Strict Null Narrowing in frontend/src/lib/api.ts",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: Type Narrowing in api.ts\n\n## Task Details\n**File:** `frontend/src/lib/api.ts`\n**Issue:** Refactor API client return types to eliminate `any` casts and ensure strict null checks.\n\n## Objective:\n1. Update `frontend/src/lib/api.ts` to provide strict interfaces for all API endpoints.\n2. Handle HTTP network failure errors with type-safe Result or error wrappers.\n3. Ensure build and frontend tests pass.\n4. When complete, create a pull request.",
-    "sessionId": "2589486796619977214",
-    "dispatchedAt": "2026-10-29T16:07:06.269Z"
+    "sessionId": "9971613146730595778",
+    "dispatchedAt": "2026-11-01T16:59:50.029Z",
+    "completedAt": "2026-11-01T18:30:22.397Z"
   },
   {
     "id": "backlog-16",
     "title": "Code Health: globals.css Dead Utility Class Pruning",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: CSS Cleanup\n\n## Task Details\n**File:** `frontend/src/app/globals.css`\n**Issue:** Audit CSS custom properties and remove redundant classes, preserving high-contrast surgical scrub themes.\n\n## Objective:\n1. Inspect `frontend/src/app/globals.css`.\n2. Remove unused custom CSS rules while keeping high-contrast dark mode classes.\n3. Verify frontend builds cleanly with `npm run build`.\n4. When complete, create a pull request.",
-    "sessionId": "7516386853086655688",
-    "dispatchedAt": "2026-10-29T16:07:07.704Z"
+    "sessionId": "5710095729980004756",
+    "dispatchedAt": "2026-11-01T17:02:13.226Z",
+    "completedAt": "2026-11-01T18:00:30.358Z"
   },
   {
     "id": "backlog-17",
     "title": "Code Health: Hospital Code Normalization Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: Hospital Code Normalizer\n\n## Task Details\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Issue:** Standardize facility ID resolution (e.g. 'general_memorial_cvor' vs 'general_memorial::cvor').\n\n## Objective:\n1. Create `frontend/src/lib/hospitalMapping.test.ts`.\n2. Verify canonical normalization functions handle edge cases (extra colons, trailing slashes, uppercase).\n3. When complete, create a pull request.",
-    "sessionId": "3707764815243808626",
-    "dispatchedAt": "2026-10-29T17:06:54.126Z"
+    "sessionId": "187757120002556606",
+    "dispatchedAt": "2026-11-01T17:32:17.301Z",
+    "completedAt": "2026-11-01T19:01:02.401Z"
   },
   {
     "id": "backlog-18",
@@ -166,190 +183,199 @@
     "id": "backlog-19",
     "title": "Testing: Standalone Offline Matching Engine Unit Tests",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Improvement Task: Standalone Engine\n\n## Task Details\n**File:** `frontend/src/lib/standaloneEngine.test.ts`\n**Issue:** Add comprehensive tests for standaloneEngine.ts in-browser fuzzy matching.\n\n## Objective:\n1. Create `frontend/src/lib/standaloneEngine.test.ts`.\n2. Test matching items by item name, aliases, surgeon notes, and coordinate tokens without backend connection.\n3. Ensure tests pass with 100% success and create a pull request.",
-    "sessionId": "2906486755327250710",
-    "dispatchedAt": "2026-10-29T17:06:58.584Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: Standalone Engine\n\n## Task Details\n**File:** `frontend/src/lib/standaloneEngine.test.ts`\n**Issue:** Add comprehensive tests for standaloneEngine.ts in-browser fuzzy matching.\n\n## Objective:\n1. Create `frontend/src/lib/standaloneEngine.test.ts`.\n2. Test matching items by item name, aliases, surgeon notes, and coordinate tokens without backend connection.\n3. Ensure tests pass with 100% success and create a pull request."
   },
   {
     "id": "backlog-20",
     "title": "Testing: App Settings Storage and Theme Persistence Unit Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Improvement Task: App Settings\n\n## Task Details\n**File:** `frontend/src/lib/appSettings.test.ts`\n**Issue:** Test local storage persistence for dark mode, voice settings, and font scaling.\n\n## Objective:\n1. Create `frontend/src/lib/appSettings.test.ts`.\n2. Test saving and reading settings with fallback defaults when localStorage is empty.\n3. When complete, create a pull request.",
-    "sessionId": "996561658400004185",
-    "dispatchedAt": "2026-10-29T17:07:00.003Z"
+    "sessionId": "631869821997450004",
+    "dispatchedAt": "2026-11-01T20:31:21.227Z",
+    "completedAt": "2026-11-01T21:01:20.550Z"
   },
   {
     "id": "backlog-21",
     "title": "Testing: Resource Pack Manifest Hydration Unit Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Improvement Task: Resource Pack Hydration\n\n## Task Details\n**File:** `frontend/src/lib/resourceManager.test.ts`\n**Issue:** Test downloading and caching facility orientation cards and clinical guidelines in IndexedDB.\n\n## Objective:\n1. Create `frontend/src/lib/resourceManager.test.ts`.\n2. Mock manifest fetching and test pack installation, activation, and removal.\n3. When complete, create a pull request.",
-    "sessionId": "2747363253031246387",
-    "dispatchedAt": "2026-10-29T17:07:01.439Z"
+    "sessionId": "16645813980263301813",
+    "dispatchedAt": "2026-11-01T20:31:22.662Z",
+    "completedAt": "2026-11-01T21:01:26.003Z"
   },
   {
     "id": "backlog-22",
     "title": "Testing: Semantic Clinical Query Parser Unit Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Improvement Task: Semantic Query Parser\n\n## Task Details\n**File:** `frontend/src/lib/semanticParser.test.ts`\n**Issue:** Test extracting clinical intent (locate item, report move, ask protocol, report shortage) from raw voice text.\n\n## Objective:\n1. Create `frontend/src/lib/semanticParser.test.ts`.\n2. Test intent classification across varied surgeon phrasings.\n3. When complete, create a pull request.",
-    "sessionId": "2341005055768901794",
-    "dispatchedAt": "2026-10-29T18:06:43.572Z"
+    "sessionId": "2985458484806385249",
+    "dispatchedAt": "2026-11-01T20:31:25.595Z",
+    "completedAt": "2026-11-01T21:01:15.312Z"
   },
   {
     "id": "backlog-23",
     "title": "Testing: User Profile and Clinical Role Switcher Unit Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Improvement Task: User Profile\n\n## Task Details\n**File:** `frontend/src/lib/userProfile.test.ts`\n**Issue:** Test switching clinical roles (Circulator, Scrub Tech, Perfusionist) and saving user preferences.\n\n## Objective:\n1. Create `frontend/src/lib/userProfile.test.ts`.\n2. Test role switching, badge display, and role-specific voice prompt generation.\n3. When complete, create a pull request.",
-    "sessionId": "9332963507799608526",
-    "dispatchedAt": "2026-10-29T18:06:44.426Z"
+    "sessionId": "3012223362693853004",
+    "dispatchedAt": "2026-11-01T20:36:55.180Z",
+    "completedAt": "2026-11-01T20:42:22.932Z"
   },
   {
     "id": "backlog-24",
     "title": "Testing: Sidebar Navigation and Hospital Switcher Component Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Improvement Task: Sidebar Component\n\n## Task Details\n**File:** `frontend/src/components/Sidebar.test.tsx`\n**Issue:** Implement component tests for Sidebar.tsx verifying department switching and accessibility.\n\n## Objective:\n1. Create `frontend/src/components/Sidebar.test.tsx` using React Testing Library.\n2. Verify department list renders, click events update active tenant, and minimum touch target size (44px) is respected.\n3. When complete, create a pull request.",
-    "sessionId": "15677278552791463160",
-    "dispatchedAt": "2026-10-29T18:06:45.338Z"
+    "sessionId": "8943808393703817817",
+    "dispatchedAt": "2026-11-01T20:36:56.685Z",
+    "completedAt": "2026-11-01T21:00:47.772Z"
   },
   {
     "id": "backlog-25",
     "title": "Testing: FeedbackModal Clinician Rating Component Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Improvement Task: FeedbackModal Component\n\n## Task Details\n**File:** `frontend/src/components/FeedbackModal.test.tsx`\n**Issue:** Test surgeon feedback dialog, thumbs up/down interaction, and text comments submission.\n\n## Objective:\n1. Create `frontend/src/components/FeedbackModal.test.tsx`.\n2. Test opening modal, selecting feedback type, submitting payload, and closing on backdrop click.\n3. When complete, create a pull request.",
-    "sessionId": "14758626514546274955",
-    "dispatchedAt": "2026-10-29T18:06:46.576Z"
+    "sessionId": "9464542890387841698",
+    "dispatchedAt": "2026-11-01T20:42:47.665Z",
+    "completedAt": "2026-11-01T21:01:10.055Z"
   },
   {
     "id": "backlog-26",
     "title": "Testing: AutoUpdateModal OTA Progress Component Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Improvement Task: AutoUpdateModal Component\n\n## Task Details\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Issue:** Test rendering OTA APK update progress bar and release notes.\n\n## Objective:\n1. Create `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Test progress percentage rendering, install button click handler, and dismiss behavior.\n3. When complete, create a pull request.",
-    "sessionId": "16811820466125073570",
-    "dispatchedAt": "2026-10-29T18:06:47.498Z"
+    "sessionId": "12410326059243615795",
+    "dispatchedAt": "2026-11-01T20:42:48.915Z",
+    "completedAt": "2026-11-01T21:00:35.289Z"
   },
   {
     "id": "backlog-27",
     "title": "Testing: QuestionsDrawer Filter and Answer Component Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Improvement Task: QuestionsDrawer Component\n\n## Task Details\n**File:** `frontend/src/components/QuestionsDrawer.test.tsx`\n**Issue:** Test QuestionsDrawer list of pending questions and answer submission form.\n\n## Objective:\n1. Create `frontend/src/components/QuestionsDrawer.test.tsx`.\n2. Test filtering questions by department, typing answer, and dispatching answer submission.\n3. When complete, create a pull request.",
-    "sessionId": "16193521478970924328",
-    "dispatchedAt": "2026-10-29T18:06:48.751Z"
+    "sessionId": "14207427885336373385",
+    "dispatchedAt": "2026-11-01T20:42:51.996Z",
+    "completedAt": "2026-11-01T21:00:53.233Z"
   },
   {
     "id": "backlog-28",
     "title": "Testing: Omnibar Push-to-Talk and Text Input Component Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Improvement Task: Omnibar Component\n\n## Task Details\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Issue:** Test Omnibar voice microphone button and Enter key form submission.\n\n## Objective:\n1. Create `frontend/src/components/Omnibar.test.tsx`.\n2. Test text input, submit button, microphone button touch events, and loading indicator state.\n3. When complete, create a pull request.",
-    "sessionId": "9782004067598731193",
-    "dispatchedAt": "2026-10-29T19:07:03.902Z"
+    "sessionId": "11546285626755969630",
+    "dispatchedAt": "2026-11-01T20:42:53.442Z",
+    "completedAt": "2026-11-01T21:00:59.064Z"
   },
   {
     "id": "backlog-29",
     "title": "Testing: Multi-Clause Spoken Query Discourse Decomposer Adversarial Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Improvement Task: Discourse Decomposer\n\n## Task Details\n**File:** `backend/tests/test_multi_clause.py`\n**Issue:** Test separating compound surgical queries (e.g. 'Give me 3-0 silk, and also where is the bovie?').\n\n## Objective:\n1. Create `backend/tests/test_multi_clause.py`.\n2. Test splitting compound sentences by conjunctions and commas without mangling item numbers or gauges.\n3. When complete, create a pull request.",
-    "sessionId": "9515254580711111158",
-    "dispatchedAt": "2026-10-29T19:07:05.927Z"
+    "sessionId": "17463082564862039744",
+    "dispatchedAt": "2026-11-01T20:42:54.790Z",
+    "completedAt": "2026-11-01T21:00:41.549Z"
   },
   {
     "id": "backlog-30",
     "title": "Testing: Spoken Disfluency and Vocal Filler Filter Tests",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Improvement Task: Disfluency Filter\n\n## Task Details\n**File:** `backend/tests/test_disfluency.py`\n**Issue:** Test removing speech hesitation tokens ('um', 'uh', 'you know', 'please find me') before search.\n\n## Objective:\n1. Create `backend/tests/test_disfluency.py`.\n2. Test stripping vocal fillers while strictly preserving critical medical tokens (e.g. '4-0', 'no. 10 blade').\n3. When complete, create a pull request.",
-    "sessionId": "8673664340923117219",
-    "dispatchedAt": "2026-10-29T19:07:08.078Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: Disfluency Filter\n\n## Task Details\n**File:** `backend/tests/test_disfluency.py`\n**Issue:** Test removing speech hesitation tokens ('um', 'uh', 'you know', 'please find me') before search.\n\n## Objective:\n1. Create `backend/tests/test_disfluency.py`.\n2. Test stripping vocal fillers while strictly preserving critical medical tokens (e.g. '4-0', 'no. 10 blade').\n3. When complete, create a pull request."
   },
   {
     "id": "backlog-31",
     "title": "Testing: Packed Coordinate Parser Tests (Room, Cart, Shelf, Bin)",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Improvement Task: Coordinate Parser\n\n## Task Details\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Issue:** Test parsing shorthand location strings (e.g. 'OR 21 A 2 C' -> Room: OR 21, Cart: A, Shelf: 2, Bin: C).\n\n## Objective:\n1. Create `frontend/src/lib/coordinateParser.test.ts`.\n2. Test variations in spacing, dashes, and bullet points.\n3. When complete, create a pull request.",
-    "sessionId": "6645039828212228401",
-    "dispatchedAt": "2026-10-29T19:07:10.228Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: Coordinate Parser\n\n## Task Details\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Issue:** Test parsing shorthand location strings (e.g. 'OR 21 A 2 C' -> Room: OR 21, Cart: A, Shelf: 2, Bin: C).\n\n## Objective:\n1. Create `frontend/src/lib/coordinateParser.test.ts`.\n2. Test variations in spacing, dashes, and bullet points.\n3. When complete, create a pull request."
   },
   {
     "id": "backlog-32",
     "title": "Testing: Direct Gemini Fallback When LiveKit Server Disconnects",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Improvement Task: Direct Gemini Fallback\n\n## Task Details\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Issue:** Test direct HTTP Gemini API fallback when LiveKit voice server is down or unreachable.\n\n## Objective:\n1. Create `frontend/src/lib/directGemini.test.ts`.\n2. Mock LiveKit failure and verify automatic fallback query execution directly to backend Gemini endpoint.\n3. When complete, create a pull request.",
-    "sessionId": "9534191990685362776",
-    "dispatchedAt": "2026-10-29T19:07:11.764Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Improvement Task: Direct Gemini Fallback\n\n## Task Details\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Issue:** Test direct HTTP Gemini API fallback when LiveKit voice server is down or unreachable.\n\n## Objective:\n1. Create `frontend/src/lib/directGemini.test.ts`.\n2. Mock LiveKit failure and verify automatic fallback query execution directly to backend Gemini endpoint.\n3. When complete, create a pull request."
   },
   {
     "id": "backlog-33",
     "title": "Sentinel: AuthScreen JWT Refresh & Expiry Tests",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: AuthScreen JWT Refresh & Expiry\n\n**File:** `frontend/src/components/AuthScreen.test.tsx`\n**Issue:** Add unit tests validating JWT refresh token rotation and rejection of expired authentication credentials.\n\n**Objective:**\n1. Create `frontend/src/components/AuthScreen.test.tsx` using Vitest / Testing Library.\n2. Verify expired token redirects to login prompt.\n3. Verify valid credentials store access tokens in secure session storage.\n4. Ensure zero new regressions on existing tests and submit PR immediately upon verification.",
-    "sessionId": "3552205061614141530",
-    "dispatchedAt": "2026-10-30T13:37:11.304Z"
+    "sessionId": "3529233110607384379",
+    "dispatchedAt": "2026-11-01T18:30:44.592Z",
+    "completedAt": "2026-11-01T19:00:52.676Z"
   },
   {
     "id": "backlog-34",
     "title": "Sentinel: Prevent SQL & Query Injection in Dexie Full-Text Search",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: Prevent Query Injection in Dexie Search\n\n**File:** `frontend/src/lib/standaloneEngine.test.ts`\n**Issue:** Ensure clinical full-text search sanitizes regex metacharacters and prevents ReDoS or Dexie query injection.\n\n**Objective:**\n1. Update `frontend/src/lib/standaloneEngine.test.ts` with adversarial query inputs (e.g. `.*`, `[a-z]+(a+)+$`, quotes, SQL fragments).\n2. Verify search returns safely without freezing or crashing the worker.\n3. Submit PR immediately upon verification.",
-    "sessionId": "16937849696672631880",
-    "dispatchedAt": "2026-10-30T13:37:13.327Z"
+    "sessionId": "7949776353272909222",
+    "dispatchedAt": "2026-11-01T18:34:08.780Z",
+    "completedAt": "2026-11-01T19:01:12.662Z"
   },
   {
     "id": "backlog-35",
     "title": "Sentinel: Strict Tenant Isolation on Preference Card Mutations",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: Preference Card Tenant Isolation\n\n**File:** `backend/tests/test_preference_card_tenant_isolation.py`\n**Issue:** Verify that preference card updates cannot leak or overwrite cards across `facility_id::dept_id` boundaries.\n\n**Objective:**\n1. Create `backend/tests/test_preference_card_tenant_isolation.py`.\n2. Attempt cross-tenant preference card update and verify HTTP 403 / 404 response.\n3. Verify multi-tenant database isolation invariant.\n4. Submit PR immediately upon verification.",
-    "sessionId": "12845394224063801037",
-    "dispatchedAt": "2026-10-30T13:37:14.761Z"
+    "sessionId": "9422163464304416600",
+    "dispatchedAt": "2026-11-01T18:34:10.073Z",
+    "completedAt": "2026-11-01T20:12:50.147Z"
   },
   {
     "id": "backlog-36",
     "title": "Sentinel: Enforce Content-Security-Policy & Media Frame Protection",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: CSP and Camera Media Protection\n\n**File:** `backend/tests/test_csp_media_policy.py`\n**Issue:** Verify backend security headers restrict camera, microphone, and WebRTC origins to authorized hostnames.\n\n**Objective:**\n1. Create `backend/tests/test_csp_media_policy.py`.\n2. Test that response headers include Content-Security-Policy with strict media-src and frame-ancestors.\n3. Submit PR immediately upon verification.",
-    "sessionId": "15305561372576690926",
-    "dispatchedAt": "2026-10-30T13:37:16.037Z"
+    "sessionId": "8443635666800800835",
+    "dispatchedAt": "2026-11-01T19:01:25.169Z",
+    "completedAt": "2026-11-01T19:13:21.336Z"
   },
   {
     "id": "backlog-37",
     "title": "Sentinel: User Profile Modal Role Switching Audit Tests",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: UserProfileModal Role Switching\n\n**File:** `frontend/src/components/UserProfileModal.test.tsx`\n**Issue:** Test clinical role switching in UserProfileModal to ensure unauthenticated privilege escalation is blocked.\n\n**Objective:**\n1. Create `frontend/src/components/UserProfileModal.test.tsx`.\n2. Verify role switching dispatches audit events and persists only authorized permissions.\n3. Submit PR immediately upon verification.",
-    "sessionId": "5436209392655878095",
-    "dispatchedAt": "2026-10-30T13:37:17.423Z"
+    "sessionId": "7108938108982834057",
+    "dispatchedAt": "2026-11-01T19:01:26.472Z",
+    "completedAt": "2026-11-01T21:01:38.594Z"
   },
   {
     "id": "backlog-38",
     "title": "Bolt: ClinicalGraph Traversal Performance & Cycle Benchmarks",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: ClinicalGraph Traversal Benchmarks\n\n**File:** `frontend/src/lib/clinicalGraph.test.ts`\n**Issue:** Add performance benchmarks for graph pathfinding across 1,000+ items, rooms, and surgeons.\n\n**Objective:**\n1. Add benchmark tests in `frontend/src/lib/clinicalGraph.test.ts` verifying shortest-path queries resolve in < 5ms.\n2. Verify cycle detection handles malformed relation graphs without infinite loops.\n3. Submit PR immediately upon verification.",
-    "sessionId": "8881527444260797958",
-    "dispatchedAt": "2026-10-30T13:37:18.857Z"
+    "sessionId": "1461843634133260446",
+    "dispatchedAt": "2026-11-01T19:42:52.531Z",
+    "completedAt": "2026-11-01T20:00:25.448Z"
   },
   {
     "id": "backlog-39",
     "title": "Bolt: ClinicalQueryPlanner Heavy Multi-Clause Execution Benchmarks",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: ClinicalQueryPlanner Multi-Clause Benchmarks\n\n**File:** `frontend/src/lib/clinicalQueryPlanner.test.ts`\n**Issue:** Verify ClinicalQueryPlanner resolves complex multi-clause compound queries within 10ms.\n\n**Objective:**\n1. Create `frontend/src/lib/clinicalQueryPlanner.test.ts`.\n2. Benchmark 5-clause compound sentences (e.g. \"Find laparoscope in room 4, check mesh in cart 2, and page scrub nurse\").\n3. Verify parser execution time remains under 10ms with zero memory leaks.\n4. Submit PR immediately upon verification.",
-    "sessionId": "17442566310250268835",
-    "dispatchedAt": "2026-10-30T13:37:20.173Z"
+    "sessionId": "10772061932548880813",
+    "dispatchedAt": "2026-11-01T19:42:53.636Z",
+    "completedAt": "2026-11-01T20:13:57.648Z"
   },
   {
     "id": "backlog-40",
@@ -365,154 +391,141 @@
     "id": "backlog-41",
     "title": "Bolt: Dexie Bulk Seed Hydration Batch Optimization Benchmarks",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: Seed Hydration Batching Benchmarks\n\n**File:** `frontend/src/lib/seedHydrationBench.test.ts`\n**Issue:** Benchmark Dexie bulkPut vs sequential put for 5,000 inventory items.\n\n**Objective:**\n1. Create `frontend/src/lib/seedHydrationBench.test.ts`.\n2. Assert bulkPut batches items in chunks of 500 to keep IndexedDB lock duration under 50ms.\n3. Submit PR immediately upon verification.",
-    "sessionId": "6162911584899860752",
-    "dispatchedAt": "2026-10-30T13:37:22.993Z"
+    "sessionId": "5615697923959588974",
+    "dispatchedAt": "2026-11-01T20:01:11.901Z",
+    "completedAt": "2026-11-01T20:12:38.021Z"
   },
   {
     "id": "backlog-42",
     "title": "Bolt: Compress & Cache Surgical Ontology Synonym Resolution",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: Surgical Ontology Cache\n\n**File:** `frontend/src/lib/surgicalOntology.test.ts`\n**Issue:** Optimize surgical synonym lookups by caching canonical gauge and instrument mappings.\n\n**Objective:**\n1. Create unit tests in `frontend/src/lib/surgicalOntology.test.ts` testing 10,000 rapid lookup iterations.\n2. Verify cache hit rate > 95% on repetitive clinical terms.\n3. Submit PR immediately upon verification.",
-    "sessionId": "8590460125439552884",
-    "dispatchedAt": "2026-10-30T13:37:24.386Z"
+    "sessionId": "11654045852717379071",
+    "dispatchedAt": "2026-11-01T20:01:14.010Z",
+    "completedAt": "2026-11-01T20:30:59.347Z"
   },
   {
     "id": "backlog-43",
     "title": "Code Health: CoordinateCard Component Rendering & A11y Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: CoordinateCard Component Tests\n\n**File:** `frontend/src/components/CoordinateCard.test.tsx`\n**Issue:** Add component unit tests for CoordinateCard verifying Room, Cart, Shelf, Bin badge rendering and accessibility.\n\n**Objective:**\n1. Create `frontend/src/components/CoordinateCard.test.tsx`.\n2. Test rendering with full coordinates and partial coordinates.\n3. Verify accessible aria labels on coordinate indicators.\n4. Submit PR immediately upon verification.",
-    "sessionId": "1875926509002304035",
-    "dispatchedAt": "2026-10-30T13:37:25.709Z"
+    "sessionId": "7384941268245919438",
+    "dispatchedAt": "2026-11-01T17:32:18.696Z",
+    "completedAt": "2026-11-01T18:00:35.144Z"
   },
   {
     "id": "backlog-44",
     "title": "Code Health: QRPairModal Device Pairing Flow Unit Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: QRPairModal Unit Tests\n\n**File:** `frontend/src/components/QRPairModal.test.tsx`\n**Issue:** Add unit tests for QRPairModal verifying QR rendering, pairing secret generation, and expiration timer.\n\n**Objective:**\n1. Create `frontend/src/components/QRPairModal.test.tsx`.\n2. Verify modal opens, displays pairing code, and handles dismiss actions.\n3. Submit PR immediately upon verification.",
-    "sessionId": "11597514395274965855",
-    "dispatchedAt": "2026-10-30T13:37:27.254Z"
+    "sessionId": "7968595808764328206",
+    "dispatchedAt": "2026-11-01T17:32:20.961Z",
+    "completedAt": "2026-11-01T18:00:12.946Z"
   },
   {
     "id": "backlog-45",
     "title": "Code Health: ResourceManagerModal Package Import & Export Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: ResourceManagerModal Package Tests\n\n**File:** `frontend/src/components/ResourceManagerModal.test.tsx`\n**Issue:** Test clinical resource pack import, export, and checksum verification in ResourceManagerModal.\n\n**Objective:**\n1. Create `frontend/src/components/ResourceManagerModal.test.tsx`.\n2. Test uploading valid and invalid JSON resource packs.\n3. Ensure proper error banners display on malformed schemas.\n4. Submit PR immediately upon verification.",
-    "sessionId": "11315782332993819719",
-    "dispatchedAt": "2026-10-30T13:37:29.326Z"
+    "sessionId": "15953655404365567540",
+    "dispatchedAt": "2026-11-01T17:32:22.280Z",
+    "completedAt": "2026-11-01T19:00:45.135Z"
   },
   {
     "id": "backlog-46",
     "title": "Code Health: Lexicon Learning Feedback Loop Type Narrowing",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: Lexicon Learning Type Narrowing\n\n**File:** `frontend/src/lib/lexiconLearning.test.ts`\n**Issue:** Ensure adaptive feedback loop in lexiconLearning enforces strict TypeScript narrowing on clinician corrections.\n\n**Objective:**\n1. Create `frontend/src/lib/lexiconLearning.test.ts`.\n2. Test recording phonetic corrections and verify storage format.\n3. Assert zero null pointer errors on unseeded terms.\n4. Submit PR immediately upon verification.",
-    "sessionId": "10393924713812252325",
-    "dispatchedAt": "2026-10-30T13:37:30.735Z"
+    "sessionId": "1302758072906471582",
+    "dispatchedAt": "2026-11-01T17:32:24.332Z",
+    "completedAt": "2026-11-01T18:00:18.039Z"
   },
   {
     "id": "backlog-47",
     "title": "Code Health: Speech Synthesis Queue & Audio Context State Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: Speech Synthesis Queue Tests\n\n**File:** `frontend/src/lib/speechSynthesis.test.ts`\n**Issue:** Add unit tests for speech synthesis voice queue, interruption handling, and mute persistence.\n\n**Objective:**\n1. Create `frontend/src/lib/speechSynthesis.test.ts`.\n2. Test queue prioritization of urgent clinical alerts over regular queries.\n3. Verify mute state prevents utterance execution.\n4. Submit PR immediately upon verification.",
-    "sessionId": "6432958125228456258",
-    "dispatchedAt": "2026-10-30T14:02:31.647Z"
+    "sessionId": "10505236575140752662",
+    "dispatchedAt": "2026-11-01T17:32:25.978Z",
+    "completedAt": "2026-11-01T19:00:57.594Z"
   },
   {
     "id": "backlog-48",
     "title": "Testing: ChatCanvas Multi-Item Clinical Display Component Tests",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Task: ChatCanvas Multi-Item Display Tests\n\n**File:** `frontend/src/components/ChatCanvas.test.tsx`\n**Issue:** Add unit tests for ChatCanvas verifying rendering of message bubbles, preference card carousels, and action buttons.\n\n**Objective:**\n1. Create `frontend/src/components/ChatCanvas.test.tsx`.\n2. Test empty state, user message, agent clinical response, and structured card list rendering.\n3. Submit PR immediately upon verification.",
-    "sessionId": "1042474179380775814",
-    "dispatchedAt": "2026-10-30T14:02:33.695Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: ChatCanvas Multi-Item Display Tests\n\n**File:** `frontend/src/components/ChatCanvas.test.tsx`\n**Issue:** Add unit tests for ChatCanvas verifying rendering of message bubbles, preference card carousels, and action buttons.\n\n**Objective:**\n1. Create `frontend/src/components/ChatCanvas.test.tsx`.\n2. Test empty state, user message, agent clinical response, and structured card list rendering.\n3. Submit PR immediately upon verification."
   },
   {
     "id": "backlog-49",
     "title": "Testing: Backend Clinical Graph Service Relationship Query Tests",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Task: Clinical Graph Service Tests\n\n**File:** `backend/tests/test_clinical_graph_service.py`\n**Issue:** Add unit tests for `backend/app/services/clinical_graph.py` verifying multi-tenant relationship queries.\n\n**Objective:**\n1. Create `backend/tests/test_clinical_graph_service.py`.\n2. Test node addition, edge connections, and BFS path queries.\n3. Verify isolation between different facility graphs.\n4. Submit PR immediately upon verification.",
-    "sessionId": "7096849452163088310",
-    "dispatchedAt": "2026-10-30T14:02:35.026Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: Clinical Graph Service Tests\n\n**File:** `backend/tests/test_clinical_graph_service.py`\n**Issue:** Add unit tests for `backend/app/services/clinical_graph.py` verifying multi-tenant relationship queries.\n\n**Objective:**\n1. Create `backend/tests/test_clinical_graph_service.py`.\n2. Test node addition, edge connections, and BFS path queries.\n3. Verify isolation between different facility graphs.\n4. Submit PR immediately upon verification."
   },
   {
     "id": "backlog-50",
     "title": "Testing: Clinical Query Planner Ambiguous Gauge & Size Resolution",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Task: Clinical Query Planner Gauge Resolution\n\n**File:** `backend/tests/test_planner_gauge_resolution.py`\n**Issue:** Test clinical query planner disambiguation between needle gauge (e.g. 22G), suture size (e.g. 2-0, 3-0), and catheter Fr.\n\n**Objective:**\n1. Create `backend/tests/test_planner_gauge_resolution.py`.\n2. Test queries like \"22 gauge spinal needle vs 2-0 prolene vs 16 Fr foley\".\n3. Verify extraction maps correctly to item attributes.\n4. Submit PR immediately upon verification.",
-    "sessionId": "7747422632784925010",
-    "dispatchedAt": "2026-10-30T14:02:38.934Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: Clinical Query Planner Gauge Resolution\n\n**File:** `backend/tests/test_planner_gauge_resolution.py`\n**Issue:** Test clinical query planner disambiguation between needle gauge (e.g. 22G), suture size (e.g. 2-0, 3-0), and catheter Fr.\n\n**Objective:**\n1. Create `backend/tests/test_planner_gauge_resolution.py`.\n2. Test queries like \"22 gauge spinal needle vs 2-0 prolene vs 16 Fr foley\".\n3. Verify extraction maps correctly to item attributes.\n4. Submit PR immediately upon verification."
   },
   {
     "id": "backlog-51",
     "title": "Testing: Offline Outbox Replay Idempotency After Network Drop",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Task: Offline Outbox Replay Idempotency\n\n**File:** `frontend/src/lib/outboxReplay.test.ts`\n**Issue:** Ensure offline outbox actions (e.g. move item, mark verified) are idempotent when replayed multiple times.\n\n**Objective:**\n1. Create `frontend/src/lib/outboxReplay.test.ts`.\n2. Simulate duplicate mutation replay and assert final state matches single application.\n3. Submit PR immediately upon verification.",
-    "sessionId": "15789404962642358727",
-    "dispatchedAt": "2026-10-30T14:02:41.079Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: Offline Outbox Replay Idempotency\n\n**File:** `frontend/src/lib/outboxReplay.test.ts`\n**Issue:** Ensure offline outbox actions (e.g. move item, mark verified) are idempotent when replayed multiple times.\n\n**Objective:**\n1. Create `frontend/src/lib/outboxReplay.test.ts`.\n2. Simulate duplicate mutation replay and assert final state matches single application.\n3. Submit PR immediately upon verification."
   },
   {
     "id": "backlog-52",
     "title": "Testing: Hospital Manifest Validation & Department Hierarchy Tests",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Task: Hospital Manifest Validation\n\n**File:** `backend/tests/test_manifest_validation.py`\n**Issue:** Test hospital manifest.json parsing and department schema integrity.\n\n**Objective:**\n1. Create `backend/tests/test_manifest_validation.py`.\n2. Verify loading all configured hospitals (County General, Memorial, etc.) without missing key errors.\n3. Submit PR immediately upon verification.",
-    "sessionId": "18083198064056896974",
-    "dispatchedAt": "2026-10-30T14:02:42.627Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: Hospital Manifest Validation\n\n**File:** `backend/tests/test_manifest_validation.py`\n**Issue:** Test hospital manifest.json parsing and department schema integrity.\n\n**Objective:**\n1. Create `backend/tests/test_manifest_validation.py`.\n2. Verify loading all configured hospitals (County General, Memorial, etc.) without missing key errors.\n3. Submit PR immediately upon verification."
   },
   {
     "id": "backlog-53",
     "title": "Testing: Clinical Inventory Parity Tests for county_general",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Task: Inventory Parity for county_general\n\n**File:** `backend/tests/test_parity_county_general.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `county_general`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_county_general.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
-    "sessionId": "4497919058689179368",
-    "dispatchedAt": "2026-10-30T14:02:44.754Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for county_general\n\n**File:** `backend/tests/test_parity_county_general.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `county_general`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_county_general.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification."
   },
   {
     "id": "backlog-54",
     "title": "Testing: Clinical Inventory Parity Tests for er_trauma",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Task: Inventory Parity for er_trauma\n\n**File:** `backend/tests/test_parity_er_trauma.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `er_trauma`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_er_trauma.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
-    "sessionId": "17256728637334105042",
-    "dispatchedAt": "2026-10-30T14:02:47.819Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for er_trauma\n\n**File:** `backend/tests/test_parity_er_trauma.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `er_trauma`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_er_trauma.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification."
   },
   {
     "id": "backlog-55",
     "title": "Testing: Clinical Inventory Parity Tests for icu_critical_care",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Task: Inventory Parity for icu_critical_care\n\n**File:** `backend/tests/test_parity_icu_critical_care.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `icu_critical_care`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_icu_critical_care.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
-    "sessionId": "14832828852507232836",
-    "dispatchedAt": "2026-10-30T14:02:49.559Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for icu_critical_care\n\n**File:** `backend/tests/test_parity_icu_critical_care.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `icu_critical_care`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_icu_critical_care.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification."
   },
   {
     "id": "backlog-56",
     "title": "Testing: Clinical Inventory Parity Tests for pacu_periop",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Task: Inventory Parity for pacu_periop\n\n**File:** `backend/tests/test_parity_pacu_periop.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `pacu_periop`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_pacu_periop.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
-    "sessionId": "4384818841219868223",
-    "dispatchedAt": "2026-10-30T14:02:51.590Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for pacu_periop\n\n**File:** `backend/tests/test_parity_pacu_periop.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `pacu_periop`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_pacu_periop.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification."
   },
   {
     "id": "backlog-57",
     "title": "Testing: Clinical Inventory Parity Tests for sacred_heart",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🧪 Testing Task: Inventory Parity for sacred_heart\n\n**File:** `backend/tests/test_parity_sacred_heart.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `sacred_heart`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_sacred_heart.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
-    "sessionId": "12102987441822020789",
-    "dispatchedAt": "2026-10-30T14:02:52.948Z"
+    "status": "pending",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for sacred_heart\n\n**File:** `backend/tests/test_parity_sacred_heart.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `sacred_heart`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_sacred_heart.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification."
   },
   {
     "id": "backlog-058",
@@ -538,10 +551,11 @@
     "id": "backlog-060",
     "title": "Sentinel: Strict Tenant Boundary Isolation on Inventory CSV Import",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🛡️ Sentinel Security Task: Inventory CSV Tenant Boundary\n\n**File:** `backend/tests/test_inventory_tenant_boundary.py`\n**Issue:** Ensure CSV inventory imports cannot overwrite or inject records into other hospital facility tenants.\n\n**Objective:**\n1. Create `backend/tests/test_inventory_tenant_boundary.py`.\n2. Test importing CSV records with cross-facility IDs and assert rejection.\n3. Verify tenant isolation invariant is preserved.\n4. Submit PR immediately upon verification.",
-    "sessionId": "1848906239998182975",
-    "dispatchedAt": "2026-10-30T14:40:11.784Z"
+    "sessionId": "12009269256546483021",
+    "dispatchedAt": "2026-11-01T18:01:04.148Z",
+    "completedAt": "2026-11-01T19:30:31.146Z"
   },
   {
     "id": "backlog-061",
@@ -557,37 +571,41 @@
     "id": "backlog-062",
     "title": "Bolt: Offline Delta Sync Payload Compression Benchmarks",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: Delta Sync Payload Sizing\n\n**File:** `frontend/src/lib/deltaSyncPayload.test.ts`\n**Issue:** Benchmark offline delta sync payload compression and compact representation for low-bandwidth OR networks.\n\n**Objective:**\n1. Create `frontend/src/lib/deltaSyncPayload.test.ts`.\n2. Verify compact JSON serializes 50 offline mutations into < 10KB.\n3. Verify deserialization restores 100% of mutation records.\n4. Submit PR immediately upon verification.",
-    "sessionId": "1662461055517157612",
-    "dispatchedAt": "2026-10-30T14:40:15.050Z"
+    "sessionId": "17032941086702853620",
+    "dispatchedAt": "2026-11-01T19:01:27.593Z",
+    "completedAt": "2026-11-01T19:13:16.636Z"
   },
   {
     "id": "backlog-063",
     "title": "Bolt: Client-Side PHI Scrubber High-Throughput Benchmarks",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# ⚡ Bolt Performance Task: PHI Scrubber High-Throughput Benchmark\n\n**File:** `frontend/src/lib/scrubBenchmark.test.ts`\n**Issue:** Benchmark client-side PHI scrubber across 10,000 words of clinical dictation.\n\n**Objective:**\n1. Create `frontend/src/lib/scrubBenchmark.test.ts`.\n2. Benchmark redaction of MRNs, clinician names, and dates of birth in < 15ms.\n3. Verify zero memory leaks across 500 benchmark iterations.\n4. Submit PR immediately upon verification.",
-    "sessionId": "1788050447228348902",
-    "dispatchedAt": "2026-10-30T14:40:16.504Z"
+    "sessionId": "9736085837060974945",
+    "dispatchedAt": "2026-11-01T19:01:28.896Z",
+    "completedAt": "2026-11-01T19:30:41.132Z"
   },
   {
     "id": "backlog-064",
     "title": "Code Health: MoveVerifyWidget Drag and Drop Interaction Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: MoveVerifyWidget Interaction Tests\n\n**File:** `frontend/src/components/MoveVerifyWidget.test.tsx`\n**Issue:** Add unit tests for MoveVerifyWidget verifying drag-and-drop state transitions, target drop zone validation, and item move confirmation.\n\n**Objective:**\n1. Create `frontend/src/components/MoveVerifyWidget.test.tsx`.\n2. Test drag start, hover over valid target shelf, drop event, and cancel action.\n3. Verify ARIA attributes on draggable items.\n4. Submit PR immediately upon verification.",
-    "sessionId": "18370608393784658147",
-    "dispatchedAt": "2026-10-30T14:40:17.784Z"
+    "sessionId": "16645594376265128473",
+    "dispatchedAt": "2026-11-01T16:50:02.519Z",
+    "completedAt": "2026-11-01T17:31:32.464Z"
   },
   {
     "id": "backlog-065",
     "title": "Code Health: Sidebar Responsive Navigation and Collapse Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: Sidebar Navigation Tests\n\n**File:** `frontend/src/components/Sidebar.test.tsx`\n**Issue:** Add unit tests for Sidebar component verifying drawer collapse, active link highlighting, and keyboard focus.\n\n**Objective:**\n1. Create `frontend/src/components/Sidebar.test.tsx`.\n2. Test expanding/collapsing sidebar and active route state.\n3. Verify accessible role=\"navigation\" and aria-expanded attributes.\n4. Submit PR immediately upon verification.",
-    "sessionId": "6203981994282232939",
-    "dispatchedAt": "2026-10-30T14:40:20.201Z"
+    "sessionId": "8627205400556333345",
+    "dispatchedAt": "2026-11-01T16:50:03.969Z",
+    "completedAt": "2026-11-01T19:34:18.699Z"
   },
   {
     "id": "backlog-066",
@@ -603,208 +621,232 @@
     "id": "backlog-067",
     "title": "Code Health: QuestionsDrawer Filter & Search Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: QuestionsDrawer Filter Tests\n\n**File:** `frontend/src/components/QuestionsDrawer.test.tsx`\n**Issue:** Add unit tests for QuestionsDrawer verifying unanswered question filtering and surgeon tag matching.\n\n**Objective:**\n1. Create `frontend/src/components/QuestionsDrawer.test.tsx`.\n2. Test filtering by department, search term input, and empty state display.\n3. Verify keyboard accessibility.\n4. Submit PR immediately upon verification.",
-    "sessionId": "4371897876956200424",
-    "dispatchedAt": "2026-10-30T14:40:24.502Z"
+    "sessionId": "12959732776359547370",
+    "dispatchedAt": "2026-11-01T16:50:06.018Z",
+    "completedAt": "2026-11-01T18:00:07.454Z"
   },
   {
     "id": "backlog-068",
     "title": "Code Health: Modal Dialog Keyboard Focus Trapping & ESC Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: Modal Keyboard Focus Trapping\n\n**File:** `frontend/src/components/ModalA11yFocus.test.tsx`\n**Issue:** Ensure clinical dialog modals trap keyboard focus within modal boundaries and dismiss on Escape key press.\n\n**Objective:**\n1. Create `frontend/src/components/ModalA11yFocus.test.tsx`.\n2. Test Tab cycle stays within modal and Shift+Tab wraps to last focusable element.\n3. Test pressing Escape closes modal.\n4. Submit PR immediately upon verification.",
-    "sessionId": "11318586863312649482",
-    "dispatchedAt": "2026-10-30T14:40:25.833Z"
+    "sessionId": "9998151276414681711",
+    "dispatchedAt": "2026-11-01T16:50:07.372Z",
+    "completedAt": "2026-11-01T22:07:50.361Z",
+    "notes": "Verified already implemented on main via PR #98"
   },
   {
     "id": "backlog-069",
     "title": "Code Health: Gamification Mastery Engine Progression Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: Gamification Mastery Progression\n\n**File:** `frontend/src/lib/gamification.test.ts`\n**Issue:** Test clinical mastery gamification engine for XP calculation, level-up triggers, and streak tracking.\n\n**Objective:**\n1. Create `frontend/src/lib/gamification.test.ts`.\n2. Test awarding points on item verification, streak increments, and badge achievements.\n3. Verify serialization to Dexie storage.\n4. Submit PR immediately upon verification.",
-    "sessionId": "11341849629061237559",
-    "dispatchedAt": "2026-10-30T14:40:27.779Z"
+    "sessionId": "7677502996002491851",
+    "dispatchedAt": "2026-11-01T16:50:08.884Z",
+    "completedAt": "2026-11-01T17:31:53.814Z"
   },
   {
     "id": "backlog-070",
     "title": "Code Health: FeedbackEngine Offline Queue & Sentiment Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: FeedbackEngine Offline Queue\n\n**File:** `frontend/src/lib/feedbackEngine.test.ts`\n**Issue:** Test FeedbackEngine offline queueing, retry with exponential backoff, and sentiment scoring.\n\n**Objective:**\n1. Create `frontend/src/lib/feedbackEngine.test.ts`.\n2. Test enqueueing feedback while offline, persisting to storage, and draining queue on reconnect.\n3. Submit PR immediately upon verification.",
-    "sessionId": "14326632065011309977",
-    "dispatchedAt": "2026-10-30T14:40:29.274Z"
+    "sessionId": "2389303444108896378",
+    "dispatchedAt": "2026-11-01T16:50:11.517Z",
+    "completedAt": "2026-11-01T21:42:38.732Z"
   },
   {
     "id": "backlog-071",
     "title": "Code Health: VeoMotion Animation Transitions and Fallback Tests",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧹 Code Health Task: VeoMotion Animation Fallbacks\n\n**File:** `frontend/src/lib/veoMotion.test.ts`\n**Issue:** Add unit tests verifying VeoMotion graceful degradation when prefers-reduced-motion is enabled.\n\n**Objective:**\n1. Create `frontend/src/lib/veoMotion.test.ts`.\n2. Test reduced motion media query detection and fallback instant transitions.\n3. Submit PR immediately upon verification.",
-    "sessionId": "15136783699603215112",
-    "dispatchedAt": "2026-10-30T15:04:11.531Z"
+    "sessionId": "16848125405770621",
+    "dispatchedAt": "2026-11-01T16:50:13.486Z",
+    "completedAt": "2026-11-01T17:31:46.991Z"
   },
   {
     "id": "backlog-072",
     "title": "Testing: Governance Service Policy Enforcement Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Task: Governance Service Policy Enforcement\n\n**File:** `backend/tests/test_governance_service.py`\n**Issue:** Add unit tests for `backend/app/services/governance.py` verifying clinical policy verification and audit trails.\n\n**Objective:**\n1. Create `backend/tests/test_governance_service.py`.\n2. Test policy enforcement on critical surgeon preference updates and inventory adjustments.\n3. Assert audit records are created with timestamp and facility ID.\n4. Submit PR immediately upon verification.",
-    "sessionId": "10620038844160005605",
-    "dispatchedAt": "2026-10-30T15:04:13.067Z"
+    "sessionId": "5741848319694257501",
+    "dispatchedAt": "2026-11-01T20:01:17.260Z",
+    "completedAt": "2026-11-01T20:31:04.745Z"
   },
   {
     "id": "backlog-073",
     "title": "Testing: Peer QnA Service Message Routing & Persistence Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Task: Peer QnA Service Message Routing\n\n**File:** `backend/tests/test_peer_qna_service.py`\n**Issue:** Add unit tests for `backend/app/peer_qna.py` testing question broadcast, answer threading, and tenant scoping.\n\n**Objective:**\n1. Create `backend/tests/test_peer_qna_service.py`.\n2. Test posting a question, adding an answer, and asserting isolation across departments.\n3. Submit PR immediately upon verification.",
-    "sessionId": "9737939641898306488",
-    "dispatchedAt": "2026-10-30T15:04:14.301Z"
+    "sessionId": "14281561304914117606",
+    "dispatchedAt": "2026-11-01T20:01:19.935Z",
+    "completedAt": "2026-11-01T20:30:39.165Z"
   },
   {
     "id": "backlog-074",
     "title": "Testing: Cloudflare Tunnel Service Status & Health Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Task: Cloudflare Tunnel Service Resilience\n\n**File:** `backend/tests/test_tunnel_service.py`\n**Issue:** Add unit tests for `backend/app/services/tunnel.py` testing tunnel healthcheck, retry, and URL retrieval.\n\n**Objective:**\n1. Create `backend/tests/test_tunnel_service.py`.\n2. Test tunnel URL extraction and graceful fallback when tunnel daemon is unavailable.\n3. Submit PR immediately upon verification.",
-    "sessionId": "17095763623289731358",
-    "dispatchedAt": "2026-10-30T15:04:16.856Z"
+    "sessionId": "3076738408376829764",
+    "dispatchedAt": "2026-11-01T20:01:21.356Z",
+    "completedAt": "2026-11-01T20:12:47.648Z"
   },
   {
     "id": "backlog-075",
     "title": "Testing: RAG Fallback Service Cache & Scoring Tests",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🧪 Testing Task: RAG Fallback Service Cache\n\n**File:** `backend/tests/test_rag_fallback_service.py`\n**Issue:** Add unit tests for `backend/app/services/rag_fallback.py` testing semantic cache hits and relevance scoring.\n\n**Objective:**\n1. Create `backend/tests/test_rag_fallback_service.py`.\n2. Test query caching, similarity threshold checks, and empty fallback handling.\n3. Submit PR immediately upon verification.",
-    "sessionId": "13179186059900717121",
-    "dispatchedAt": "2026-10-30T15:04:18.700Z"
+    "sessionId": "10516123751336809392",
+    "dispatchedAt": "2026-11-01T20:01:23.506Z",
+    "completedAt": "2026-11-01T20:12:26.968Z"
   },
   {
     "id": "backlog-076",
     "title": "Testing: Rigorous Unit & Regression Tests for DirectGemini",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "7478458171901572150",
-    "dispatchedAt": "2026-10-30T15:04:20.851Z"
+    "sessionId": "12184663975093722321",
+    "dispatchedAt": "2026-11-01T20:01:25.554Z",
+    "completedAt": "2026-11-01T20:12:32.265Z"
   },
   {
     "id": "backlog-077",
     "title": "Bolt: Rigorous Unit & Regression Tests for SemanticParser",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for SemanticParser\n\n**File:** `frontend/src/lib/semanticParser.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/semanticParser.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "14621864455093758685",
-    "dispatchedAt": "2026-10-30T15:04:23.608Z"
+    "sessionId": "14430022310798994331",
+    "dispatchedAt": "2026-11-01T19:01:30.150Z",
+    "completedAt": "2026-11-01T19:33:01.713Z"
   },
   {
     "id": "backlog-078",
     "title": "Code Health: Rigorous Unit & Regression Tests for AppSettings",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Code Health Task: Unit & Invariant Tests for AppSettings\n\n**File:** `frontend/src/lib/appSettings.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/appSettings.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "10068198676225253353",
-    "dispatchedAt": "2026-10-30T15:04:25.392Z"
+    "sessionId": "11605748940200370090",
+    "dispatchedAt": "2026-11-01T16:50:14.808Z",
+    "completedAt": "2026-11-01T17:02:10.040Z"
   },
   {
     "id": "backlog-079",
     "title": "Testing: Rigorous Unit & Regression Tests for HospitalMapping",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for HospitalMapping\n\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/hospitalMapping.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "8799076894571788838",
-    "dispatchedAt": "2026-10-30T15:04:28.223Z"
+    "sessionId": "1127312928258073066",
+    "dispatchedAt": "2026-11-01T20:02:40.160Z",
+    "completedAt": "2026-11-01T20:12:42.767Z"
   },
   {
     "id": "backlog-080",
     "title": "Bolt: Rigorous Unit & Regression Tests for CoordinateParser",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for CoordinateParser\n\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/coordinateParser.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "10770563839746927091",
-    "dispatchedAt": "2026-10-30T15:32:36.911Z"
+    "sessionId": "2117745413125099898",
+    "dispatchedAt": "2026-11-01T19:01:33.950Z",
+    "completedAt": "2026-11-01T19:30:35.981Z"
   },
   {
     "id": "backlog-081",
     "title": "Bolt: Rigorous Unit & Regression Tests for MoveDebouncer",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for MoveDebouncer\n\n**File:** `frontend/src/lib/moveDebouncer.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/moveDebouncer.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "3399371501568661245",
-    "dispatchedAt": "2026-10-30T15:32:38.959Z"
+    "sessionId": "3688785263080533279",
+    "dispatchedAt": "2026-11-01T19:01:35.397Z",
+    "completedAt": "2026-11-01T19:13:24.978Z"
   },
   {
     "id": "backlog-082",
     "title": "Performance: Rigorous Unit & Regression Tests for OfflineDb",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Performance Task: Unit & Invariant Tests for OfflineDb\n\n**File:** `frontend/src/lib/offlineDbBench.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/offlineDbBench.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "14247491209558284997",
-    "dispatchedAt": "2026-10-30T15:32:40.290Z"
+    "sessionId": "10246469600587905277",
+    "dispatchedAt": "2026-11-01T19:06:45.139Z",
+    "completedAt": "2026-11-01T19:30:52.070Z"
   },
   {
     "id": "backlog-083",
     "title": "Testing: Rigorous Unit & Regression Tests for DeltaSync",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Create or extend unit tests in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "39457119043555169",
-    "dispatchedAt": "2026-10-30T15:32:42.441Z"
+    "sessionId": "1945675963925775469",
+    "dispatchedAt": "2026-11-01T20:06:50.678Z",
+    "completedAt": "2026-11-01T20:30:53.855Z"
   },
   {
     "id": "backlog-084",
     "title": "Sentinel: Rigorous Unit & Regression Tests for AuthTokenRotation",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Sentinel Task: Unit & Invariant Tests for AuthTokenRotation\n\n**File:** `backend/tests/test_auth_token_rotation.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_auth_token_rotation.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "18082631256030502626",
-    "dispatchedAt": "2026-10-30T15:32:44.388Z"
+    "sessionId": "17003611073739058519",
+    "dispatchedAt": "2026-11-01T18:01:06.606Z",
+    "completedAt": "2026-11-01T18:30:07.939Z"
   },
   {
     "id": "backlog-085",
     "title": "Testing: Rigorous Unit & Regression Tests for FeedbackPipeline",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for FeedbackPipeline\n\n**File:** `backend/tests/test_feedback_pipeline.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_feedback_pipeline.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "9147307732730476259",
-    "dispatchedAt": "2026-10-30T15:32:45.820Z"
+    "sessionId": "15090315290201615075",
+    "dispatchedAt": "2026-11-01T20:12:51.445Z",
+    "completedAt": "2026-11-01T20:42:33.990Z"
   },
   {
     "id": "backlog-086",
     "title": "Testing: Rigorous Unit & Regression Tests for IntentParser",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "8339526483909861100",
-    "dispatchedAt": "2026-10-30T15:32:47.970Z"
+    "sessionId": "8792886696472606608",
+    "dispatchedAt": "2026-11-01T20:12:53.104Z",
+    "completedAt": "2026-11-01T20:30:44.075Z"
   },
   {
     "id": "backlog-087",
     "title": "Bolt: Rigorous Unit & Regression Tests for InventorySearch",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task: Unit & Invariant Tests for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "17490573909165173740",
-    "dispatchedAt": "2026-10-30T15:32:49.506Z"
+    "sessionId": "5821949084993404288",
+    "dispatchedAt": "2026-11-01T19:13:26.078Z",
+    "completedAt": "2026-11-01T19:42:42.526Z"
   },
   {
     "id": "backlog-088",
     "title": "Code Health: Rigorous Unit & Regression Tests for LexiconLearningService",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Code Health Task: Unit & Invariant Tests for LexiconLearningService\n\n**File:** `backend/tests/test_lexicon_service.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_lexicon_service.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "12504136809546719786",
-    "dispatchedAt": "2026-10-30T15:38:24.666Z"
+    "sessionId": "12040168048879926087",
+    "dispatchedAt": "2026-11-01T16:50:16.572Z",
+    "completedAt": "2026-11-01T17:31:58.934Z"
   },
   {
     "id": "backlog-089",
     "title": "Testing: Rigorous Unit & Regression Tests for VoiceWorker",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task: Unit & Invariant Tests for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend unit tests in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "6871699830430204456",
-    "dispatchedAt": "2026-10-30T15:38:26.010Z"
+    "sessionId": "16559898598150946769",
+    "dispatchedAt": "2026-11-01T20:12:54.715Z",
+    "completedAt": "2026-11-01T20:30:23.487Z"
   },
   {
     "id": "backlog-090",
@@ -830,37 +872,41 @@
     "id": "backlog-092",
     "title": "Testing: Rigorous Unit & Regression Tests for UserProfileHook",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for UserProfileHook\n\n**File:** `frontend/src/hooks/useUserProfile.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/hooks/useUserProfile.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "2364139248011174946",
-    "dispatchedAt": "2026-10-30T16:05:58.355Z"
+    "sessionId": "11483388466922319725",
+    "dispatchedAt": "2026-11-01T20:12:56.112Z",
+    "completedAt": "2026-11-01T20:30:48.984Z"
   },
   {
     "id": "backlog-093",
     "title": "Code Health: Rigorous Unit & Regression Tests for AutoUpdateModal",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Code Health Task (Phase 1): Rigorous Unit & Regression Tests for AutoUpdateModal\n\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "14253794340098960211",
-    "dispatchedAt": "2026-10-30T16:05:59.893Z"
+    "sessionId": "2637065536753331030",
+    "dispatchedAt": "2026-11-01T16:50:18.654Z",
+    "completedAt": "2026-11-01T17:31:37.103Z"
   },
   {
     "id": "backlog-094",
     "title": "Bolt: Rigorous Unit & Regression Tests for OmnibarSearch",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task (Phase 1): Rigorous Unit & Regression Tests for OmnibarSearch\n\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/Omnibar.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "1918550171522922353",
-    "dispatchedAt": "2026-10-30T16:06:02.352Z"
+    "sessionId": "4381109510282490480",
+    "dispatchedAt": "2026-11-01T19:13:29.357Z",
+    "completedAt": "2026-11-01T19:30:46.437Z"
   },
   {
     "id": "backlog-095",
     "title": "Testing: Rigorous Unit & Regression Tests for PeerQnAPanel",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for PeerQnAPanel\n\n**File:** `frontend/src/components/PeerQnAPanel.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/PeerQnAPanel.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "14431969618540875393",
-    "dispatchedAt": "2026-10-30T16:06:03.971Z"
+    "sessionId": "11527383127826164908",
+    "dispatchedAt": "2026-11-01T20:12:57.404Z",
+    "completedAt": "2026-11-01T20:30:34.068Z"
   },
   {
     "id": "backlog-096",
@@ -886,10 +932,11 @@
     "id": "backlog-098",
     "title": "Bolt: Rigorous Unit & Regression Tests for ClinicalQueryPlannerService",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task (Phase 1): Rigorous Unit & Regression Tests for ClinicalQueryPlannerService\n\n**File:** `backend/tests/test_clinical_query_planner.py`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `backend/tests/test_clinical_query_planner.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
-    "sessionId": "8198720888367577026",
-    "dispatchedAt": "2026-10-30T16:06:08.491Z"
+    "sessionId": "5576442773426887914",
+    "dispatchedAt": "2026-11-01T19:13:30.791Z",
+    "completedAt": "2026-11-01T20:00:48.515Z"
   },
   {
     "id": "backlog-099",
@@ -1075,140 +1122,252 @@
     "id": "backlog-117",
     "title": "Testing: Invariant, Fuzzing & Boundary Hardening for VoiceWorker",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "8782894357038795289",
+    "dispatchedAt": "2026-11-01T20:12:58.980Z",
+    "completedAt": "2026-11-01T21:30:35.189Z"
   },
   {
     "id": "backlog-118",
     "title": "Testing: Invariant, Fuzzing & Boundary Hardening for PushToTalkHook",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for PushToTalkHook\n\n**File:** `frontend/src/hooks/usePushToTalk.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/hooks/usePushToTalk.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for PushToTalkHook\n\n**File:** `frontend/src/hooks/usePushToTalk.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/hooks/usePushToTalk.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "7198402150094813313",
+    "dispatchedAt": "2026-11-01T20:13:59.137Z",
+    "completedAt": "2026-11-01T20:30:28.768Z"
   },
   {
     "id": "backlog-119",
     "title": "Code Health: Invariant, Fuzzing & Boundary Hardening for WakeLockHook",
     "category": "Code Health",
-    "status": "pending",
-    "prompt": "# 🚀 Code Health Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for WakeLockHook\n\n**File:** `frontend/src/hooks/useWakeLock.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/hooks/useWakeLock.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Code Health Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for WakeLockHook\n\n**File:** `frontend/src/hooks/useWakeLock.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/hooks/useWakeLock.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "10808543049698233466",
+    "dispatchedAt": "2026-11-01T16:50:20.026Z",
+    "completedAt": "2026-11-01T17:32:05.896Z"
   },
   {
     "id": "backlog-120",
     "title": "Testing: Invariant, Fuzzing & Boundary Hardening for UserProfileHook",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for UserProfileHook\n\n**File:** `frontend/src/hooks/useUserProfile.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/hooks/useUserProfile.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for UserProfileHook\n\n**File:** `frontend/src/hooks/useUserProfile.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/hooks/useUserProfile.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "15860711138668753579",
+    "dispatchedAt": "2026-11-01T20:31:09.761Z",
+    "completedAt": "2026-11-01T21:01:04.914Z"
   },
   {
     "id": "backlog-121",
     "title": "Code Health: Invariant, Fuzzing & Boundary Hardening for AutoUpdateModal",
     "category": "Code Health",
-    "status": "pending",
-    "prompt": "# 🚀 Code Health Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for AutoUpdateModal\n\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Code Health Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for AutoUpdateModal\n\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "13669709637751003175",
+    "dispatchedAt": "2026-11-01T16:50:21.882Z",
+    "completedAt": "2026-11-01T16:59:46.894Z"
   },
   {
     "id": "backlog-122",
     "title": "Bolt: Invariant, Fuzzing & Boundary Hardening for OmnibarSearch",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for OmnibarSearch\n\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/components/Omnibar.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for OmnibarSearch\n\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/components/Omnibar.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "17601836950796065664",
+    "dispatchedAt": "2026-11-01T19:31:13.267Z",
+    "completedAt": "2026-11-01T19:42:31.882Z"
   },
   {
     "id": "backlog-123",
     "title": "Testing: Invariant, Fuzzing & Boundary Hardening for PeerQnAPanel",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for PeerQnAPanel\n\n**File:** `frontend/src/components/PeerQnAPanel.test.tsx`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/components/PeerQnAPanel.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for PeerQnAPanel\n\n**File:** `frontend/src/components/PeerQnAPanel.test.tsx`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/components/PeerQnAPanel.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11206946641970392046",
+    "dispatchedAt": "2026-11-01T20:31:11.203Z",
+    "completedAt": "2026-11-01T20:36:46.349Z"
   },
   {
     "id": "backlog-124",
     "title": "Performance: Invariant, Fuzzing & Boundary Hardening for SyncEngineOutbox",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Performance Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for SyncEngineOutbox\n\n**File:** `frontend/src/lib/syncEngine.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/lib/syncEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Performance Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for SyncEngineOutbox\n\n**File:** `frontend/src/lib/syncEngine.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/lib/syncEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "9419121537869719509",
+    "dispatchedAt": "2026-11-01T19:31:15.185Z",
+    "completedAt": "2026-11-01T20:00:43.445Z"
   },
   {
     "id": "backlog-125",
     "title": "Sentinel: Invariant, Fuzzing & Boundary Hardening for ResourceManagerChecksum",
     "category": "Security",
-    "status": "pending",
-    "prompt": "# 🚀 Sentinel Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for ResourceManagerChecksum\n\n**File:** `frontend/src/lib/resourceManager.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/lib/resourceManager.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Sentinel Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for ResourceManagerChecksum\n\n**File:** `frontend/src/lib/resourceManager.test.ts`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `frontend/src/lib/resourceManager.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "13695583603711646019",
+    "dispatchedAt": "2026-11-01T18:06:53.949Z",
+    "completedAt": "2026-11-01T18:34:04.666Z"
   },
   {
     "id": "backlog-126",
     "title": "Bolt: Invariant, Fuzzing & Boundary Hardening for ClinicalQueryPlannerService",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for ClinicalQueryPlannerService\n\n**File:** `backend/tests/test_clinical_query_planner.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_clinical_query_planner.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for ClinicalQueryPlannerService\n\n**File:** `backend/tests/test_clinical_query_planner.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_clinical_query_planner.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "17827496663551523410",
+    "dispatchedAt": "2026-11-01T19:31:16.929Z",
+    "completedAt": "2026-11-01T20:00:31.534Z"
   },
   {
     "id": "backlog-127",
     "title": "Bolt: Invariant, Fuzzing & Boundary Hardening for SurgicalOntologyService",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for SurgicalOntologyService\n\n**File:** `backend/tests/test_surgical_ontology.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_surgical_ontology.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for SurgicalOntologyService\n\n**File:** `backend/tests/test_surgical_ontology.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_surgical_ontology.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "9561578479785544173",
+    "dispatchedAt": "2026-11-01T19:33:21.680Z",
+    "completedAt": "2026-11-01T20:00:38.006Z"
   },
   {
     "id": "backlog-128",
     "title": "Sentinel: Invariant, Fuzzing & Boundary Hardening for ScrubberService",
     "category": "Security",
-    "status": "pending",
-    "prompt": "# 🚀 Sentinel Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for ScrubberService\n\n**File:** `backend/tests/test_scrubber_service.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_scrubber_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Sentinel Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for ScrubberService\n\n**File:** `backend/tests/test_scrubber_service.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_scrubber_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "6995211074110661625",
+    "dispatchedAt": "2026-11-01T18:30:39.471Z",
+    "completedAt": "2026-11-01T19:06:43.804Z"
   },
   {
     "id": "backlog-129",
     "title": "Sentinel: Invariant, Fuzzing & Boundary Hardening for ChatRouterMultiTenant",
     "category": "Security",
-    "status": "pending",
-    "prompt": "# 🚀 Sentinel Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Sentinel Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "256740197074344236",
+    "dispatchedAt": "2026-11-01T18:30:40.701Z",
+    "completedAt": "2026-11-01T19:00:39.496Z"
   },
   {
     "id": "backlog-130",
     "title": "Testing: Invariant, Fuzzing & Boundary Hardening for VoiceRouterLiveKit",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for VoiceRouterLiveKit\n\n**File:** `backend/tests/test_voice_router.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_voice_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for VoiceRouterLiveKit\n\n**File:** `backend/tests/test_voice_router.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_voice_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "12172620582134876223",
+    "dispatchedAt": "2026-11-01T20:31:12.514Z",
+    "completedAt": "2026-11-01T20:42:29.004Z"
   },
   {
     "id": "backlog-131",
     "title": "Sentinel: Invariant, Fuzzing & Boundary Hardening for LimiterConcurrencyThrottling",
     "category": "Security",
-    "status": "pending",
-    "prompt": "# 🚀 Sentinel Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for LimiterConcurrencyThrottling\n\n**File:** `backend/tests/test_limiter_concurrency.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_limiter_concurrency.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Sentinel Task (Phase 2): Invariant, Fuzzing & Boundary Hardening for LimiterConcurrencyThrottling\n\n**File:** `backend/tests/test_limiter_concurrency.py`\n**Objective:**\n1. Create or extend fuzzing, boundary inputs, malformed payload resilience, and strict schema validation in `backend/tests/test_limiter_concurrency.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1327022089386785078",
+    "dispatchedAt": "2026-11-01T18:30:43.273Z",
+    "completedAt": "2026-11-01T19:00:34.743Z"
   },
   {
     "id": "backlog-132",
     "title": "Testing: High-Concurrency & Stress Benchmarks for DirectGemini",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "6695686528731991675",
+    "dispatchedAt": "2026-11-01T20:31:15.070Z",
+    "completedAt": "2026-11-01T20:36:51.480Z"
   },
   {
     "id": "backlog-133",
     "title": "Bolt: High-Concurrency & Stress Benchmarks for SemanticParser",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Phase 3): High-Concurrency & Stress Benchmarks for SemanticParser\n\n**File:** `frontend/src/lib/semanticParser.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/semanticParser.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 3): High-Concurrency & Stress Benchmarks for SemanticParser\n\n**File:** `frontend/src/lib/semanticParser.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/semanticParser.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "13127217929300835521",
+    "dispatchedAt": "2026-11-01T19:36:49.522Z",
+    "completedAt": "2026-11-01T20:02:36.322Z"
   },
   {
     "id": "backlog-134",
     "title": "Code Health: High-Concurrency & Stress Benchmarks for AppSettings",
     "category": "Code Health",
-    "status": "pending",
-    "prompt": "# 🚀 Code Health Task (Phase 3): High-Concurrency & Stress Benchmarks for AppSettings\n\n**File:** `frontend/src/lib/appSettings.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/appSettings.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Code Health Task (Phase 3): High-Concurrency & Stress Benchmarks for AppSettings\n\n**File:** `frontend/src/lib/appSettings.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/appSettings.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "15382301331022508769",
+    "dispatchedAt": "2026-11-01T16:50:24.584Z",
+    "completedAt": "2026-11-01T17:33:09.978Z"
   },
   {
     "id": "backlog-135",
     "title": "Testing: High-Concurrency & Stress Benchmarks for HospitalMapping",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for HospitalMapping\n\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/hospitalMapping.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for HospitalMapping\n\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/hospitalMapping.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "64812691308818105",
+    "dispatchedAt": "2026-11-01T20:31:16.669Z",
+    "completedAt": "2026-11-01T20:42:44.149Z"
   },
   {
     "id": "backlog-136",
     "title": "Bolt: High-Concurrency & Stress Benchmarks for CoordinateParser",
     "category": "Performance",
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 3): High-Concurrency & Stress Benchmarks for CoordinateParser\n\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/coordinateParser.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "15919035396431355010",
+    "dispatchedAt": "2026-11-01T19:42:51.191Z",
+    "completedAt": "2026-11-01T20:00:14.054Z"
+  },
+  {
+    "id": "backlog-137",
+    "title": "Bolt: High-Concurrency & Stress Benchmarks for MoveDebouncer",
+    "category": "Performance",
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 3): High-Concurrency & Stress Benchmarks for MoveDebouncer\n\n**File:** `frontend/src/lib/moveDebouncer.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/moveDebouncer.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "18083731207269450323",
+    "dispatchedAt": "2026-11-01T21:01:47.165Z",
+    "completedAt": "2026-11-01T21:12:33.028Z"
+  },
+  {
+    "id": "backlog-138",
+    "title": "Performance: High-Concurrency & Stress Benchmarks for OfflineDb",
+    "category": "Performance",
     "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Phase 3): High-Concurrency & Stress Benchmarks for CoordinateParser\n\n**File:** `frontend/src/lib/coordinateParser.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/coordinateParser.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "prompt": "# 🚀 Performance Task (Phase 3): High-Concurrency & Stress Benchmarks for OfflineDb\n\n**File:** `frontend/src/lib/offlineDbBench.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/offlineDbBench.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-139",
+    "title": "Testing: High-Concurrency & Stress Benchmarks for DeltaSync",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-140",
+    "title": "Sentinel: High-Concurrency & Stress Benchmarks for AuthTokenRotation",
+    "category": "Security",
+    "status": "pending",
+    "prompt": "# 🚀 Sentinel Task (Phase 3): High-Concurrency & Stress Benchmarks for AuthTokenRotation\n\n**File:** `backend/tests/test_auth_token_rotation.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_auth_token_rotation.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-141",
+    "title": "Testing: High-Concurrency & Stress Benchmarks for FeedbackPipeline",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for FeedbackPipeline\n\n**File:** `backend/tests/test_feedback_pipeline.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_feedback_pipeline.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-142",
+    "title": "Testing: High-Concurrency & Stress Benchmarks for IntentParser",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-143",
+    "title": "Bolt: High-Concurrency & Stress Benchmarks for InventorySearch",
+    "category": "Performance",
+    "status": "pending",
+    "prompt": "# 🚀 Bolt Task (Phase 3): High-Concurrency & Stress Benchmarks for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]

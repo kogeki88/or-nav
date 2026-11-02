@@ -271,11 +271,18 @@ def learn_alias(
     if not norm_term or not canonical_item:
         raise ValueError("Both spoken_term and canonical_item are required.")
 
-    import fcntl
+    try:
+        import fcntl
+        has_fcntl = True
+    except ImportError:
+        fcntl = None
+        has_fcntl = False
+
     path = _get_facility_lexicon_path(facility_id)
     lock_path = path.with_suffix(".lock")
     with open(lock_path, "w") as lock_file:
-        fcntl.flock(lock_file, fcntl.LOCK_EX)
+        if has_fcntl and fcntl:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
         try:
             entries = load_facility_lexicon(facility_id)
             existing_entry: Optional[dict] = None
@@ -329,7 +336,8 @@ def learn_alias(
             save_facility_lexicon(facility_id, entries)
             return new_entry
         finally:
-            fcntl.flock(lock_file, fcntl.LOCK_UN)
+            if has_fcntl and fcntl:
+                fcntl.flock(lock_file, fcntl.LOCK_UN)
 
 
 def resolve_spoken_alias(facility_id: str, query: str) -> Optional[dict]:

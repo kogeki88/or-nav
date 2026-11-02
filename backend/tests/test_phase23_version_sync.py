@@ -31,7 +31,7 @@ def test_api_version_endpoint():
 
     assert data["version"] in [
         "v0.1", "v0.2", "v0.3", "v0.31", "v0.4", "v0.41", "v0.5", "v0.51", "v0.52", "v0.53",
-        "v0.54", "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62"
+        "v0.54", "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62", "v0.63"
     ]
     assert data["build_number"] >= 1
     assert "release_date" in data
@@ -50,7 +50,7 @@ def test_public_version_json_file():
     data = json.loads(version_file.read_text(encoding="utf-8"))
     assert data["version"] in [
         "v0.1", "v0.2", "v0.3", "v0.31", "v0.4", "v0.41", "v0.5", "v0.51", "v0.52", "v0.53",
-        "v0.54", "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62"
+        "v0.54", "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62", "v0.63"
     ]
     assert data["build_number"] >= 1
     assert "apk_download_url" in data

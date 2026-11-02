@@ -237,13 +237,31 @@ export function titleCaseTerm(term: string): string {
     .join(" ");
 }
 
-export function loadFacilityLexicon(facilityId: string): LearnedAliasEntry[] {
-  if (typeof window === "undefined") {
-    return DEFAULT_PRESEEDED_LEXICONS[facilityId] || [];
+const memStorage = new Map<string, string>();
+
+function safeGetItem(key: string): string | null {
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    try {
+      return localStorage.getItem(key);
+    } catch {}
   }
+  return memStorage.get(key) || null;
+}
+
+function safeSetItem(key: string, val: string): void {
+  if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+    try {
+      localStorage.setItem(key, val);
+      return;
+    } catch {}
+  }
+  memStorage.set(key, val);
+}
+
+export function loadFacilityLexicon(facilityId: string): LearnedAliasEntry[] {
   const key = `ornav_learned_lexicon_${facilityId}`;
   try {
-    const saved = localStorage.getItem(key);
+    const saved = safeGetItem(key);
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -255,16 +273,15 @@ export function loadFacilityLexicon(facilityId: string): LearnedAliasEntry[] {
   // Fallback to pre-seeded defaults
   const defaults = DEFAULT_PRESEEDED_LEXICONS[facilityId] || [];
   try {
-    localStorage.setItem(key, JSON.stringify(defaults));
+    safeSetItem(key, JSON.stringify(defaults));
   } catch {}
   return defaults;
 }
 
 export function saveFacilityLexicon(facilityId: string, entries: LearnedAliasEntry[]): void {
-  if (typeof window === "undefined") return;
   const key = `ornav_learned_lexicon_${facilityId}`;
   try {
-    localStorage.setItem(key, JSON.stringify(entries));
+    safeSetItem(key, JSON.stringify(entries));
   } catch {}
 }
 

@@ -14,6 +14,8 @@ import {
   offlineDb,
   selfHealOfflineDatabase,
   hydrateOrUpgradeOfflineInventory,
+  getOfflineInventory,
+  getOfflinePreferenceCards,
   type OfflineInventoryRecord,
 } from "./offlineDb";
 import {
@@ -1283,6 +1285,10 @@ export async function addInventoryItemStandalone(
         tenant_id: tenantId,
         aliases: combinedAliases,
         surgeon_notes: surgeonNotes || existing.surgeon_notes || "",
+        status: "user_added",
+        isCustomEdited: true,
+        deleted: false,
+        updatedAt: Date.now(),
       });
     } else {
       await db.inventoryItems.add({
@@ -1291,6 +1297,10 @@ export async function addInventoryItemStandalone(
         tenant_id: tenantId,
         aliases: aliases || "",
         normalized_name: item.trim().toLowerCase(),
+        status: "user_added",
+        isCustomEdited: true,
+        deleted: false,
+        updatedAt: Date.now(),
       });
     }
   }
@@ -1326,29 +1336,38 @@ async function matchOnDeviceKnowledgePacks(
 
     // 1. Preference Cards & Relational Inventory Join via 3-Layer Unified Clinical Query Planner
     let cardsList: any[] = [];
-    const cardsPack = installedPacksList.find(
-      (p) =>
-        p.filePath.endsWith("preference_cards.json") &&
-        (p.facilityId === targetFacility || p.facilityId === facId)
-    );
-    if (cardsPack && cardsPack.content) {
+    if (offlineDb) {
       try {
-        cardsList = JSON.parse(cardsPack.content);
+        cardsList = await getOfflinePreferenceCards(tenantId);
       } catch {}
+    }
+    if (!cardsList || cardsList.length === 0) {
+      const cardsPack = installedPacksList.find(
+        (p) =>
+          p.filePath.endsWith("preference_cards.json") &&
+          (p.facilityId === targetFacility || p.facilityId === facId)
+      );
+      if (cardsPack && cardsPack.content) {
+        try {
+          cardsList = JSON.parse(cardsPack.content);
+        } catch {}
+      }
     }
     if (!cardsList || cardsList.length === 0) {
       cardsList = getSeedPreferenceCards(tenantId);
     }
+    cardsList = (cardsList || []).filter((c) => !c.deleted);
 
     let deptInventoryRows: OfflineInventoryRecord[] = [];
     if (offlineDb) {
       try {
-        deptInventoryRows = await offlineDb.inventoryItems.where("tenant_id").equals(tenantId).toArray();
+        deptInventoryRows = await getOfflineInventory(tenantId);
       } catch {}
     }
     if (!deptInventoryRows || deptInventoryRows.length === 0) {
       deptInventoryRows = getSeedInventoryItems(tenantId) as OfflineInventoryRecord[];
     }
+    deptInventoryRows = (deptInventoryRows || []).filter((r) => !r.deleted);
 
     const tenantGraph = compileClinicalGraph(tenantId, cardsList, deptInventoryRows);
     const clinicalPlan = planClinicalQuery(processedText, tenantGraph, tenantId);

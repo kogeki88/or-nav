@@ -1,6 +1,6 @@
 /**
  * OR-Nav Official Application Versioning Configuration
- * Version: v0.4
+ * Version: v0.63
  */
 
 export interface VersionManifest {
@@ -12,9 +12,9 @@ export interface VersionManifest {
   changelog: string;
 }
 
-export const CURRENT_VERSION = "v0.62";
-export const CURRENT_BUILD_NUMBER = 19;
-export const CURRENT_RELEASE_DATE = "2026-10-29";
+export const CURRENT_VERSION = "v0.63";
+export const CURRENT_BUILD_NUMBER = 20;
+export const CURRENT_RELEASE_DATE = "2026-11-01";
 
 export const GITHUB_REPO_OWNER = "kogeki88";
 export const GITHUB_REPO_NAME = "or-nav";
@@ -29,7 +29,7 @@ export const LOCAL_VERSION_MANIFEST: VersionManifest = {
   apk_download_url: CLOUD_APK_DOWNLOAD_URL,
   min_supported_version: "v0.1",
   changelog:
-    "v0.62 (Build 19): Unified 3-Layer Clinical Query Planner & Relational Graph Engine — auto-compiled clinical vocabulary index, deterministic surgeon/procedure/facet decomposition, and relational preference-to-inventory coordinate joins.",
+    "v0.63 (Build 20): Interactive 4-Tab Installed Resources Explorer & Inline Editor Studio (Inventory, Preference Cards with relational stock badges, Slang/Aliases, Protocols & JSON Backup), Dexie v8 CRUD with edit/tombstone protection, Unified Clinical Query Planner, and decluttered Sidebar UI.",
 };
 
 /**
@@ -52,16 +52,17 @@ export function isNewerVersion(
     return remoteBuild > localBuild;
   }
 
-  // 2. Fallback: Semantic version comparison if build_number is missing
-  const parse = (v: string): number[] => {
-    const raw = v.trim().replace(/^v/i, "");
-    return raw.split(".").map((n) => parseInt(n, 10) || 0);
-  };
+  // 2. Fallback: Parse major.minor.patch numeric tags
+  const clean = (v: string) => v.replace(/^v/, "").trim();
+  const rParts = clean(remoteVersion).split(".").map((n) => parseInt(n, 10) || 0);
+  const lParts = clean(localVersion).split(".").map((n) => parseInt(n, 10) || 0);
 
-  const [rMajor = 0, rMinor = 0, rPatch = 0] = parse(remoteVersion);
-  const [lMajor = 0, lMinor = 0, lPatch = 0] = parse(localVersion);
+  for (let i = 0; i < Math.max(rParts.length, lParts.length); i++) {
+    const r = rParts[i] || 0;
+    const l = lParts[i] || 0;
+    if (r > l) return true;
+    if (r < l) return false;
+  }
 
-  if (rMajor !== lMajor) return rMajor > lMajor;
-  if (rMinor !== lMinor) return rMinor > lMinor;
-  return rPatch > lPatch;
+  return false;
 }

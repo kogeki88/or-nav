@@ -1,3 +1,6 @@
 # Custom merge driver for Jules autonomous agent devlogs and journals
 .jules/*.md merge=union
 .jules/**/*.md merge=union
+
+# Hospital packs must strictly keep LF byte size parity
+hospitals/** text eol=lf

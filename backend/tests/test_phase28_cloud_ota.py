@@ -26,16 +26,16 @@ def test_phase28_manifest_metadata():
     data = json.loads(v_path.read_text(encoding="utf-8"))
     assert data["version"] in [
         "v0.41", "v0.5", "v0.51", "v0.52", "v0.53", "v0.54",
-        "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62"
+        "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62", "v0.63"
     ]
-    assert data["build_number"] in [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    assert data["build_number"] in [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     assert data["apk_download_url"] == "https://github.com/kogeki88/or-nav/releases/latest/download/or-nav.apk"
     assert (
         "github" in data["changelog"].lower() or "ota" in data["changelog"].lower() or
         "v0.5" in data["changelog"].lower() or "v0.56" in data["changelog"].lower() or
         "v0.58" in data["changelog"].lower() or "v0.59" in data["changelog"].lower() or
         "v0.60" in data["changelog"].lower() or "v0.61" in data["changelog"].lower() or
-        "v0.62" in data["changelog"].lower()
+        "v0.62" in data["changelog"].lower() or "v0.63" in data["changelog"].lower()
     )
 
 
@@ -46,9 +46,9 @@ def test_phase28_api_version_endpoint():
     data = res.json()
     assert data["version"] in [
         "v0.41", "v0.5", "v0.51", "v0.52", "v0.53", "v0.54",
-        "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62"
+        "v0.55", "v0.56", "v0.57", "v0.58", "v0.59", "v0.60", "v0.61", "v0.62", "v0.63"
     ]
-    assert data["build_number"] in [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    assert data["build_number"] in [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     assert data["apk_download_url"].startswith("https://github.com/kogeki88/or-nav/releases")
 
 
@@ -57,8 +57,8 @@ def test_phase28_version_ts_constants():
     ts_path = ROOT_DIR / "frontend" / "src" / "lib" / "version.ts"
     assert ts_path.exists()
     content = ts_path.read_text(encoding="utf-8")
-    assert 'CURRENT_VERSION = "v0.62"' in content or 'CURRENT_VERSION = "v0.61"' in content or 'CURRENT_VERSION = "v0.60"' in content or 'CURRENT_VERSION = "v0.59"' in content or 'CURRENT_VERSION = "v0.58"' in content or 'CURRENT_VERSION = "v0.57"' in content or 'CURRENT_VERSION = "v0.56"' in content or 'CURRENT_VERSION = "v0.55"' in content or 'CURRENT_VERSION = "v0.54"' in content or 'CURRENT_VERSION = "v0.53"' in content or 'CURRENT_VERSION = "v0.52"' in content or 'CURRENT_VERSION = "v0.51"' in content or 'CURRENT_VERSION = "v0.5"' in content or 'CURRENT_VERSION = "v0.41"' in content
-    assert "CURRENT_BUILD_NUMBER = 19" in content or "CURRENT_BUILD_NUMBER = 18" in content or "CURRENT_BUILD_NUMBER = 17" in content or "CURRENT_BUILD_NUMBER = 16" in content or "CURRENT_BUILD_NUMBER = 15" in content or "CURRENT_BUILD_NUMBER = 14" in content or "CURRENT_BUILD_NUMBER = 13" in content or "CURRENT_BUILD_NUMBER = 12" in content or "CURRENT_BUILD_NUMBER = 11" in content or "CURRENT_BUILD_NUMBER = 10" in content or "CURRENT_BUILD_NUMBER = 9" in content or "CURRENT_BUILD_NUMBER = 8" in content or "CURRENT_BUILD_NUMBER = 7" in content or "CURRENT_BUILD_NUMBER = 6" in content
+    assert 'CURRENT_VERSION = "v0.63"' in content or 'CURRENT_VERSION = "v0.62"' in content or 'CURRENT_VERSION = "v0.61"' in content or 'CURRENT_VERSION = "v0.60"' in content or 'CURRENT_VERSION = "v0.59"' in content or 'CURRENT_VERSION = "v0.58"' in content or 'CURRENT_VERSION = "v0.57"' in content or 'CURRENT_VERSION = "v0.56"' in content or 'CURRENT_VERSION = "v0.55"' in content or 'CURRENT_VERSION = "v0.54"' in content or 'CURRENT_VERSION = "v0.53"' in content or 'CURRENT_VERSION = "v0.52"' in content or 'CURRENT_VERSION = "v0.51"' in content or 'CURRENT_VERSION = "v0.5"' in content or 'CURRENT_VERSION = "v0.41"' in content
+    assert "CURRENT_BUILD_NUMBER = 20" in content or "CURRENT_BUILD_NUMBER = 19" in content or "CURRENT_BUILD_NUMBER = 18" in content or "CURRENT_BUILD_NUMBER = 17" in content or "CURRENT_BUILD_NUMBER = 16" in content or "CURRENT_BUILD_NUMBER = 15" in content or "CURRENT_BUILD_NUMBER = 14" in content or "CURRENT_BUILD_NUMBER = 13" in content or "CURRENT_BUILD_NUMBER = 12" in content or "CURRENT_BUILD_NUMBER = 11" in content or "CURRENT_BUILD_NUMBER = 10" in content or "CURRENT_BUILD_NUMBER = 9" in content or "CURRENT_BUILD_NUMBER = 8" in content or "CURRENT_BUILD_NUMBER = 7" in content or "CURRENT_BUILD_NUMBER = 6" in content
     assert 'GITHUB_REPO_OWNER = "kogeki88"' in content
     assert 'GITHUB_REPO_NAME = "or-nav"' in content
     assert "CLOUD_MANIFEST_URL" in content

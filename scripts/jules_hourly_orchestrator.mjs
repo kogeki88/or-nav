@@ -425,7 +425,12 @@ async function auditAndUnblockSessions(apiKey) {
         const actRes = await julesFetch(`https://jules.googleapis.com/v1alpha/sessions/${s.id}/activities`, apiKey);
         const acts = actRes.activities || [];
         const userCount = acts.filter(a => a.originator === 'user').length;
-        if (userCount >= 4 && ageHours > 2) {
+        const lastAgentAct = acts.slice().reverse().find(a => a.originator === 'agent');
+        const lastAgentTimeMs = lastAgentAct?.createTime ? new Date(lastAgentAct.createTime).getTime() : 0;
+        const agentSilenceHours = lastAgentTimeMs ? (nowMs - lastAgentTimeMs) / (1000 * 60 * 60) : ageHours;
+        const sessionAgeHours = s.createTime ? (nowMs - new Date(s.createTime).getTime()) / (1000 * 60 * 60) : ageHours;
+
+        if (userCount >= 4 && (agentSilenceHours > 1 || sessionAgeHours > 2 || userCount >= 6)) {
           isStalled = true;
         }
       } catch (e) {}
@@ -810,7 +815,7 @@ async function replenishPool(apiKey, currentActive) {
 
   backlog = ensureBacklogCapacity(backlog, needed);
 
-  const CATEGORY_PRIORITY = { 'Security': 1, 'Performance': 2, 'Code Health': 3, 'Testing': 4 };
+  const CATEGORY_PRIORITY = { 'Code Health': 1, 'Security': 2, 'Performance': 3, 'Testing': 4 };
   const pendingTasks = backlog
     .filter(t => t.status === 'pending')
     .sort((a, b) => {

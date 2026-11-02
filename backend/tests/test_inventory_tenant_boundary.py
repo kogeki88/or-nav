@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.config import get_tenant
+from app.services.inventory_search import reset_inventory_services
 
 client = TestClient(app)
 
@@ -19,8 +20,8 @@ def test_inventory_tenant_boundary_prevents_cross_tenant_injection():
     tenant_2_config = get_tenant(tenant_2)
 
     # original state
-    t1_inv = tenant_1_config.inventory_path.read_text()
-    t2_inv = tenant_2_config.inventory_path.read_text()
+    t1_inv = tenant_1_config.inventory_path.read_text(encoding="utf-8")
+    t2_inv = tenant_2_config.inventory_path.read_text(encoding="utf-8")
 
     try:
         csv_content = """item,category,room,cabinet,shelf,container
@@ -36,8 +37,8 @@ MaliciousItem,Instruments,Room1,Cab1,Shelf1,Cont1
         assert r.status_code == 400
 
         # Verify both tenants were NOT modified
-        assert tenant_1_config.inventory_path.read_text() == t1_inv
-        assert tenant_2_config.inventory_path.read_text() == t2_inv
+        assert tenant_1_config.inventory_path.read_text(encoding="utf-8") == t1_inv
+        assert tenant_2_config.inventory_path.read_text(encoding="utf-8") == t2_inv
 
         # Test 2: Upload CSV that contains records belonging to a different tenant/facility
         malicious_cross_tenant_csv = """item,category,room,cabinet,shelf,container,tenant_id
@@ -54,8 +55,8 @@ CrossFacilityItem,Instruments,Room1,Cab1,Shelf1,Cont1,county_general::er_trauma
         assert r.status_code == 400
 
         # Verify both tenants were NOT modified
-        assert tenant_1_config.inventory_path.read_text() == t1_inv
-        assert tenant_2_config.inventory_path.read_text() == t2_inv
+        assert tenant_1_config.inventory_path.read_text(encoding="utf-8") == t1_inv
+        assert tenant_2_config.inventory_path.read_text(encoding="utf-8") == t2_inv
 
         # Test 3: Upload correctly to tenant 1
         r = client.post(
@@ -66,12 +67,13 @@ CrossFacilityItem,Instruments,Room1,Cab1,Shelf1,Cont1,county_general::er_trauma
         assert r.status_code == 200
 
         # Verify tenant 2 was NOT modified
-        assert tenant_2_config.inventory_path.read_text() == t2_inv
+        assert tenant_2_config.inventory_path.read_text(encoding="utf-8") == t2_inv
 
         # Verify tenant 1 WAS modified
-        assert "MaliciousItem" in tenant_1_config.inventory_path.read_text()
-        assert "MaliciousItem" not in tenant_2_config.inventory_path.read_text()
+        assert "MaliciousItem" in tenant_1_config.inventory_path.read_text(encoding="utf-8")
+        assert "MaliciousItem" not in tenant_2_config.inventory_path.read_text(encoding="utf-8")
 
     finally:
-        tenant_1_config.inventory_path.write_text(t1_inv)
-        tenant_2_config.inventory_path.write_text(t2_inv)
+        tenant_1_config.inventory_path.write_text(t1_inv, encoding="utf-8")
+        tenant_2_config.inventory_path.write_text(t2_inv, encoding="utf-8")
+        reset_inventory_services()

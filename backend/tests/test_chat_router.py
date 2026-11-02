@@ -61,6 +61,14 @@ class TestChatRouterMultiTenant:
         import app.services.lexicon_learning
         monkeypatch.setattr(app.services.lexicon_learning, "HOSPITALS_DIR", tmp_hospitals)
 
+        from app.services.inventory_search import reset_inventory_services
+        from app.services.clinical_graph import reset_clinical_graphs
+        reset_inventory_services()
+        reset_clinical_graphs()
+        yield
+        reset_inventory_services()
+        reset_clinical_graphs()
+
     @pytest.fixture(autouse=True)
     def enforce_offline_first(self, monkeypatch):
         """Poison httpx instead of socket, to avoid breaking ASGI loop creation."""
