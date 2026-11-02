@@ -265,3 +265,81 @@ test('renders error banner when submission throws an exception', async () => {
         assert.ok(screen.getByText('❌ Failed to submit feedback. Please try again.'));
     });
 });
+test('multi-tenant isolation invariant: fetchFeedbackItems called with correct tenantId', async () => {
+    const onCloseMock = mock.fn();
+    const fetchFeedbackItemsMock = mock.fn(async () => []);
+
+    const IsolatedFeedbackModalMod = proxyquire('./FeedbackModal', {
+        '@/lib/gamification': {
+            awardClinicalXP: mock.fn()
+        },
+        '@/lib/auth': {
+            isAdminUser: mock.fn(() => true), // Mock as admin
+            getCurrentSession: mock.fn(() => null)
+        },
+        '@/lib/feedbackEngine': {
+            submitManualFeedback: mock.fn(),
+            fetchFeedbackItems: fetchFeedbackItemsMock,
+            upvoteFeedback: mock.fn(),
+            updateFeedbackStatus: mock.fn(),
+            FEEDBACK_EVENT_NAME: 'feedback_updated'
+        }
+    });
+
+    const IsolatedFeedbackModal = IsolatedFeedbackModalMod.FeedbackModal;
+    render(<IsolatedFeedbackModal isOpen={true} onClose={onCloseMock} userProfile={dummyProfile} />);
+
+    await waitFor(() => {
+        assert.ok(screen.getByTestId('tab-recommendations-hub'));
+    });
+
+    const triageTab = screen.getByTestId('tab-recommendations-hub');
+    fireEvent.click(triageTab);
+
+    await waitFor(() => {
+        const calls = fetchFeedbackItemsMock.mock.calls;
+        assert.ok(calls.length > 0, 'fetchFeedbackItems should have been called');
+
+        let found = false;
+        for (const call of calls) {
+            if (call.arguments[0] && call.arguments[0].tenantId === 'facility-1::dept-1') {
+                found = true;
+                break;
+            }
+        }
+        assert.ok(found, 'fetchFeedbackItems was not called with the correct tenantId.');
+    });
+});
+
+test('offline-first invariant: handles fetch rejection gracefully and displays offline message', async () => {
+    const onCloseMock = mock.fn();
+
+    const originalFetch = global.fetch;
+    global.fetch = mock.fn(async () => { throw new Error('Network offline'); }) as any;
+
+    Object.defineProperty(navigator, 'onLine', {
+      value: false,
+      configurable: true
+    });
+
+    render(<FeedbackModal isOpen={true} onClose={onCloseMock} userProfile={dummyProfile} />);
+
+    window.dispatchEvent(new Event('offline'));
+
+    const textarea = screen.getByTestId('feedback-input-text');
+    fireEvent.change(textarea, { target: { value: 'Test offline first behavior' } });
+
+    const submitBtn = screen.getByTestId('btn-submit-feedback');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.ok(screen.getByText('Saved offline. Will sync when connected.'));
+    });
+
+    Object.defineProperty(navigator, 'onLine', {
+      value: true,
+      configurable: true
+    });
+    global.fetch = originalFetch;
+});

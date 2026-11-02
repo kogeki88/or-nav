@@ -57,7 +57,10 @@ export function FeedbackModal({
   const reloadFeedback = async () => {
     if (!isAdmin) return;
     try {
-      const items = await fetchFeedbackItems({ sortBy: "priority" });
+      const fac = session?.profile?.facilityId || userProfile?.facilityId || "sacred_heart";
+      const dept = session?.profile?.departmentId || userProfile?.departmentId || "or";
+      const tenantId = `${fac}::${dept}`;
+      const items = await fetchFeedbackItems({ sortBy: "priority", tenantId });
       setFeedbackList(items);
     } catch (e) {
       console.warn("Failed to load feedback items:", e);
