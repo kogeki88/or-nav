@@ -256,21 +256,24 @@ describe("Dexie Benchmarks", () => {
   });
 
   test("multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency", async () => {
-    const db = new BenchmarkDB();
+    const originalFetch = global.fetch;
+    global.fetch = undefined as any; // Enforce offline-first invariant
+    try {
+      const db = new BenchmarkDB();
 
-    // Insert items with complex tenant IDs (facility::dept)
-    const items = [
-      { id: "fac1::deptA::1", tenant_id: "fac1::deptA", item: "Item 1", status: "verified" },
-      { id: "fac1::deptA::2", tenant_id: "fac1::deptA", item: "Item 2", status: "verified" },
-      { id: "fac1::deptB::1", tenant_id: "fac1::deptB", item: "Item 3", status: "verified" },
-      { id: "fac2::deptA::1", tenant_id: "fac2::deptA", item: "Item 4", status: "verified" },
-    ];
-    await db.inventoryItems.bulkPut(items);
+      // Insert items with complex tenant IDs (facility::dept)
+      const items = [
+        { id: "fac1::deptA::1", tenant_id: "fac1::deptA", item: "Item 1", status: "verified" },
+        { id: "fac1::deptA::2", tenant_id: "fac1::deptA", item: "Item 2", status: "verified" },
+        { id: "fac1::deptB::1", tenant_id: "fac1::deptB", item: "Item 3", status: "verified" },
+        { id: "fac2::deptA::1", tenant_id: "fac2::deptA", item: "Item 4", status: "verified" },
+      ];
+      await db.inventoryItems.bulkPut(items);
 
-    // Query for exactly one tenant ID and verify isolation
-    const fac1DeptAItems = await db.inventoryItems.where("tenant_id").equals("fac1::deptA").toArray();
-    assert.strictEqual(fac1DeptAItems.length, 2, "Should retrieve exactly items for fac1::deptA");
-    assert.ok(fac1DeptAItems.every(i => i.tenant_id === "fac1::deptA"), "Strictly isolates from fac1::deptB and fac2::deptA");
+      // Query for exactly one tenant ID and verify isolation
+      const fac1DeptAItems = await db.inventoryItems.where("tenant_id").equals("fac1::deptA").toArray();
+      assert.strictEqual(fac1DeptAItems.length, 2, "Should retrieve exactly 2 items for fac1::deptA");
+      assert.ok(fac1DeptAItems.every(i => i.tenant_id === "fac1::deptA"), "Strictly isolates from fac1::deptB and fac2::deptA");
 
     // Insert duplicate outbox mutations
     const mutations = [
@@ -314,6 +317,9 @@ describe("Dexie Benchmarks", () => {
     const otherKey2 = "update_item::fac1::deptB::Item 1";
     assert.ok(deduplicatedMutations.has(otherKey2));
     assert.strictEqual(mutationIdsByKey.get(otherKey2)?.length, 1);
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });
 
