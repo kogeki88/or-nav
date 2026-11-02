@@ -103,7 +103,7 @@ interface SidebarProps {
   onRebuildCache?: () => Promise<number>;
 }
 
-export default function Sidebar({
+const Sidebar = React.memo(function Sidebar({
   tenants,
   selectedTenant,
   onSelectTenant,
@@ -1182,4 +1182,6 @@ export default function Sidebar({
       </div>
     </aside>
   );
-}
+});
+
+export default Sidebar;
