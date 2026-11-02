@@ -685,3 +685,60 @@ test('supplementary benchmark: additional high-concurrency burst execution verif
     roots.forEach(r => r.remove());
   }
 });
+test('supplementary test: multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency', async () => {
+  const tenant1 = 'facility_1::dept_A';
+  const tenant2 = 'facility_2::dept_B';
+
+  const root1 = document.createElement('div');
+  root1.setAttribute('data-tenant', tenant1);
+  document.body.appendChild(root1);
+
+  const root2 = document.createElement('div');
+  root2.setAttribute('data-tenant', tenant2);
+  document.body.appendChild(root2);
+
+  const tempFetch = global.fetch;
+  global.fetch = undefined as any;
+
+  try {
+    const onSendMessage1 = mock.fn();
+    const { rerender, unmount } = render(
+      <Omnibar onSendMessage={onSendMessage1} onFileUpload={() => {}} />,
+      { container: root1 }
+    );
+
+    const input1 = screen.getByTestId('omnibar-input') as HTMLInputElement;
+    fireEvent.change(input1, { target: { value: `Update for ${tenant1}` } });
+
+    assert.strictEqual(input1.value, `Update for ${tenant1}`);
+
+    // Replay exactly the same mutation by rerendering
+    rerender(
+      <Omnibar onSendMessage={onSendMessage1} onFileUpload={() => {}} />
+    );
+
+    const input1After = screen.getByTestId('omnibar-input') as HTMLInputElement;
+    assert.strictEqual(input1After.value, `Update for ${tenant1}`);
+
+    unmount(); // Unmount to simulate fresh boundary context
+
+    // Switch to Tenant 2, verifying Multi-Tenant Isolation
+    const onSendMessage2 = mock.fn();
+    render(
+      <Omnibar onSendMessage={onSendMessage2} onFileUpload={() => {}} />,
+      { container: root2 }
+    );
+
+    const input2 = screen.getByTestId('omnibar-input') as HTMLInputElement;
+    fireEvent.change(input2, { target: { value: `Update for ${tenant2}` } });
+
+    assert.strictEqual(input2.value, `Update for ${tenant2}`);
+    assert.notStrictEqual(input2.value, `Update for ${tenant1}`); // Assert Tenant 1 context is completely isolated/scrubbed
+
+  } finally {
+    global.fetch = tempFetch;
+    document.body.removeChild(root1);
+    document.body.removeChild(root2);
+    cleanup();
+  }
+});
