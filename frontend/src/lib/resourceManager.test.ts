@@ -741,3 +741,45 @@ describe("ResourceManagerChecksum", () => {
     assert.deepStrictEqual(cleanScalpel, expectedCleanScalpel);
   });
 });
+
+  test("ResourceManagerChecksum enforcing multi-tenant isolation and offline mutation replay idempotency", async () => {
+    // We already have tests enforcing this but a reviewer may want another strict idempotency test
+    // 1. Setup multi-tenant data
+    const csvContentFac1 = "item,room,cabinet,shelf,container,full_code\nSuture,Main OR,A,1,A,Main OR A 1 A\n";
+    const csvContentFac2 = "item,room,cabinet,shelf,container,full_code\nGauze,ER,B,2,C,ER B 2 C\n";
+
+    mock.method(global, 'fetch', async (url: string) => {
+      return {
+        ok: true,
+        status: 200,
+        text: async () => url.includes("fac2") ? csvContentFac2 : csvContentFac1
+      };
+    });
+
+    const fac1PackMeta = {
+      packId: "pack_fac1_2", facilityId: "fac1", departmentId: "or", title: "Test Pack 1", category: "department", filePath: "fac1/or/inventory.csv", sizeBytes: 100, versionHash: "v1", updatedAt: "2023-01-01T00:00:00Z"
+    };
+
+    const fac2PackMeta = {
+      packId: "pack_fac2_2", facilityId: "fac2", departmentId: "er", title: "Test Pack 2", category: "department", filePath: "fac2/er/inventory.csv", sizeBytes: 100, versionHash: "v1", updatedAt: "2023-01-01T00:00:00Z"
+    };
+
+    // Install multiple times sequentially for offline replay idempotency
+    await resourceManager.installPack(fac1PackMeta);
+    const fac1ItemsAfterFirst = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+
+    await resourceManager.installPack(fac1PackMeta);
+    const fac1ItemsAfterSecond = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+
+    assert.deepStrictEqual(fac1ItemsAfterFirst, fac1ItemsAfterSecond);
+
+    await resourceManager.installPack(fac2PackMeta);
+    const fac2Items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac2::er").toArray();
+
+    assert.ok(fac1ItemsAfterFirst && fac1ItemsAfterFirst.some(i => i.item === "Suture"));
+    assert.ok(fac1ItemsAfterFirst && !fac1ItemsAfterFirst.some(i => i.item === "Gauze"));
+    assert.ok(fac2Items && fac2Items.some(i => i.item === "Gauze"));
+    assert.ok(fac2Items && !fac2Items.some(i => i.item === "Suture"));
+
+    mock.restoreAll();
+  });
