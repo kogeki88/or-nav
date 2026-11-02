@@ -683,4 +683,56 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
 
     unmount();
   });
+
+  test("Extended concurrent burst execution enforcing offline-first invariants and multi-tenant isolation", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = undefined as any;
+
+    let hooks: any[] = [];
+    try {
+      setNetworkOnline(false);
+      const burstSize = 100;
+      const tenants = ["tenant-A", "tenant-B", "tenant-C"];
+
+      hooks = tenants.map(t => renderHook(() => useSyncEngine(t, false)));
+
+      const start = performance.now();
+
+      const promises = [];
+      for (let i = 0; i < burstSize; i++) {
+        const hook = hooks[i % tenants.length];
+        promises.push((async () => {
+          await new Promise(r => setTimeout(r, Math.random() * 5));
+          return hook.result.current.triggerSync();
+        })());
+      }
+
+      let results: any[];
+      await act(async () => {
+        results = await Promise.all(promises);
+      });
+
+      const end = performance.now();
+      const duration = end - start;
+
+      assert.ok(duration < 500, `Sync burst latency (${duration}ms) exceeded 500ms limit`);
+
+      for (const res of results) {
+        assert.strictEqual(res.success, false);
+      }
+
+      for (const hook of hooks) {
+        assert.strictEqual(hook.result.current.status, "offline");
+      }
+
+      const syncCalls = offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls;
+      assert.strictEqual(syncCalls.length, 0, "Should not sync online DB when offline");
+
+    } finally {
+      global.fetch = originalFetch;
+      for (const hook of hooks) {
+        hook.unmount();
+      }
+    }
+  });
 });
