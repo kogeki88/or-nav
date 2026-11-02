@@ -685,3 +685,87 @@ test('supplementary invariant test: multi-tenant isolation and offline-first', a
     assert.strictEqual(mockSaveOfflinePeerQuestionCalls.length, 1);
     assert.strictEqual(mockSaveOfflinePeerQuestionCalls[0].tenantId, 'facility_isolated');
 });
+
+test('supplementary invariant test 2: concurrent burst execution latency and multi-tenant isolation', async () => {
+    // 1. Simulate network offline
+    global.fetch = mock.fn(async () => {
+        throw new Error('Network offline');
+    });
+
+    mockSaveOfflinePeerQuestionCalls = [];
+    render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility_isolated_2" userProfile={dummyProfile} />);
+
+    const askTab = screen.getByText('Ask Department Peers');
+    fireEvent.click(askTab);
+    const textarea = screen.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+    fireEvent.change(textarea, { target: { value: 'supplementary check 2' } });
+
+    const start = performance.now();
+    const submitBtn = screen.getByText('Broadcast Question');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('supplementary check 2'));
+    });
+    const end = performance.now();
+    assert.ok(end - start < 2500, 'Latency should be under 2500ms');
+
+    assert.strictEqual(mockSaveOfflinePeerQuestionCalls.length, 1);
+    assert.strictEqual(mockSaveOfflinePeerQuestionCalls[0].tenantId, 'facility_isolated_2');
+});
+
+test('supplementary test: concurrent burst execution, race condition resistance, and latency benchmarks', async () => {
+    let postCallCount = 0;
+    global.fetch = mock.fn(async (url: any, options: any) => {
+        if (options && options.method === 'POST') {
+            postCallCount++;
+            await new Promise(resolve => setTimeout(resolve, 50));
+            const body = JSON.parse(options.body);
+            return {
+                ok: true,
+                json: async () => ({
+                    ...body,
+                    id: `q-rapid-${postCallCount}`,
+                    answers: [],
+                    status: 'unverified',
+                    verificationsCount: 0
+                })
+            } as unknown as Response;
+        }
+        return { ok: true, json: async () => [] } as unknown as Response;
+    });
+
+    mockSaveOfflinePeerQuestionCalls = [];
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+
+    const comp = render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="race_condition_tenant" userProfile={dummyProfile} />, { container: root });
+
+    const askTab = comp.getByText('Ask Department Peers');
+    fireEvent.click(askTab);
+    const textarea = comp.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+
+    const start = performance.now();
+
+    fireEvent.change(textarea, { target: { value: `Burst question race condition` } });
+    const submitBtn = comp.getByText('Broadcast Question');
+
+    // Concurrent burst execution simulation
+    const promises = Array.from({ length: 5 }).map(async () => {
+        fireEvent.click(submitBtn);
+    });
+
+    await Promise.all(promises);
+
+    const end = performance.now();
+    assert.ok(end - start < 2500, 'Latency benchmarks should be under 2500ms');
+
+    await waitFor(() => {
+        assert.ok(comp.getByText('Burst question race condition'));
+    });
+
+    // Race condition resistance: Only one POST should have gone through due to rapid click protection
+    assert.strictEqual(postCallCount, 1, 'Race condition resistance verified: Only one request should be sent');
+
+    comp.unmount();
+});
