@@ -317,6 +317,69 @@ describe("useSyncEngine", () => {
 
     assert.strictEqual(result.current.status, "synced");
   });
+
+  test("Extended multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = undefined as any;
+
+    const root1 = document.createElement("div");
+    root1.setAttribute("data-tenant", "facility_1::dept_A");
+    document.body.appendChild(root1);
+
+    const root2 = document.createElement("div");
+    root2.setAttribute("data-tenant", "facility_2::dept_B");
+    document.body.appendChild(root2);
+
+    try {
+      setNetworkOnline(false);
+
+      const hook1 = renderHook(() => useSyncEngine("facility_1::dept_A", false), { container: root1 });
+      const hook2 = renderHook(() => useSyncEngine("facility_2::dept_B", false), { container: root2 });
+
+      let res1First, res2First;
+      await act(async () => {
+        res1First = await hook1.result.current.triggerSync();
+        res2First = await hook2.result.current.triggerSync();
+      });
+
+      const state1First = { ...hook1.result.current };
+      const state2First = { ...hook2.result.current };
+
+      let res1Replay, res2Replay;
+      await act(async () => {
+        res1Replay = await hook1.result.current.triggerSync();
+        res2Replay = await hook2.result.current.triggerSync();
+      });
+
+      const state1Replay = { ...hook1.result.current };
+      const state2Replay = { ...hook2.result.current };
+
+      assert.deepStrictEqual(res1First, res1Replay);
+      assert.deepStrictEqual(res2First, res2Replay);
+      assert.strictEqual(state1First.status, state1Replay.status);
+      assert.strictEqual(state2First.status, state2Replay.status);
+      assert.strictEqual(state1First.pendingCount, state1Replay.pendingCount);
+      assert.strictEqual(state2First.pendingCount, state2Replay.pendingCount);
+
+      setNetworkOnline(true);
+      await act(async () => {
+        await hook1.result.current.triggerSync();
+        await hook2.result.current.triggerSync();
+      });
+
+      const calls = offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls;
+      const tenants = calls.map((c: any) => c.arguments[0]);
+
+      assert.ok(tenants.includes("facility_1::dept_A"));
+      assert.ok(tenants.includes("facility_2::dept_B"));
+
+    } finally {
+      global.fetch = originalFetch;
+      document.body.removeChild(root1);
+      document.body.removeChild(root2);
+    }
+  });
+
 });
 
 describe("useSyncEngine statusLabel", () => {
@@ -603,7 +666,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
 
   test("Offline mutation replay idempotency and multi-tenant boundary enforcement", async () => {
     const originalFetch = global.fetch;
-    global.fetch = (() => { throw new Error("Offline execution"); }) as any;
+    global.fetch = undefined as any;
 
     const root1 = document.createElement("div");
     root1.setAttribute("data-tenant", "fac1::dept1");
