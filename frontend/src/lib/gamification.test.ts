@@ -191,3 +191,39 @@ test("Gamification Engine", async (t) => {
     (global as any).localStorage = tempLocalStorage;
   });
 });
+
+test("resilient to malformed payloads and fuzzing", () => {
+  const user = "fuzz_user";
+  (global as any).window = {
+    dispatchEvent: () => true
+  }; // Ensure logic triggers window-based localstorage
+  (global as any).localStorage = {
+    getItem: (key: string) => mockStorage.get(key) || null,
+    setItem: (key: string, value: string) => mockStorage.set(key, value)
+  };
+
+  // Test 1: Invalid JSON (e.g. primitive number instead of object)
+  mockStorage.set("ornav_gamification_" + user, "123");
+  const r1 = getClinicianRewards(user);
+  assert.equal(r1.xp, 0); // should default to 0
+  assert.equal(r1.stats.lookupsCount, 0);
+
+  // Test 2: Missing nested objects (stats is missing)
+  mockStorage.set("ornav_gamification_" + user, JSON.stringify({ xp: 10, shiftStreakDays: 2 }));
+  const r2 = getClinicianRewards(user);
+  assert.equal(r2.xp, 10);
+  assert.equal(r2.shiftStreakDays, 2);
+  assert.equal(r2.stats.lookupsCount, 0); // missing stats correctly populated by default
+
+  // Ensure awards doesn't crash when state is missing
+  assert.doesNotThrow(() => {
+    awardClinicalXP("lookup", undefined, user);
+  });
+  const r3 = getClinicianRewards(user);
+  assert.equal(r3.stats.lookupsCount, 1);
+
+  // Test 3: Invalid JSON string entirely
+  mockStorage.set("ornav_gamification_" + user, "{ invalid json");
+  const r4 = getClinicianRewards(user);
+  assert.equal(r4.xp, 0); // fallback to default
+});

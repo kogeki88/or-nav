@@ -197,7 +197,29 @@ export function getClinicianRewards(userId?: string): ClinicianRewards {
   try {
     const raw = localStorage.getItem(getStorageKey(userId));
     if (raw) {
-      const parsed: ClinicianRewards = JSON.parse(raw);
+      let parsedRaw: any;
+      try {
+        parsedRaw = JSON.parse(raw);
+      } catch {
+        parsedRaw = {};
+      }
+
+      if (typeof parsedRaw !== 'object' || parsedRaw === null) {
+        parsedRaw = {};
+      }
+
+      const def = getDefaultRewards();
+      const parsed: ClinicianRewards = {
+        ...def,
+        ...parsedRaw,
+        stats: {
+          ...def.stats,
+          ...(parsedRaw.stats || {})
+        },
+        unlockedBadges: Array.isArray(parsedRaw.unlockedBadges) ? parsedRaw.unlockedBadges : def.unlockedBadges,
+        dailyQuests: Array.isArray(parsedRaw.dailyQuests) ? parsedRaw.dailyQuests : def.dailyQuests,
+      };
+
       // Validate streak
       const today = new Date().toISOString().split("T")[0];
       if (parsed.lastActiveDate !== today) {
