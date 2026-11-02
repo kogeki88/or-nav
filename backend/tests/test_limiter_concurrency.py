@@ -392,3 +392,74 @@ class TestLimiterConcurrencyThrottling:
 
         # Verify offline invariant implicitly holds (strict_offline_first autouse fixture)
         # Any network call would have crashed the ThreadPoolExecutor threads.
+    def test_multi_tenant_offline_idempotency_extended(self, mock_tenant_dir, monkeypatch):
+        """
+        Extends multi-tenant boundary enforcement and offline mutation replay idempotency
+        by explicitly testing interleaved requests across multiple tenants and verifying
+        strict state isolation offline.
+        """
+        client = TestClient(fastapi_app)
+        limiter.reset()
+
+        from app.services.inventory_search import get_inventory_service
+        # Setup state for tenant 1
+        inv_service_1 = get_inventory_service("sacred_heart::or")
+        inv_service_1.add_inventory_item("prolene suture", "R1 C1 S1 C1")
+        inv_service_1.report_move("prolene suture", "R1 C2 S2 C2")
+
+        # Setup state for tenant 2
+        inv_service_2 = get_inventory_service("other_hospital::er")
+        inv_service_2.add_inventory_item("scalpel", "R2 C1 S1 C1")
+        inv_service_2.report_move("scalpel", "R2 C2 S2 C2")
+
+        payload_1 = {
+            "item": "prolene suture",
+            "expected_location": "R1 C2 S2 C2",
+            "timestamp": "2023-10-27T10:00:00Z",
+            "tenant_id": "sacred_heart::or",
+        }
+
+        payload_2 = {
+            "item": "scalpel",
+            "expected_location": "R2 C2 S2 C2",
+            "timestamp": "2023-10-27T10:05:00Z",
+            "tenant_id": "other_hospital::er",
+        }
+
+        # Interleave offline replay requests for both tenants
+        responses = []
+        for i in range(50):
+            if i % 2 == 0:
+                responses.append(client.post("/api/inventory/verify-move", json=payload_1))
+            else:
+                responses.append(client.post("/api/inventory/verify-move", json=payload_2))
+
+        # Check all succeeded
+        assert all(r.status_code == 200 for r in responses)
+
+        # Verify idempotency for tenant 1
+        t1_responses = [r for i, r in enumerate(responses) if i % 2 == 0]
+        first_t1 = t1_responses[0].json()
+        assert first_t1["verify_count"] == 1
+        for r in t1_responses[1:]:
+            assert r.json() == first_t1
+
+        matched_row_1, _ = inv_service_1._find_matching_row("prolene suture")
+        assert matched_row_1["verify_count"] == 1
+
+        # Verify idempotency for tenant 2
+        t2_responses = [r for i, r in enumerate(responses) if i % 2 != 0]
+        first_t2 = t2_responses[0].json()
+        assert first_t2["verify_count"] == 1
+        for r in t2_responses[1:]:
+            assert r.json() == first_t2
+
+        matched_row_2, _ = inv_service_2._find_matching_row("scalpel")
+        assert matched_row_2["verify_count"] == 1
+
+        # Verify that tenant states did not leak
+        row1, _ = inv_service_1._find_matching_row("scalpel")
+        assert row1 is None, "Tenant 1 state leaked into Tenant 2!"
+
+        row2, _ = inv_service_2._find_matching_row("prolene suture")
+        assert row2 is None, "Tenant 2 state leaked into Tenant 1!"
