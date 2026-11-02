@@ -239,3 +239,63 @@ def test_offline_first_socket_invariants(monkeypatch):
     res_other = client.get("/api/feedback?tenantId=county_general::er")
     items_other = [it for it in res_other.json()["items"]]
     assert not any(it["rawText"] == "Ensure no leak and offline strictly" for it in items_other)
+
+def test_offline_mutation_replay_idempotency_different_tenant(monkeypatch):
+    """Ensure offline mutation replay deduplication respects multi-tenant boundaries."""
+    def block_network(*args, **kwargs):
+        raise RuntimeError("Network access is strictly forbidden in offline-first mode")
+
+    monkeypatch.setattr(httpx, "get", block_network)
+    monkeypatch.setattr(httpx, "post", block_network)
+    monkeypatch.setattr(httpx, "request", block_network)
+
+    payload_tenant_1 = {
+        "tenantId": "sacred_heart::or",
+        "userName": "Sean",
+        "userRole": "Nurse",
+        "source": "manual_submission",
+        "rawText": "Need a new timer idempotency check",
+    }
+
+    payload_tenant_2 = {
+        "tenantId": "county_general::er",
+        "userName": "John",
+        "userRole": "Doctor",
+        "source": "manual_submission",
+        "rawText": "Need a new timer idempotency check",
+    }
+
+    res1 = client.post("/api/feedback", json=payload_tenant_1)
+    assert res1.status_code == 200
+
+    items_after_first = client.get("/api/feedback?tenantId=sacred_heart::or").json()["items"]
+    count_after_first = len(items_after_first)
+
+    res2 = client.post("/api/feedback", json=payload_tenant_2)
+    assert res2.status_code == 200
+
+    items_after_second_t1 = client.get("/api/feedback?tenantId=sacred_heart::or").json()["items"]
+    assert len(items_after_second_t1) == count_after_first
+
+    items_after_second_t2 = client.get("/api/feedback?tenantId=county_general::er").json()["items"]
+    target_item_1 = next(it for it in items_after_second_t1 if it["rawText"] == "Need a new timer idempotency check")
+    assert target_item_1["upvotes"] == 1
+
+    target_item_2 = next(it for it in items_after_second_t2 if it["rawText"] == "Need a new timer idempotency check")
+    assert target_item_2["upvotes"] == 1
+
+def test_feedback_pipeline_multi_tenant_isolation_boundary():
+    """Enforce multi-tenant boundaries by explicitly testing cross-tenant access denial when fetching items."""
+    payload = {
+        "tenantId": "princeton_plainsboro::or",
+        "rawText": "Highly confidential clinic feedback"
+    }
+    client.post("/api/feedback", json=payload)
+
+    res_pp = client.get("/api/feedback?tenantId=princeton_plainsboro::or")
+    items_pp = res_pp.json()["items"]
+    assert any(it["rawText"] == "Highly confidential clinic feedback" for it in items_pp)
+
+    res_sh = client.get("/api/feedback?tenantId=sacred_heart::or")
+    items_sh = res_sh.json()["items"]
+    assert not any(it["rawText"] == "Highly confidential clinic feedback" for it in items_sh)
