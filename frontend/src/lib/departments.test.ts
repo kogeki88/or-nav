@@ -1,4 +1,4 @@
-import { describe, test, beforeEach } from "node:test";
+import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import {
   DEPARTMENTS,
@@ -98,6 +98,86 @@ describe("Departments Configuration and Lookups", () => {
     test("should fallback to DEFAULT_DEPARTMENT_ID department for an invalid id", () => {
       const dept = getDepartment("some_invalid_id");
       assert.deepStrictEqual(dept, DEPARTMENTS[DEFAULT_DEPARTMENT_ID]);
+    });
+  });
+
+  describe("Server-Side Rendering (SSR) Context", () => {
+    let originalWindow: unknown;
+
+    beforeEach(() => {
+      originalWindow = (global as { window?: unknown }).window;
+      delete (global as { window?: unknown }).window;
+    });
+
+    afterEach(() => {
+      (global as { window?: unknown }).window = originalWindow;
+    });
+
+    test("getActiveDepartmentId should return DEFAULT_DEPARTMENT_ID when window is undefined", () => {
+      assert.strictEqual(getActiveDepartmentId(), DEFAULT_DEPARTMENT_ID);
+    });
+
+    test("setActiveDepartmentId should not throw when window is undefined", () => {
+      assert.doesNotThrow(() => {
+        setActiveDepartmentId("icu_critical_care");
+      });
+      assert.strictEqual(mockStorage.size, 0);
+    });
+  });
+
+  describe("Multi-tenant isolation invariants", () => {
+    test("mutations from one user/tenant do not improperly leak into or corrupt another user's isolated state", () => {
+      const userAStorage = new Map<string, string>();
+      const userBStorage = new Map<string, string>();
+
+      const ls = (global as { localStorage?: any }).localStorage;
+
+      // Mock localStorage for User A
+      ls.getItem = (key: string) => userAStorage.get(key) || null;
+      ls.setItem = (key: string, value: string) => userAStorage.set(key, value);
+
+      setActiveDepartmentId("icu_critical_care");
+      assert.strictEqual(getActiveDepartmentId(), "icu_critical_care");
+      assert.strictEqual(userAStorage.get(LOCAL_STORAGE_DEPT_KEY), "icu_critical_care");
+
+      // Mock localStorage for User B
+      ls.getItem = (key: string) => userBStorage.get(key) || null;
+      ls.setItem = (key: string, value: string) => userBStorage.set(key, value);
+
+      // User B should not see User A's department
+      assert.strictEqual(getActiveDepartmentId(), DEFAULT_DEPARTMENT_ID);
+
+      // User B sets their own department
+      setActiveDepartmentId("er_trauma");
+      assert.strictEqual(getActiveDepartmentId(), "er_trauma");
+      assert.strictEqual(userBStorage.get(LOCAL_STORAGE_DEPT_KEY), "er_trauma");
+
+      // Verify User A's state is uncorrupted
+      ls.getItem = (key: string) => userAStorage.get(key) || null;
+      assert.strictEqual(getActiveDepartmentId(), "icu_critical_care");
+
+      // Restore default mockStorage behavior
+      ls.getItem = (key: string) => mockStorage.get(key) || null;
+      ls.setItem = (key: string, value: string) => mockStorage.set(key, value);
+    });
+  });
+
+  describe("Offline-first invariants", () => {
+    test("should maintain configuration and contract invariants offline without network access", async () => {
+      const originalFetch = global.fetch;
+      try {
+        global.fetch = async () => { throw new Error('Network offline'); };
+
+        setActiveDepartmentId("pacu_periop");
+        assert.strictEqual(getActiveDepartmentId(), "pacu_periop");
+
+        const dept = getDepartment(getActiveDepartmentId());
+        assert.strictEqual(dept.id, "pacu_periop");
+        assert.strictEqual(dept.name, "PACU / Pre-Op");
+
+      } finally {
+        global.fetch = originalFetch;
+      }
     });
   });
 });
