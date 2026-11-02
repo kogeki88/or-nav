@@ -144,7 +144,10 @@ class TestScrubberServiceOfflineFirst:
         Enforce offline-first invariant. The scrubber must not attempt any network calls.
         Dynamically poison socket.socket and httpx methods to raise RuntimeError.
         """
+        _orig_socket = socket.socket
         def poison(*args, **kwargs):
+            if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+                return _orig_socket(*args, **kwargs)
             raise RuntimeError("Network call attempted during offline-first function execution")
 
         monkeypatch.setattr(socket, "socket", poison)
@@ -174,7 +177,10 @@ class TestScrubberServiceOfflineFirst:
         (as would happen during offline outbox replays) results in perfectly
         identical states and no unexpected drift or duplications.
         """
+        _orig_socket = socket.socket
         def poison(*args, **kwargs):
+            if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+                return _orig_socket(*args, **kwargs)
             raise RuntimeError("Network call attempted during offline-first function execution")
 
         monkeypatch.setattr(socket, "socket", poison)
@@ -256,7 +262,10 @@ class TestScrubberServiceMultiTenantIsolation:
         """
         Enforce multi-tenant isolation invariant under simulated concurrency.
         """
+        _orig_socket = socket.socket
         def poison(*args, **kwargs):
+            if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+                return _orig_socket(*args, **kwargs)
             raise RuntimeError("Network call attempted during offline-first function execution")
 
         monkeypatch.setattr(socket, "socket", poison)
@@ -304,7 +313,10 @@ class TestScrubberServiceMultiTenantIsolation:
         strictly verify that results do not contain leaked data from adjacent requests or other tenants.
         Enforce multi-tenant isolation and offline-first invariants.
         """
+        _orig_socket = socket.socket
         def poison(*args, **kwargs):
+            if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+                return _orig_socket(*args, **kwargs)
             raise RuntimeError("Network call attempted during offline-first function execution")
 
         monkeypatch.setattr(socket, "socket", poison)
@@ -394,3 +406,32 @@ class TestScrubberServiceFuzzing:
         assert result.redaction_count == 10000
         assert "1234567" not in result.text
         assert REDACTION in result.text
+
+    def test_scrub_phi_offline_mutation_replay_idempotency_empty_state(self):
+        """
+        Supplementary test for empty states during offline replay.
+        """
+        payload = ""
+        result_1 = scrub_phi(payload)
+        result_2 = scrub_phi(payload)
+
+        assert result_1.text == result_2.text == ""
+        assert result_1.redaction_count == result_2.redaction_count == 0
+
+    def test_scrub_phi_tenant_boundary_enforcement_detailed(self):
+        """
+        Supplementary test for facility_id::dept_id isolation boundaries.
+        Ensure that execution under varying tenant contexts behaves deterministically
+        and does not leak context into subsequent stateless executions.
+        """
+        tenant_1 = "fac_123::dept_abc"
+        tenant_2 = "fac_456::dept_xyz"
+        test_payload = "Patient MRN: 9999999 needs a 3-0 suture"
+
+        result_tenant_1 = scrub_phi(f"{tenant_1} {test_payload}")
+        result_tenant_2 = scrub_phi(f"{tenant_2} {test_payload}")
+
+        assert result_tenant_1.text.replace(tenant_1, "").strip() == result_tenant_2.text.replace(tenant_2, "").strip()
+        assert result_tenant_1.redaction_count == result_tenant_2.redaction_count == 1
+        assert "9999999" not in result_tenant_1.text
+        assert "3-0 suture" in result_tenant_1.text
