@@ -87,4 +87,61 @@ describe("LiveKitAudioVisualizer Client Cleanup", () => {
     assert.strictEqual((visualizer as unknown as { animationFrameId: number | null }).animationFrameId, null);
     assert.strictEqual(mockTrack.getListeners('muted').length, 0);
   });
+
+  it("should enforce multi-tenant isolation by ensuring one visualizer's state does not leak into another", () => {
+    const canvas1 = document.createElement('canvas');
+    const canvas2 = document.createElement('canvas');
+    canvas1.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+    canvas2.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+
+    const visualizer1 = new LiveKitAudioVisualizer(canvas1);
+    const visualizer2 = new LiveKitAudioVisualizer(canvas2);
+
+    const mockTrack1 = new MockAudioTrack();
+    const mockTrack2 = new MockAudioTrack();
+
+    visualizer1.start(mockTrack1 as unknown as LocalAudioTrack);
+
+    // Verify visualizer1 has animation frame, visualizer2 does not
+    assert.notStrictEqual((visualizer1 as unknown as { animationFrameId: number | null }).animationFrameId, null);
+    assert.strictEqual((visualizer2 as unknown as { animationFrameId: number | null }).animationFrameId, null);
+
+    visualizer2.start(mockTrack2 as unknown as LocalAudioTrack);
+    assert.notStrictEqual((visualizer2 as unknown as { animationFrameId: number | null }).animationFrameId, null);
+
+    visualizer1.dispose();
+
+    // visualizer1 should be stopped (animationFrameId = null)
+    assert.strictEqual((visualizer1 as unknown as { animationFrameId: number | null }).animationFrameId, null);
+
+    // visualizer2 should still be running
+    assert.notStrictEqual((visualizer2 as unknown as { animationFrameId: number | null }).animationFrameId, null);
+
+    visualizer2.dispose();
+  });
+
+  it("should enforce offline-first invariants by operating correctly even if global.fetch fails (simulating network disconnect)", async () => {
+    const originalFetch = global.fetch;
+    try {
+      global.fetch = (async () => {
+        throw new Error('Network offline');
+      }) as any;
+
+      const canvas = document.createElement('canvas');
+      canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+      const visualizer = new LiveKitAudioVisualizer(canvas);
+      const mockTrack = new MockAudioTrack();
+
+      // Start should work and not crash
+      visualizer.start(mockTrack as unknown as LocalAudioTrack);
+      assert.notStrictEqual((visualizer as unknown as { animationFrameId: number | null }).animationFrameId, null);
+      assert.strictEqual(mockTrack.getListeners('muted').length, 1);
+
+      visualizer.dispose();
+      assert.strictEqual((visualizer as unknown as { animationFrameId: number | null }).animationFrameId, null);
+
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });
