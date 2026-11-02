@@ -343,3 +343,132 @@ test('offline-first invariant: handles fetch rejection gracefully and displays o
     });
     global.fetch = originalFetch;
 });
+
+test('fuzzing boundary inputs: empty, large text, unicode, xss payloads', async () => {
+    const onCloseMock = mock.fn();
+    render(<FeedbackModal isOpen={true} onClose={onCloseMock} userProfile={dummyProfile} />);
+
+    const textarea = screen.getByTestId('feedback-input-text');
+    const submitBtn = screen.getByTestId('btn-submit-feedback');
+
+    // 1. Empty Input
+    fireEvent.change(textarea, { target: { value: '   ' } });
+    assert.strictEqual((submitBtn as HTMLButtonElement).disabled, true);
+
+    // 2. Fuzz with extreme characters
+    const fuzzPayload = '💥\u0000\x00<script>alert(1)</script>😎👩‍👩‍👧‍👦';
+    fireEvent.change(textarea, { target: { value: fuzzPayload } });
+    assert.strictEqual((textarea as HTMLTextAreaElement).value, fuzzPayload);
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+        assert.ok(screen.getByTestId('feedback-success-banner'));
+    });
+});
+
+test('malformed payload resilience: handles missing userProfile fields gracefully', async () => {
+    const onCloseMock = mock.fn();
+    // Pass empty userProfile
+    render(<FeedbackModal isOpen={true} onClose={onCloseMock} userProfile={{}} />);
+
+    const textarea = screen.getByTestId('feedback-input-text');
+    fireEvent.change(textarea, { target: { value: 'Valid input' } });
+
+    const submitBtn = screen.getByTestId('btn-submit-feedback');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+        assert.ok(screen.getByTestId('feedback-success-banner'));
+    });
+});
+
+test('tenant isolation fallback: missing facilityId and departmentId', async () => {
+    const onCloseMock = mock.fn();
+    const fetchFeedbackItemsMock = mock.fn(async () => []);
+
+    const IsolatedFeedbackModalMod = proxyquire('./FeedbackModal', {
+        '@/lib/gamification': {
+            awardClinicalXP: mock.fn()
+        },
+        '@/lib/auth': {
+            isAdminUser: mock.fn(() => true), // Admin to trigger fetch
+            getCurrentSession: mock.fn(() => null)
+        },
+        '@/lib/feedbackEngine': {
+            submitManualFeedback: mock.fn(),
+            fetchFeedbackItems: fetchFeedbackItemsMock,
+            upvoteFeedback: mock.fn(),
+            updateFeedbackStatus: mock.fn(),
+            FEEDBACK_EVENT_NAME: 'feedback_updated'
+        }
+    });
+
+    const IsolatedFeedbackModal = IsolatedFeedbackModalMod.FeedbackModal;
+
+    // Render with missing facility and dept
+    render(<IsolatedFeedbackModal isOpen={true} onClose={onCloseMock} userProfile={{ fullName: 'Unknown' }} />);
+
+    await waitFor(() => {
+        assert.ok(screen.getByTestId('tab-recommendations-hub'));
+    });
+
+    const triageTab = screen.getByTestId('tab-recommendations-hub');
+    fireEvent.click(triageTab);
+
+    await waitFor(() => {
+        const calls = fetchFeedbackItemsMock.mock.calls;
+        assert.ok(calls.length > 0, 'fetchFeedbackItems should have been called');
+
+        let found = false;
+        for (const call of calls) {
+            if (call.arguments[0] && call.arguments[0].tenantId === 'sacred_heart::or') {
+                found = true;
+                break;
+            }
+        }
+        assert.ok(found, 'fetchFeedbackItems was not called with the correct fallback tenantId (sacred_heart::or).');
+    });
+});
+
+test('schema validation: submits with expected types and boundary values', async () => {
+    const onCloseMock = mock.fn();
+    const submitManualFeedbackMock = mock.fn();
+
+    const SchemaFeedbackModalMod = proxyquire('./FeedbackModal', {
+        '@/lib/gamification': {
+            awardClinicalXP: mock.fn()
+        },
+        '@/lib/auth': {
+            isAdminUser: mock.fn(() => false),
+            getCurrentSession: mock.fn(() => null)
+        },
+        '@/lib/feedbackEngine': {
+            submitManualFeedback: submitManualFeedbackMock,
+            fetchFeedbackItems: mock.fn(),
+            upvoteFeedback: mock.fn(),
+            updateFeedbackStatus: mock.fn(),
+            FEEDBACK_EVENT_NAME: 'feedback_updated'
+        }
+    });
+
+    const SchemaFeedbackModal = SchemaFeedbackModalMod.FeedbackModal;
+    render(<SchemaFeedbackModal isOpen={true} onClose={onCloseMock} userProfile={dummyProfile} />);
+
+    const textarea = screen.getByTestId('feedback-input-text');
+    fireEvent.change(textarea, { target: { value: 'Test schema' } });
+
+    // Check missing rating is undefined in payload, category defaults to feature_request
+    const submitBtn = screen.getByTestId('btn-submit-feedback');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+        assert.strictEqual(submitManualFeedbackMock.mock.calls.length, 1);
+        const payload = submitManualFeedbackMock.mock.calls[0].arguments[0];
+
+        assert.strictEqual(payload.rawText, 'Test schema');
+        assert.strictEqual(payload.category, 'feature_request');
+        assert.strictEqual(payload.severity, 'low');
+        assert.strictEqual(payload.rating, undefined);
+        assert.deepStrictEqual(payload.userProfile, dummyProfile);
+    });
+});
