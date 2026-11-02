@@ -24,7 +24,7 @@ class TestChatRouterMultiTenant:
         from app.config import get_tenant, TenantConfig
 
         # Copy the whole hospitals directory to tmp_path
-        hospitals_dir = pathlib.Path("hospitals")
+        hospitals_dir = pathlib.Path("../hospitals")
         tmp_hospitals = tmp_path / "hospitals"
         shutil.copytree(hospitals_dir, tmp_hospitals)
 
@@ -406,6 +406,22 @@ class TestChatRouterMultiTenant:
         assert respB.json()["coordinate_card"]["pending_location"] == "OR 21 B 1 A"
         assert respB.json()["move_widget"] is not None
 
+        # Verify cross-tenant isolation: changes in A do not leak to B
+        payload_add = {
+            "tenant_id": "general_memorial_cvor",
+            "item": "Test Isolation Scalpel",
+            "location": "Cabinet A",
+            "category": "Instruments",
+            "surgeon_notes": "",
+            "learned_aliases": []
+        }
+        respA_add = client.post("/api/inventory/add-item", json=payload_add)
+        assert respA_add.status_code == 200
+
+        respB_check = client.post("/api/chat", json={"message": "where is Test Isolation Scalpel", "tenant_id": "or_main"})
+        assert respB_check.status_code == 200
+        assert respB_check.json()["coordinate_card"] is None
+
         # Verify general_memorial::cvor maps to general_memorial_cvor
         respC = client.post("/api/chat", json={"message": "where is 3-0 silk", "tenant_id": "general_memorial::cvor"})
         assert respC.status_code == 400
@@ -504,6 +520,44 @@ class TestChatRouterMultiTenant:
         resp1 = client.post("/api/inventory/verify-move", json=payload)
         resp2 = client.post("/api/inventory/verify-move", json=payload)
         resp3 = client.post("/api/inventory/verify-move", json=payload)
+
+        assert resp1.status_code == 200
+        assert resp2.status_code == 200
+        assert resp3.status_code == 200
+
+        data1 = resp1.json()
+        data2 = resp2.json()
+        data3 = resp3.json()
+
+        for data in [data1, data2, data3]:
+            if "latency_ms" in data:
+                del data["latency_ms"]
+
+        assert data1 == data2 == data3
+
+    def test_offline_mutation_replay_idempotency_add_item(self, monkeypatch):
+        import httpx
+        def mock_post(*args, **kwargs):
+            class DummyRequest: pass
+            raise httpx.NetworkError("Offline mode: Network is unreachable", request=DummyRequest())
+        monkeypatch.setattr(httpx, "post", mock_post)
+        monkeypatch.setattr(httpx, "get", mock_post)
+        monkeypatch.setattr(httpx, "request", mock_post)
+        client = TestClient(app)
+
+        payload = {
+            "tenant_id": "general_memorial_cvor",
+            "item": "Offline Scalpel",
+            "location": "Cabinet C",
+            "category": "Instruments",
+            "surgeon_notes": "",
+            "learned_aliases": []
+        }
+
+        # Issue 3 sequential identical requests simulating offline replays
+        resp1 = client.post("/api/inventory/add-item", json=payload)
+        resp2 = client.post("/api/inventory/add-item", json=payload)
+        resp3 = client.post("/api/inventory/add-item", json=payload)
 
         assert resp1.status_code == 200
         assert resp2.status_code == 200
