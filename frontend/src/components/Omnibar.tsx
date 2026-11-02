@@ -66,7 +66,7 @@ function getSupportedAudioMimeType(): string {
   return "";
 }
 
-export default function Omnibar({
+const Omnibar = React.memo(function Omnibar({
   onSendMessage,
   onFileUpload,
   onAudioVoiceQuery,
@@ -559,4 +559,6 @@ export default function Omnibar({
       </div>
     </div>
   );
-}
+});
+
+export default Omnibar;

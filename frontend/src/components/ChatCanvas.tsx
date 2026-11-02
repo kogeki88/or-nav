@@ -174,7 +174,7 @@ const InlineQuickAddCard = React.memo(function InlineQuickAddCard({
   );
 });
 
-export default function ChatCanvas({
+const ChatCanvas = React.memo(function ChatCanvas({
   messages,
   loading,
   tenantId,
@@ -555,7 +555,9 @@ export default function ChatCanvas({
       <div ref={bottomRef} />
     </div>
   );
-}
+});
+
+export default ChatCanvas;
 
 function VirtualizedCardList({ cards, tenantId, onVerifyPendingMove, onFlagWrong, onSpeakText }: {
   cards: CoordinateCardData[],
