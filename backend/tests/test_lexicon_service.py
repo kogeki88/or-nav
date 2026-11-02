@@ -71,6 +71,7 @@ def test_load_save_lexicon_offline_persistence(mock_lexicon_dir, tmp_path):
 def test_multi_tenant_isolation_and_offline_replay_idempotency(mock_lexicon_dir):
     facility1 = "tenant1::dept1"
     facility2 = "tenant2::dept1"
+    facility3 = "tenant1::dept2"
 
     # Save multiple times to simulate offline replay idempotency
     payload1 = [
@@ -92,9 +93,16 @@ def test_multi_tenant_isolation_and_offline_replay_idempotency(mock_lexicon_dir)
 
     save_facility_lexicon(facility2, payload2)
 
-    # Assert multi-tenant isolation
+    payload3 = [
+        {"aliasId": "3", "spokenTerm": "term3", "facilityId": facility3, "departmentId": "dept2", "canonicalItemName": "Item 3", "usageCount": 1, "usedByUsers": ["user1"], "confidence": "personal", "updatedAt": "2023-01-01T00:00:00Z", "displayPreferredName": "Term 3"}
+    ]
+
+    save_facility_lexicon(facility3, payload3)
+
+    # Assert multi-tenant isolation (facility_id::dept_id)
     assert load_facility_lexicon(facility1) == state1
     assert load_facility_lexicon(facility2) == payload2
+    assert load_facility_lexicon(facility3) == payload3
 
 def test_reset_facility_lexicons(mock_lexicon_dir, tmp_path):
     # Alter the lexicon memory cache and disk for sacred_heart
