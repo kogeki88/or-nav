@@ -246,6 +246,81 @@ def test_concurrency_race_condition_and_latency(tmp_path, monkeypatch):
     wall_latency = (end_time - start_time) / len(search_results)
     assert wall_latency < 0.05, f"Average wall latency too high: {wall_latency:.4f}s"
 
+def test_supplementary_benchmark_concurrent_burst_execution_and_race_condition_resistance(tmp_path, monkeypatch):
+    """
+    Supplementary test explicitly requested to verify concurrent burst execution,
+    race condition resistance, multi-tenant isolation, latency benchmarks,
+    and offline-first invariants.
+    """
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted")
+        if args and args[0] != socket.AF_UNIX:
+            raise RuntimeError("Network call attempted")
+        if 'family' in kwargs and kwargs['family'] != socket.AF_UNIX:
+            raise RuntimeError("Network call attempted")
+        return original_socket(*args, **kwargs)
+
+    def mock_httpx(*args, **kwargs):
+        raise RuntimeError("Network call attempted")
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
+    monkeypatch.setattr(httpx, "get", mock_httpx)
+    monkeypatch.setattr(httpx, "post", mock_httpx)
+    monkeypatch.setattr(httpx, "request", mock_httpx)
+
+    tenant_1 = get_tenant("sacred_heart::or")
+    t1_csv = tmp_path / "t1_burst.csv"
+    t1_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nBurst Item,Supplies,R1,C1,S1,C1,R2 C2 S2 C2,0\n")
+    tenant_1.inventory_path = t1_csv
+    inv1 = InventoryService(tenant_1)
+
+    tenant_2 = get_tenant("county_general::or")
+    t2_csv = tmp_path / "t2_burst.csv"
+    t2_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nIsolated Item,Supplies,R3,C3,S3,C3,,0\n")
+    tenant_2.inventory_path = t2_csv
+    inv2 = InventoryService(tenant_2)
+
+    # Race condition resistance
+    def verify_worker():
+        return inv1.verify_move("Burst Item", "R2 C2 S2 C2")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(verify_worker) for _ in range(10)]
+        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    commits = [r for r in results if r and r.get("committed")]
+    assert len(commits) == 1
+
+    # Concurrent burst execution & Multi-tenant isolation & Latency
+    queries = []
+    for _ in range(1000):
+        queries.append((inv1, "Burst Item", True))
+        queries.append((inv2, "Isolated Item", True))
+        queries.append((inv1, "Isolated Item", False))
+        queries.append((inv2, "Burst Item", False))
+
+    start_time = time.time()
+    def search_worker(args):
+        inv, q, expect_found = args
+        return inv.search(q, record_implicit_verification=False), expect_found
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+        futures = [executor.submit(search_worker, q) for q in queries]
+        search_results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+    end_time = time.time()
+
+    for res, expect_found in search_results:
+        if expect_found:
+            assert res is not None
+        else:
+            assert res is None
+
+    wall_latency = (end_time - start_time) / len(search_results)
+    assert wall_latency < 2.500
+
 def test_offline_mutation_replay_idempotency(tmp_path, monkeypatch):
     """
     Tests that:
