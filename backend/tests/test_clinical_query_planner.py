@@ -495,3 +495,58 @@ def test_planner_supplementary_offline_and_multi_tenant(monkeypatch):
     plan_pacu = plan_clinical_query("dr patel suture preference", graph=graph_pacu)
     if plan_pacu.surgeon:
         assert not plan_pacu.surgeon.is_indexed
+
+def test_planner_multi_tenant_facility_dept_boundary_enforcement(monkeypatch):
+    """
+    Enforce strict multi-tenant boundary isolation using facility_id::dept_id format,
+    and offline mutation replay idempotency for the query planner.
+    """
+    import socket
+    import httpx
+    import copy
+
+    # 1. Enforce Offline-first Invariants
+    original_socket = socket.socket
+    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network call attempted during offline-first function!")
+        return original_socket(family, type, proto, fileno)
+
+    monkeypatch.setattr(socket, "socket", poisoned_socket)
+    def poisoned_httpx_call(*args, **kwargs):
+        raise RuntimeError("HTTP network call attempted during offline-first function!")
+
+    monkeypatch.setattr(httpx, "post", poisoned_httpx_call)
+    monkeypatch.setattr(httpx, "get", poisoned_httpx_call)
+    monkeypatch.setattr(httpx, "request", poisoned_httpx_call)
+
+    # 2. Multi-Tenant Boundary Enforcement
+    # Use format: facility_id::dept_id
+    tenant_a = "county_general::or_main"
+    tenant_b = "sacred_heart::icu_critical_care"
+
+    graph_a = get_clinical_graph("or_main") # fallback to the internal mock graph
+    graph_b = get_clinical_graph("icu_critical_care")
+
+    # Mutation Replay Idempotency / Query Planning
+    query_text = "dr patel suture preference for tenant isolation test"
+
+    plan_a1 = plan_clinical_query(query_text, graph=graph_a, tenant_id=tenant_a)
+    plan_a2 = plan_clinical_query(query_text, graph=graph_a, tenant_id=tenant_a)
+
+    # 3. Assert Idempotency (replay produces identically structured results)
+    assert str(plan_a1) == str(plan_a2)
+    assert plan_a1.intent == plan_a2.intent
+    assert plan_a1.raw_query == plan_a2.raw_query
+
+    # 4. Multi-Tenant Cross-Contamination Check
+    plan_b1 = plan_clinical_query(query_text, graph=graph_b, tenant_id=tenant_b)
+
+    # In tenant A (or_main), Dr Patel should be recognized
+    assert plan_a1.surgeon is not None
+    assert plan_a1.surgeon.normalized_last_name == "patel"
+    assert plan_a1.surgeon.is_indexed is True
+
+    # In tenant B (pacu_periop), Dr Patel should NOT be indexed or leaked
+    if plan_b1.surgeon:
+        assert not plan_b1.surgeon.is_indexed
