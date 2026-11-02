@@ -10,3 +10,7 @@
 **Vulnerability:** Insufficient testing of backend security headers for media and framing origins.
 **Learning:** We need to explicitly verify that the backend framework enforces strict Content-Security-Policy rules for `media-src` and `frame-ancestors` to prevent unauthorized framing and media access.
 **Prevention:** Implement unit tests using FastAPIs `TestClient` to verify the presence of `media-src 'self' mediastream:` and `frame-ancestors 'none'` in the `Content-Security-Policy` header.
+## 2026-11-01 - API Fuzzing Security Enhancements
+**Vulnerability:** Command Injection / Lack of Fuzzing constraints.
+**Learning:** `VerifyMoveRequest`, `FlagWrongRequest`, and `CreateQuestionRequest` were missing strict fuzzing constraints (such as max limits), leaving the system exposed.
+**Prevention:** Fuzz test string payload fields directly on BaseModel attributes like `max_length`.
