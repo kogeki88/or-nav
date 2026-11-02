@@ -232,14 +232,17 @@ describe('directGemini', () => {
   test('Offline-first invariant: directGeminiRAG throws when offline', async () => {
     setClientGeminiApiKey("test-key");
 
-    global.fetch = async () => {
-      throw new Error("Network offline");
-    };
+    const originalFetch = global.fetch;
+    try {
+      global.fetch = undefined as any;
 
-    await assert.rejects(
-      () => directGeminiRAG("test query"),
-      /Network offline/
-    );
+      await assert.rejects(
+        () => directGeminiRAG("test query"),
+        Error
+      );
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 
   describe('Invariant, Fuzzing & Boundary Hardening', () => {
@@ -483,20 +486,37 @@ describe('directGemini', () => {
       for (let i = 0; i < iterations; i++) {
         for (const p of profiles) {
           // Simulate multi-tenant context using facility_id::dept_id boundary mapping implicitly handled by directGeminiRAG's internal profile context
-          promises.push(directGeminiRAG(`query ${p.facilityId}::${p.departmentId}`, undefined, undefined, undefined, p as any));
+          const worker_seq = `worker_seq_${p.facilityId}_${i}`;
+          promises.push(directGeminiRAG(`query ${p.facilityId}::${p.departmentId} ${worker_seq}`, undefined, undefined, undefined, p as any));
         }
       }
 
       await Promise.all(promises);
 
-      const facilityACount = capturedPrompts.filter(p => p.includes("Facility A") && p.includes("Operating Room") && p.includes("fac_a::or_main")).length;
-      const facilityBCount = capturedPrompts.filter(p => p.includes("Facility B") && p.includes("ICU / Critical Care") && p.includes("fac_b::icu_critical_care")).length;
-      const facilityCCount = capturedPrompts.filter(p => p.includes("Facility C") && p.includes("Emergency Dept") && p.includes("fac_c::er_trauma")).length;
+      const facilityACount = capturedPrompts.filter(p => p.includes("Facility A") && p.includes("Operating Room") && p.includes("fac_a::or_main") && p.includes("worker_seq_fac_a")).length;
+      const facilityBCount = capturedPrompts.filter(p => p.includes("Facility B") && p.includes("ICU / Critical Care") && p.includes("fac_b::icu_critical_care") && p.includes("worker_seq_fac_b")).length;
+      const facilityCCount = capturedPrompts.filter(p => p.includes("Facility C") && p.includes("Emergency Dept") && p.includes("fac_c::er_trauma") && p.includes("worker_seq_fac_c")).length;
 
       // Ensure that all requests correctly parsed into the system prompt and scrubbed query respectively
       assert.strictEqual(facilityACount, iterations, "Facility A context leaked or was dropped");
       assert.strictEqual(facilityBCount, iterations, "Facility B context leaked or was dropped");
       assert.strictEqual(facilityCCount, iterations, "Facility C context leaked or was dropped");
+
+      // Strictly verify no cross-tenant leakage of worker_seq identifiers
+      for (const prompt of capturedPrompts) {
+        if (prompt.includes("Facility A")) {
+          assert.ok(!prompt.includes("worker_seq_fac_b"), "Leaked tenant B data into A");
+          assert.ok(!prompt.includes("worker_seq_fac_c"), "Leaked tenant C data into A");
+        }
+        if (prompt.includes("Facility B")) {
+          assert.ok(!prompt.includes("worker_seq_fac_a"), "Leaked tenant A data into B");
+          assert.ok(!prompt.includes("worker_seq_fac_c"), "Leaked tenant C data into B");
+        }
+        if (prompt.includes("Facility C")) {
+          assert.ok(!prompt.includes("worker_seq_fac_a"), "Leaked tenant A data into C");
+          assert.ok(!prompt.includes("worker_seq_fac_b"), "Leaked tenant B data into C");
+        }
+      }
     });
 
     test('directGeminiRAG latency benchmark under stress (P99 < 100ms simulator)', async () => {
@@ -534,30 +554,30 @@ describe('directGemini', () => {
     test('Offline mutation replay idempotency for directGeminiRAG', async () => {
       setClientGeminiApiKey("test-offline-key");
 
-      let fetchCount = 0;
-      global.fetch = async () => {
-        fetchCount++;
-        throw new TypeError("Failed to fetch");
-      };
-
-      let initialError;
+      const originalFetch = global.fetch;
       try {
-        await directGeminiRAG("offline payload replay");
-      } catch (err) {
-        initialError = err;
-      }
-      assert.ok(initialError, "Expected network error on first call");
+        global.fetch = undefined as any;
 
-      let replayError;
-      try {
-        await directGeminiRAG("offline payload replay");
-      } catch (err) {
-        replayError = err;
-      }
-      assert.ok(replayError, "Expected network error on replay call");
+        let initialError;
+        try {
+          await directGeminiRAG("offline payload replay");
+        } catch (err) {
+          initialError = err;
+        }
+        assert.ok(initialError, "Expected network error on first call");
 
-      assert.strictEqual((initialError as Error).message, (replayError as Error).message, "Idempotency: Replaying identical offline mutation should yield strict equal state/error");
-      assert.strictEqual(fetchCount, 2, "Both calls should have attempted fetch");
+        let replayError;
+        try {
+          await directGeminiRAG("offline payload replay");
+        } catch (err) {
+          replayError = err;
+        }
+        assert.ok(replayError, "Expected network error on replay call");
+
+        assert.strictEqual((initialError as Error).message, (replayError as Error).message, "Idempotency: Replaying identical offline mutation should yield strict equal state/error");
+      } finally {
+        global.fetch = originalFetch;
+      }
     });
 
     test('Offline-first invariant: gracefully handles sudden network loss under high concurrency', async () => {

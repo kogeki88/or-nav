@@ -89,6 +89,10 @@ export async function directTranscribeAudio(
     },
   };
 
+  if (typeof fetch === 'undefined') {
+    throw new Error("Network offline");
+  }
+
   const response = await fetch(`${GEMINI_REST_ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -183,6 +187,10 @@ ${baselineText}`;
       maxOutputTokens: 600,
     },
   };
+
+  if (typeof fetch === 'undefined') {
+    throw new Error("Network offline");
+  }
 
   const response = await fetch(`${GEMINI_REST_ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
     method: "POST",
