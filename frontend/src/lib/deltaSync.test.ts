@@ -233,22 +233,28 @@ test("diffRecords", async (t) => {
 
   await t.test("Multi-tenant boundary enforcement: payload strictly partitions tenant state", () => {
     const payloads = [
-      { id: 1, tenant_id: "fac1::deptA", data: "test" },
-      { id: 2, tenant_id: "fac2::deptB", data: "test" }
+      { id: 1, tenant_id: "facility_1::dept_A", data: "test" },
+      { id: 2, tenant_id: "facility_2::dept_B", data: "test" }
     ];
     const compressed = compressPayload(payloads);
     assert.ok(compressed.keys.includes("tenant_id"));
     const tenantIndex = compressed.keys.indexOf("tenant_id");
-    assert.strictEqual(compressed.data[0][tenantIndex], "fac1::deptA");
-    assert.strictEqual(compressed.data[1][tenantIndex], "fac2::deptB");
+    assert.strictEqual(compressed.data[0][tenantIndex], "facility_1::dept_A");
+    assert.strictEqual(compressed.data[1][tenantIndex], "facility_2::dept_B");
   });
 
   await t.test("Offline mutation replay idempotency: sequential replays produce identical state without network", () => {
-    const payload = [{ id: 1, val: "old" }, { id: 2, val: "new" }];
-    const run1 = decompressPayload(compressPayload(payload));
-    const run2 = decompressPayload(compressPayload(payload));
-    const run3 = decompressPayload(compressPayload(payload));
-    assert.deepStrictEqual(run1, run2);
-    assert.deepStrictEqual(run1, run3);
+    const originalFetch = global.fetch;
+    try {
+      global.fetch = undefined as any;
+      const payload = [{ id: 1, val: "old" }, { id: 2, val: "new" }];
+      const run1 = decompressPayload(compressPayload(payload));
+      const run2 = decompressPayload(compressPayload(payload));
+      const run3 = decompressPayload(compressPayload(payload));
+      assert.deepStrictEqual(run1, run2);
+      assert.deepStrictEqual(run1, run3);
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });
