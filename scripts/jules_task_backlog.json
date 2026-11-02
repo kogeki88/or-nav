@@ -522,36 +522,47 @@
     "id": "backlog-53",
     "title": "Testing: Clinical Inventory Parity Tests for county_general",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: Inventory Parity for county_general\n\n**File:** `backend/tests/test_parity_county_general.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `county_general`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_county_general.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for county_general\n\n**File:** `backend/tests/test_parity_county_general.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `county_general`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_county_general.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
+    "sessionId": "240441133185024131",
+    "dispatchedAt": "2026-11-02T19:35:02.388Z"
   },
   {
     "id": "backlog-54",
     "title": "Testing: Clinical Inventory Parity Tests for er_trauma",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: Inventory Parity for er_trauma\n\n**File:** `backend/tests/test_parity_er_trauma.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `er_trauma`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_er_trauma.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for er_trauma\n\n**File:** `backend/tests/test_parity_er_trauma.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `er_trauma`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_er_trauma.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
+    "sessionId": "7483036915743647454",
+    "dispatchedAt": "2026-11-02T19:38:03.481Z",
+    "completedAt": "2026-11-02T19:59:42.548Z"
   },
   {
     "id": "backlog-55",
     "title": "Testing: Clinical Inventory Parity Tests for icu_critical_care",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: Inventory Parity for icu_critical_care\n\n**File:** `backend/tests/test_parity_icu_critical_care.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `icu_critical_care`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_icu_critical_care.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for icu_critical_care\n\n**File:** `backend/tests/test_parity_icu_critical_care.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `icu_critical_care`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_icu_critical_care.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
+    "sessionId": "9825305136902594302",
+    "dispatchedAt": "2026-11-02T19:43:45.034Z"
   },
   {
     "id": "backlog-56",
     "title": "Testing: Clinical Inventory Parity Tests for pacu_periop",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: Inventory Parity for pacu_periop\n\n**File:** `backend/tests/test_parity_pacu_periop.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `pacu_periop`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_pacu_periop.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for pacu_periop\n\n**File:** `backend/tests/test_parity_pacu_periop.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `pacu_periop`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_pacu_periop.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
+    "sessionId": "2137972206361274255",
+    "dispatchedAt": "2026-11-02T19:53:20.677Z"
   },
   {
     "id": "backlog-57",
     "title": "Testing: Clinical Inventory Parity Tests for sacred_heart",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🧪 Testing Task: Inventory Parity for sacred_heart\n\n**File:** `backend/tests/test_parity_sacred_heart.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `sacred_heart`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_sacred_heart.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🧪 Testing Task: Inventory Parity for sacred_heart\n\n**File:** `backend/tests/test_parity_sacred_heart.py`\n**Issue:** Validate CSV inventory structure and preference card mappings for tenant `sacred_heart`.\n\n**Objective:**\n1. Create `backend/tests/test_parity_sacred_heart.py`.\n2. Assert all items referenced in preference cards exist in `inventory.csv`.\n3. Submit PR immediately upon verification.",
+    "sessionId": "874105624994312564",
+    "dispatchedAt": "2026-11-02T19:59:05.285Z"
   },
   {
     "id": "backlog-058",
@@ -1547,33 +1558,40 @@
     "id": "backlog-157",
     "title": "Sentinel: High-Concurrency & Stress Benchmarks for ChatRouterMultiTenant",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Sentinel Task (Phase 3): High-Concurrency & Stress Benchmarks for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "14582147861472718096",
-    "dispatchedAt": "2026-11-02T18:03:13.065Z"
+    "dispatchedAt": "2026-11-02T18:03:13.065Z",
+    "completedAt": "2026-11-02T18:38:34.174Z"
   },
   {
     "id": "backlog-158",
     "title": "Testing: High-Concurrency & Stress Benchmarks for VoiceRouterLiveKit",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for VoiceRouterLiveKit\n\n**File:** `backend/tests/test_voice_router.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_voice_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 3): High-Concurrency & Stress Benchmarks for VoiceRouterLiveKit\n\n**File:** `backend/tests/test_voice_router.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_voice_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "7594631893004903908",
+    "dispatchedAt": "2026-11-02T18:35:04.889Z"
   },
   {
     "id": "backlog-159",
     "title": "Sentinel: High-Concurrency & Stress Benchmarks for LimiterConcurrencyThrottling",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Sentinel Task (Phase 3): High-Concurrency & Stress Benchmarks for LimiterConcurrencyThrottling\n\n**File:** `backend/tests/test_limiter_concurrency.py`\n**Objective:**\n1. Create or extend concurrent burst execution, race condition resistance, and latency benchmarks in `backend/tests/test_limiter_concurrency.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "14731225286962293537",
-    "dispatchedAt": "2026-11-02T18:03:15.208Z"
+    "dispatchedAt": "2026-11-02T18:03:15.208Z",
+    "completedAt": "2026-11-02T19:29:14.746Z"
   },
   {
     "id": "backlog-160",
     "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for DirectGemini",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "16186417674991950451",
+    "dispatchedAt": "2026-11-02T19:03:48.623Z",
+    "completedAt": "2026-11-02T19:23:18.195Z"
   },
   {
     "id": "backlog-161",
@@ -1599,8 +1617,11 @@
     "id": "backlog-163",
     "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for HospitalMapping",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for HospitalMapping\n\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/hospitalMapping.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for HospitalMapping\n\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/hospitalMapping.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "256888122365514202",
+    "dispatchedAt": "2026-11-02T19:03:50.207Z",
+    "completedAt": "2026-11-02T19:23:48.916Z"
   },
   {
     "id": "backlog-164",
@@ -1616,71 +1637,306 @@
     "id": "backlog-165",
     "title": "Bolt: Offline Partition & Multi-Tenant Isolation Verification for MoveDebouncer",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for MoveDebouncer\n\n**File:** `frontend/src/lib/moveDebouncer.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/moveDebouncer.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "7670148402464859404",
-    "dispatchedAt": "2026-11-02T18:33:39.595Z"
+    "dispatchedAt": "2026-11-02T18:33:39.595Z",
+    "completedAt": "2026-11-02T18:53:18.132Z"
   },
   {
     "id": "backlog-166",
     "title": "Performance: Offline Partition & Multi-Tenant Isolation Verification for OfflineDb",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Performance Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for OfflineDb\n\n**File:** `frontend/src/lib/offlineDbBench.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/offlineDbBench.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "4791432338313832587",
-    "dispatchedAt": "2026-11-02T18:33:40.986Z"
+    "dispatchedAt": "2026-11-02T18:33:40.986Z",
+    "completedAt": "2026-11-02T18:43:41.719Z"
   },
   {
     "id": "backlog-167",
     "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for DeltaSync",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "13472053171295013270",
+    "dispatchedAt": "2026-11-02T19:03:51.979Z",
+    "completedAt": "2026-11-02T19:23:43.078Z"
   },
   {
     "id": "backlog-168",
     "title": "Sentinel: Offline Partition & Multi-Tenant Isolation Verification for AuthTokenRotation",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Sentinel Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for AuthTokenRotation\n\n**File:** `backend/tests/test_auth_token_rotation.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_auth_token_rotation.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "1276426940708323102",
-    "dispatchedAt": "2026-11-02T18:33:37.374Z"
+    "dispatchedAt": "2026-11-02T18:33:37.374Z",
+    "completedAt": "2026-11-02T19:24:35.700Z"
   },
   {
     "id": "backlog-169",
     "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for FeedbackPipeline",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for FeedbackPipeline\n\n**File:** `backend/tests/test_feedback_pipeline.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_feedback_pipeline.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for FeedbackPipeline\n\n**File:** `backend/tests/test_feedback_pipeline.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_feedback_pipeline.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "3640691809381845667",
+    "dispatchedAt": "2026-11-02T19:03:54.139Z",
+    "completedAt": "2026-11-02T19:29:20.736Z"
   },
   {
     "id": "backlog-170",
     "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for IntentParser",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "13913145000568044042",
+    "dispatchedAt": "2026-11-02T19:03:55.562Z",
+    "completedAt": "2026-11-02T19:23:23.859Z"
   },
   {
     "id": "backlog-171",
     "title": "Bolt: Offline Partition & Multi-Tenant Isolation Verification for InventorySearch",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "13821251762623274990",
+    "dispatchedAt": "2026-11-02T18:35:02.949Z",
+    "completedAt": "2026-11-02T19:24:41.422Z"
   },
   {
     "id": "backlog-172",
     "title": "Code Health: Offline Partition & Multi-Tenant Isolation Verification for LexiconLearningService",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Code Health Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for LexiconLearningService\n\n**File:** `backend/tests/test_lexicon_service.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_lexicon_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "4407956948595311149",
-    "dispatchedAt": "2026-11-02T18:33:35.907Z"
+    "dispatchedAt": "2026-11-02T18:33:35.907Z",
+    "completedAt": "2026-11-02T19:00:30.903Z"
   },
   {
     "id": "backlog-173",
     "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for VoiceWorker",
     "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "12777019160115364224",
+    "dispatchedAt": "2026-11-02T19:03:58.430Z"
+  },
+  {
+    "id": "backlog-174",
+    "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for PushToTalkHook",
+    "category": "Testing",
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for PushToTalkHook\n\n**File:** `frontend/src/hooks/usePushToTalk.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/hooks/usePushToTalk.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "3298258645697164588",
+    "dispatchedAt": "2026-11-02T19:07:57.569Z",
+    "completedAt": "2026-11-02T19:23:30.790Z"
+  },
+  {
+    "id": "backlog-175",
+    "title": "Code Health: Offline Partition & Multi-Tenant Isolation Verification for WakeLockHook",
+    "category": "Code Health",
+    "status": "completed",
+    "prompt": "# 🚀 Code Health Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for WakeLockHook\n\n**File:** `frontend/src/hooks/useWakeLock.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/hooks/useWakeLock.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "16501612600060471689",
+    "dispatchedAt": "2026-11-02T19:03:45.763Z",
+    "completedAt": "2026-11-02T19:23:37.139Z"
+  },
+  {
+    "id": "backlog-176",
+    "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for UserProfileHook",
+    "category": "Testing",
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for UserProfileHook\n\n**File:** `frontend/src/hooks/useUserProfile.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/hooks/useUserProfile.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "231814025460695887",
+    "dispatchedAt": "2026-11-02T19:13:42.203Z",
+    "completedAt": "2026-11-02T19:23:06.426Z"
+  },
+  {
+    "id": "backlog-177",
+    "title": "Code Health: Offline Partition & Multi-Tenant Isolation Verification for AutoUpdateModal",
+    "category": "Code Health",
+    "status": "completed",
+    "prompt": "# 🚀 Code Health Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for AutoUpdateModal\n\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "10447022791658703966",
+    "dispatchedAt": "2026-11-02T19:03:47.165Z",
+    "completedAt": "2026-11-02T19:23:12.833Z"
+  },
+  {
+    "id": "backlog-178",
+    "title": "Bolt: Offline Partition & Multi-Tenant Isolation Verification for OmnibarSearch",
+    "category": "Performance",
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for OmnibarSearch\n\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/components/Omnibar.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "18012929426974994690",
+    "dispatchedAt": "2026-11-02T19:34:06.398Z",
+    "completedAt": "2026-11-02T20:04:09.425Z"
+  },
+  {
+    "id": "backlog-179",
+    "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for PeerQnAPanel",
+    "category": "Testing",
+    "status": "completed",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for PeerQnAPanel\n\n**File:** `frontend/src/components/PeerQnAPanel.test.tsx`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/components/PeerQnAPanel.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "934825040348661615",
+    "dispatchedAt": "2026-11-02T19:34:13.051Z",
+    "completedAt": "2026-11-02T19:59:25.008Z"
+  },
+  {
+    "id": "backlog-180",
+    "title": "Performance: Offline Partition & Multi-Tenant Isolation Verification for SyncEngineOutbox",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Performance Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for SyncEngineOutbox\n\n**File:** `frontend/src/lib/syncEngine.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/syncEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "9243112090846452968",
+    "dispatchedAt": "2026-11-02T19:34:07.910Z"
+  },
+  {
+    "id": "backlog-181",
+    "title": "Sentinel: Offline Partition & Multi-Tenant Isolation Verification for ResourceManagerChecksum",
+    "category": "Security",
+    "status": "completed",
+    "prompt": "# 🚀 Sentinel Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for ResourceManagerChecksum\n\n**File:** `frontend/src/lib/resourceManager.test.ts`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `frontend/src/lib/resourceManager.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "17658412240711165183",
+    "dispatchedAt": "2026-11-02T19:23:54.137Z",
+    "completedAt": "2026-11-02T19:38:00.465Z"
+  },
+  {
+    "id": "backlog-182",
+    "title": "Bolt: Offline Partition & Multi-Tenant Isolation Verification for ClinicalQueryPlannerService",
+    "category": "Performance",
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for ClinicalQueryPlannerService\n\n**File:** `backend/tests/test_clinical_query_planner.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_clinical_query_planner.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "35929913217719242",
+    "dispatchedAt": "2026-11-02T19:34:09.345Z",
+    "completedAt": "2026-11-02T19:58:54.948Z"
+  },
+  {
+    "id": "backlog-183",
+    "title": "Bolt: Offline Partition & Multi-Tenant Isolation Verification for SurgicalOntologyService",
+    "category": "Performance",
+    "status": "completed",
+    "prompt": "# 🚀 Bolt Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for SurgicalOntologyService\n\n**File:** `backend/tests/test_surgical_ontology.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_surgical_ontology.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "9636205355904453507",
+    "dispatchedAt": "2026-11-02T19:34:11.086Z",
+    "completedAt": "2026-11-02T19:59:00.869Z"
+  },
+  {
+    "id": "backlog-184",
+    "title": "Sentinel: Offline Partition & Multi-Tenant Isolation Verification for ScrubberService",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for ScrubberService\n\n**File:** `backend/tests/test_scrubber_service.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_scrubber_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "16779098596596560245",
+    "dispatchedAt": "2026-11-02T19:23:55.571Z"
+  },
+  {
+    "id": "backlog-185",
+    "title": "Sentinel: Offline Partition & Multi-Tenant Isolation Verification for ChatRouterMultiTenant",
+    "category": "Security",
+    "status": "completed",
+    "prompt": "# 🚀 Sentinel Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "9565232274824987465",
+    "dispatchedAt": "2026-11-02T19:23:57.824Z",
+    "completedAt": "2026-11-02T19:53:10.372Z"
+  },
+  {
+    "id": "backlog-186",
+    "title": "Testing: Offline Partition & Multi-Tenant Isolation Verification for VoiceRouterLiveKit",
+    "category": "Testing",
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for VoiceRouterLiveKit\n\n**File:** `backend/tests/test_voice_router.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_voice_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "3788424713638161223",
+    "dispatchedAt": "2026-11-02T19:34:14.569Z"
+  },
+  {
+    "id": "backlog-187",
+    "title": "Sentinel: Offline Partition & Multi-Tenant Isolation Verification for LimiterConcurrencyThrottling",
+    "category": "Security",
+    "status": "completed",
+    "prompt": "# 🚀 Sentinel Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for LimiterConcurrencyThrottling\n\n**File:** `backend/tests/test_limiter_concurrency.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_limiter_concurrency.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "8813575027578618166",
+    "dispatchedAt": "2026-11-02T19:34:05.037Z",
+    "completedAt": "2026-11-02T20:04:16.071Z"
+  },
+  {
+    "id": "backlog-188",
+    "title": "Testing: Rigorous Unit & Regression Tests for ClinicalGraph",
+    "category": "Testing",
     "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 4): Offline Partition & Multi-Tenant Isolation Verification for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for ClinicalGraph\n\n**File:** `frontend/src/lib/clinicalGraph.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/clinicalGraph.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-189",
+    "title": "Bolt: Rigorous Unit & Regression Tests for DeltaSyncPayload",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Phase 1): Rigorous Unit & Regression Tests for DeltaSyncPayload\n\n**File:** `frontend/src/lib/deltaSyncPayload.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/deltaSyncPayload.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "16457682380672443771",
+    "dispatchedAt": "2026-11-02T20:04:28.666Z"
+  },
+  {
+    "id": "backlog-190",
+    "title": "Code Health: Rigorous Unit & Regression Tests for Departments",
+    "category": "Code Health",
+    "status": "pending",
+    "prompt": "# 🚀 Code Health Task (Phase 1): Rigorous Unit & Regression Tests for Departments\n\n**File:** `frontend/src/lib/departments.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/departments.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-191",
+    "title": "Testing: Rigorous Unit & Regression Tests for FeedbackEngine",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for FeedbackEngine\n\n**File:** `frontend/src/lib/feedbackEngine.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/feedbackEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-192",
+    "title": "Code Health: Rigorous Unit & Regression Tests for Gamification",
+    "category": "Code Health",
+    "status": "pending",
+    "prompt": "# 🚀 Code Health Task (Phase 1): Rigorous Unit & Regression Tests for Gamification\n\n**File:** `frontend/src/lib/gamification.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/gamification.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-193",
+    "title": "Bolt: Rigorous Unit & Regression Tests for LexiconLearning",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Phase 1): Rigorous Unit & Regression Tests for LexiconLearning\n\n**File:** `frontend/src/lib/lexiconLearning.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/lexiconLearning.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "3058596050157458927",
+    "dispatchedAt": "2026-11-02T20:04:30.815Z"
+  },
+  {
+    "id": "backlog-194",
+    "title": "Testing: Rigorous Unit & Regression Tests for LivekitClient",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 1): Rigorous Unit & Regression Tests for LivekitClient\n\n**File:** `frontend/src/lib/livekitClient.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/livekitClient.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-195",
+    "title": "Sentinel: Rigorous Unit & Regression Tests for OtaValidator",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for OtaValidator\n\n**File:** `frontend/src/lib/otaValidator.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/otaValidator.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11044500038942991716",
+    "dispatchedAt": "2026-11-02T20:04:24.979Z"
+  },
+  {
+    "id": "backlog-196",
+    "title": "Sentinel: Rigorous Unit & Regression Tests for ScrubClient",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Phase 1): Rigorous Unit & Regression Tests for ScrubClient\n\n**File:** `frontend/src/lib/scrubClient.test.ts`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/lib/scrubClient.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "15193540814253278445",
+    "dispatchedAt": "2026-11-02T20:04:26.617Z"
+  },
+  {
+    "id": "backlog-197",
+    "title": "Bolt: Rigorous Unit & Regression Tests for ChatCanvasVirtual",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Phase 1): Rigorous Unit & Regression Tests for ChatCanvasVirtual\n\n**File:** `frontend/src/components/ChatCanvasVirtual.test.tsx`\n**Objective:**\n1. Create or extend unit tests verifying core logic and contract invariants in `frontend/src/components/ChatCanvasVirtual.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "17787017083236601040",
+    "dispatchedAt": "2026-11-02T20:04:32.250Z"
   }
 ]

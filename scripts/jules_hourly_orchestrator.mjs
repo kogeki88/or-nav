@@ -759,14 +759,37 @@ function ensureBacklogCapacity(backlog, needed) {
       { name: 'ScrubberService', path: 'backend/tests/test_scrubber_service.py', cat: 'Sentinel' },
       { name: 'ChatRouterMultiTenant', path: 'backend/tests/test_chat_router.py', cat: 'Sentinel' },
       { name: 'VoiceRouterLiveKit', path: 'backend/tests/test_voice_router.py', cat: 'Testing' },
-      { name: 'LimiterConcurrencyThrottling', path: 'backend/tests/test_limiter_concurrency.py', cat: 'Sentinel' }
+      { name: 'LimiterConcurrencyThrottling', path: 'backend/tests/test_limiter_concurrency.py', cat: 'Sentinel' },
+      { name: 'ClinicalGraph', path: 'frontend/src/lib/clinicalGraph.test.ts', cat: 'Testing' },
+      { name: 'DeltaSyncPayload', path: 'frontend/src/lib/deltaSyncPayload.test.ts', cat: 'Bolt' },
+      { name: 'Departments', path: 'frontend/src/lib/departments.test.ts', cat: 'Code Health' },
+      { name: 'FeedbackEngine', path: 'frontend/src/lib/feedbackEngine.test.ts', cat: 'Testing' },
+      { name: 'Gamification', path: 'frontend/src/lib/gamification.test.ts', cat: 'Code Health' },
+      { name: 'LexiconLearning', path: 'frontend/src/lib/lexiconLearning.test.ts', cat: 'Bolt' },
+      { name: 'LivekitClient', path: 'frontend/src/lib/livekitClient.test.ts', cat: 'Testing' },
+      { name: 'OtaValidator', path: 'frontend/src/lib/otaValidator.test.ts', cat: 'Sentinel' },
+      { name: 'ScrubClient', path: 'frontend/src/lib/scrubClient.test.ts', cat: 'Sentinel' },
+      { name: 'ChatCanvasVirtual', path: 'frontend/src/components/ChatCanvasVirtual.test.tsx', cat: 'Bolt' },
+      { name: 'CoordinateCard', path: 'frontend/src/components/CoordinateCard.test.tsx', cat: 'Testing' },
+      { name: 'FeedbackModal', path: 'frontend/src/components/FeedbackModal.test.tsx', cat: 'Testing' },
+      { name: 'QRPairModal', path: 'frontend/src/components/QRPairModal.test.tsx', cat: 'Sentinel' },
+      { name: 'QuestionsDrawer', path: 'frontend/src/components/QuestionsDrawer.test.tsx', cat: 'Testing' },
+      { name: 'ResourceInspectorModal', path: 'frontend/src/components/ResourceInspectorModal.test.tsx', cat: 'Testing' },
+      { name: 'UserProfileModal', path: 'frontend/src/components/UserProfileModal.test.tsx', cat: 'Testing' },
+      { name: 'AuthBackend', path: 'backend/tests/test_auth.py', cat: 'Sentinel' },
+      { name: 'PeerQnABackend', path: 'backend/tests/test_peer_qna.py', cat: 'Testing' },
+      { name: 'ConfigBackend', path: 'backend/tests/test_config.py', cat: 'Sentinel' }
     ];
 
     const phases = [
       { tag: 'Phase 1', suffix: 'Rigorous Unit & Regression Tests', desc: 'unit tests verifying core logic and contract invariants' },
       { tag: 'Phase 2', suffix: 'Invariant, Fuzzing & Boundary Hardening', desc: 'fuzzing, boundary inputs, malformed payload resilience, and strict schema validation' },
       { tag: 'Phase 3', suffix: 'High-Concurrency & Stress Benchmarks', desc: 'concurrent burst execution, race condition resistance, and latency benchmarks' },
-      { tag: 'Phase 4', suffix: 'Offline Partition & Multi-Tenant Isolation Verification', desc: 'multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency' }
+      { tag: 'Phase 4', suffix: 'Offline Partition & Multi-Tenant Isolation Verification', desc: 'multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency' },
+      { tag: 'Phase 5', suffix: 'Fault Injection & Network Partition Resilience', desc: 'fault injection, network partition degradation, intermittent latency, and self-healing reconnection' },
+      { tag: 'Phase 6', suffix: 'Memory Profiling & Resource Eviction Hardening', desc: 'memory profiling, leak detection, unclosed event listeners, and cache eviction under constrained runtime memory' },
+      { tag: 'Phase 7', suffix: 'Strict Security Invariants & HIPAA PHI Boundary Verification', desc: 'HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening' },
+      { tag: 'Phase 8', suffix: 'Clinical Workflow Snapshot & Deterministic State Verifications', desc: 'deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency' }
     ];
 
     for (const phase of phases) {
@@ -788,6 +811,27 @@ function ensureBacklogCapacity(backlog, needed) {
           existingTitles.add(title.toLowerCase().trim());
         }
       }
+    }
+
+    let round = 1;
+    while (backlog.filter(t => t.status === 'pending').length < needed + 5) {
+      for (const m of modules) {
+        if (backlog.filter(t => t.status === 'pending').length >= needed + 5) break;
+        const title = `${m.cat}: Continuous Invariant & Stress Hardening Round ${round} for ${m.name}`;
+        if (!existingTitles.has(title.toLowerCase().trim())) {
+          const paddedId = String(nextId++).padStart(3, '0');
+          backlog.push({
+            id: `backlog-${paddedId}`,
+            title: title,
+            category: m.cat === 'Sentinel' ? 'Security' : m.cat === 'Bolt' ? 'Performance' : m.cat,
+            status: 'pending',
+            prompt: `# 🚀 ${m.cat} Task (Hardening Round ${round}): Continuous Invariants for ${m.name}\n\n**File:** \`${m.path}\`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in \`${m.path}\`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.`
+          });
+          existingTitles.add(title.toLowerCase().trim());
+        }
+      }
+      round++;
+      if (round > 50) break;
     }
   }
 
