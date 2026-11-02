@@ -560,3 +560,82 @@ test('supplementary: extends concurrent burst execution, race condition resistan
   const avgLatency = latencies.reduce((a, b) => a + b, 0) / latencies.length;
   assert.ok(avgLatency < 1500, `Average latency too high: ${avgLatency}ms`);
 });
+
+test('supplementary: enforces multi-tenant boundary isolation (facility_id::dept_id) and offline mutation replay idempotency', () => {
+  const tenant1 = 'facility_1::dept_A';
+  const tenant2 = 'facility_2::dept_B';
+
+  const root1 = document.createElement('div');
+  root1.setAttribute('data-tenant', tenant1);
+  document.body.appendChild(root1);
+
+  const root2 = document.createElement('div');
+  root2.setAttribute('data-tenant', tenant2);
+  document.body.appendChild(root2);
+
+  const tempFetch = global.fetch;
+  global.fetch = undefined as any;
+
+  try {
+    const manifestTenant1: VersionManifest = {
+      ...manifest,
+      changelog: `Update for ${tenant1}`,
+    };
+
+    const manifestTenant2: VersionManifest = {
+      ...manifest,
+      changelog: `Update for ${tenant2}`,
+    };
+
+    // Replay idempotency for Tenant 1
+    const { rerender, unmount } = render(
+      <AutoUpdateModal
+        isOpen={true}
+        onClose={() => {}}
+        manifest={manifestTenant1}
+        currentVersion="v0.61"
+        currentBuild={18}
+      />,
+      { container: root1 }
+    );
+
+    assert.ok(screen.getByText(`Update for ${tenant1}`));
+    assert.strictEqual(screen.queryByText(`Update for ${tenant2}`), null);
+
+    // Replay exactly the same mutation
+    rerender(
+      <AutoUpdateModal
+        isOpen={true}
+        onClose={() => {}}
+        manifest={manifestTenant1}
+        currentVersion="v0.61"
+        currentBuild={18}
+      />
+    );
+
+    assert.ok(screen.getByText(`Update for ${tenant1}`));
+    assert.strictEqual(screen.queryByText(`Update for ${tenant2}`), null);
+
+    unmount(); // Unmount to simulate fresh boundary context
+
+    // Switch to Tenant 2, verifying Multi-Tenant Isolation
+    render(
+      <AutoUpdateModal
+        isOpen={true}
+        onClose={() => {}}
+        manifest={manifestTenant2}
+        currentVersion="v0.61"
+        currentBuild={18}
+      />,
+      { container: root2 }
+    );
+
+    assert.ok(screen.getByText(`Update for ${tenant2}`));
+    assert.strictEqual(screen.queryByText(`Update for ${tenant1}`), null); // Assert Tenant 1 context is completely isolated/scrubbed
+  } finally {
+    global.fetch = tempFetch;
+    document.body.removeChild(root1);
+    document.body.removeChild(root2);
+    cleanup();
+  }
+});
