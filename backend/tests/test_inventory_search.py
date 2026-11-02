@@ -405,3 +405,72 @@ def test_offline_mutation_replay_idempotency(tmp_path, monkeypatch):
     assert stale_replay["committed"] is False
     final_state = inv1.search("Suture")
     assert final_state["verify_count"] == 2
+
+def test_supplementary_multi_tenant_boundary_enforcement_and_offline_mutation_replay_idempotency(tmp_path, monkeypatch):
+    """
+    Supplementary test explicitly requested to verify multi-tenant boundary enforcement (facility_id::dept_id)
+    and offline mutation replay idempotency, while enforcing offline-first invariants.
+    """
+    import socket
+    import httpx
+    from app.config import get_tenant
+    from app.services.inventory_search import InventoryService
+
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline replay")
+        if args and args[0] != socket.AF_UNIX:
+            raise RuntimeError("Network call attempted during offline replay")
+        if 'family' in kwargs and kwargs['family'] != socket.AF_UNIX:
+            raise RuntimeError("Network call attempted during offline replay")
+        return original_socket(*args, **kwargs)
+
+    def mock_httpx(*args, **kwargs):
+        raise RuntimeError("Network call attempted during offline replay")
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
+    monkeypatch.setattr(httpx, "get", mock_httpx)
+    monkeypatch.setattr(httpx, "post", mock_httpx)
+    monkeypatch.setattr(httpx, "request", mock_httpx)
+
+    # Multi-tenant boundary enforcement using facility_id::dept_id
+    import copy
+    tenant_a = copy.deepcopy(get_tenant("county_general::or"))
+    ta_csv = tmp_path / "ta_boundary.csv"
+    ta_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nUnique Suture A seq_1,Supplies,R1,C1,S1,C1,,0\n")
+    tenant_a.inventory_path = ta_csv
+    inv_a = InventoryService(tenant_a)
+
+    tenant_b = copy.deepcopy(get_tenant("sacred_heart::icu"))
+    tb_csv = tmp_path / "tb_boundary.csv"
+    tb_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nCompletely Different Device B seq_2,Supplies,R2,C2,S2,C2,,0\n")
+    tenant_b.inventory_path = tb_csv
+    inv_b = InventoryService(tenant_b)
+
+    # Ensure no cross-contamination (isolation)
+    assert inv_a.search("Completely Different Device B seq_2", record_implicit_verification=False) is None
+    assert inv_b.search("Unique Suture A seq_1", record_implicit_verification=False) is None
+
+    # Offline mutation replay idempotency
+    # Replay identical move reports
+    res_1 = inv_a.report_move("Unique Suture A seq_1", "R1 C1 S1 C2")
+    assert res_1["pending_location"] == "R1 C1 S1 C2"
+    assert res_1["verify_count"] == 1
+
+    res_2 = inv_a.report_move("Unique Suture A seq_1", "R1 C1 S1 C2")
+    assert res_2["pending_location"] == "R1 C1 S1 C2"
+    assert res_2["verify_count"] == 1
+
+    # Verify move
+    res_verify_1 = inv_a.verify_move("Unique Suture A seq_1", "R1 C1 S1 C2")
+    assert res_verify_1["verify_count"] == 2
+
+    # Replay verify move with older timestamp (Last-Write-Wins idempotency)
+    stale_verify = inv_a.verify_move("Unique Suture A seq_1", "R1 C1 S1 C2", timestamp="2021-01-01T00:00:00Z")
+    assert stale_verify["committed"] is False
+    final_state = inv_a.search("Unique Suture A seq_1")
+    assert final_state["verify_count"] == 2
+
+    # Verify multi-tenant isolation didn't leak mutations
+    assert inv_b.search("Unique Suture A seq_1", record_implicit_verification=False) is None
