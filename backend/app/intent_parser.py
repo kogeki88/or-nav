@@ -494,7 +494,7 @@ def parse_clinical_intent(query: str, clinical_role: Optional[str] = None) -> Pa
 
     # 5. Default to FIND_INVENTORY (lookups, coordinates)
     # Extract gauge and check for suture family disambiguation
-    gauge_match = re.search(r"\b(\d+[\-/]0|0)\b", normalized_query)
+    gauge_match = re.search(r"\b(\d+[\-/]0|0)\b(?!\s*(?:gauge|g|fr|french))", normalized_query, flags=re.IGNORECASE)
     gauge_val = gauge_match.group(1).replace("/", "-") if gauge_match else None
 
     # Check for suture family without gauge:

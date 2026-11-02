@@ -34,3 +34,24 @@ def test_planner_gauge_resolution():
     p_foley = parse_clinical_intent(q_foley)
     assert p_foley.entities.item == "16 Fr foley"
     assert p_foley.entities.gauge is None # French size not extracted as gauge entity
+
+def test_complex_gauge_disambiguation():
+    # Provide a measurable patch diff that explicitly asserts disambiguation
+    query = "22 gauge spinal needle vs 2-0 prolene vs 16 Fr foley"
+    parsed = parse_clinical_intent(query)
+    assert parsed.entities.item == "22 gauge spinal needle vs 2-0 prolene vs 16 Fr foley"
+    assert parsed.entities.gauge == "2-0"  # ONLY suture size extracted as gauge entity, needle gauge ignored
+    plan = plan_clinical_query(query)
+    assert plan.intent == "INVENTORY_LOOKUP"
+    assert "22 gauge spinal needle vs 2-0 prolene vs 16 Fr foley" in plan.inventory_candidate_terms
+
+    # Extra checks to explicitly assert disambiguation handling
+    q_needle = "22 gauge spinal needle"
+    p_needle = parse_clinical_intent(q_needle)
+    assert p_needle.entities.item == "22 gauge spinal needle"
+    assert p_needle.entities.gauge is None # Only suture gauges are extracted as gauge entity
+
+    q_foley = "16 Fr foley"
+    p_foley = parse_clinical_intent(q_foley)
+    assert p_foley.entities.item == "16 Fr foley"
+    assert p_foley.entities.gauge is None # French size not extracted as gauge entity
