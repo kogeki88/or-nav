@@ -98,28 +98,50 @@ class TestAuthTokenRotation:
 
     def test_auth_token_rotation_concurrent_burst(self):
         """Verify race condition resistance and measure latency for concurrent requests."""
-        num_requests = 10
-        start_time = time.time()
+        num_requests = 1000
 
-        def make_login_request(i):
-            return client.post(
-                "/api/auth/login",
-                json={"email": "sean@sacredheart.org", "password": "password123"}
+        # Setup users for login
+        emails = [f"login_{i}_{uuid.uuid4().hex}@sacredheart.org" for i in range(num_requests)]
+
+        for email in emails:
+            client.post(
+                "/api/auth/register",
+                json={
+                    "email": email,
+                    "password": "password123",
+                    "fullName": "Test User"
+                }
             )
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=num_requests) as executor:
-            futures = [executor.submit(make_login_request, i) for i in range(num_requests)]
+        start_time = time.time()
+
+        def make_login_request(email):
+            return (email, client.post(
+                "/api/auth/login",
+                json={
+                    "email": email,
+                    "password": "password123"
+                }
+            ))
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
+            futures = [executor.submit(make_login_request, email) for email in emails]
             results = [future.result() for future in concurrent.futures.as_completed(futures)]
 
         latency = time.time() - start_time
 
-        assert latency < 2.0, f"Latency was {latency}s, expected < 2.0s"
+        # Increased headroom to 25s for CI runners
+        assert latency < 25.0, f"Latency was {latency}s, expected < 25.0s"
 
         tokens = []
-        for res in results:
+        for unique_email, res in results:
             assert res.status_code == 200
-            token = res.json()["token"]
+            data = res.json()
+            token = data["token"]
             assert token.startswith("token-")
+
+            # Verify parsed output does not contain leaked data from adjacent requests
+            assert data["user"]["email"] == unique_email
             tokens.append(token)
 
         assert len(set(tokens)) == num_requests, "Tokens generated concurrently are not unique."

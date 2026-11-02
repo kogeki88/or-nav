@@ -14,7 +14,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import uuid
+import uuid # Imported to prevent race conditions during concurrent save operations
 from fastapi import APIRouter, HTTPException, Request
 from app.limiter import limiter
 from pydantic import BaseModel, Field
@@ -70,7 +70,7 @@ def load_users() -> List[Dict[str, Any]]:
 def save_users(users: List[Dict[str, Any]]) -> None:
     """Save user accounts to disk."""
     USERS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    temp_file = USERS_FILE.with_suffix(".tmp")
+    temp_file = USERS_FILE.with_suffix(f".{uuid.uuid4().hex}.tmp")
     temp_file.write_text(json.dumps(users, indent=2, ensure_ascii=False), encoding="utf-8")
     temp_file.replace(USERS_FILE)
 
