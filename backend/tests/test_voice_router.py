@@ -339,3 +339,85 @@ class TestVoiceRouter:
         data = resp.json()
         assert data["silence"] is False
         assert "bovie" in data["transcript"].lower()
+    def test_voice_token_offline_mutation_replay_idempotency(self, client, monkeypatch):
+        import httpx
+        import socket
+
+        def mock_raise(*args, **kwargs):
+            raise RuntimeError("Offline invariant violated: External network call attempted.")
+
+        original_socket = socket.socket
+        def mock_socket(*args, **kwargs):
+            family = args[0] if args else kwargs.get("family", socket.AF_INET)
+            import os
+            if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
+                raise RuntimeError("Offline invariant violated: External network call attempted.")
+            return original_socket(*args, **kwargs)
+
+        monkeypatch.setattr(socket, "socket", mock_socket)
+        monkeypatch.setattr(httpx, "get", mock_raise)
+        monkeypatch.setattr(httpx, "post", mock_raise)
+        monkeypatch.setattr(httpx, "request", mock_raise)
+
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        import sys
+        from unittest.mock import MagicMock
+        mock_livekit = MagicMock()
+        mock_token = MagicMock()
+        mock_token.with_grants.return_value = mock_token
+        mock_token.with_identity.return_value = mock_token
+        mock_token.with_metadata.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.to_jwt.return_value = "mock_jwt_token"
+        mock_livekit.AccessToken.return_value = mock_token
+        monkeypatch.setitem(sys.modules, "livekit.api", mock_livekit)
+
+        tenant_id = "facility_42::dept_99"
+
+        resp1 = client.post("/api/voice/token", json={"tenant_id": tenant_id, "participant_name": "user"})
+        assert resp1.status_code == 200
+        data1 = resp1.json()
+
+        resp2 = client.post("/api/voice/token", json={"tenant_id": tenant_id, "participant_name": "user"})
+        assert resp2.status_code == 200
+        data2 = resp2.json()
+
+        assert data1 == data2
+
+    def test_voice_token_multi_tenant_isolation(self, client, monkeypatch):
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        import sys
+        from unittest.mock import MagicMock
+        mock_livekit = MagicMock()
+        mock_token = MagicMock()
+        mock_token.with_grants.return_value = mock_token
+        mock_token.with_identity.return_value = mock_token
+        mock_token.with_metadata.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.to_jwt.return_value = "mock_jwt_token"
+        mock_livekit.AccessToken.return_value = mock_token
+        monkeypatch.setitem(sys.modules, "livekit.api", mock_livekit)
+
+        tenant_1 = "facility_1::dept_a"
+        tenant_2 = "facility_2::dept_b"
+        resp_1 = client.post("/api/voice/token", json={"tenant_id": tenant_1, "participant_name": "user"})
+        resp_2 = client.post("/api/voice/token", json={"tenant_id": tenant_2, "participant_name": "user"})
+
+        assert resp_1.status_code == 200
+        assert resp_2.status_code == 200
+
+        data_1 = resp_1.json()
+        data_2 = resp_2.json()
+
+        assert data_1["tenant_id"] == tenant_1
+        assert data_2["tenant_id"] == tenant_2
+        assert data_1["room_name"] == f"or-nav-{tenant_1}"
+        assert data_2["room_name"] == f"or-nav-{tenant_2}"
