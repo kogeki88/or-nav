@@ -133,3 +133,73 @@ test('offline mutation idempotency and multi-tenant isolation', async () => {
         cleanup();
     }
 });
+
+test('renders malformed payload resilience', () => {
+    // Malformed props
+    const d: CoordinateCardData = {
+        item: 1 as any as string,
+        room: undefined as any as string,
+        cabinet: null as any as string,
+        shelf: '3',
+        container: '4',
+        full_code: '1',
+        category: 'cat',
+        surgeon_notes: '',
+        pending_location: '',
+        verify_count: 0
+    };
+
+    render(<CoordinateCard card={d} />);
+    const roomDiv = screen.getByLabelText('Room undefined');
+    const cabDiv = screen.getByLabelText('Cabinet null');
+    assert.ok(roomDiv);
+    assert.ok(cabDiv);
+    cleanup();
+});
+
+test('boundary inputs and schema enforcement for fuzzing inputs', () => {
+    // Fuzzing boundary values
+    const fuzzyInputs = [
+        {
+            item: '<script>alert(1)</script>',
+            room: 'OR\u0000 1',
+            cabinet: '-1',
+            shelf: '9999999999999999',
+            container: '',
+            full_code: 'OR 1--1-9999-0',
+            category: 'UNKNOWN_CAT',
+            surgeon_notes: 'Notes \n\r',
+            pending_location: 'Null\b',
+            verify_count: -100
+        },
+        {
+            item: '',
+            room: '',
+            cabinet: '',
+            shelf: '',
+            container: '',
+            full_code: '',
+            category: '',
+            surgeon_notes: '',
+            pending_location: '',
+            verify_count: 0
+        },
+        {
+            item: 'A'.repeat(1000),
+            room: 'B'.repeat(50),
+            cabinet: 'C'.repeat(50),
+            shelf: 'D'.repeat(50),
+            container: 'E'.repeat(50),
+            full_code: 'F'.repeat(100),
+            category: 'Surgical',
+            surgeon_notes: 'G'.repeat(500),
+            pending_location: '',
+            verify_count: 9999
+        }
+    ];
+
+    for (const d of fuzzyInputs) {
+        render(<CoordinateCard card={d} />);
+        cleanup();
+    }
+});
