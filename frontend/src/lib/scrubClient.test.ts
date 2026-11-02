@@ -231,14 +231,14 @@ describe("scrubClient standard and adversarial tests", () => {
 
   describe("Offline-first and Multi-tenant Isolation", () => {
     test("scrubPhi executes successfully completely offline (offline-first invariant)", async () => {
-      const originalFetch = global.fetch;
+      const originalFetch = (global as any).fetch;
       try {
-        global.fetch = async () => { throw new Error('Network offline'); };
+        (global as any).fetch = undefined as any;
         const result = scrubPhi("Patient MRN 123456 needs 3-0 silk");
         assert.strictEqual(result.text, `Patient ${REDACTION} needs 3-0 silk`);
         assert.strictEqual(result.redactionCount, 1);
       } finally {
-        global.fetch = originalFetch;
+        (global as any).fetch = originalFetch;
       }
     });
 
@@ -246,13 +246,48 @@ describe("scrubClient standard and adversarial tests", () => {
       const tenantAData = "Tenant A patient John Smith MRN 111111";
       const tenantBData = "Tenant B pt Jane Doe MRN 222222";
 
-      const resultA = scrubPhi(tenantAData);
-      const resultB = scrubPhi(tenantBData);
+      const resultA1 = scrubPhi(tenantAData);
+      const resultB1 = scrubPhi(tenantBData);
+      const resultA2 = scrubPhi(tenantAData);
+      const resultB2 = scrubPhi(tenantBData);
 
-      assert.strictEqual(resultA.text, `Tenant A patient ${REDACTION} ${REDACTION}`);
-      assert.strictEqual(resultB.text, `Tenant B pt ${REDACTION} ${REDACTION}`);
-      assert.strictEqual(resultA.redactionCount, 2);
-      assert.strictEqual(resultB.redactionCount, 2);
+      assert.strictEqual(resultA1.text, `Tenant A patient ${REDACTION} ${REDACTION}`);
+      assert.strictEqual(resultB1.text, `Tenant B pt ${REDACTION} ${REDACTION}`);
+      assert.strictEqual(resultA2.text, `Tenant A patient ${REDACTION} ${REDACTION}`);
+      assert.strictEqual(resultB2.text, `Tenant B pt ${REDACTION} ${REDACTION}`);
+      assert.strictEqual(resultA1.redactionCount, 2);
+      assert.strictEqual(resultB1.redactionCount, 2);
+      assert.strictEqual(resultA2.redactionCount, 2);
+      assert.strictEqual(resultB2.redactionCount, 2);
+    });
+  });
+
+  describe("Malformed Payload Resilience, Fuzzing & Schema", () => {
+    test("malformed payload resilience", () => {
+      const badInputs = [null, undefined, 123, {}, [], Symbol("test"), () => {}, NaN];
+      for (const input of badInputs) {
+        const result = scrubPhi(input as any);
+        assert.strictEqual(result.text, "");
+        assert.strictEqual(result.redactionCount, 0);
+      }
+    });
+
+    test("fuzzing and boundary inputs", () => {
+      const hugeString = "a".repeat(100000);
+      assert.strictEqual(scrubPhi(hugeString).text, hugeString);
+
+      const controlChars = "\u0000\u0001\u0002MRN 1234567\u0003\u0004";
+      assert.strictEqual(scrubPhi(controlChars).text, `\u0000\u0001\u0002${REDACTION}\u0003\u0004`);
+
+      const repetitive = "patient patient patient patient";
+      assert.strictEqual(scrubPhi(repetitive).text, "patient patient patient patient");
+    });
+
+    test("strict schema validation", () => {
+      const result = scrubPhi("hello");
+      assert.deepStrictEqual(Object.keys(result).sort(), ["redactionCount", "text"]);
+      assert.strictEqual(typeof result.text, "string");
+      assert.strictEqual(typeof result.redactionCount, "number");
     });
   });
 });
