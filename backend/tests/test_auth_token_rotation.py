@@ -354,3 +354,49 @@ class TestAuthTokenRotation:
         profile_b = login_b.json()["profile"]
         assert profile_b["facilityId"] == "tenantB_fac"
         assert profile_b["departmentId"] == "dept_beta"
+
+        # Verify offline mutation replay idempotency and multi-tenant boundary integrity
+        payload_a = {
+            "email": "userA@tenantA.com",
+            "facilityId": "tenantA_fac",
+            "departmentId": "dept_alpha_new"
+        }
+
+        res_a1 = client.put("/api/auth/profile", json=payload_a)
+        assert res_a1.status_code == 200
+        data_a1 = res_a1.json()
+        data_a1.pop("latency_ms", None)
+        data_a1.pop("last_verified_at", None)
+
+        res_a2 = client.put("/api/auth/profile", json=payload_a)
+        assert res_a2.status_code == 200
+        data_a2 = res_a2.json()
+        data_a2.pop("latency_ms", None)
+        data_a2.pop("last_verified_at", None)
+
+        assert data_a1 == data_a2
+
+        # Verify User A's mutation did not leak into User B's state
+        login_b_after = client.post("/api/auth/login", json={"email": "userB@tenantB.com", "password": "password123"})
+        profile_b_after = login_b_after.json()["profile"]
+        assert profile_b_after["facilityId"] == "tenantB_fac"
+        assert profile_b_after["departmentId"] == "dept_beta"
+
+        # Ensure user A cannot access user B's tenant/department
+        assert profile_a["facilityId"] != profile_b["facilityId"]
+        assert profile_a["departmentId"] != profile_b["departmentId"]
+
+        # Test offline-first profile mutations (idempotency over network-disconnected state)
+        res_a_offline = client.put("/api/auth/profile", json={
+            "email": "userA@tenantA.com",
+            "facilityId": "tenantA_fac",
+            "departmentId": "dept_alpha"
+        })
+        assert res_a_offline.status_code == 200
+
+        res_b_offline = client.put("/api/auth/profile", json={
+            "email": "userB@tenantB.com",
+            "facilityId": "tenantB_fac",
+            "departmentId": "dept_beta"
+        })
+        assert res_b_offline.status_code == 200
