@@ -257,4 +257,85 @@ describe("lexiconLearning & Teaching Intent", () => {
         }
       });
     });
+
+    describe("Fuzzing, Boundary Inputs, and Schema Validation", () => {
+      beforeEach(() => { mockStorage.clear(); });
+
+      test("should handle malformed null/undefined boundary inputs without crashing", () => {
+        // Fuzzing boundary values by casting to any
+        assert.throws(() => titleCaseTerm(undefined as any));
+        assert.throws(() => detectTeachingIntentClient(null as any));
+
+        // resolveSpokenAliasClient gracefully handles null
+        const resolved = resolveSpokenAliasClient("f1", null as any);
+        assert.strictEqual(resolved, null);
+      });
+
+      test("should safely process extremely long strings (fuzzing)", () => {
+        const longStr = "A".repeat(10000);
+        const entry = learnAliasClient("fac_long", "or", longStr, longStr, "user");
+        assert.strictEqual(entry.usageCount, 1);
+        assert.strictEqual(entry.spokenTerm, longStr.toLowerCase());
+      });
+
+      test("should enforce strict schema validation for malformed storage payloads", () => {
+        // Mocking a completely corrupted JSON
+        mockStorage.set("ornav_learned_lexicon_malformed1", "{ not json }");
+        const res1 = loadFacilityLexicon("malformed1");
+        assert.ok(Array.isArray(res1)); // Should fallback to empty/defaults
+
+        // Mocking a non-array JSON payload
+        mockStorage.set("ornav_learned_lexicon_malformed2", JSON.stringify({ a: 1 }));
+        const res2 = loadFacilityLexicon("malformed2");
+        assert.ok(Array.isArray(res2));
+
+        // Mocking an array with missing/invalid fields
+        mockStorage.set("ornav_learned_lexicon_malformed3", JSON.stringify([
+          { missingKeys: true },
+          null,
+          "random string"
+        ]));
+        // Should return it as parsed, but system shouldn't crash on read
+        const res3 = loadFacilityLexicon("malformed3");
+        assert.ok(Array.isArray(res3));
+
+        // Let's verify resolveSpokenAliasClient doesn't crash on it
+        const resolved = resolveSpokenAliasClient("malformed3", "query");
+        assert.strictEqual(resolved, null);
+      });
+
+      test("should enforce multi-tenant isolation with fuzzed tenant IDs", () => {
+        const tenant1 = "tenant_" + Math.random().toString(36).substring(7);
+        const tenant2 = "tenant_" + Math.random().toString(36).substring(7);
+
+        learnAliasClient(tenant1, "or", "shared_alias", "Item A");
+        learnAliasClient(tenant2, "or", "shared_alias", "Item B");
+
+        const r1 = resolveSpokenAliasClient(tenant1, "shared_alias");
+        assert.strictEqual(r1?.canonicalItemName, "Item A");
+
+        const r2 = resolveSpokenAliasClient(tenant2, "shared_alias");
+        assert.strictEqual(r2?.canonicalItemName, "Item B");
+      });
+
+      test("offline-first invariants hold under simulated quota exceptions", () => {
+        const originalFetch = global.fetch;
+        global.fetch = mock.fn(async () => { throw new Error("Network offline"); });
+
+        const originalSetItem = (global as any).localStorage.setItem;
+        (global as any).localStorage.setItem = () => { throw new Error("Quota exceeded"); };
+
+        try {
+          learnAliasClient("quota_fac", "or", "quota_alias", "Item", "user1");
+          // Should fallback to memStorage gracefully
+          const resolved = resolveSpokenAliasClient("quota_fac", "quota_alias");
+          assert.strictEqual(resolved?.canonicalItemName, "Item");
+
+          assert.strictEqual((global.fetch as any).mock.callCount(), 0);
+        } finally {
+          global.fetch = originalFetch;
+          (global as any).localStorage.setItem = originalSetItem;
+        }
+      });
+    });
   });

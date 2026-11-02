@@ -242,7 +242,9 @@ const memStorage = new Map<string, string>();
 function safeGetItem(key: string): string | null {
   if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
     try {
-      return localStorage.getItem(key);
+      // If item exists in local storage, use it. Otherwise, check memory storage.
+      const val = localStorage.getItem(key);
+      if (val !== null) return val;
     } catch {}
   }
   return memStorage.get(key) || null;
@@ -253,7 +255,9 @@ function safeSetItem(key: string, val: string): void {
     try {
       localStorage.setItem(key, val);
       return;
-    } catch {}
+    } catch {
+      // Fall through to memory storage on QuotaExceededError or other DOM exceptions
+    }
   }
   memStorage.set(key, val);
 }
@@ -299,7 +303,7 @@ export function learnAliasClient(
   const cleanUser = (userId || "anonymous").trim().toLowerCase();
   const disp = displayName || titleCaseTerm(spokenTerm);
 
-  const existing = entries.find((e) => e.spokenTerm.toLowerCase() === normTerm);
+  const existing = entries.find((e) => e && (e.spokenTerm || "").toLowerCase() === normTerm);
   if (existing) {
     existing.usageCount = (existing.usageCount || 1) + 1;
     const userSet = new Set(existing.usedByUsers || []);
@@ -351,7 +355,7 @@ export function recordPhoneticCorrection(
   const cleanUser = (userId || "anonymous").trim().toLowerCase();
   const disp = titleCaseTerm(misheardTerm);
 
-  const existing = entries.find((e) => e.spokenTerm.toLowerCase() === normTerm && e.type === "phonetic") as PhoneticCorrectionEntry | undefined;
+  const existing = entries.find((e) => e && (e.spokenTerm || "").toLowerCase() === normTerm && e.type === "phonetic") as PhoneticCorrectionEntry | undefined;
   if (existing) {
     existing.usageCount = (existing.usageCount || 1) + 1;
     const userSet = new Set(existing.usedByUsers || []);
@@ -412,8 +416,9 @@ export function resolveSpokenAliasClient(facilityId: string, query: string): Lea
 
   // Exact or stem match
   for (const entry of entries) {
-    const term = entry.spokenTerm.toLowerCase();
-    const disp = entry.displayPreferredName.toLowerCase();
+    if (!entry) continue;
+    const term = (entry.spokenTerm || "").toLowerCase();
+    const disp = (entry.displayPreferredName || "").toLowerCase();
     if (term === normQ || disp === normQ) {
       if (isValidEntry(entry)) return entry;
     }
@@ -424,7 +429,8 @@ export function resolveSpokenAliasClient(facilityId: string, query: string): Lea
 
   // Word-bounded subphrase match (protect against hyphen leaks like brown-adson vs adson)
   for (const entry of entries) {
-    const term = entry.spokenTerm.toLowerCase();
+    if (!entry) continue;
+    const term = (entry.spokenTerm || "").toLowerCase();
     if (term.length >= 3) {
       const termRegex = new RegExp(`(?<![\\w-])${term.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}(?![\\w-])`, "i");
       if (termRegex.test(normQ)) {
