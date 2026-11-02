@@ -418,19 +418,67 @@ describe('appSettings', () => {
   test('offline mutation replay idempotency - handles multiple identical saves gracefully', () => {
     localStorage.clear();
 
-    const replayPayload = { fontScaling: 1.5, voiceSettings: "low" };
+    // Enforce offline-first invariants
+    const originalFetch = global.fetch;
+    (global as any).fetch = undefined;
 
-    // Simulate an offline mutation being replayed multiple times (e.g., from an outbox)
-    saveAppSettings(replayPayload);
-    const stateAfterFirst = getAppSettings();
+    try {
+      const replayPayload = { fontScaling: 1.5, voiceSettings: "low" };
 
-    saveAppSettings(replayPayload);
-    saveAppSettings(replayPayload);
-    const stateAfterReplays = getAppSettings();
+      // Simulate an offline mutation being replayed multiple times (e.g., from an outbox)
+      saveAppSettings(replayPayload);
+      const stateAfterFirst = getAppSettings();
 
-    // The state should remain identical and idempotent
-    assert.deepStrictEqual(stateAfterReplays, stateAfterFirst);
-    assert.strictEqual(stateAfterReplays.fontScaling, 1.5);
-    assert.strictEqual(stateAfterReplays.voiceSettings, "low");
+      saveAppSettings(replayPayload);
+      saveAppSettings(replayPayload);
+      const stateAfterReplays = getAppSettings();
+
+      // The state should remain identical and idempotent
+      assert.deepStrictEqual(stateAfterReplays, stateAfterFirst);
+      assert.strictEqual(stateAfterReplays.fontScaling, 1.5);
+      assert.strictEqual(stateAfterReplays.voiceSettings, "low");
+    } finally {
+      (global as any).fetch = originalFetch;
+    }
+  });
+
+  test('multi-tenant boundary enforcement (facility_id::dept_id) - strictly isolates tenants during offline mutation replay', () => {
+    localStorage.clear();
+
+    // Enforce offline-first invariants
+    const originalFetch = global.fetch;
+    (global as any).fetch = undefined;
+
+    try {
+      // Replay from tenant A
+      const replayTenantA = {
+        darkMode: true,
+        "facility_id::dept_id": "tenantA::dept1",
+        tenantId: "tenantA"
+      };
+
+      saveAppSettings(replayTenantA as any);
+      const stateAfterA = getAppSettings();
+
+      assert.strictEqual(stateAfterA.darkMode, true);
+      assert.strictEqual((stateAfterA as any)["facility_id::dept_id"], undefined);
+
+      // Replay from tenant B - attempting to overwrite settings but polluting payload
+      const replayTenantB = {
+        fontScaling: 2.0,
+        "facility_id::dept_id": "tenantB::dept2",
+        tenantId: "tenantB"
+      };
+
+      saveAppSettings(replayTenantB as any);
+      const stateAfterB = getAppSettings();
+
+      assert.strictEqual(stateAfterB.darkMode, true);
+      assert.strictEqual(stateAfterB.fontScaling, 2.0);
+      assert.strictEqual((stateAfterB as any)["facility_id::dept_id"], undefined);
+      assert.strictEqual((stateAfterB as any).tenantId, undefined);
+    } finally {
+      (global as any).fetch = originalFetch;
+    }
   });
 });
