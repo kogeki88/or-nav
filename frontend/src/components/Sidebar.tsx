@@ -31,7 +31,7 @@ import {
 import { fetchGeminiStatus, saveGeminiKey } from "@/lib/api";
 import { DEPARTMENT_LIST, DEPARTMENTS } from "@/lib/departments";
 import { CURRENT_VERSION, CURRENT_BUILD_NUMBER, type VersionManifest } from "@/lib/version";
-import { type UserProfile } from "@/lib/userProfile";
+import { DEFAULT_USER_PROFILE, type UserProfile } from "@/lib/userProfile";
 import { type AppSettings } from "@/lib/appSettings";
 import { type CheckUpdateResult, openApkDownload } from "@/hooks/useAppUpdate";
 import { type SyncResult } from "@/lib/syncEngine";
@@ -336,70 +336,104 @@ const Sidebar = React.memo(function Sidebar({
         </div>
 
         {/* Clinician Profile & Assignment Interactive Card */}
-        {userProfile && (
-          <button
-            type="button"
-            onClick={() => onOpenProfileModal?.("assignment")}
-            title="Edit Clinician Profile & Assignment"
-            data-testid="sidebar-profile-badge"
-            className="w-full mt-2.5 p-2 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700/80 text-left transition-colors cursor-pointer group"
-          >
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 text-xs font-bold">
-                {userProfile.fullName ? userProfile.fullName[0].toUpperCase() : "RN"}
-              </div>
-              <div className="truncate flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-0.5">
-                  <div className="text-[11px] font-semibold text-zinc-200 group-hover:text-emerald-300 transition-colors truncate">
-                    {userProfile.fullName}
-                  </div>
-                  <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0 ml-1">
-                    Lv.{getLevelInfo(rewards.xp).level} · {rewards.xp} XP
-                  </span>
-                </div>
-                <div className="text-[10px] text-zinc-400 font-mono truncate">
-                  {userProfile.facilityName || "Sacred Heart"} · {
-                    DEPARTMENTS[selectedTenant]?.shortName ||
-                    (selectedTenant.includes("::")
-                      ? selectedTenant.split("::")[1].toUpperCase()
-                      : selectedTenant.replace(/_/g, " ").toUpperCase())
-                  } · {userProfile.clinicalRole || "Circulating RN"}
-                </div>
-              </div>
-              <div className="text-[10px] text-zinc-500 group-hover:text-emerald-300 font-mono shrink-0 flex items-center gap-0.5 ml-0.5">
-                <span>Edit</span>
-                <span>➔</span>
-              </div>
-            </div>
-            {/* XP Mini Progress Bar */}
-            <div className="w-full h-1 rounded-full bg-zinc-800 mt-2 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
-                style={{ width: `${getLevelInfo(rewards.xp).progressPercent}%` }}
-              />
-            </div>
-          </button>
-        )}
+        {(() => {
+          const profile = userProfile || DEFAULT_USER_PROFILE;
+          const currentLevel = getLevelInfo(rewards.xp);
+          const deptShort =
+            DEPARTMENTS[selectedTenant]?.shortName ||
+            (selectedTenant.includes("::")
+              ? selectedTenant.split("::")[1].toUpperCase()
+              : selectedTenant.replace(/_/g, " ").toUpperCase());
+          const deptFullName = DEPARTMENTS[selectedTenant]?.name || deptShort;
 
-        {/* Hidden department selector for test automation compatibility */}
-        <select
-          value={selectedTenant}
-          onChange={(e) => onSelectTenant(e.target.value)}
-          data-testid="department-selector"
-          className="hidden"
-          aria-hidden="true"
-        >
-          {DEPARTMENT_LIST.map((dept) => (
-            <option key={dept.id} value={dept.id}>
-              {dept.name}
-            </option>
-          ))}
-          {!DEPARTMENTS[selectedTenant] && (
-            <option value={selectedTenant}>
-              {selectedTenant.replace(/_/g, " ").toUpperCase()}
-            </option>
-          )}
-        </select>
+          return (
+            <div className="w-full mt-2.5 p-2 rounded-lg bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700/80 transition-colors">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onOpenProfileModal?.("assignment");
+                }}
+                title="Edit Clinician Profile & Assignment"
+                data-testid="sidebar-profile-badge"
+                className="w-full flex items-center gap-2 text-left cursor-pointer group"
+              >
+                <div className="w-7 h-7 rounded-md bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 text-xs font-bold">
+                  {profile.fullName ? profile.fullName[0].toUpperCase() : "RN"}
+                </div>
+                <div className="truncate flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <div className="text-[11px] font-semibold text-zinc-200 group-hover:text-emerald-300 transition-colors truncate">
+                      {profile.fullName}
+                    </div>
+                    <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shrink-0 ml-1">
+                      Lv.{currentLevel.level} · {rewards.xp} XP
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-zinc-400 font-mono truncate">
+                    {profile.facilityName || "Sacred Heart"} · {deptShort} · {profile.clinicalRole || "Circulating RN"}
+                  </div>
+                </div>
+                <div className="text-[10px] text-zinc-500 group-hover:text-emerald-300 font-mono shrink-0 flex items-center gap-0.5 ml-0.5">
+                  <span>Edit</span>
+                  <span>➔</span>
+                </div>
+              </button>
+
+              {/* Quick Department Switcher Pill & Inline Selector */}
+              <div className="mt-2 pt-2 border-t border-zinc-800/80 flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onOpenProfileModal?.("assignment");
+                  }}
+                  data-testid="sidebar-dept-pill"
+                  title="Click to switch Hospital & Department"
+                  className="flex-1 flex items-center justify-between px-2 py-1 rounded bg-zinc-950/80 hover:bg-zinc-800 border border-zinc-800 text-[11px] font-mono text-zinc-300 hover:text-emerald-300 transition-colors cursor-pointer group"
+                >
+                  <span className="flex items-center gap-1.5 truncate">
+                    <span>🏥</span>
+                    <span className="truncate font-semibold text-zinc-200 group-hover:text-emerald-300">
+                      {deptFullName}
+                    </span>
+                  </span>
+                  <span className="text-[9px] text-zinc-500 group-hover:text-zinc-300 ml-1">▾</span>
+                </button>
+
+                {/* Instant Department Select Dropdown */}
+                <select
+                  value={selectedTenant}
+                  onChange={(e) => onSelectTenant(e.target.value)}
+                  data-testid="department-selector"
+                  aria-label="Select Clinical Department"
+                  className="bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded px-1.5 py-1 text-[10px] font-mono text-zinc-300 focus:outline-none focus:border-emerald-500 cursor-pointer shrink-0 max-w-[95px]"
+                >
+                  {DEPARTMENT_LIST.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.shortName || dept.name}
+                    </option>
+                  ))}
+                  {!DEPARTMENTS[selectedTenant] && (
+                    <option value={selectedTenant}>
+                      {selectedTenant.replace(/_/g, " ").toUpperCase()}
+                    </option>
+                  )}
+                </select>
+              </div>
+
+              {/* XP Mini Progress Bar */}
+              <div className="w-full h-1 rounded-full bg-zinc-800 mt-2 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full transition-all duration-500"
+                  style={{ width: `${currentLevel.progressPercent}%` }}
+                />
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Clean + New Case Button */}
         <button
@@ -646,6 +680,7 @@ const Sidebar = React.memo(function Sidebar({
         <button
           onClick={() => setSettingsOpen(!settingsOpen)}
           data-testid="sidebar-system-toggle"
+          id="sidebar-system-toggle"
           aria-expanded={settingsOpen}
           className="w-full px-3.5 py-2.5 flex items-center justify-between text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50 transition-colors cursor-pointer"
         >

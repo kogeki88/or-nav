@@ -80,10 +80,10 @@ export async function readAndExtractSession(sessionId, apiKey) {
     }
   }
 
-  // Extract mentioned files or modules in query or title
-  const textToScan = `${session.title || ''} ${latestAgentQuery || ''} ${session.prompt || ''}`;
-  const fileMatches = textToScan.match(/[a-zA-Z0-9_\-\./]+\.(py|ts|tsx|js|mjs|json|css|md)\b/g) || [];
-  const uniqueFiles = Array.from(new Set(fileMatches));
+  // Extract mentioned files or modules in query or title (prioritizing active query over generic template prompt)
+  const queryMatches = `${latestAgentQuery || ''} ${session.title || ''}`.match(/[a-zA-Z0-9_\-\./]+\.(py|ts|tsx|js|mjs|json|css)\b/g) || [];
+  const allMatches = `${session.title || ''} ${latestAgentQuery || ''} ${session.prompt || ''}`.match(/[a-zA-Z0-9_\-\./]+\.(py|ts|tsx|js|mjs|json|css|md)\b/g) || [];
+  const uniqueFiles = Array.from(new Set([...queryMatches, ...allMatches]));
 
   return {
     sessionId,
@@ -149,6 +149,18 @@ export function evaluateContext(extracted) {
   const asksAboutAlreadyImplemented =
     /already exists? in the main branch|exists? in the main branch|file exists|reviewer indicated that i did not provide an implementation|rewrite it from scratch|already implemented/i.test(q);
 
+  // Detect proceed with testing and PR creation
+  const asksProceedWithPR =
+    /proceed with (testing and )?(creating|opening) the (pr|pull request)|shall i (open|create) the pr|ready to open the pr|should i open the pr|proceed with creating the pull request|open the pull request\?/i.test(q);
+
+  // Detect accessibility and aria-labels inquiry
+  const asksAboutAriaLabels =
+    /aria-label|icon-only button|accessibility standard|missing aria/i.test(q);
+
+  // Detect input validation and fuzzing inquiry
+  const asksAboutInputValidation =
+    /input validation|fuzzing|verifymoverequest|createquestionrequest|flagwrongrequest/i.test(q);
+
   return {
     ...extracted,
     inspectedFiles,
@@ -159,6 +171,9 @@ export function evaluateContext(extracted) {
     isAmbiguous,
     asksAboutMissingFeature,
     asksAboutAlreadyImplemented,
+    asksProceedWithPR,
+    asksAboutAriaLabels,
+    asksAboutInputValidation,
     hasRecentQuery: !!latestAgentQuery
   };
 }
@@ -168,8 +183,52 @@ export function evaluateContext(extracted) {
  * Eliminates generic fallbacks. Determines the exact operational pathway.
  */
 export function decideAction(evaluated) {
-  const { title, latestAgentQuery, asksAboutPreExistingTests, asksAboutMissingFeature, offersOptions, asksTechnicalCode, isPlanApproval, isAmbiguous, inspectedFiles } = evaluated;
-  const targetFile = inspectedFiles[0]?.path || 'the modified codebase files';
+  const { title, latestAgentQuery, asksAboutPreExistingTests, asksAboutMissingFeature, offersOptions, asksTechnicalCode, isPlanApproval, isAmbiguous, inspectedFiles, asksProceedWithPR, asksAboutAriaLabels, asksAboutInputValidation } = evaluated;
+  let targetFile = inspectedFiles[0]?.path || 'the modified codebase files';
+  if (targetFile === 'package.json' && /chatcanvas|sidebar|omnibar|components/i.test(latestAgentQuery || '')) {
+    targetFile = 'the modified components (ChatCanvas, Sidebar, Omnibar)';
+  }
+
+  // Branch 0a: Proceed with testing and PR creation
+  if (asksProceedWithPR) {
+    const decisionText =
+      `Approved! Proceed with running tests and opening the pull request immediately for ${targetFile}. ` +
+      `Ensure all existing suites pass with zero new regressions compared to 'main'. Create the PR upon verification.`;
+    return {
+      intent: 'PROCEED_WITH_PR_APPROVAL',
+      strategy: 'APPROVE_TESTING_AND_PR_CREATION',
+      responsePayload: decisionText,
+      needsApprovePlan: evaluated.state === 'AWAITING_PLAN_APPROVAL'
+    };
+  }
+
+  // Branch 0b: Accessibility aria-labels enhancement
+  if (asksAboutAriaLabels) {
+    const targetDesc = inspectedFiles.length > 0 ? inspectedFiles.map(f => f.path).join(', ') : targetFile;
+    const decisionText =
+      `Approved! Proceed with adding ` +
+      `\`aria-label\` attributes to the missing icon-only buttons across the identified components (${targetDesc}) as your daily enhancement. ` +
+      `Keep changes under 50 lines, ensure keyboard accessibility and passing Vitest tests with zero regressions, and submit the pull request immediately.`;
+    return {
+      intent: 'ACCESSIBILITY_ENHANCEMENT_APPROVAL',
+      strategy: 'APPROVE_ARIA_LABEL_ENHANCEMENTS',
+      responsePayload: decisionText,
+      needsApprovePlan: evaluated.state === 'AWAITING_PLAN_APPROVAL'
+    };
+  }
+
+  // Branch 0c: Security input validation & fuzzing
+  if (asksAboutInputValidation) {
+    const decisionText =
+      `Approved! Focus on adding input validation and boundary fuzzing constraints to \`VerifyMoveRequest\`, \`CreateQuestionRequest\`, and \`FlagWrongRequest\` in \`backend/app/\`. ` +
+      `Ensure boundary tests verify rejection of malformed payloads with zero regressions, and submit the pull request immediately.`;
+    return {
+      intent: 'SECURITY_VALIDATION_APPROVAL',
+      strategy: 'APPROVE_INPUT_VALIDATION_FUZZING',
+      responsePayload: decisionText,
+      needsApprovePlan: evaluated.state === 'AWAITING_PLAN_APPROVAL'
+    };
+  }
 
   // Branch 1: Pre-existing test failures on main vs PR scope
   if (asksAboutPreExistingTests || (offersOptions && /pre-existing|main/i.test(latestAgentQuery || ''))) {

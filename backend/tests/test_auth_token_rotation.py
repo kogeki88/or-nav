@@ -30,7 +30,8 @@ def clean_auth_state(tmp_path, monkeypatch):
     orig_socket = socket.socket
     def mock_socket(*args, **kwargs):
         family = args[0] if len(args) > 0 else kwargs.get("family", -1)
-        if family == getattr(socket, 'AF_UNIX', -1):
+        import os
+        if family == getattr(socket, 'AF_UNIX', -1) or os.name == 'nt':
             return orig_socket(*args, **kwargs)
         raise RuntimeError("Network requests are disabled in this test suite.")
     monkeypatch.setattr(socket, "socket", mock_socket)

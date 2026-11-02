@@ -277,7 +277,10 @@ const PeerQnAPanel = React.memo(function PeerQnAPanel({
       aria-labelledby="peer-qna-title"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
     >
-      <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col bg-[#121215] border border-zinc-800 rounded-2xl shadow-2xl text-zinc-100 overflow-hidden">
+      <div
+        data-testid="peer-qna-modal"
+        className="relative w-full max-w-lg max-h-[90vh] flex flex-col bg-[#121215] border border-zinc-800 rounded-2xl shadow-2xl text-zinc-100 overflow-hidden"
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-zinc-800/80 bg-zinc-950/70">
           <div className="flex items-center gap-2.5">
@@ -300,6 +303,7 @@ const PeerQnAPanel = React.memo(function PeerQnAPanel({
             type="button"
             onClick={onClose}
             aria-label="Close"
+            data-testid="close-peer-qna-modal-btn"
             className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />

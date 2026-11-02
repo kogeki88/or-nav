@@ -197,6 +197,7 @@ export function FeedbackModal({
           <button
             onClick={onClose}
             aria-label="Close"
+            data-testid="close-feedback-modal-btn"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
           >
             ✕

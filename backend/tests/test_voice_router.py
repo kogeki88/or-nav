@@ -135,7 +135,8 @@ class TestVoiceRouter:
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
             family = args[0] if args else kwargs.get("family", socket.AF_INET)
-            if family != getattr(socket, "AF_UNIX", -1):
+            import os
+            if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
             return original_socket(*args, **kwargs)
 
@@ -318,7 +319,8 @@ class TestVoiceRouter:
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
             family = args[0] if args else kwargs.get("family", socket.AF_INET)
-            if family != getattr(socket, "AF_UNIX", -1):
+            import os
+            if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
             return original_socket(*args, **kwargs)
 

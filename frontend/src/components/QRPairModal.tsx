@@ -102,7 +102,7 @@ export function QRPairModal({ isOpen, onClose }: QRPairModalProps) {
     await generateQR(targetUrl);
   };
 
-  if (!isOpen) return null;
+  useModalA11y(isOpen, onClose, modalRef);
 
   const copyToClipboard = () => {
     if (!activeUrl) return;
@@ -111,7 +111,7 @@ export function QRPairModal({ isOpen, onClose }: QRPairModalProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  useModalA11y(isOpen, onClose, modalRef);
+  if (!isOpen) return null;
 
   return (
     <div
@@ -123,6 +123,7 @@ export function QRPairModal({ isOpen, onClose }: QRPairModalProps) {
     >
       <div
         ref={modalRef}
+        data-testid="qr-pair-modal"
         className="relative w-full max-w-sm rounded-xl bg-zinc-900 border border-zinc-800 p-5 shadow-2xl text-zinc-100"
         onClick={(e) => e.stopPropagation()}
       >
@@ -130,6 +131,7 @@ export function QRPairModal({ isOpen, onClose }: QRPairModalProps) {
         <button
           onClick={onClose}
           aria-label="Close pairing dialog"
+          data-testid="close-qr-pair-modal-btn"
           className="absolute top-3.5 right-3.5 text-zinc-400 hover:text-zinc-100 transition-colors p-1 rounded-md hover:bg-zinc-800 cursor-pointer"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

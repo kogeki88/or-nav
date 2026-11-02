@@ -85,6 +85,8 @@ export default function ResourceManagerModal({
     }
   }, [isOpen, loadData]);
 
+  useModalA11y(isOpen, onClose, modalRef);
+
   if (!isOpen) return null;
 
   const installedMap = new Map<string, InstalledResourcePack>(
@@ -175,13 +177,14 @@ export default function ResourceManagerModal({
     }
   };
 
-  useModalA11y(isOpen, onClose, modalRef);
+  
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="resource-manager-title"
+      data-testid="resource-manager-modal"
       className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
     >
       <div ref={modalRef} className="relative w-full max-w-lg bg-[#121215] border border-zinc-800 rounded-xl shadow-2xl text-zinc-100 overflow-hidden max-h-[90vh] flex flex-col">
@@ -197,6 +200,7 @@ export default function ResourceManagerModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
+            data-testid="close-resource-manager-btn"
             className="p-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
           >
             <X className="w-4 h-4" />

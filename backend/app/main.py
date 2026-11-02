@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="HIPAA-compliant, voice-first CVOR clinical assistant",
-    version="0.63.0",
+    version="0.64.0",
     lifespan=lifespan,
 )
 
@@ -199,12 +199,12 @@ async def get_version(response: Response):
             pass
 
     return {
-        "version": "v0.63",
-        "build_number": 20,
-        "release_date": "2026-11-01",
+        "version": "v0.64",
+        "build_number": 21,
+        "release_date": "2026-11-02",
         "apk_download_url": f"http://{lan_ip or '192.168.1.217'}:8000/api/download-apk",
         "min_supported_version": "v0.1",
-        "changelog": "v0.63 (Build 18): Full system verification audit, RO Character Select Workshop with pre-loaded Veo 3.1 motion loops verified, and production APK published.",
+        "changelog": "v0.64 (Build 21): Fix Profile Button 404, Restore Quick Department Switcher Pill & Inline Selector, Full-System Interactive UI Audit, and lean Android APK under 10MB.",
     }
 
 

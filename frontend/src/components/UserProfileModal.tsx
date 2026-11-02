@@ -53,7 +53,8 @@ export default function UserProfileModal({
     }
   }, [currentProfile, isOpen, initialTab]);
 
-  if (!isOpen) return null;
+
+  useModalA11y(isOpen, onClose, modalRef);
 
   const currentRoles = ROLES_BY_DEPARTMENT[formData.departmentId] || ROLES_BY_DEPARTMENT["or_main"];
 
@@ -103,7 +104,7 @@ export default function UserProfileModal({
 
   const levelInfo = getLevelInfo(rewards.xp);
 
-  useModalA11y(isOpen, onClose, modalRef);
+  if (!isOpen) return null;
 
   return (
     <div

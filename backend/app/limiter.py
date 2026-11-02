@@ -7,7 +7,7 @@ def get_ipaddr(request):
     # Fallback to standard get_remote_address provided by slowapi
     return get_remote_address(request)
 
-limiter = Limiter(key_func=get_ipaddr, headers_enabled=True)
+limiter = Limiter(key_func=get_ipaddr, headers_enabled=False)
 
 import os
 import sys

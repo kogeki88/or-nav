@@ -232,6 +232,20 @@ export default function Home() {
   const sessionEpochRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Check if routed from /profile or external profile action
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const shouldOpenProfile =
+        sessionStorage.getItem("ornav_open_profile_on_mount") === "true" ||
+        new URLSearchParams(window.location.search).get("profile") === "1";
+      if (shouldOpenProfile) {
+        sessionStorage.removeItem("ornav_open_profile_on_mount");
+        setProfileModalTab("assignment");
+        setProfileModalOpen(true);
+      }
+    }
+  }, []);
+
   // Active department metadata
   const activeDept = getDepartment(selectedTenant);
 
@@ -1081,6 +1095,8 @@ export default function Home() {
             <button
               onClick={() => setMobileSidebarOpen(false)}
               className="absolute top-3.5 right-3.5 p-1.5 text-zinc-400 hover:text-white"
+              data-testid="mobile-sidebar-close"
+              aria-label="Close Mobile Sidebar"
             >
               <X className="w-4 h-4" />
             </button>
@@ -1170,6 +1186,8 @@ export default function Home() {
             <button
               onClick={() => setMobileSidebarOpen(true)}
               className="md:hidden p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+              data-testid="mobile-sidebar-toggle"
+              aria-label="Open Navigation"
               title="Open Navigation"
             >
               <Menu className="w-4 h-4" />
@@ -1179,6 +1197,7 @@ export default function Home() {
             <button
               onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
               className="hidden md:flex p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+              data-testid="desktop-sidebar-toggle"
               title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
             >
               <PanelLeft className="w-4 h-4" />
@@ -1247,6 +1266,7 @@ export default function Home() {
               type="button"
               onClick={() => setQuestionsDrawerOpen(true)}
               title="Open Unanswered Dept Questions Feed"
+              data-testid="header-questions-btn"
               className="px-2.5 py-1 rounded-md bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs font-mono text-zinc-300 hover:text-zinc-100 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
@@ -1256,6 +1276,7 @@ export default function Home() {
             <button
               onClick={() => setQrModalOpen(true)}
               title="Pair Mobile Device (QR Code)"
+              data-testid="header-qr-btn"
               className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors cursor-pointer"
             >
               <QrCode className="w-4 h-4" />
@@ -1264,6 +1285,7 @@ export default function Home() {
             <button
               onClick={handleNewCase}
               title="New Case (Clear Session)"
+              data-testid="header-new-case-btn"
               className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors cursor-pointer"
             >
               <SquarePen className="w-4 h-4" />

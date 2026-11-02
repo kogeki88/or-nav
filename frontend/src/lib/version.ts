@@ -1,6 +1,6 @@
 /**
  * OR-Nav Official Application Versioning Configuration
- * Version: v0.63
+ * Version: v0.64
  */
 
 export interface VersionManifest {
@@ -12,9 +12,9 @@ export interface VersionManifest {
   changelog: string;
 }
 
-export const CURRENT_VERSION = "v0.63";
-export const CURRENT_BUILD_NUMBER = 20;
-export const CURRENT_RELEASE_DATE = "2026-11-01";
+export const CURRENT_VERSION = "v0.64";
+export const CURRENT_BUILD_NUMBER = 21;
+export const CURRENT_RELEASE_DATE = "2026-11-02";
 
 export const GITHUB_REPO_OWNER = "kogeki88";
 export const GITHUB_REPO_NAME = "or-nav";
@@ -29,7 +29,7 @@ export const LOCAL_VERSION_MANIFEST: VersionManifest = {
   apk_download_url: CLOUD_APK_DOWNLOAD_URL,
   min_supported_version: "v0.1",
   changelog:
-    "v0.63 (Build 20): Interactive 4-Tab Installed Resources Explorer & Inline Editor Studio (Inventory, Preference Cards with relational stock badges, Slang/Aliases, Protocols & JSON Backup), Dexie v8 CRUD with edit/tombstone protection, Unified Clinical Query Planner, and decluttered Sidebar UI.",
+    "v0.64 (Build 21): Fix Profile Button 404, Restore Quick Department Switcher Pill & Inline Selector, Full-System Interactive UI Audit, and lean Android APK under 10MB.",
 };
 
 /**

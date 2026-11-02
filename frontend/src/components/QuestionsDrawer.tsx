@@ -103,7 +103,10 @@ export default function QuestionsDrawer({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/70 backdrop-blur-xs">
-      <div className="w-full max-w-md h-full bg-[#121215] border-l border-zinc-800/80 flex flex-col text-zinc-100 shadow-2xl animate-in slide-in-from-right duration-150">
+      <div
+        data-testid="questions-drawer"
+        className="w-full max-w-md h-full bg-[#121215] border-l border-zinc-800/80 flex flex-col text-zinc-100 shadow-2xl animate-in slide-in-from-right duration-150"
+      >
         {/* Top Header */}
         <div className="px-4 py-3.5 border-b border-zinc-800/80 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -120,6 +123,7 @@ export default function QuestionsDrawer({
           <button
             onClick={onClose}
             aria-label="Close"
+            data-testid="close-questions-drawer-btn"
             className="p-1.5 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
