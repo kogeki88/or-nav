@@ -57,7 +57,7 @@ function normalizePhone(phone: string): string {
  * @returns ScrubResult with cleaned text and redaction count
  */
 export function scrubPhi(text: string): ScrubResult {
-  if (!text) {
+  if (!text || typeof text !== "string") {
     return { text: "", redactionCount: 0 };
   }
 
