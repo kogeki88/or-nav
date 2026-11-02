@@ -43,7 +43,9 @@ import {
   FEEDBACK_STORAGE_KEY,
   getLocalFeedback,
   drainFeedbackQueue,
-  classifyText
+  classifyText,
+  fetchFeedbackItems,
+  saveLocalFeedback
 } from "./feedbackEngine";
 
 test("FeedbackEngine - Offline Queueing and Storage Persistence", async (t) => {
@@ -193,4 +195,28 @@ test("FeedbackEngine - Sentiment Scoring edge cases", async (t) => {
 
   const superPositive = "love great awesome perfect good nice helpful thanks";
   assert.strictEqual(classifyText(superPositive).sentimentScore, 1);
+});
+
+test("FeedbackEngine - Multi-tenant isolation invariant", async (t) => {
+  localStorage.clear();
+
+  saveLocalFeedback([
+    { id: "item1", tenantId: "tenant_A::or", rawText: "test A", upvotes: 0, status: "open", severity: "low", category: "ui_ux", sentimentScore: 0, userName: "u1", userRole: "r1", source: "s1", createdAt: new Date().toISOString() },
+    { id: "item2", tenantId: "tenant_B::or", rawText: "test B", upvotes: 0, status: "open", severity: "low", category: "ui_ux", sentimentScore: 0, userName: "u2", userRole: "r2", source: "s2", createdAt: new Date().toISOString() },
+  ] as any);
+
+  const originalFetch = global.fetch;
+  global.fetch = async () => { throw new TypeError("Failed to fetch"); };
+
+  try {
+    const resultsA = await fetchFeedbackItems({ tenantId: "tenant_A::or" });
+    assert.strictEqual(resultsA.length, 1);
+    assert.strictEqual(resultsA[0].id, "item1");
+
+    const resultsB = await fetchFeedbackItems({ tenantId: "tenant_B::or" });
+    assert.strictEqual(resultsB.length, 1);
+    assert.strictEqual(resultsB[0].id, "item2");
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
