@@ -211,3 +211,62 @@ test('generates pairing secret for secure handoff', async () => {
   // We assert it uses the active URL.
   assert.strictEqual(callArg, 'https://example.trycloudflare.com');
 });
+
+test('enforces offline-first invariants by properly displaying fallback offline URLs when network is disconnected', async () => {
+  fetchNetworkInfoMock.mock.mockImplementation(async () => {
+    throw new Error('Network offline');
+  });
+
+  render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  await waitFor(() => {
+    const qrImage = screen.getByRole('img');
+    const alt = qrImage.getAttribute('alt') || '';
+    assert.ok(alt.includes('http://'), 'Should fallback to local URL');
+    assert.ok(alt.includes(':3000'), 'Should fallback to port 3000');
+  });
+
+  // Checking the LAN mode is forced
+  await waitFor(() => {
+    const lanBtn = screen.getByText('📶 Local LAN IP').closest('button');
+    assert.ok(lanBtn?.className.includes('bg-zinc-800'), 'LAN mode should be active by default offline');
+  });
+});
+
+test('enforces multi-tenant isolation by ensuring network settings are not improperly leaked or cached between modal opens', async () => {
+  // Tenant A: has mobile URL
+  fetchNetworkInfoMock.mock.mockImplementation(async () => ({
+    lan_ip: '192.168.1.100',
+    lan_url: 'http://192.168.1.100:3000',
+    mobile_url: 'http://192.168.1.100:3000',
+    https_url: null,
+    https_active: false
+  }));
+
+  const { unmount } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  await waitFor(() => {
+    const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+    assert.ok(args.some((arg: string) => arg.includes('192.168.1.100')), 'Tenant A data should be used');
+  });
+
+  unmount();
+  QRCodeToDataURLMock.mock.resetCalls();
+
+  // Tenant B: has different URL
+  fetchNetworkInfoMock.mock.mockImplementation(async () => ({
+    lan_ip: '10.0.0.5',
+    lan_url: 'http://10.0.0.5:3000',
+    mobile_url: 'http://10.0.0.5:3000',
+    https_url: null,
+    https_active: false
+  }));
+
+  render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  await waitFor(() => {
+    const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+    assert.ok(args.some((arg: string) => arg.includes('10.0.0.5')), 'Tenant B data should be used');
+    assert.ok(!args.some((arg: string) => arg.includes('192.168.1.100')), 'Tenant A data should not leak to Tenant B');
+  });
+});
