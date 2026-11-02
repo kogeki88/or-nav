@@ -31,6 +31,15 @@ const API_BASE =
     ? "http://localhost:8000"
     : "");
 
+// Internal fetch wrapper to gracefully handle undefined fetch in offline environments
+async function safeFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const fetchFn = typeof global !== 'undefined' && global.fetch ? global.fetch : (typeof fetch !== 'undefined' ? fetch : undefined);
+  if (!fetchFn) {
+    throw new Error("Network request made during offline mode! (fetch is undefined)");
+  }
+  return fetchFn(input, init);
+}
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -188,7 +197,7 @@ export interface QuestionsListResponse {
  */
 export async function fetchGeminiStatus(): Promise<GeminiStatusResponse> {
   try {
-    const res = await fetch(`${API_BASE}/api/config/gemini-status`);
+    const res = await safeFetch(`${API_BASE}/api/config/gemini-status`);
     if (res.ok) return (await res.json()) as GeminiStatusResponse;
   } catch {}
   const clientKey = getClientGeminiApiKey();
@@ -205,7 +214,7 @@ export async function fetchGeminiStatus(): Promise<GeminiStatusResponse> {
 export async function saveGeminiKey(apiKey: string): Promise<GeminiStatusResponse> {
   setClientGeminiApiKey(apiKey);
   try {
-    const res = await fetch(`${API_BASE}/api/config/gemini-key`, {
+    const res = await safeFetch(`${API_BASE}/api/config/gemini-key`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ api_key: apiKey }),
@@ -224,7 +233,7 @@ export async function saveGeminiKey(apiKey: string): Promise<GeminiStatusRespons
  * Fetch local LAN IPv4 network info for mobile QR pairing.
  */
 export async function fetchNetworkInfo(): Promise<NetworkInfoResponse> {
-  const res = await fetch(`${API_BASE}/api/network-info`);
+  const res = await safeFetch(`${API_BASE}/api/network-info`);
   if (!res.ok) throw new ApiError(res.status, `Failed to check network info: ${res.status}`);
   return (await res.json()) as NetworkInfoResponse;
 }
@@ -233,7 +242,7 @@ export async function fetchNetworkInfo(): Promise<NetworkInfoResponse> {
  * Fetch LiveKit Voice Server Status.
  */
 export async function fetchVoiceStatus(): Promise<VoiceStatusResponse> {
-  const res = await fetch(`${API_BASE}/api/voice/status`);
+  const res = await safeFetch(`${API_BASE}/api/voice/status`);
   if (!res.ok) throw new ApiError(res.status, `Failed to check voice status: ${res.status}`);
   return (await res.json()) as VoiceStatusResponse;
 }
@@ -245,7 +254,7 @@ export async function fetchVoiceToken(
   tenantId: string,
   participantName: string = "cvor_clinician"
 ): Promise<VoiceTokenResponse> {
-  const res = await fetch(`${API_BASE}/api/voice/token`, {
+  const res = await safeFetch(`${API_BASE}/api/voice/token`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -264,7 +273,7 @@ export async function fetchVoiceToken(
  * Fetch available hospital tenants from the backend.
  */
 export async function fetchTenants(): Promise<TenantsResponse> {
-  const res = await fetch(`${API_BASE}/api/tenants`);
+  const res = await safeFetch(`${API_BASE}/api/tenants`);
   if (!res.ok) throw new ApiError(res.status, `Failed to load tenants: ${res.status}`);
   return (await res.json()) as TenantsResponse;
 }
@@ -285,7 +294,7 @@ export async function sendChatMessage(
   const profile = userProfile || (await import("./userProfile")).getUserProfile();
 
   try {
-    const res = await fetch(`${API_BASE}/api/chat`, {
+    const res = await safeFetch(`${API_BASE}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal,
@@ -351,7 +360,7 @@ export async function addInventoryItemApi(
   }
 
   try {
-    const res = await fetch(`${API_BASE}/api/inventory/add-item`, {
+    const res = await safeFetch(`${API_BASE}/api/inventory/add-item`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -382,7 +391,7 @@ export async function verifyMove(
   expectedLocation?: string
 ): Promise<VerifyMoveResponse> {
   try {
-    const res = await fetch(`${API_BASE}/api/inventory/verify-move`, {
+    const res = await safeFetch(`${API_BASE}/api/inventory/verify-move`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -411,7 +420,7 @@ export async function flagItemWrong(
   reason: string = "Flagged empty or moved by clinician"
 ): Promise<CoordinateCardData> {
   try {
-    const res = await fetch(`${API_BASE}/api/inventory/flag-wrong`, {
+    const res = await safeFetch(`${API_BASE}/api/inventory/flag-wrong`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -435,7 +444,7 @@ export async function flagItemWrong(
  */
 export async function fetchQuestions(tenantId: string): Promise<QuestionsListResponse> {
   try {
-    const res = await fetch(
+    const res = await safeFetch(
       `${API_BASE}/api/questions?tenant_id=${encodeURIComponent(tenantId)}`
     );
     if (res.ok) return (await res.json()) as QuestionsListResponse;
@@ -455,7 +464,7 @@ export async function createQuestion(
   askedByRole: string = "Clinical Orientee RN"
 ): Promise<DepartmentQuestion> {
   try {
-    const res = await fetch(`${API_BASE}/api/questions`, {
+    const res = await safeFetch(`${API_BASE}/api/questions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -486,7 +495,7 @@ export async function answerQuestion(
   }
 ): Promise<DepartmentQuestion> {
   try {
-    const res = await fetch(`${API_BASE}/api/questions/${encodeURIComponent(questionId)}/answer`, {
+    const res = await safeFetch(`${API_BASE}/api/questions/${encodeURIComponent(questionId)}/answer`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -532,7 +541,7 @@ export async function sendVoiceAudioQuery(
     formData.append("file", audioBlob, filename);
     formData.append("tenant_id", tenantId);
 
-    const res = await fetch(`${API_BASE}/api/v1/voice-query`, {
+    const res = await safeFetch(`${API_BASE}/api/v1/voice-query`, {
       method: "POST",
       body: formData,
     });
@@ -569,7 +578,7 @@ export async function ingestFile(tenantId: string, file: File): Promise<IngestRe
   formData.append("file", file);
   formData.append("tenant_id", tenantId);
 
-  const res = await fetch(`${API_BASE}/api/ingest`, {
+  const res = await safeFetch(`${API_BASE}/api/ingest`, {
     method: "POST",
     body: formData,
   });
