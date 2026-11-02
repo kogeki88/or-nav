@@ -106,3 +106,49 @@ test("deltaSyncPayload edge cases and invariants", async (t) => {
     }
   });
 });
+
+test("deltaSyncPayload fuzzing and boundaries", async (t) => {
+  await t.test("empty arrays and null/undefined handling", () => {
+    assert.deepStrictEqual(compressPayload([]), { keys: [], data: [] });
+    assert.deepStrictEqual(decompressPayload({ keys: [], data: [] }), []);
+    // @ts-expect-error testing invalid input
+    assert.deepStrictEqual(compressPayload(null as any), { keys: [], data: [] });
+    // @ts-expect-error testing invalid input
+    assert.deepStrictEqual(compressPayload(undefined as any), { keys: [], data: [] });
+    // @ts-expect-error testing invalid input
+    assert.deepStrictEqual(decompressPayload(null as any), []);
+  });
+
+  await t.test("malformed compressed payloads", () => {
+    // Missing data array
+    // @ts-expect-error
+    assert.deepStrictEqual(decompressPayload({ keys: ["a"] }), []);
+    // Missing keys array
+    // @ts-expect-error
+    assert.deepStrictEqual(decompressPayload({ data: [[1]] }), []);
+
+    // Mismatched data length (shorter row)
+    const malformed1 = { keys: ["a", "b"], data: [[1]] };
+    // undefined should be omitted per schema validation / logic, but decompressPayload sets it if missing from data array
+    const result1 = decompressPayload<Record<string, unknown>>(malformed1 as any);
+    assert.strictEqual(result1[0].a, 1);
+    assert.strictEqual(result1[0].b, undefined);
+    assert.strictEqual(Object.keys(result1[0]).length, 2);
+
+    // Mismatched data length (longer row)
+    const malformed2 = { keys: ["a"], data: [[1, 2]] };
+    assert.deepStrictEqual(decompressPayload(malformed2 as any), [{ a: 1 }]);
+  });
+
+  await t.test("large payloads (fuzzing)", () => {
+    const fuzzData = Array.from({ length: 1000 }, (_, i) => ({
+      id: i,
+      val: Math.random().toString(36).substring(7),
+      active: i % 2 === 0,
+      nested: { a: i } // Testing complex objects too
+    }));
+    const compressed = compressPayload(fuzzData);
+    const decompressed = decompressPayload(compressed);
+    assert.deepStrictEqual(decompressed, fuzzData);
+  });
+});
