@@ -388,4 +388,26 @@ test("Supplementary Tests: Edge Cases & Enforcements", async (t) => {
     assert.deepStrictEqual(resultNull.intent, resultMissing.intent);
     assert.deepStrictEqual(resultNull.entities, resultMissing.entities);
   });
+
+  await t.test("Extended Invariant: Multi-tenant boundary & offline mutation idempotency", () => {
+    const originalFetch = global.fetch;
+    global.fetch = undefined as any;
+
+    try {
+      const tenantA = "facility_99::dept_X";
+      const tenantB = "facility_99::dept_Y";
+
+      // Mutate 1
+      const mut1 = parseClinicalIntent("move bovie to OR 1", tenantA);
+      const mut2 = parseClinicalIntent("move bovie to OR 1", tenantA);
+      assert.deepStrictEqual(mut1, mut2); // idempotency
+
+      // Multi-tenant isolation: different tenant, same query
+      const mut3 = parseClinicalIntent("move bovie to OR 1", tenantB);
+      assert.deepStrictEqual(mut1.intent, mut3.intent);
+      assert.deepStrictEqual(mut1.entities, mut3.entities);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });
