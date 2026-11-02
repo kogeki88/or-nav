@@ -148,4 +148,33 @@ describe('OTA Validator', () => {
       assert.strictEqual(result.reason, 'Invalid APK download URL');
     });
   });
+
+  describe('Fuzzing and Malformed Payloads', () => {
+    it('rejects null or undefined manifests', () => {
+      assert.strictEqual(validateOTAManifest(null as any, currentVersion, currentBuild).valid, false);
+      assert.strictEqual(validateOTAManifest(undefined as any, currentVersion, currentBuild).valid, false);
+    });
+
+    it('rejects manifests with wrong types for fields', () => {
+      assert.strictEqual(
+        validateOTAManifest({ ...validManifest, build_number: "18" as any }, currentVersion, currentBuild).valid,
+        false
+      );
+      assert.strictEqual(
+        validateOTAManifest({ ...validManifest, build_number: NaN }, currentVersion, currentBuild).valid,
+        false
+      );
+      assert.strictEqual(
+        validateOTAManifest({ ...validManifest, version: 123 as any, build_number: 18 }, currentVersion, currentBuild).valid,
+        false
+      );
+    });
+
+    it('rejects arrays or other non-plain objects if they bypass schema', () => {
+      assert.strictEqual(
+        validateOTAManifest([] as any, currentVersion, currentBuild).valid,
+        false
+      );
+    });
+  });
 });
