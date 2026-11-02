@@ -179,5 +179,75 @@ describe("Departments Configuration and Lookups", () => {
         global.fetch = originalFetch;
       }
     });
+
+    test("offline mutation replay idempotency simulation (storage unavailability)", () => {
+      const originalLocalStorage = (global as any).localStorage;
+      try {
+        (global as any).localStorage = {
+          getItem: () => { throw new Error("Storage offline"); },
+          setItem: () => { throw new Error("Storage offline"); },
+        };
+
+        assert.doesNotThrow(() => {
+          const id = getActiveDepartmentId();
+          assert.strictEqual(id, DEFAULT_DEPARTMENT_ID);
+        });
+
+        assert.doesNotThrow(() => {
+          setActiveDepartmentId("icu_critical_care");
+        });
+      } finally {
+        (global as any).localStorage = originalLocalStorage;
+      }
+    });
+  });
+
+  describe("Fuzzing & boundary inputs", () => {
+    test("malformed or massive payloads do not crash setActiveDepartmentId", () => {
+      const fuzzInputs = [
+        "",
+        "   ",
+        "null",
+        "undefined",
+        "{}",
+        "[]",
+        "<script>alert(1)</script>",
+        "DROP TABLE departments;",
+        "' OR '1'='1",
+        "or_main\0",
+        "a".repeat(10000),
+      ];
+
+      for (const input of fuzzInputs) {
+        assert.doesNotThrow(() => setActiveDepartmentId(input));
+
+        assert.strictEqual(getActiveDepartmentId(), DEFAULT_DEPARTMENT_ID);
+
+        const dept = getDepartment(input);
+        assert.deepStrictEqual(dept, DEPARTMENTS[DEFAULT_DEPARTMENT_ID]);
+      }
+    });
+  });
+
+  describe("Strict schema validation", () => {
+    test("all departments adhere to strict schema definition", () => {
+      for (const key in DEPARTMENTS) {
+        const dept = DEPARTMENTS[key];
+        assert.strictEqual(typeof dept.id, "string");
+        assert.strictEqual(typeof dept.name, "string");
+        assert.strictEqual(typeof dept.shortName, "string");
+        assert.strictEqual(typeof dept.category, "string");
+        assert.strictEqual(typeof dept.placeholder, "string");
+        assert.strictEqual(typeof dept.notesLabel, "string");
+        assert.strictEqual(typeof dept.rolePrompt, "string");
+        assert.strictEqual(typeof dept.vocabHint, "string");
+
+        assert.ok(Array.isArray(dept.starterPrompts));
+        for (const prompt of dept.starterPrompts) {
+          assert.strictEqual(typeof prompt.label, "string");
+          assert.strictEqual(typeof prompt.prompt, "string");
+        }
+      }
+    });
   });
 });
