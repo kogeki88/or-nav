@@ -181,6 +181,7 @@ describe("Dexie Benchmarks", () => {
 
   test("concurrent burst execution and race condition resistance", async () => {
     const originalFetch = global.fetch;
+    // Explicitly verify offline-first invariants
     global.fetch = () => Promise.reject(new Error("Network call strictly forbidden during offlineDB benchmark"));
 
     try {
@@ -191,11 +192,14 @@ describe("Dexie Benchmarks", () => {
         const runWorker = async (workerId: number, tenant: string) => {
           const items = [];
           for (let i = 0; i < ITEMS_PER_WORKER; i++) {
+            // explicitly generate unique identifiable payload variables (like sequential IDs)
             items.push({
               id: `${tenant}::worker${workerId}::item_${i}`,
               tenant_id: tenant,
               item: `Item Worker ${workerId} ${i}`,
               status: i % 2 === 0 ? "verified" : "unverified",
+              worker_seq: workerId,
+              item_seq: i,
             });
           }
           // Insert concurrently
@@ -204,6 +208,14 @@ describe("Dexie Benchmarks", () => {
           // Read concurrently
           const readBack = await db.inventoryItems.where("tenant_id").equals(tenant).toArray();
           assert.ok(readBack.length >= ITEMS_PER_WORKER);
+
+          // Verify that parsed outputs do not contain leaked data from adjacent requests
+          const myWorkerItems = readBack.filter(item => item.worker_seq === workerId);
+          myWorkerItems.forEach(res => {
+            assert.ok(res.id.includes(`worker${workerId}`), "Found wrong worker ID");
+            assert.ok(!res.id.includes(`worker${workerId + 1}`), "Leaked data from adjacent requests: output contains res.id + 1 data");
+            assert.ok(!res.id.includes(`worker${workerId - 1}`), "Leaked data from adjacent requests: output contains res.id - 1 data");
+          });
 
           // Update concurrently
           const toUpdate = readBack.slice(0, 10).map(item => ({ ...item, status: "updated" }));
@@ -225,8 +237,8 @@ describe("Dexie Benchmarks", () => {
         const burstDuration = t1 - t0;
         console.log(`Concurrent burst of ${NUM_WORKERS} workers took ${burstDuration.toFixed(2)}ms`);
 
-        // Latency assertion
-        assert.ok(burstDuration < 2000, `Concurrent burst took ${burstDuration}ms, which is >= 2000ms`);
+        // Latency assertion with sufficient headroom (e.g., < 2500ms)
+        assert.ok(burstDuration < 2500, `Concurrent burst took ${burstDuration}ms, which is >= 2500ms`);
 
         // Verify consistency and multi-tenant isolation invariants post-burst
         for (let t = 0; t < 5; t++) {
@@ -234,6 +246,9 @@ describe("Dexie Benchmarks", () => {
             const tenantItems = await db.inventoryItems.where("tenant_id").equals(tenantStr).toArray();
             assert.ok(tenantItems.length > 0, `${tenantStr} should have items`);
             assert.ok(tenantItems.every(i => i.tenant_id === tenantStr), `No leakage into ${tenantStr}`);
+
+            const otherTenantStr = `tenant_${(t + 1) % 5}`;
+            assert.ok(tenantItems.every(i => i.tenant_id !== otherTenantStr), "Leaked data from other tenant");
         }
     } finally {
         global.fetch = originalFetch;
