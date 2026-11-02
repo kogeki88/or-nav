@@ -364,6 +364,64 @@ describe("useWakeLock", () => {
     );
     assert.strictEqual(mockRequest.mock.calls.length, iterations);
   });
+
+  it("should explicitly enforce multi-tenant boundary isolation and offline replay idempotency", async () => {
+    const originalFetch = global.fetch;
+    const fetchMock = mock.fn(async () => {
+      throw new Error("Network call detected");
+    });
+    global.fetch = fetchMock as any;
+
+    const rootA = document.createElement('div');
+    rootA.setAttribute('data-tenant', 'facility_X::dept_Y');
+    const rootB = document.createElement('div');
+    rootB.setAttribute('data-tenant', 'facility_Z::dept_W');
+    document.body.appendChild(rootA);
+    document.body.appendChild(rootB);
+
+    try {
+      mockRequest.mock.resetCalls();
+      mockRelease.mock.resetCalls();
+
+      const { rerender, unmount } = renderHook((props) => useWakeLock(props.enabled), {
+        initialProps: { enabled: true },
+        container: rootA
+      });
+      await Promise.resolve();
+
+      // Offline replay idempotency
+      rerender({ enabled: true });
+      await Promise.resolve();
+      assert.strictEqual(mockRequest.mock.calls.length, 1);
+
+      unmount();
+      await Promise.resolve();
+      assert.strictEqual(mockRelease.mock.calls.length, 1);
+
+      mockRequest.mock.resetCalls();
+      mockRelease.mock.resetCalls();
+
+      const { rerender: rerenderB, unmount: unmountB } = renderHook((props) => useWakeLock(props.enabled), {
+        initialProps: { enabled: true },
+        container: rootB
+      });
+      await Promise.resolve();
+      rerenderB({ enabled: true });
+      await Promise.resolve();
+
+      assert.strictEqual(mockRequest.mock.calls.length, 1);
+
+      unmountB();
+      await Promise.resolve();
+      assert.strictEqual(mockRelease.mock.calls.length, 1);
+
+      assert.strictEqual(fetchMock.mock.calls.length, 0); // verify offline invariants
+    } finally {
+      global.fetch = originalFetch;
+      if (document.body.contains(rootA)) document.body.removeChild(rootA);
+      if (document.body.contains(rootB)) document.body.removeChild(rootB);
+    }
+  });
 });
 
 describe("useWakeLock additional concurrent tests", () => {
