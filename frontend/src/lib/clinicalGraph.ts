@@ -153,8 +153,8 @@ export function findShortestPath(
   return null;
 }
 
-export function normalizeGraphText(text: string): string {
-  return (text || "")
+export function normalizeGraphText(text: unknown): string {
+  return String(text ?? "")
     .toLowerCase()
     .replace(/[^a-z0-9\s\-#/]/g, " ")
     .replace(/\s+/g, " ")
@@ -201,8 +201,18 @@ export function compileClinicalGraph(
   customInventory?: CoordinateCardData[],
   customOrientationMd?: string
 ): ClinicalEntityGraph {
-  const cards = customCards && customCards.length > 0 ? customCards : getSeedPreferenceCards(tenantId);
-  const invRows = customInventory && customInventory.length > 0 ? customInventory : getSeedInventoryItems(tenantId);
+  const rawCards = customCards != null ? customCards : getSeedPreferenceCards(tenantId);
+  const rawInvRows = customInventory != null ? customInventory : getSeedInventoryItems(tenantId);
+
+  const cards = (Array.isArray(rawCards) ? rawCards : []).filter(
+    c => c && typeof c === 'object' && typeof c.id === 'string' &&
+         (c.surgeon === undefined || typeof c.surgeon === 'string') &&
+         (c.procedure === undefined || typeof c.procedure === 'string')
+  );
+  const invRows = (Array.isArray(rawInvRows) ? rawInvRows : []).filter(
+    r => r && typeof r === 'object' && typeof r.item === 'string' &&
+         (r.aliases === undefined || typeof r.aliases === 'string')
+  );
 
   const surgeonsByToken: Record<string, any[]> = {};
   const indexedSurgeonNames: string[] = [];

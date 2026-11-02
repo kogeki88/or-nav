@@ -112,3 +112,42 @@ test("ClinicalGraph Multi-tenant Isolation and Offline Invariants", async (t) =>
     global.fetch = originalFetch;
   }
 });
+
+test("ClinicalGraph Boundary Inputs, Fuzzing, and Malformed Payload Resilience", async (t) => {
+  await t.test("compileClinicalGraph gracefully handles null, undefined, and garbage input arrays", () => {
+    const graph1 = compileClinicalGraph("tenant_fuzz", null as any, undefined as any, undefined as any);
+    assert.ok(Array.isArray(graph1.preferenceCards));
+    assert.ok(graph1.preferenceCards.length > 0);
+    assert.ok(graph1.inventoryTerms instanceof Set);
+
+    const garbageCards = [{ id: 123, surgeon: null, procedure: undefined, extraGarbage: "data" }, { id: "valid", surgeon: "Dr. Real" }] as any;
+    const garbageInventory = [{ item: undefined, aliases: null }, { item: "valid item" }] as any;
+    const garbageMd = 789 as any;
+
+    const graph2 = compileClinicalGraph("tenant_garbage", garbageCards, garbageInventory, garbageMd);
+    assert.ok(Array.isArray(graph2.preferenceCards));
+    assert.strictEqual(graph2.preferenceCards.length, 1);
+    assert.strictEqual(graph2.preferenceCards[0].id, "valid");
+    assert.ok(graph2.inventoryTerms.has("valid item"));
+  });
+
+  await t.test("compileClinicalGraph gracefully handles massive string fuzzing", () => {
+    const massiveString = "A".repeat(10000);
+    const cards = [{ id: massiveString, surgeon: massiveString, procedure: massiveString }];
+    const graph = compileClinicalGraph("tenant_fuzz2", cards, [], massiveString);
+
+    assert.strictEqual(graph.tenantId, "tenant_fuzz2");
+    assert.ok(Array.isArray(graph.preferenceCards));
+  });
+
+  await t.test("compileClinicalGraph enforces schema type invariants on items with malformed types", () => {
+      const malformedCards = [
+        { id: {}, surgeon: [], procedure: () => {} },
+        { id: 45, surgeon: "Dr. Bad" }
+      ] as any;
+
+      const graph = compileClinicalGraph("tenant_schema", malformedCards, [], "");
+      assert.ok(graph.preferenceCards);
+      assert.strictEqual(graph.preferenceCards.length, 0); // Both should be rejected by strict schema checks
+  });
+});
