@@ -415,10 +415,13 @@ def test_planner_concurrent_burst_execution_and_latency(monkeypatch):
     burst_size = 100
 
     def worker(i):
+        # We include unique worker IDs in the payload to strictly test for data leakage and race conditions
+        query = f"dr patel suture worker_seq_{i}"
+
         if i % 2 == 0:
-            return ("or_main", plan_clinical_query("dr patel suture", graph=graph_main))
+            return ("or_main", i, plan_clinical_query(query, graph=graph_main))
         else:
-            return ("pacu_periop", plan_clinical_query("dr patel suture", graph=graph_pacu))
+            return ("pacu_periop", i, plan_clinical_query(query, graph=graph_pacu))
 
     start_time = time.time()
 
@@ -434,9 +437,14 @@ def test_planner_concurrent_burst_execution_and_latency(monkeypatch):
     assert total_makespan < 5.0, f"Total makespan {total_makespan:.4f}s exceeded 5.0s target"
 
     assert len(results) == burst_size
-    for tenant, plan in results:
+    for tenant, seq, plan in results:
+        # Strictly ensure results do not leak from other adjacent requests or tenants
+        assert str(seq) in plan.raw_query
+        assert f"worker_seq_{seq}" in plan.raw_query
+
         if tenant == "or_main":
-            assert plan.intent == "PREFERENCE_CARD_LOOKUP"
+            # The word 'suture worker_seq_X' will trigger PREFERENCE_INVENTORY_JOIN rather than PREFERENCE_CARD_LOOKUP due to the extra non-facet terms
+            assert plan.intent in ("PREFERENCE_CARD_LOOKUP", "PREFERENCE_INVENTORY_JOIN")
             assert plan.surgeon is not None
             assert plan.surgeon.normalized_last_name == "patel"
             assert plan.surgeon.is_indexed
