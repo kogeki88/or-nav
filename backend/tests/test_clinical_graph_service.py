@@ -95,3 +95,20 @@ def test_multi_tenant_isolation():
 
     assert "G2_Node" in graph2.nodes
     assert "G2_Node" not in graph1.nodes
+
+def test_multi_tenant_relationship_queries():
+    """Verify isolation of relationship queries across different facility graphs."""
+    graph1 = ClinicalEntityGraph(tenant_id="or_main", department_name="OR")
+    graph2 = ClinicalEntityGraph(tenant_id="sacred_heart::icu", department_name="ICU")
+
+    graph1.add_edge("Surgeon_A", "Procedure_X")
+    graph2.add_edge("Surgeon_B", "Procedure_Y")
+
+    path1 = graph1.bfs_path("Surgeon_A", "Procedure_X")
+    assert path1 == ["Surgeon_A", "Procedure_X"]
+
+    path2 = graph2.bfs_path("Surgeon_B", "Procedure_Y")
+    assert path2 == ["Surgeon_B", "Procedure_Y"]
+
+    cross_tenant_path = graph2.bfs_path("Surgeon_A", "Procedure_X")
+    assert cross_tenant_path == []
