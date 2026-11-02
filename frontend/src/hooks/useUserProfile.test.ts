@@ -463,10 +463,42 @@ describe('Supplementary tests', () => {
         assert.ok(savedData.fullName.startsWith('Burst User'));
     });
 
-    it('should supplement multi-tenant isolation invariants', () => {
-        const tenantProfile = { ...DEFAULT_USER_PROFILE, facilityId: 'test_facility' };
+    it('should supplement multi-tenant boundary enforcement (facility_id::dept_id)', () => {
+        const tenantProfile = { ...DEFAULT_USER_PROFILE, facilityId: 'sacred_heart', departmentId: 'icu_critical_care' };
         localStorageMock[USER_PROFILE_STORAGE_KEY] = JSON.stringify(tenantProfile);
-        const { result } = renderHook(() => useUserProfile());
-        assert.strictEqual(result.current.profile.facilityId, 'test_facility');
+
+        const { result: hook } = renderHook(() => useUserProfile());
+        act(() => {
+            hook.current.saveProfile(tenantProfile);
+        });
+
+        assert.strictEqual(hook.current.profile.facilityId, 'sacred_heart');
+        assert.strictEqual(hook.current.profile.departmentId, 'icu_critical_care');
+        const savedData = JSON.parse(localStorageMock[USER_PROFILE_STORAGE_KEY]);
+        assert.strictEqual(savedData.facilityId, 'sacred_heart');
+        assert.strictEqual(savedData.departmentId, 'icu_critical_care');
+    });
+
+    it('should enforce offline mutation replay idempotency in supplementary tests', () => {
+        const originalFetch = global.fetch;
+        global.fetch = undefined as any;
+        try {
+            const { result } = renderHook(() => useUserProfile());
+
+            const profileUpdates = { ...DEFAULT_USER_PROFILE, fullName: 'Offline Mutation' };
+
+            act(() => {
+                result.current.saveProfile(profileUpdates);
+            });
+            act(() => {
+                result.current.saveProfile(profileUpdates);
+            });
+
+            assert.strictEqual(result.current.profile.fullName, 'Offline Mutation');
+            const savedData = JSON.parse(localStorageMock[USER_PROFILE_STORAGE_KEY]);
+            assert.strictEqual(savedData.fullName, 'Offline Mutation');
+        } finally {
+            global.fetch = originalFetch;
+        }
     });
 });
