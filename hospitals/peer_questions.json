@@ -14,11 +14,13 @@
         "verifiedBy": [
           "Clinical Nurse (Circulating RN)"
         ],
-        "isVerifiedConsensus": false
+        "isVerifiedConsensus": false,
+        "idempotencyKey": null
       }
     ],
     "status": "unverified",
-    "verificationsCount": 1
+    "verificationsCount": 1,
+    "idempotencyKey": null
   },
   {
     "id": "pq-358346a1",
@@ -35,11 +37,13 @@
         "verifiedBy": [
           "Clinical Nurse (Circulating RN)"
         ],
-        "isVerifiedConsensus": false
+        "isVerifiedConsensus": false,
+        "idempotencyKey": null
       }
     ],
     "status": "unverified",
-    "verificationsCount": 1
+    "verificationsCount": 1,
+    "idempotencyKey": null
   },
   {
     "id": "pq-b79cdcbc",
@@ -56,11 +60,13 @@
         "verifiedBy": [
           "Clinical Nurse (Circulating RN)"
         ],
-        "isVerifiedConsensus": false
+        "isVerifiedConsensus": false,
+        "idempotencyKey": null
       }
     ],
     "status": "unverified",
-    "verificationsCount": 1
+    "verificationsCount": 1,
+    "idempotencyKey": null
   },
   {
     "id": "pq-7e427ba1",
@@ -78,11 +84,13 @@
           "Carla Espinosa, RN",
           "Dr. Christopher Turk"
         ],
-        "isVerifiedConsensus": true
+        "isVerifiedConsensus": true,
+        "idempotencyKey": null
       }
     ],
     "status": "verified",
-    "verificationsCount": 2
+    "verificationsCount": 2,
+    "idempotencyKey": null
   },
   {
     "id": "pq-seed-1",
@@ -99,11 +107,13 @@
         "verifiedBy": [
           "Carla Espinosa, RN"
         ],
-        "isVerifiedConsensus": false
+        "isVerifiedConsensus": false,
+        "idempotencyKey": null
       }
     ],
     "status": "unverified",
-    "verificationsCount": 1
+    "verificationsCount": 1,
+    "idempotencyKey": null
   },
   {
     "id": "pq-seed-2",
@@ -121,11 +131,13 @@
           "Dr. Dorian, MD",
           "Carla Espinosa, RN"
         ],
-        "isVerifiedConsensus": true
+        "isVerifiedConsensus": true,
+        "idempotencyKey": null
       }
     ],
     "status": "verified",
-    "verificationsCount": 2
+    "verificationsCount": 2,
+    "idempotencyKey": null
   },
   {
     "id": "pq-seed-3",
@@ -136,7 +148,8 @@
     "createdAt": "2026-10-27T16:00:00Z",
     "answers": [],
     "status": "unverified",
-    "verificationsCount": 0
+    "verificationsCount": 0,
+    "idempotencyKey": null
   },
   {
     "id": "pq-seed-pp-1",
@@ -154,11 +167,13 @@
           "Dr. Eric Foreman, MD",
           "Dr. Lisa Cuddy, MD"
         ],
-        "isVerifiedConsensus": true
+        "isVerifiedConsensus": true,
+        "idempotencyKey": null
       }
     ],
     "status": "verified",
-    "verificationsCount": 2
+    "verificationsCount": 2,
+    "idempotencyKey": null
   },
   {
     "id": "pq-seed-pp-2",
@@ -176,11 +191,13 @@
           "Dr. Gregory House, MD",
           "Dr. Robert Chase, MD"
         ],
-        "isVerifiedConsensus": true
+        "isVerifiedConsensus": true,
+        "idempotencyKey": null
       }
     ],
     "status": "verified",
-    "verificationsCount": 2
+    "verificationsCount": 2,
+    "idempotencyKey": null
   },
   {
     "id": "pq-seed-cg-1",
@@ -198,11 +215,13 @@
           "Carol Hathaway, RN",
           "Dr. Mark Greene, MD"
         ],
-        "isVerifiedConsensus": true
+        "isVerifiedConsensus": true,
+        "idempotencyKey": null
       }
     ],
     "status": "verified",
-    "verificationsCount": 2
+    "verificationsCount": 2,
+    "idempotencyKey": null
   },
   {
     "id": "pq-seed-cg-2",
@@ -220,10 +239,12 @@
           "Dr. Kerry Weaver, MD",
           "Dr. John Carter, MD"
         ],
-        "isVerifiedConsensus": true
+        "isVerifiedConsensus": true,
+        "idempotencyKey": null
       }
     ],
     "status": "verified",
-    "verificationsCount": 2
+    "verificationsCount": 2,
+    "idempotencyKey": null
   }
 ]
