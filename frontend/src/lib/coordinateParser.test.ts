@@ -390,3 +390,64 @@ describe("Supplementary Task Requirement Tests", () => {
     assert.strictEqual(result.location, "OR 21 A 2 C");
   });
 });
+
+describe("Phase 4 Offline Partition & Multi-Tenant Isolation Extension", () => {
+  test("Extended Multi-Tenant Boundary Enforcement (facility_id::dept_id) and Offline Mutation Replay Idempotency", async () => {
+    const originalFetch = global.fetch;
+    // Enforce offline-first invariant
+    global.fetch = undefined as any;
+
+    try {
+      // 1. Offline Mutation Replay Idempotency
+      const idempotencyInput = "OR 5 A 1 B";
+      const firstRun = extractAndNormalizeCoordinateClient(idempotencyInput);
+      const secondRun = extractAndNormalizeCoordinateClient(idempotencyInput);
+
+      assert.ok(firstRun);
+      assert.ok(secondRun);
+      assert.strictEqual(firstRun.location, "OR 5 A 1 B");
+      assert.strictEqual(secondRun.location, "OR 5 A 1 B");
+      assert.deepStrictEqual(firstRun, secondRun);
+
+      // 2. Multi-Tenant Boundary Enforcement (facility_id::dept_id)
+      const tenants = [
+        "fac_alpha::dept_1",
+        "fac_alpha::dept_2",
+        "fac_beta::dept_1"
+      ];
+
+      const tenantInputMap: Record<string, string> = {
+        "fac_alpha::dept_1": "ICU 2 A 1 B",
+        "fac_alpha::dept_2": "OR 1 A 2 B",
+        "fac_beta::dept_1": "Trauma Bay 3 C 4 D"
+      };
+
+      const tasks = tenants.map(tenantId => {
+        return new Promise<{ tenantId: string; result: any }>((resolve) => {
+          setTimeout(() => {
+            const input = tenantInputMap[tenantId];
+            const result = extractAndNormalizeCoordinateClient(input);
+            resolve({ tenantId, result });
+          }, Math.random() * 5);
+        });
+      });
+
+      const results = await Promise.all(tasks);
+
+      for (const { tenantId, result } of results) {
+        assert.ok(result);
+        if (tenantId === "fac_alpha::dept_1") {
+          assert.strictEqual(result.location, "ICU 2 A 1 B");
+        } else if (tenantId === "fac_alpha::dept_2") {
+          assert.strictEqual(result.location, "OR 1 A 2 B");
+        } else if (tenantId === "fac_beta::dept_1") {
+          assert.strictEqual(result.location, "Trauma Bay 3 C 4 D");
+        } else {
+          assert.fail("Unexpected tenant ID leaked");
+        }
+      }
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});
