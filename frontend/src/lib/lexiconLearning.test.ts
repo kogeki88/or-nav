@@ -1,4 +1,4 @@
-import { describe, test, beforeEach } from "node:test";
+import { describe, test, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import {
   learnAliasClient,
@@ -215,5 +215,46 @@ describe("lexiconLearning & Teaching Intent", () => {
       const resolved = resolveSpokenAliasClient("facility_unknown", "misheard_unseeded");
       assert.ok(resolved);
       assert.strictEqual(resolved?.canonicalItemName, "actual_item");
+    });
+  });
+
+  describe("Multi-tenant & Offline tests", () => {
+    describe("multi-tenant isolation", () => {
+      test("should ensure aliases learned in one facility do not leak to another", () => {
+        learnAliasClient("facility_A", "or", "custom_tool", "Standard Tool", "user1");
+
+        const resolvedA = resolveSpokenAliasClient("facility_A", "custom_tool");
+        assert.ok(resolvedA);
+        assert.strictEqual(resolvedA?.canonicalItemName, "Standard Tool");
+
+        const resolvedB = resolveSpokenAliasClient("facility_B", "custom_tool");
+        assert.strictEqual(resolvedB, null);
+      });
+
+      test("should parse tenant ID into facility and department correctly without leaking", () => {
+        assert.deepStrictEqual(getFacilityIdFromTenant("sacred_heart"), { facilityId: "sacred_heart", departmentId: "or" });
+        assert.deepStrictEqual(getFacilityIdFromTenant("sacred_heart_or"), { facilityId: "sacred_heart", departmentId: "or" });
+        assert.deepStrictEqual(getFacilityIdFromTenant("princeton_plainsboro::icu"), { facilityId: "princeton_plainsboro", departmentId: "icu" });
+        assert.deepStrictEqual(getFacilityIdFromTenant("tenant_a"), { facilityId: "tenant_a", departmentId: "or" });
+        assert.deepStrictEqual(getFacilityIdFromTenant("or_main"), { facilityId: "general_memorial", departmentId: "or" });
+      });
+    });
+
+    describe("offline-first invariants", () => {
+      test("should persist and retrieve aliases strictly from local storage (offline) without network requests", async () => {
+        const originalFetch = global.fetch;
+        global.fetch = mock.fn(async () => { throw new Error("Network offline"); });
+
+        try {
+          learnAliasClient("offline_facility", "or", "offline_tool", "Standard Tool", "user1");
+          const resolved = resolveSpokenAliasClient("offline_facility", "offline_tool");
+
+          assert.ok(resolved);
+          assert.strictEqual(resolved?.canonicalItemName, "Standard Tool");
+          assert.strictEqual((global.fetch as any).mock.callCount(), 0);
+        } finally {
+          global.fetch = originalFetch;
+        }
+      });
     });
   });
