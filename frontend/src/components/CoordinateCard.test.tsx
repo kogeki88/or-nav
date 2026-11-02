@@ -2,10 +2,11 @@ import 'jsdom-global/register.js';
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react';
 
 import CoordinateCard from './CoordinateCard';
 import { CoordinateCardData } from '@/lib/api';
+import { loadFacilityLexicon } from '@/lib/lexiconLearning';
 
 beforeEach(() => {
 });
@@ -80,4 +81,55 @@ test('renders partial coordinates and handles missing values gracefully', () => 
   assert.ok(cabinetDiv);
   assert.ok(shelfDiv);
   assert.ok(binDiv);
+});
+
+test('offline mutation idempotency and multi-tenant isolation', async () => {
+    const originalFetch = global.fetch;
+    try {
+        global.fetch = (async () => { throw new Error('Network offline'); }) as any;
+
+        const cardData1: CoordinateCardData = {
+            item: 'Item Y', room: 'OR 1', cabinet: '2', shelf: '3', container: '4', full_code: 'OR 1-2-3-4',
+            category: 'Surgical', surgeon_notes: '', pending_location: '', verify_count: 0,
+        };
+
+        render(<CoordinateCard card={cardData1} facilityId="tenant_A" />);
+
+        const addBtn = screen.getByTestId('add-local-alias-btn');
+        fireEvent.click(addBtn);
+
+        const input = screen.getByTestId('add-local-alias-input');
+        fireEvent.change(input, { target: { value: 'Y-Alias' } });
+
+        const saveBtn = screen.getByTestId('save-local-alias-btn');
+        fireEvent.click(saveBtn);
+
+        // click again to simulate offline idempotency issue
+        fireEvent.click(saveBtn);
+
+        // Verify in UI
+        await waitFor(() => {
+            assert.ok(screen.getAllByText('Y-Alias').length === 1);
+        });
+
+        // check lexicon
+        const lexA = loadFacilityLexicon('tenant_A');
+        const lexB = loadFacilityLexicon('tenant_B');
+
+        assert.ok(lexA.some(l => l.spokenTerm === 'y-alias'));
+        assert.ok(!lexB.some(l => l.spokenTerm === 'y-alias'));
+
+        cleanup();
+
+        // re-render to check cross-tenant leakage
+        render(<CoordinateCard card={cardData1} facilityId="tenant_B" />);
+        await waitFor(() => {
+            const tenantBAliases = screen.queryAllByText('Y-Alias');
+            assert.ok(tenantBAliases.length === 0);
+        });
+
+    } finally {
+        global.fetch = originalFetch;
+        cleanup();
+    }
 });
