@@ -186,3 +186,57 @@ test('ChatCanvas enforces offline-first invariants and idempotency', async () =>
     global.fetch = originalFetch;
   }
 });
+
+test('ChatCanvas resilience against malformed coordinateCards (fuzzing/boundary)', async () => {
+  const malformedMessages: MessageItem[] = [
+    {
+      id: 'msg-fuzz-1',
+      sender: 'assistant',
+      text: 'Malformed cards',
+      timestamp: '2023-01-01T10:00:00Z',
+      coordinateCards: [
+        null as any,
+        undefined as any,
+        { item: null, location: undefined, category: 123 } as any,
+        {} as any,
+        { item: '<script>alert(1)</script>', location: 'loc', category: 'fuzz' },
+      ],
+    }
+  ];
+
+  const { container } = render(
+    <ChatCanvas
+      messages={malformedMessages}
+      loading={false}
+      tenantId="or_main"
+      onVerifyPendingMove={async () => {}}
+    />
+  );
+
+  assert.ok(container.innerHTML.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
+});
+
+test('ChatCanvas resilience against malformed payloads in quickAddWidget and teachingCard (fuzzing/boundary)', async () => {
+  const malformedMessages: MessageItem[] = [
+    {
+      id: 'msg-fuzz-2',
+      sender: 'assistant',
+      text: 'Malformed widgets',
+      timestamp: '2023-01-01T10:00:00Z',
+      quickAddWidget: { item: null, suggested_location: { complex: 'object' } } as any,
+      teachingCard: { slang: null, canonical: undefined, facility: 123, xp_awarded: 'a lot' } as any
+    }
+  ];
+
+  const { container } = render(
+    <ChatCanvas
+      messages={malformedMessages}
+      loading={false}
+      tenantId="or_main"
+      onVerifyPendingMove={async () => {}}
+      onSaveQuickAddItem={async () => {}}
+    />
+  );
+
+  assert.ok(container);
+});
