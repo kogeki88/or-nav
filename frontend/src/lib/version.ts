@@ -53,7 +53,7 @@ export function isNewerVersion(
   }
 
   // 2. Fallback: Parse major.minor.patch numeric tags
-  const clean = (v: string) => v.replace(/^v/, "").trim();
+  const clean = (v: string) => v.trim().replace(/^[vV]/, "");
   const rParts = clean(remoteVersion).split(".").map((n) => parseInt(n, 10) || 0);
   const lParts = clean(localVersion).split(".").map((n) => parseInt(n, 10) || 0);
 
