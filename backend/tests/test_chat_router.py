@@ -24,7 +24,7 @@ class TestChatRouterMultiTenant:
         from app.config import get_tenant, TenantConfig
 
         # Copy the whole hospitals directory to tmp_path
-        hospitals_dir = pathlib.Path("hospitals")
+        hospitals_dir = pathlib.Path("../hospitals")
         tmp_hospitals = tmp_path / "hospitals"
         shutil.copytree(hospitals_dir, tmp_hospitals)
 
@@ -518,3 +518,69 @@ class TestChatRouterMultiTenant:
                 del data["latency_ms"]
 
         assert data1 == data2 == data3
+    def test_stress_add_item_concurrent(self):
+        import time
+        import uuid
+        from concurrent.futures import ThreadPoolExecutor
+
+        reset_inventory_services()
+        reset_governance_services()
+        reset_rag_services()
+        client = TestClient(app)
+
+        def add_item_and_verify(worker_seq):
+            tenant = "general_memorial_cvor" if worker_seq % 2 == 0 else "or_main"
+            other_tenant = "or_main" if worker_seq % 2 == 0 else "general_memorial_cvor"
+            unique_id = uuid.uuid4().hex
+            item_name = f"SecretItem{unique_id}"
+
+            # Add item
+            resp_add = client.post("/api/inventory/add-item", json={
+                "tenant_id": tenant,
+                "item": item_name,
+                "location": f"Loc {worker_seq}",
+                "category": "Instruments",
+                "surgeon_notes": "",
+                "learned_aliases": []
+            })
+
+            if resp_add.status_code != 200:
+                return worker_seq, False, f"Add failed: {resp_add.text}"
+
+            # Verify item exists in correct tenant
+            resp_chat = client.post("/api/chat", json={
+                "message": f"where is {item_name}",
+                "tenant_id": tenant
+            })
+
+            # Verify item DOES NOT exist in other tenant (multi-tenant boundary enforcement)
+            resp_other = client.post("/api/chat", json={
+                "message": f"where is {item_name}",
+                "tenant_id": other_tenant
+            })
+
+            data_chat = resp_chat.json()
+            data_other = resp_other.json()
+
+            success = (
+                resp_chat.status_code == 200 and
+                data_chat.get("coordinate_card") is not None and
+                data_chat["coordinate_card"].get("item").lower() == item_name.lower() and
+                resp_other.status_code == 200 and
+                data_other.get("coordinate_card") is None
+            )
+            return worker_seq, success, {"data_chat": data_chat, "data_other": data_other}
+
+        start_time = time.time()
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            futures = [executor.submit(add_item_and_verify, i) for i in range(20)]
+            results = [f.result() for f in futures]
+        end_time = time.time()
+
+        for worker_seq, success, debug_data in results:
+            assert success is True, f"Failed isolation for seq {worker_seq}. Debug: {debug_data}"
+
+        total_time = end_time - start_time
+        avg_time = total_time / 20
+        assert total_time < 30.0
+        assert avg_time < 1.5
