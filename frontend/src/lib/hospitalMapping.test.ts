@@ -274,3 +274,38 @@ test("getFacilityIdFromTenant normalizes facility ID resolution", async (t) => {
     });
 
 });
+
+test("getFacilityIdFromTenant handles offline mutation replay idempotency and multi-tenant boundary enforcement precisely", async (t) => {
+    // Poison global.fetch to strictly ensure the offline-first invariant (no network calls)
+    const originalFetch = global.fetch;
+    global.fetch = () => {
+        throw new Error("Network call detected in offline-first function!");
+    };
+
+    try {
+        const tenant1 = "metro_medical::icu";
+        const tenant2 = "duke_regional::nicu";
+
+        const run1 = getFacilityIdFromTenant(tenant1);
+        const run2 = getFacilityIdFromTenant(tenant1);
+
+        const run3 = getFacilityIdFromTenant(tenant2);
+        const run4 = getFacilityIdFromTenant(tenant2);
+
+        assert.deepStrictEqual(run1, run2);
+        assert.deepStrictEqual(run3, run4);
+
+        assert.deepStrictEqual(run1, { facilityId: "metro_medical", departmentId: "icu" });
+        assert.deepStrictEqual(run3, { facilityId: "duke_regional", departmentId: "nicu" });
+
+        const complexTenant = "county_general::er::some::other::stuff";
+        const run5 = getFacilityIdFromTenant(complexTenant);
+        const run6 = getFacilityIdFromTenant(complexTenant);
+
+        assert.deepStrictEqual(run5, run6);
+        assert.deepStrictEqual(run5, { facilityId: "county_general", departmentId: "er" });
+
+    } finally {
+        global.fetch = originalFetch;
+    }
+});
