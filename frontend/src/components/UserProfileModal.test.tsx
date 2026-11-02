@@ -2,12 +2,23 @@ import 'jsdom-global/register';
 import { test, mock, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import UserProfileModal from './UserProfileModal';
 import { DEFAULT_USER_PROFILE, REGISTERED_DEPARTMENTS, ROLES_BY_DEPARTMENT } from '../lib/userProfile';
 import * as auth from '../lib/auth';
 import * as resourceManager from '../lib/resourceManager';
+
+// Mock localStorage to fix offline-first issues
+Object.defineProperty(global, 'localStorage', {
+  value: {
+    getItem: mock.fn(),
+    setItem: mock.fn(),
+    removeItem: mock.fn(),
+    clear: mock.fn(),
+  },
+  writable: true
+});
 
 test('UserProfileModal blocks unauthenticated privilege escalation and dispatches audit event', async (t) => {
   // Mock the required API calls
@@ -61,7 +72,7 @@ test('UserProfileModal blocks unauthenticated privilege escalation and dispatche
   fireEvent.change(roleSelect, { target: { value: 'Admin' } });
 
   // Submit the form
-  const saveBtn = screen.getByTestId('button-save-profile');
+  const saveBtn = screen.getAllByTestId('button-save-profile')[0];
   fireEvent.click(saveBtn);
 
   // Verify that the privilege escalation was blocked and it fell back to the first valid role
@@ -80,5 +91,86 @@ test('UserProfileModal blocks unauthenticated privilege escalation and dispatche
   assert.strictEqual(auditEventDetail.clinicalRole, expectedDefaultRole, 'Audit event should contain authorized role');
 
   window.removeEventListener('ornav_user_profile_updated', eventListener);
+  mock.restoreAll();
+});
+
+test('UserProfileModal handles offline-first idempotency and missing global fetch', async (t) => {
+  cleanup();
+  const onSaveProfileMock = mock.fn();
+  const mockOnClose = mock.fn();
+  const origFetch = global.fetch;
+  (global as any).fetch = undefined;
+
+  render(
+    <UserProfileModal
+      isOpen={true}
+      onClose={mockOnClose}
+      currentProfile={{
+        ...DEFAULT_USER_PROFILE,
+        departmentId: 'or_main',
+      }}
+      onSaveProfile={onSaveProfileMock}
+    />
+  );
+
+  const roleSelect = screen.getByTestId('select-role') as HTMLSelectElement;
+  fireEvent.change(roleSelect, { target: { value: 'Scrub Tech' } });
+
+  const saveBtn = screen.getAllByTestId('button-save-profile')[0];
+  fireEvent.click(saveBtn);
+  fireEvent.click(saveBtn);
+  fireEvent.click(saveBtn);
+
+  await waitFor(() => {
+    assert.strictEqual(onSaveProfileMock.mock.calls.length, 1);
+  });
+
+  (global as any).fetch = origFetch;
+  mock.restoreAll();
+});
+
+test('UserProfileModal maintains multi-tenant isolation', async (t) => {
+  cleanup();
+  const onSaveProfileMock1 = mock.fn();
+  const onSaveProfileMock2 = mock.fn();
+
+  const { unmount: unmount1 } = render(
+    <UserProfileModal
+      isOpen={true}
+      onClose={() => {}}
+      currentProfile={{ ...DEFAULT_USER_PROFILE, facilityId: 'tenant_a', departmentId: 'or_main' }}
+      onSaveProfile={onSaveProfileMock1}
+    />
+  );
+
+  const saveBtn1 = screen.getAllByTestId('button-save-profile')[0];
+  fireEvent.click(saveBtn1);
+
+  await waitFor(() => {
+    assert.strictEqual(onSaveProfileMock1.mock.calls.length, 1);
+    assert.strictEqual(onSaveProfileMock1.mock.calls[0].arguments[0].facilityId, 'tenant_a');
+  });
+
+  cleanup();
+
+  const { unmount: unmount2 } = render(
+    <UserProfileModal
+      isOpen={true}
+      onClose={() => {}}
+      currentProfile={{ ...DEFAULT_USER_PROFILE, facilityId: 'tenant_b', departmentId: 'icu_critical_care' }}
+      onSaveProfile={onSaveProfileMock2}
+    />
+  );
+
+  const saveBtn2 = screen.getAllByTestId('button-save-profile')[0];
+  fireEvent.click(saveBtn2);
+
+  await waitFor(() => {
+    assert.strictEqual(onSaveProfileMock2.mock.calls.length, 1);
+    assert.strictEqual(onSaveProfileMock2.mock.calls[0].arguments[0].facilityId, 'tenant_b');
+    assert.strictEqual(onSaveProfileMock2.mock.calls[0].arguments[0].departmentId, 'icu_critical_care');
+  });
+
+  cleanup();
   mock.restoreAll();
 });
