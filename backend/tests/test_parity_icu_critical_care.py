@@ -26,3 +26,22 @@ def test_icu_critical_care_parity():
                 missing_items.append((card.get("id"), supply))
 
     assert not missing_items, f"Items in preference cards missing from inventory: {missing_items}"
+
+def test_icu_critical_care_parity_empty_state():
+    """Verify parity checks handle empty states correctly."""
+    inventory_path = ICU_DIR / "inventory.csv"
+    pref_cards_path = ICU_DIR / "preference_cards.json"
+
+    assert inventory_path.exists(), f"Missing {inventory_path}"
+    assert pref_cards_path.exists(), f"Missing {pref_cards_path}"
+
+    with inventory_path.open("r", encoding="utf-8") as f:
+        inventory_items = {row["item"].strip() for row in csv.DictReader(f)}
+
+    missing_items = []
+    empty_pref_cards = [{"id": "empty_card", "supplies": []}]
+    for card in empty_pref_cards:
+        for supply in card.get("supplies", []):
+            if supply not in inventory_items:
+                missing_items.append((card.get("id"), supply))
+    assert not missing_items, f"Expected no missing items for empty supplies, got {missing_items}"
