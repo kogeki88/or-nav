@@ -769,3 +769,47 @@ test('supplementary test: concurrent burst execution, race condition resistance,
 
     comp.unmount();
 });
+
+test('supplementary multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency test', async () => {
+    // 1. Simulate network offline using missing fetch
+    const originalFetch = global.fetch;
+    try {
+        global.fetch = mock.fn(async () => { throw new Error('Network offline'); });
+
+        // 2. Clear any previous offline calls
+        mockSaveOfflinePeerQuestionCalls = [];
+
+        // 3. Render the panel for a specific tenant boundary
+        const root = document.createElement('div');
+        document.body.appendChild(root);
+        const comp = render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility1::dept2" userProfile={dummyProfile} />, { container: root });
+
+        // 4. Navigate to Ask Tab and input a question
+        const askTab = comp.getByText('Ask Department Peers');
+        fireEvent.click(askTab);
+        const textarea = comp.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+        fireEvent.change(textarea, { target: { value: 'Is this idempotent and multi-tenant isolated for missing fetch?' } });
+
+        // 5. Click Broadcast Question multiple times (simulating offline mutation replay)
+        const submitBtn = comp.getByText('Broadcast Question');
+        fireEvent.click(submitBtn);
+        // Using rapid consecutive clicks will trigger the duplicate protection if functioning
+        fireEvent.click(submitBtn);
+        fireEvent.click(submitBtn);
+
+        // 6. Wait for the state to update
+        await waitFor(() => {
+            assert.ok(comp.getByText('Is this idempotent and multi-tenant isolated for missing fetch?'));
+        });
+
+        // 7. Assert idempotency
+        assert.strictEqual(mockSaveOfflinePeerQuestionCalls.length, 1, 'Should only save one offline question despite multiple clicks');
+
+        // 8. Assert multi-tenant boundary enforcement in the offline mutation payload
+        assert.strictEqual(mockSaveOfflinePeerQuestionCalls[0].tenantId, 'facility1::dept2', 'The offline payload must strictly enforce the tenant boundary');
+
+        comp.unmount();
+    } finally {
+        global.fetch = originalFetch;
+    }
+});
