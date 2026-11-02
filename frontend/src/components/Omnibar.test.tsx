@@ -633,3 +633,55 @@ test('boundary input: exactly 2001 characters is rejected', async () => {
 
   assert.strictEqual(onSendMessage.mock.calls.length, 0);
 });
+test('supplementary benchmark: additional high-concurrency burst execution verification', async () => {
+  const originalFetch = global.fetch;
+  global.fetch = mock.fn(() => {
+    throw new Error('Network request blocked by offline-first invariant');
+  });
+
+  const roots: HTMLDivElement[] = [];
+  const unmounts: (() => void)[] = [];
+
+  try {
+    const burstSize = 50;
+    const callbacks = Array.from({ length: burstSize }, () => mock.fn());
+
+    for (let i = 0; i < burstSize; i++) {
+      const root = document.createElement('div');
+      root.setAttribute('data-tenant', `tenant_${i}`);
+      document.body.appendChild(root);
+      roots.push(root);
+      const { unmount } = render(<Omnibar onSendMessage={callbacks[i]} onFileUpload={() => {}} />, { container: root });
+      unmounts.push(unmount);
+    }
+
+    const inputs = screen.getAllByTestId('omnibar-input');
+    const submitBtns = screen.getAllByTestId('omnibar-submit-btn');
+
+    assert.strictEqual(inputs.length, burstSize);
+    assert.strictEqual(submitBtns.length, burstSize);
+
+    const startTime = performance.now();
+    await Promise.all(
+      inputs.map(async (input, i) => {
+        await new Promise(r => setTimeout(r, Math.random() * 5));
+        fireEvent.change(input, { target: { value: `supp tenant ${i}` } });
+        await new Promise(r => setTimeout(r, Math.random() * 2));
+        fireEvent.click(submitBtns[i]);
+      })
+    );
+    const endTime = performance.now();
+
+    callbacks.forEach((cb, i) => {
+      assert.strictEqual(cb.mock.calls.length, 1);
+      assert.strictEqual(cb.mock.calls[0].arguments[0], `supp tenant ${i}`);
+    });
+
+    assert.strictEqual((global.fetch as any).mock.calls.length, 0);
+    assert.ok(endTime - startTime < 3000);
+  } finally {
+    global.fetch = originalFetch;
+    unmounts.forEach(u => u());
+    roots.forEach(r => r.remove());
+  }
+});
