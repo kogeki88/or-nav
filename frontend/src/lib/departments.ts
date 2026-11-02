@@ -94,9 +94,13 @@ export const LOCAL_STORAGE_DEPT_KEY = "ornav_active_department";
 
 export function getActiveDepartmentId(): string {
   if (typeof window !== "undefined") {
-    const saved = localStorage.getItem(LOCAL_STORAGE_DEPT_KEY);
-    if (saved && (DEPARTMENTS[saved] || saved === "general_memorial_cvor")) {
-      return saved === "general_memorial_cvor" ? DEFAULT_DEPARTMENT_ID : saved;
+    try {
+      const saved = localStorage.getItem(LOCAL_STORAGE_DEPT_KEY);
+      if (saved && (DEPARTMENTS[saved] || saved === "general_memorial_cvor")) {
+        return saved === "general_memorial_cvor" ? DEFAULT_DEPARTMENT_ID : saved;
+      }
+    } catch (error) {
+      console.warn("Storage unavailable, falling back to default department");
     }
   }
   return DEFAULT_DEPARTMENT_ID;
@@ -104,7 +108,11 @@ export function getActiveDepartmentId(): string {
 
 export function setActiveDepartmentId(id: string): void {
   if (typeof window !== "undefined") {
-    localStorage.setItem(LOCAL_STORAGE_DEPT_KEY, id);
+    try {
+      localStorage.setItem(LOCAL_STORAGE_DEPT_KEY, id);
+    } catch (error) {
+      console.warn("Storage unavailable, skipping save department");
+    }
   }
 }
 
