@@ -201,3 +201,58 @@ def test_list_tenants_empty_and_offline_invariants(tmp_path, monkeypatch):
     monkeypatch.setattr(app.config, "HOSPITALS_DIR", hospitals_mock)
 
     assert list_tenants() == []
+
+
+def test_multi_tenant_boundary_enforcement_facility_dept(tmp_path, monkeypatch):
+    """Enforce multi-tenant boundary enforcement (facility_id::dept_id)."""
+    hospitals_mock = tmp_path / "hospitals"
+    hospitals_mock.mkdir()
+
+    fac_dir1 = hospitals_mock / "facility_alpha"
+    fac_dir1.mkdir()
+    dept_dir1 = fac_dir1 / "dept_x"
+    dept_dir1.mkdir()
+    (dept_dir1 / "inventory.csv").touch()
+
+    fac_dir2 = hospitals_mock / "facility_beta"
+    fac_dir2.mkdir()
+    dept_dir2 = fac_dir2 / "dept_x"
+    dept_dir2.mkdir()
+    (dept_dir2 / "inventory.csv").touch()
+
+    monkeypatch.setattr(app.config, "HOSPITALS_DIR", hospitals_mock)
+
+    config1 = get_tenant("facility_alpha::dept_x")
+    config2 = get_tenant("facility_beta::dept_x")
+
+    assert config1.tenant_id == "facility_alpha/dept_x"
+    assert config2.tenant_id == "facility_beta/dept_x"
+    assert config1.inventory_path != config2.inventory_path
+
+    with pytest.raises(ValueError):
+        validate_tenant_id("facility_alpha::../facility_beta")
+
+    with pytest.raises(ValueError):
+        validate_tenant_id("facility_alpha::dept_x/../../etc/passwd")
+
+def test_offline_mutation_replay_idempotency(tmp_path, monkeypatch):
+    """Enforce offline mutation replay idempotency in ConfigBackend."""
+    hospitals_mock = tmp_path / "hospitals"
+    hospitals_mock.mkdir()
+    tenant_dir = hospitals_mock / "replay_tenant"
+    tenant_dir.mkdir()
+    (tenant_dir / "inventory.csv").touch()
+    monkeypatch.setattr(app.config, "HOSPITALS_DIR", hospitals_mock)
+
+    first_val = validate_tenant_id("some_facility::some_dept")
+    second_val = validate_tenant_id(first_val)
+    assert first_val == "some_facility/some_dept"
+    assert second_val == "some_facility/some_dept"
+
+    config_1 = get_tenant("replay_tenant")
+    config_2 = get_tenant("replay_tenant")
+    config_3 = get_tenant("replay_tenant")
+
+    assert config_1.tenant_id == config_2.tenant_id == config_3.tenant_id
+    assert config_1.inventory_path == config_2.inventory_path == config_3.inventory_path
+    assert config_1.orientation_path == config_2.orientation_path == config_3.orientation_path
