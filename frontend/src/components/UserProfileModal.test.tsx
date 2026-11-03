@@ -130,6 +130,90 @@ test('UserProfileModal handles offline-first idempotency and missing global fetc
   mock.restoreAll();
 });
 
+test('UserProfileModal enforces strict multi-tenant boundary (facility_id::dept_id) isolation', async (t) => {
+  cleanup();
+  const onSaveProfileMock = mock.fn();
+  const mockOnClose = mock.fn();
+
+  render(
+    <UserProfileModal
+      isOpen={true}
+      onClose={mockOnClose}
+      currentProfile={{
+        ...DEFAULT_USER_PROFILE,
+        facilityId: 'tenant_a',
+        departmentId: 'or_main',
+      }}
+      onSaveProfile={onSaveProfileMock}
+    />
+  );
+
+  const deptSelect = screen.getByTestId('select-department') as HTMLSelectElement;
+
+  // Inject malicious cross-tenant option
+  const maliciousOption = document.createElement('option');
+  maliciousOption.value = 'tenant_b::icu_critical_care';
+  maliciousOption.text = 'ICU';
+  deptSelect.appendChild(maliciousOption);
+
+  fireEvent.change(deptSelect, { target: { value: 'tenant_b::icu_critical_care' } });
+
+  const saveBtn = screen.getAllByTestId('button-save-profile')[0];
+  fireEvent.click(saveBtn);
+
+  await waitFor(() => {
+    assert.strictEqual(onSaveProfileMock.mock.calls.length, 1);
+  });
+
+  const savedProfile = onSaveProfileMock.mock.calls[0].arguments[0];
+  // Verify facility ID is still tenant_a
+  assert.strictEqual(savedProfile.facilityId, 'tenant_a', 'Should prevent cross-tenant facility modification');
+
+  mock.restoreAll();
+});
+
+test('UserProfileModal guarantees offline mutation replay idempotency', async (t) => {
+  cleanup();
+  const onSaveProfileMock = mock.fn();
+  const mockOnClose = mock.fn();
+  const origFetch = global.fetch;
+  (global as any).fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+
+  render(
+    <UserProfileModal
+      isOpen={true}
+      onClose={mockOnClose}
+      currentProfile={{
+        ...DEFAULT_USER_PROFILE,
+        departmentId: 'or_main',
+      }}
+      onSaveProfile={onSaveProfileMock}
+    />
+  );
+
+  const roleSelect = screen.getByTestId('select-role') as HTMLSelectElement;
+  fireEvent.change(roleSelect, { target: { value: 'Scrub Tech' } });
+
+  const saveBtn = screen.getAllByTestId('button-save-profile')[0];
+
+  // Simulate offline burst replay
+  const burstClicks = Array.from({ length: 10 }, () =>
+    new Promise(resolve => setTimeout(() => {
+      fireEvent.click(saveBtn);
+      resolve(null);
+    }, 0))
+  );
+
+  await Promise.all(burstClicks);
+
+  await waitFor(() => {
+    assert.strictEqual(onSaveProfileMock.mock.calls.length, 1, 'Should only trigger save once on offline replay burst');
+  });
+
+  (global as any).fetch = origFetch;
+  mock.restoreAll();
+});
+
 test('UserProfileModal maintains multi-tenant isolation', async (t) => {
   cleanup();
   const onSaveProfileMock1 = mock.fn();
