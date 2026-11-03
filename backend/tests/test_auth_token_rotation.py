@@ -400,3 +400,53 @@ class TestAuthTokenRotation:
             "departmentId": "dept_beta"
         })
         assert res_b_offline.status_code == 200
+
+    def test_auth_memory_leak_and_resource_eviction(self, clean_auth_state):
+        """Verify memory eviction during heavy auth operations (profiling for leaks)."""
+        import tracemalloc
+        import gc
+
+        # Start tracemalloc to profile memory
+        tracemalloc.start()
+        gc.collect() # Force GC to baseline
+
+        # Initial memory baseline
+        baseline, _ = tracemalloc.get_traced_memory()
+
+        # Simulate heavy concurrent load: 200 register/login cycles
+        for i in range(200):
+            email = f"memtest{i}@hospital.org"
+            pwd = f"pass_word_{i}_secure"
+
+            # Register user
+            res_reg = client.post(
+                "/api/auth/register",
+                json={"email": email, "password": pwd, "fullName": f"User {i}"}
+            )
+            assert res_reg.status_code == 200
+
+            # Login user
+            res_log = client.post(
+                "/api/auth/login",
+                json={"email": email, "password": pwd}
+            )
+            assert res_log.status_code == 200
+
+            # Small simulation of rapid turnover cache eviction
+            if i % 50 == 0:
+                gc.collect()
+
+        # Final explicit GC pass
+        gc.collect()
+
+        # Take snapshot and compare
+        current_mem, peak_mem = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
+        # We enforce a strict upper bound of 10MB memory usage over baseline
+        # to ensure eviction hardening works and there are no catastrophic leaks.
+        # This will fail if e.g. token history strings are unbounded in memory.
+        net_growth_bytes = current_mem - baseline
+        net_growth_mb = net_growth_bytes / (1024 * 1024)
+
+        assert net_growth_mb < 10.0, f"Memory leak detected: growth {net_growth_mb:.2f} MB exceeds 10MB limit."
