@@ -151,3 +151,37 @@ test("ClinicalGraph Boundary Inputs, Fuzzing, and Malformed Payload Resilience",
       assert.strictEqual(graph.preferenceCards.length, 0); // Both should be rejected by strict schema checks
   });
 });
+
+test("ClinicalGraph High-Concurrency & Stress Benchmarks", async (t) => {
+  await t.test("compileClinicalGraph handles concurrent burst execution and latency under load", async () => {
+    const burstSize = 100;
+    const tasks = [];
+    const tenantIds = Array.from({ length: burstSize }, (_, i) => `tenant_burst_${i}`);
+
+    const cards = [{ id: "C1", surgeon: "Dr. Burst", procedure: "BurstProc" }];
+    const inventory = [{ item: "BurstItem", aliases: "burst" }];
+
+    const startTime = performance.now();
+    // Simulate interleaved burst by yielding to the event loop
+    for (let i = 0; i < burstSize; i++) {
+      tasks.push(new Promise((resolve) => {
+        setImmediate(() => {
+          resolve(compileClinicalGraph(tenantIds[i], cards, inventory as any, ""));
+        });
+      }));
+    }
+
+    const results = await Promise.all(tasks);
+    const endTime = performance.now();
+
+    assert.strictEqual(results.length, burstSize);
+    for (let i = 0; i < burstSize; i++) {
+      assert.strictEqual(results[i].tenantId, tenantIds[i]);
+      assert.strictEqual(results[i].preferenceCards.length, 1);
+      assert.ok(results[i].inventoryTerms.has("burstitem"));
+    }
+
+    const latency = endTime - startTime;
+    assert.ok(latency < 1000, `Burst execution took ${latency}ms, exceeding 1000ms limit`);
+  });
+});
