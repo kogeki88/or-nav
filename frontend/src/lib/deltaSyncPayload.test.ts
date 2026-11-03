@@ -78,10 +78,30 @@ test("deltaSyncPayload edge cases and invariants", async (t) => {
     assert.strictEqual(tenantBMuts[0].data, "y");
   });
 
+  await t.test("multi-tenant boundary enforcement (facility_id::dept_id)", () => {
+    const mutations = [
+      { id: 1, tenant_id: "sacred_heart::or", data: "x" },
+      { id: 2, tenant_id: "sacred_heart::icu", data: "y" },
+      { id: 3, tenant_id: "princeton_plainsboro::or", data: "z" }
+    ];
+    const compressed = compressPayload(mutations);
+    const restored = decompressPayload<Record<string, unknown>>(compressed);
+
+    const orMuts = restored.filter(m => typeof m.tenant_id === 'string' && m.tenant_id.endsWith("::or"));
+    assert.strictEqual(orMuts.length, 2);
+
+    const shMuts = restored.filter(m => typeof m.tenant_id === 'string' && m.tenant_id.startsWith("sacred_heart::"));
+    assert.strictEqual(shMuts.length, 2);
+
+    const shOrMuts = restored.filter(m => m.tenant_id === "sacred_heart::or");
+    assert.strictEqual(shOrMuts.length, 1);
+    assert.strictEqual(shOrMuts[0].data, "x");
+  });
+
   await t.test("offline-first invariants with global.fetch mock", async () => {
     const originalFetch = global.fetch;
     try {
-      global.fetch = async () => { throw new Error('Network offline'); };
+      global.fetch = async () => { throw new TypeError('Failed to fetch'); };
 
       const mutations = [
         { id: 1, type: "offline_action", tenant_id: "offline_tenant", payload: "test" }
@@ -104,6 +124,29 @@ test("deltaSyncPayload edge cases and invariants", async (t) => {
     } finally {
       global.fetch = originalFetch;
     }
+  });
+
+  await t.test("offline mutation replay idempotency", () => {
+    const mutations = [
+      { id: 1, type: "verify_move", tenant_id: "sacred_heart::or", payload: "A" },
+      { id: 1, type: "verify_move", tenant_id: "sacred_heart::or", payload: "A" }, // Duplicate mutation
+      { id: 2, type: "flag_wrong", tenant_id: "sacred_heart::or", payload: "B" }
+    ];
+
+    const compressed = compressPayload(mutations);
+    const restored = decompressPayload<Record<string, unknown>>(compressed);
+
+    // Test that deserialization works and we can theoretically deduplicate based on ID
+    // The payload logic itself doesn't deduplicate (it's just serialization),
+    // but we verify the structural integrity allows for idempotency checks downstream
+
+    assert.strictEqual(restored.length, 3);
+    const uniqueIds = new Set(restored.map(m => m.id));
+    assert.strictEqual(uniqueIds.size, 2);
+
+    const duplicateMutations = restored.filter(m => m.id === 1);
+    assert.strictEqual(duplicateMutations.length, 2);
+    assert.deepStrictEqual(duplicateMutations[0], duplicateMutations[1]);
   });
 });
 
