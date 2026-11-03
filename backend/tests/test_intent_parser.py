@@ -235,3 +235,53 @@ def test_intent_parser_offline_mutation_replay_idempotency_extended(monkeypatch)
     assert res1.intent == res2.intent == res3.intent == ClinicalIntent.MUTATE_INVENTORY
     assert res1.entities == res2.entities == res3.entities
     assert res1.confidence == res2.confidence == res3.confidence
+
+def test_intent_parser_network_partition_degraded_recovery(monkeypatch):
+    """
+    Test that the intent parser simulates offline / degraded networking,
+    verifying it can self-heal/reconnect (simulated through state toggling)
+    and successfully re-parse intents after recovery while preserving multi-tenant isolation.
+    """
+    network_state = {"status": "offline"}
+
+    orig_socket = socket.socket
+    def poison(*args, **kwargs):
+        if network_state["status"] == "offline":
+            raise RuntimeError("Network offline!")
+        elif network_state["status"] == "degraded":
+            raise TimeoutError("Network degraded!")
+
+        # online
+        if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
+        if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
+            return orig_socket(*args, **kwargs)
+        raise RuntimeError("Network call attempted! Offline invariant violated.")
+
+    monkeypatch.setattr(socket, "socket", poison)
+    monkeypatch.setattr(httpx, "get", poison)
+    monkeypatch.setattr(httpx, "post", poison)
+    monkeypatch.setattr(httpx, "request", poison)
+
+    # Test Offline state + Multi-tenant isolation
+    monkeypatch.setenv("HOSPITAL_TENANT", "hospital_offline")
+    network_state["status"] = "offline"
+    res1 = parse_clinical_intent("hospital_offline::dept_1 where is the 3-0 vicryl")
+    assert res1.intent == ClinicalIntent.FIND_INVENTORY
+
+    # Test Degraded state + Multi-tenant isolation
+    monkeypatch.setenv("HOSPITAL_TENANT", "hospital_degraded")
+    network_state["status"] = "degraded"
+    res2 = parse_clinical_intent("hospital_degraded::dept_2 add open heart tray to rack 4")
+    assert res2.intent == ClinicalIntent.MUTATE_INVENTORY
+
+    # Test Online / Recovered state + Multi-tenant isolation
+    monkeypatch.setenv("HOSPITAL_TENANT", "hospital_online")
+    network_state["status"] = "online"
+    res3 = parse_clinical_intent("hospital_online::dept_3 Dr. Smith lap chole")
+    assert res3.intent == ClinicalIntent.VIEW_PREFERENCE_CARD
+
+    # Assert multi-tenant isolation integrity
+    assert "hospital_offline" in res1.raw_query
+    assert "hospital_degraded" in res2.raw_query
+    assert "hospital_online" in res3.raw_query
