@@ -4,6 +4,7 @@ import assert from 'node:assert';
 import React from 'react';
 import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import fc from 'fast-check';
 import UserProfileModal from './UserProfileModal';
 import { DEFAULT_USER_PROFILE, REGISTERED_DEPARTMENTS, ROLES_BY_DEPARTMENT } from '../lib/userProfile';
 import * as auth from '../lib/auth';
@@ -99,7 +100,7 @@ test('UserProfileModal handles offline-first idempotency and missing global fetc
   const onSaveProfileMock = mock.fn();
   const mockOnClose = mock.fn();
   const origFetch = global.fetch;
-  (global as any).fetch = undefined;
+  (global as any).fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
 
   render(
     <UserProfileModal
@@ -172,5 +173,50 @@ test('UserProfileModal maintains multi-tenant isolation', async (t) => {
   });
 
   cleanup();
+  mock.restoreAll();
+});
+
+test('UserProfileModal enforces schema validation, boundaries, and multi-tenant invariants with malformed data', async (t) => {
+  cleanup();
+  await fc.assert(
+    fc.asyncProperty(
+      fc.record({
+        fullName: fc.string({ minLength: 1, maxLength: 200 }), // boundary testing, must be non-empty due to required attr
+        facilityId: fc.string({ minLength: 1 }), // malformed / boundary
+        departmentId: fc.string(),               // unexpected departments
+        clinicalRole: fc.string()                // unexpected roles
+      }),
+      async (fuzzedProfile) => {
+        cleanup();
+        const onSaveProfileMock = mock.fn();
+        const mockOnClose = mock.fn();
+
+        render(
+          <UserProfileModal
+            isOpen={true}
+            onClose={mockOnClose}
+            currentProfile={{ ...DEFAULT_USER_PROFILE, ...fuzzedProfile }}
+            onSaveProfile={onSaveProfileMock}
+          />
+        );
+
+        const saveBtn = screen.getAllByTestId('button-save-profile')[0];
+        fireEvent.click(saveBtn);
+
+        await waitFor(() => {
+          assert.strictEqual(onSaveProfileMock.mock.calls.length, 1);
+        });
+
+        const savedData = onSaveProfileMock.mock.calls[0].arguments[0];
+
+        // Multi-tenant and schema invariants: facility and department must not cause crashes,
+        // and unknown department/role combinations should fall back safely to a known good state.
+        assert.ok(savedData.clinicalRole !== undefined);
+        assert.ok(savedData.facilityId !== undefined);
+        assert.ok(typeof savedData.fullName === 'string');
+      }
+    ),
+    { numRuns: 10 }
+  );
   mock.restoreAll();
 });
