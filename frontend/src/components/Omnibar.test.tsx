@@ -742,3 +742,80 @@ test('supplementary test: multi-tenant boundary enforcement (facility_id::dept_i
     cleanup();
   }
 });
+
+test('fault injection and network partition degradation', async () => {
+  // Mock MediaRecorder
+  class MockMediaRecorder {
+    state = 'inactive';
+    ondataavailable: any = null;
+    onstop: any = null;
+    start() {
+      this.state = 'recording';
+    }
+    stop() {
+      this.state = 'inactive';
+      if (this.ondataavailable) {
+        this.ondataavailable({ data: new Blob(['a'.repeat(500)]) });
+      }
+      if (this.onstop) {
+        this.onstop();
+      }
+    }
+  }
+  (global as any).MediaRecorder = MockMediaRecorder;
+
+  let requestCount = 0;
+  const onAudioVoiceQuery = mock.fn(async (blob) => {
+    requestCount++;
+    if (requestCount === 1) {
+      // Simulate network partition / intermittent failure
+      throw new TypeError("Failed to fetch"); // Fetch failure
+    }
+    // Simulate latency on the 2nd attempt
+    await new Promise(r => setTimeout(r, 150));
+    return true; // Success on 2nd attempt
+  });
+
+  const { unmount } = render(<Omnibar onSendMessage={() => {}} onFileUpload={() => {}} onAudioVoiceQuery={onAudioVoiceQuery} />);
+
+  const micBtn = screen.getByTestId('ptt-mic-btn');
+
+  // First attempt - fails
+  fireEvent.pointerDown(micBtn);
+  await waitFor(() => {
+    const input = screen.getByTestId('omnibar-input') as HTMLInputElement;
+    assert.strictEqual(input.placeholder, "🎙️ Starting mic...");
+  });
+
+  await waitFor(() => {
+    const input = screen.getByTestId('omnibar-input') as HTMLInputElement;
+    assert.strictEqual(input.placeholder, "🔴 Recording... Tap mic to send");
+  });
+
+  fireEvent.pointerDown(micBtn);
+
+  await waitFor(() => {
+    assert.strictEqual(onAudioVoiceQuery.mock.calls.length, 1);
+  });
+
+  // check if UI recovers to normal state (i.e. 'Didn't catch that' flash message and then idle state)
+  await waitFor(() => {
+    const input = screen.getByTestId('omnibar-input') as HTMLInputElement;
+    assert.strictEqual(input.placeholder, "Didn't catch that — try speaking closer to the mic");
+  });
+
+  // Second attempt - self heals / recovers
+  fireEvent.pointerDown(micBtn);
+  await waitFor(() => {
+    const input = screen.getByTestId('omnibar-input') as HTMLInputElement;
+    assert.strictEqual(input.placeholder, "🎙️ Starting mic...");
+  });
+  fireEvent.pointerDown(micBtn);
+
+  await waitFor(() => {
+    assert.strictEqual(onAudioVoiceQuery.mock.calls.length, 2);
+  });
+
+  unmount();
+  delete (global as any).MediaRecorder;
+});
