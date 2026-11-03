@@ -272,3 +272,42 @@ test("concurrent burst execution, race condition resistance, and latency benchma
   assert.equal(rewardsA.xp, expectedTotalXp);
   assert.equal(rewardsB.xp, expectedTotalXp);
 });
+
+test("enforces offline mutation replay idempotency", () => {
+  const user = "idempotency_user";
+  const mutationId = "mut_12345";
+
+  const res1 = awardClinicalXP("peer_answer", undefined, user, mutationId);
+  const initialXp = res1.xp;
+
+  const res2 = awardClinicalXP("peer_answer", undefined, user, mutationId);
+
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const assert = require("node:assert/strict");
+  assert.equal(res2.stats.peerAnswersCount, 1);
+  assert.equal(res2.xp, initialXp);
+
+  const res3 = awardClinicalXP("peer_answer", undefined, user, "mut_67890");
+  assert.equal(res3.stats.peerAnswersCount, 2);
+  assert.ok(res3.xp > initialXp);
+});
+
+test("enforces multi-tenant boundary isolation (facility_id::dept_id)", () => {
+  const tenant1 = "fac_ny::dept_er";
+  const tenant2 = "fac_ny::dept_icu";
+
+  awardClinicalXP("lookup", undefined, tenant1);
+  awardClinicalXP("peer_answer", undefined, tenant2);
+  awardClinicalXP("lookup", undefined, tenant2);
+
+  const rewards1 = getClinicianRewards(tenant1);
+  const rewards2 = getClinicianRewards(tenant2);
+
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const assert = require("node:assert/strict");
+  assert.equal(rewards1.stats.lookupsCount, 1);
+  assert.equal(rewards1.stats.peerAnswersCount, 0);
+
+  assert.equal(rewards2.stats.lookupsCount, 1);
+  assert.equal(rewards2.stats.peerAnswersCount, 1);
+});
