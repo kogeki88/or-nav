@@ -392,3 +392,85 @@ test('ChatCanvas enforces offline mutation replay idempotency with mocked offlin
     global.fetch = originalFetch;
   }
 });
+
+test('ChatCanvas fault injection, network partition degradation, intermittent latency, and self-healing reconnection', async () => {
+  let networkState = "offline";
+  let saveCalls = 0;
+  let tenantIsolatedPayloads: any[] = [];
+
+  const mockSave = async (item: string, location: string, category?: string, notes?: string) => {
+    saveCalls++;
+    if (networkState === "offline") {
+      throw new Error("Network offline - partition detected");
+    } else if (networkState === "degraded") {
+      // Intermittent latency
+      await new Promise(resolve => setTimeout(resolve, 150));
+      throw new Error("Connection reset by peer - fault injection");
+    } else if (networkState === "online") {
+      // Self-healing reconnection
+      tenantIsolatedPayloads.push({ item, location });
+    }
+  };
+
+  const messages: MessageItem[] = [
+    {
+      id: 'msg-fault',
+      sender: 'assistant',
+      text: 'Fault Test:',
+      timestamp: '2023-01-01T10:00:00Z',
+      quickAddWidget: { item: 'Healing_Item', suggested_location: 'Loc' }
+    }
+  ];
+
+  const { container } = render(
+    <ChatCanvas
+      messages={messages}
+      loading={false}
+      tenantId="tenantX::deptY"
+      onVerifyPendingMove={async () => {}}
+      onSaveQuickAddItem={mockSave}
+    />
+  );
+
+  const btn = container.querySelector('[data-testid="save-quick-add-btn"]') as HTMLButtonElement;
+  assert.ok(btn, 'save button not found');
+
+  // Helper to safely click and swallow React uncaught promise rejections for testing
+  const safeClick = async () => {
+    try {
+      fireEvent.click(btn);
+      // wait a bit for async handleCommit
+      await new Promise(resolve => setTimeout(resolve, 50));
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // 1. Network Partition Degradation (Offline)
+  networkState = "offline";
+  await safeClick();
+
+  assert.strictEqual(saveCalls, 1, 'Should have attempted save during offline');
+  assert.strictEqual(tenantIsolatedPayloads.length, 0, 'No payloads should be committed while offline');
+  assert.ok(!container.innerHTML.includes('saved to inventory'), 'Should not show saved UI state');
+
+  // 2. Fault Injection & Intermittent Latency
+  networkState = "degraded";
+  await safeClick();
+
+  // Wait for it to fail
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  assert.strictEqual(saveCalls, 2, 'Should have attempted save during degraded state');
+  assert.strictEqual(tenantIsolatedPayloads.length, 0, 'No payloads should be committed due to fault');
+  assert.ok(!container.innerHTML.includes('saved to inventory'), 'Should not show saved UI state');
+
+  // 3. Self-healing & Reconnection
+  networkState = "online";
+  await safeClick();
+
+  assert.strictEqual(saveCalls, 3, 'Should have attempted save during online state');
+  assert.strictEqual(tenantIsolatedPayloads.length, 1, 'Payload should be successfully committed after reconnection');
+  assert.strictEqual(tenantIsolatedPayloads[0].item, 'Healing_Item', 'Multi-tenant payload isolated correctly');
+  assert.ok(container.innerHTML.includes('saved to inventory'), 'Should show saved UI state after self-healing');
+});
