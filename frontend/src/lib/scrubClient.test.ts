@@ -290,4 +290,70 @@ describe("scrubClient standard and adversarial tests", () => {
       assert.strictEqual(typeof result.redactionCount, "number");
     });
   });
+
+  describe("High-Concurrency & Stress Benchmarks", () => {
+    test("concurrent burst execution and race condition resistance", async () => {
+      const iterations = 5000;
+      const inputs = [
+        "Patient MRN 123456 needs surgery",
+        "Where is the 3-0 silk?",
+        "Call me at 555-123-4567",
+        null,
+        "Tenant A pt Jane Doe DOB 01/15/1980",
+        undefined,
+        "We need a #10 blade",
+      ];
+
+      const originalFetch = (global as any).fetch;
+      try {
+        // Enforce offline-first invariant during stress test
+        (global as any).fetch = () => Promise.reject(new TypeError("Failed to fetch"));
+
+        const promises = Array.from({ length: iterations }, (_, i) => {
+          const input = inputs[i % inputs.length];
+          return new Promise<void>((resolve) => {
+            // Slight randomized delay to force interleaving
+            setTimeout(() => {
+              const res = scrubPhi(input as any);
+              if (input === "Patient MRN 123456 needs surgery") {
+                assert.strictEqual(res.text, `Patient ${REDACTION} needs surgery`);
+              } else if (input === "Where is the 3-0 silk?") {
+                assert.strictEqual(res.text, input);
+              } else if (input === "Call me at 555-123-4567") {
+                assert.strictEqual(res.text, `Call me at ${REDACTION}`);
+              } else if (input === null || input === undefined) {
+                assert.strictEqual(res.text, "");
+              } else if (input === "Tenant A pt Jane Doe DOB 01/15/1980") {
+                assert.strictEqual(res.text, `Tenant A pt ${REDACTION} ${REDACTION}`);
+              } else if (input === "We need a #10 blade") {
+                assert.strictEqual(res.text, input);
+              }
+              resolve();
+            }, Math.random() * 10);
+          });
+        });
+
+        await Promise.all(promises);
+      } finally {
+        (global as any).fetch = originalFetch;
+      }
+    });
+
+    test("latency benchmarks under sustained stress", () => {
+      const iterations = 10000;
+      const input = "Patient MRN 123456 and pt Jane Doe DOB 01/01/1990 need 3-0 silk";
+
+      const start = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        scrubPhi(input);
+      }
+      const end = performance.now();
+
+      const totalTimeMs = end - start;
+      const avgTimeMs = totalTimeMs / iterations;
+
+      // Ensure average processing time is extremely low (e.g. < 1ms per operation)
+      assert.ok(avgTimeMs < 1, `Average latency too high: ${avgTimeMs}ms`);
+    });
+  });
 });
