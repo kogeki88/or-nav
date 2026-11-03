@@ -283,3 +283,82 @@ test("FeedbackEngine - Extended multi-tenant boundary enforcement (facility_id::
     global.fetch = originalFetch;
   }
 });
+
+
+test("FeedbackEngine - High-Concurrency & Stress Benchmarks", async (t) => {
+  localStorage.clear();
+
+  const mockFetch = async () => {
+    // simulate network latency
+    await new Promise(r => setTimeout(r, 5));
+    return { ok: true, status: 200 } as any;
+  };
+  const originalFetch = global.fetch;
+  global.fetch = mockFetch;
+
+  try {
+    const start = performance.now();
+
+    // Concurrent burst execution across multiple tenants to verify multi-tenant isolation under stress
+    const promises = Array.from({ length: 100 }, (_, i) => {
+      const tenant = i % 2 === 0 ? "tenant_C" : "tenant_D";
+      return submitManualFeedback({
+        rawText: `Concurrent feedback ${i}`,
+        userProfile: { facilityId: tenant, departmentId: "icu" }
+      });
+    });
+    const results = await Promise.all(promises);
+
+    const end = performance.now();
+    assert.strictEqual(results.length, 100);
+
+    // Verify data integrity: items correctly saved locally with isolated tenants
+    const localItems = getLocalFeedback();
+
+
+    assert.ok(localItems.length >= 100);
+
+    const tenantCItems = localItems.filter(item => item.tenantId === "tenant_C::icu");
+    const tenantDItems = localItems.filter(item => item.tenantId === "tenant_D::icu");
+    assert.strictEqual(tenantCItems.length, 50, "Tenant C should have exactly 50 items");
+    assert.strictEqual(tenantDItems.length, 50, "Tenant D should have exactly 50 items");
+
+    // Assert latency is within reasonable bounds (e.g. < 2000ms for 100 concurrent creations)
+    assert.ok(end - start < 2000, `Concurrent creation took too long: ${end - start}ms`);
+
+    // Test upvote race conditions on one item
+    const testItemId = results[0].id;
+    const initialItem = localItems.find(item => item.id === testItemId)!;
+    const initialUpvotes = initialItem.upvotes;
+
+    const upvotePromises = Array.from({ length: 50 }, () => upvoteFeedback(testItemId));
+    await Promise.all(upvotePromises);
+
+    // Verify race condition resistance: final upvote count must exactly equal initial + 50
+    const finalLocalItems = getLocalFeedback();
+    const finalItem = finalLocalItems.find(item => item.id === testItemId)!;
+    assert.strictEqual(finalItem.upvotes, initialUpvotes + 50, "Upvotes lost due to race condition");
+
+    // Test offline-first invariants during stress test
+    global.fetch = async () => { throw new TypeError("Failed to fetch"); };
+
+    const offlinePromises = Array.from({ length: 20 }, (_, i) =>
+      submitManualFeedback({
+        rawText: `Offline concurrent feedback ${i}`,
+        userProfile: { facilityId: "tenant_E", departmentId: "icu" }
+      })
+    );
+    await Promise.all(offlinePromises);
+
+    const offlineQueue = getOfflineQueue();
+    // The queue should capture all offline creations.
+
+    const newOfflineItems = offlineQueue.filter(q => q.type === "CREATE" && q.payload.rawText.includes("Offline concurrent"));
+    assert.strictEqual(newOfflineItems.length, 20, "Offline queue did not correctly capture all concurrent offline mutations");
+
+    // Drain queue to ensure no local crashes during batch processing
+    await drainFeedbackQueue();
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
