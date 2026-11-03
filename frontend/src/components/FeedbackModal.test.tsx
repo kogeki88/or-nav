@@ -472,3 +472,113 @@ test('schema validation: submits with expected types and boundary values', async
         assert.deepStrictEqual(payload.userProfile, dummyProfile);
     });
 });
+
+test('concurrent burst execution: handles double clicks and prevents multiple submissions', async () => {
+    const submitManualFeedbackMock = mock.fn(async () => {
+        // Simulate network latency for race condition checks
+        await new Promise(r => setTimeout(r, 50));
+        return {
+            id: 'fb-123',
+            tenantId: 'facility-1::dept-1',
+            userName: 'Test Nurse',
+            userRole: 'Circulating RN',
+            source: 'manual_submission',
+            category: 'bug_friction',
+            severity: 'medium',
+            rawText: 'Test issue',
+            aiRecommendation: 'Fix issue',
+            suggestedFixPrompt: 'Fix this bug',
+            upvotes: 1,
+            status: 'open',
+            createdAt: new Date().toISOString(),
+        }
+    });
+
+    const FeedbackModalModLocal = proxyquire('./FeedbackModal', {
+        '@/lib/gamification': { awardClinicalXP: mock.fn() },
+        '@/lib/auth': { isAdminUser: mock.fn(() => true), getCurrentSession: mock.fn(() => null) },
+        '@/lib/feedbackEngine': {
+            submitManualFeedback: submitManualFeedbackMock,
+            fetchFeedbackItems: mock.fn(async () => []),
+            upvoteFeedback: mock.fn(),
+            updateFeedbackStatus: mock.fn(),
+            FEEDBACK_EVENT_NAME: 'feedback_updated'
+        }
+    });
+
+    const LocalFeedbackModal = FeedbackModalModLocal.FeedbackModal;
+
+    const onCloseMock = mock.fn();
+    render(<LocalFeedbackModal isOpen={true} onClose={onCloseMock} userProfile={dummyProfile} />);
+
+    const textarea = screen.getByTestId('feedback-input-text');
+    fireEvent.change(textarea, { target: { value: 'Test double click' } });
+
+    const submitBtn = screen.getByTestId('btn-submit-feedback');
+
+    // Fire click multiple times concurrently
+    fireEvent.click(submitBtn);
+    fireEvent.click(submitBtn);
+    fireEvent.click(submitBtn);
+
+    // Wait for the submission process to complete
+    await waitFor(() => {
+        assert.ok(screen.getByTestId('feedback-success-banner'));
+    });
+
+    assert.strictEqual(submitManualFeedbackMock.mock.calls.length, 1);
+});
+
+test('high latency resilience: displays loading state and processes event loop properly', async () => {
+    const submitManualFeedbackMock = mock.fn(async () => {
+        // Simulate high network latency
+        await new Promise(r => setTimeout(r, 1000));
+        return {
+            id: 'fb-123',
+            tenantId: 'facility-1::dept-1',
+            userName: 'Test Nurse',
+            userRole: 'Circulating RN',
+            source: 'manual_submission',
+            category: 'bug_friction',
+            severity: 'medium',
+            rawText: 'Test issue',
+            aiRecommendation: 'Fix issue',
+            suggestedFixPrompt: 'Fix this bug',
+            upvotes: 1,
+            status: 'open',
+            createdAt: new Date().toISOString(),
+        }
+    });
+
+    const FeedbackModalModLocal = proxyquire('./FeedbackModal', {
+        '@/lib/gamification': { awardClinicalXP: mock.fn() },
+        '@/lib/auth': { isAdminUser: mock.fn(() => true), getCurrentSession: mock.fn(() => null) },
+        '@/lib/feedbackEngine': {
+            submitManualFeedback: submitManualFeedbackMock,
+            fetchFeedbackItems: mock.fn(async () => []),
+            upvoteFeedback: mock.fn(),
+            updateFeedbackStatus: mock.fn(),
+            FEEDBACK_EVENT_NAME: 'feedback_updated'
+        }
+    });
+
+    const LocalFeedbackModal = FeedbackModalModLocal.FeedbackModal;
+
+    const onCloseMock = mock.fn();
+    render(<LocalFeedbackModal isOpen={true} onClose={onCloseMock} userProfile={dummyProfile} />);
+
+    const textarea = screen.getByTestId('feedback-input-text');
+    fireEvent.change(textarea, { target: { value: 'High latency test' } });
+
+    const submitBtn = screen.getByTestId('btn-submit-feedback');
+    fireEvent.click(submitBtn);
+
+    // Verify loading state immediately after click
+    assert.ok(screen.getByText('Submitting...'));
+    assert.strictEqual((submitBtn as HTMLButtonElement).disabled, true);
+
+    // Wait for resolution
+    await waitFor(() => {
+        assert.ok(screen.getByTestId('feedback-success-banner'));
+    }, { timeout: 2000 });
+});
