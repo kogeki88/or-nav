@@ -431,10 +431,7 @@ export async function fetchFeedbackItems(options?: {
   let result = [...localItems];
   if (options?.tenantId) {
     const clean = options.tenantId.trim();
-    const fac = clean.split("::")[0].split("/")[0];
-    result = result.filter(
-      (it) => it.tenantId === clean || it.tenantId.startsWith(`${fac}::`) || it.tenantId.startsWith(`${fac}/`)
-    );
+    result = result.filter((it) => it.tenantId === clean);
   }
   if (options?.category && options.category !== "all") {
     result = result.filter((it) => it.category === options.category);

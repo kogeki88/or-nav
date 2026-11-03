@@ -265,20 +265,75 @@ test("FeedbackEngine - Malformed Payload Resilience & Strict schema validation f
 
 test("FeedbackEngine - Extended multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency", async (t) => {
   localStorage.clear();
+  localStorage.setItem(FEEDBACK_OFFLINE_QUEUE_KEY, "[]");
 
   const originalFetch = global.fetch;
-  global.fetch = async () => { throw new TypeError("Failed to fetch"); };
+  let networkFails = true;
+  global.fetch = async () => {
+    if (networkFails) throw new TypeError("Failed to fetch");
+    return { ok: true, status: 200 } as any;
+  };
+
+  Object.defineProperty(navigator, 'onLine', {
+    value: true,
+    configurable: true
+  });
 
   try {
-    // Create an item in tenant A
-    await submitManualFeedback({
+    // --- Multi-tenant boundary enforcement ---
+    const itemA = await submitManualFeedback({
       rawText: "tenant boundary test A",
       userProfile: { facilityId: "tenant_A", departmentId: "or" }
     });
 
-    // Fetch for tenant B, ensure no leak
+    const itemA_ICU = await submitManualFeedback({
+      rawText: "tenant boundary test A ICU",
+      userProfile: { facilityId: "tenant_A", departmentId: "icu" }
+    });
+
+    const itemsA = await fetchFeedbackItems({ tenantId: "tenant_A::or" });
+    assert.strictEqual(itemsA.length, 1, "Should only retrieve items for exact facility::dept");
+    assert.strictEqual(itemsA[0].id, itemA.id);
+
     const itemsB = await fetchFeedbackItems({ tenantId: "tenant_B::or" });
     assert.strictEqual(itemsB.length, 0, "Item from tenant A leaked into tenant B");
+
+    // --- Offline mutation replay idempotency ---
+    const initialUpvotes = itemA.upvotes;
+    await upvoteFeedback(itemA.id);
+    await upvoteFeedback(itemA.id);
+
+    await updateFeedbackStatus(itemA.id, "resolved");
+
+    const localItems = getLocalFeedback();
+    const localItemA = localItems.find(i => i.id === itemA.id)!;
+    assert.strictEqual(localItemA.upvotes, initialUpvotes + 2, "Local state should apply mutations instantly");
+    assert.strictEqual(localItemA.status, "resolved", "Local state should reflect status update");
+
+    const queueBeforeDrain = getOfflineQueue();
+    assert.strictEqual(queueBeforeDrain.length, 5, "All offline mutations should be queued");
+
+    // Simulate network recovery
+    networkFails = false;
+
+    // Fake lastAttempt for backoff
+    queueBeforeDrain.forEach(q => q.lastAttempt = Date.now() - 5000);
+    localStorage.setItem(FEEDBACK_OFFLINE_QUEUE_KEY, JSON.stringify(queueBeforeDrain));
+
+    await drainFeedbackQueue();
+
+    assert.strictEqual(getOfflineQueue().length, 0, "Queue should be empty after successful drain");
+
+    const postDrainItems = getLocalFeedback();
+    const postDrainItemA = postDrainItems.find(i => i.id === itemA.id)!;
+    assert.strictEqual(postDrainItemA.upvotes, initialUpvotes + 2, "Replay should be idempotent locally");
+    assert.strictEqual(postDrainItemA.status, "resolved", "Replay should be idempotent locally");
+
+    await drainFeedbackQueue();
+    const finalItems = getLocalFeedback();
+    const finalItemA = finalItems.find(i => i.id === itemA.id)!;
+    assert.strictEqual(finalItemA.upvotes, initialUpvotes + 2, "Second replay should have no effect");
+
   } finally {
     global.fetch = originalFetch;
   }
