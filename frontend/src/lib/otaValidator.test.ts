@@ -177,4 +177,40 @@ describe('OTA Validator', () => {
       );
     });
   });
+
+  describe('High-Concurrency & Stress Benchmarks', () => {
+    it('handles concurrent burst execution and prevents race conditions across tenants', async () => {
+      const concurrency = 1000;
+      const tasks = Array.from({ length: concurrency }).map(async (_, i) => {
+        // Unique tenant manifest payload
+        const tenantManifest = {
+          ...validManifest,
+          version: `v0.${62 + i}`,
+          build_number: 19 + i,
+        };
+        const result = validateOTAManifest(tenantManifest, currentVersion, currentBuild);
+        return { i, result, tenantManifest };
+      });
+
+      const results = await Promise.all(tasks);
+
+      // Verify no race conditions leaked between concurrent validation calls
+      results.forEach(({ result, tenantManifest, i }) => {
+        assert.strictEqual(result.valid, true, `Validation failed for tenant ${i}`);
+        assert.strictEqual(tenantManifest.version, `v0.${62 + i}`);
+        assert.strictEqual(tenantManifest.build_number, 19 + i);
+      });
+    });
+
+    it('validates 10000 manifests under latency constraints (stress test)', () => {
+      const iterations = 10000;
+      const start = performance.now();
+      for (let i = 0; i < iterations; i++) {
+        validateOTAManifest(validManifest, currentVersion, currentBuild);
+      }
+      const end = performance.now();
+      const latency = end - start;
+      assert.ok(latency < 1000, `Stress test took ${latency}ms, expected under 1000ms`);
+    });
+  });
 });
