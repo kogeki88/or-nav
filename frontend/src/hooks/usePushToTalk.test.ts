@@ -747,4 +747,73 @@ describe('usePushToTalk', () => {
       document.body.removeChild(root2);
     }
   });
+
+  test("PushToTalkHook Fault Injection, Network Partition Resilience, and Self-Healing", async () => {
+    const originalFetchVoiceStatus = global.fetch;
+    const originalFetchVoiceToken = mockFetchVoiceToken;
+
+    let fetchCount = 0;
+
+    try {
+      // Setup fault injection on fetchVoiceStatus
+      global.fetch = mock.fn(async (url: any, options: any) => {
+        if (typeof url === 'string' && url.includes('/api/voice/status')) {
+          fetchCount++;
+          if (fetchCount === 1) {
+             // 1. Initial network partition degradation (total failure)
+             return Promise.reject(new TypeError("Failed to fetch"));
+          } else if (fetchCount === 2) {
+             // 2. Intermittent latency (simulated delay then success)
+             await new Promise(r => setTimeout(r, 50));
+             return Promise.resolve({
+               ok: true,
+               json: async () => ({ livekit_configured: true })
+             } as any);
+          } else {
+             // 3. Self-healing / stable connection
+             return Promise.resolve({
+               ok: true,
+               json: async () => ({ livekit_configured: true })
+             } as any);
+          }
+        }
+        return originalFetchVoiceStatus(url, options);
+      });
+
+      // Render the hook
+      const { result, unmount } = renderHook(() => usePushToTalk({ tenantId: "fault_injection_tenant::dept" }));
+
+      // First mount should fail and fallback to BROWSER_WEB_SPEECH
+      await waitFor(() => {
+        assert.strictEqual(result.current.voiceMode, "BROWSER_WEB_SPEECH");
+        assert.strictEqual(result.current.livekitConfigured, false);
+      });
+
+      // Simulate a scenario where the network recovers and the hook is re-mounted
+      unmount();
+      const { result: recoveredResult, unmount: unmountRecovered } = renderHook(() => usePushToTalk({ tenantId: "fault_injection_tenant::dept" }));
+
+      // Second mount should succeed after latency
+      await waitFor(() => {
+        assert.strictEqual(recoveredResult.current.livekitConfigured, true);
+        assert.strictEqual(recoveredResult.current.voiceMode, "LIVEKIT_WEBRTC");
+      });
+
+      // Third fetch should be quick and stable, asserting self healing.
+      // Easiest way is to just unmount and remount again.
+      unmountRecovered();
+      const { result: stableResult, unmount: unmountStable } = renderHook(() => usePushToTalk({ tenantId: "fault_injection_tenant::dept" }));
+
+      await waitFor(() => {
+         assert.strictEqual(stableResult.current.livekitConfigured, true);
+         assert.strictEqual(stableResult.current.voiceMode, "LIVEKIT_WEBRTC");
+      });
+
+      unmountStable();
+
+    } finally {
+      global.fetch = originalFetchVoiceStatus;
+      mockFetchVoiceToken = originalFetchVoiceToken;
+    }
+  });
 });
