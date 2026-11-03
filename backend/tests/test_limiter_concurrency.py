@@ -463,3 +463,66 @@ class TestLimiterConcurrencyThrottling:
 
         row2, _ = inv_service_2._find_matching_row("prolene suture")
         assert row2 is None, "Tenant 2 state leaked into Tenant 1!"
+
+    def test_network_partition_self_healing(self, mock_tenant_dir, monkeypatch):
+        """
+        Test fault injection, network partition degradation, intermittent latency,
+        and self-healing reconnection.
+        """
+        client = TestClient(fastapi_app, raise_server_exceptions=False)
+        limiter.reset()
+
+        tenant_id = "sacred_heart::or"
+        from app.services.inventory_search import get_inventory_service
+        inv_service = get_inventory_service(tenant_id)
+        inv_service.add_inventory_item("prolene suture", "R1 C1 S1 C1")
+
+        # 1. Fault injection / Network partition degradation
+        network_state = {"status": "offline"}
+
+        # Simulate an offline replay queue attempting to sync
+        payload = {
+            "item": "prolene suture",
+            "expected_location": "R1 C2 S2 C2",
+            "timestamp": "2023-10-27T10:00:00Z",
+            "tenant_id": tenant_id,
+        }
+
+        # Start a move so we can verify it
+        inv_service.report_move("prolene suture", "R1 C2 S2 C2")
+
+        # Intermittent latency / degradation
+        original_verify = inv_service.verify_move
+
+        def _intermittent_verify(*args, **kwargs):
+            if network_state["status"] == "offline":
+                raise OSError("Simulated connection timeout during DB write")
+            elif network_state["status"] == "degraded":
+                time.sleep(0.1) # Add latency
+                return original_verify(*args, **kwargs)
+            return original_verify(*args, **kwargs)
+
+        monkeypatch.setattr(inv_service, "verify_move", _intermittent_verify)
+
+        # Phase 1: Total offline (partition)
+        response = client.post("/api/inventory/verify-move", json=payload)
+        # The application should catch internal errors and return 500 when unhandled DB errors occur
+        assert response.status_code == 500
+
+        # Phase 2: Degraded (latency)
+        network_state["status"] = "degraded"
+        start_t = time.time()
+        response = client.post("/api/inventory/verify-move", json=payload)
+        end_t = time.time()
+
+        assert response.status_code == 200
+        assert (end_t - start_t) >= 0.1
+
+        # Phase 3: Self-healing reconnection (online)
+        network_state["status"] = "online"
+        response = client.post("/api/inventory/verify-move", json=payload)
+        assert response.status_code == 200
+
+        # Verify exact idempotency was maintained despite the partition and latency
+        matched_row, _ = inv_service._find_matching_row("prolene suture")
+        assert matched_row["verify_count"] == 1
