@@ -40,6 +40,7 @@ export interface ClinicianRewards {
   };
   unlockedBadges: string[];
   dailyQuests: DailyQuest[];
+  processedMutations?: string[];
 }
 
 export interface XpGainedDetail {
@@ -178,6 +179,7 @@ export function getDefaultRewards(): ClinicianRewards {
     },
     unlockedBadges: [],
     dailyQuests: getDefaultDailyQuests(),
+    processedMutations: [],
   };
 }
 
@@ -218,6 +220,7 @@ export function getClinicianRewards(userId?: string): ClinicianRewards {
         },
         unlockedBadges: Array.isArray(parsedRaw.unlockedBadges) ? parsedRaw.unlockedBadges : def.unlockedBadges,
         dailyQuests: Array.isArray(parsedRaw.dailyQuests) ? parsedRaw.dailyQuests : def.dailyQuests,
+        processedMutations: Array.isArray(parsedRaw.processedMutations) ? parsedRaw.processedMutations : def.processedMutations,
       };
 
       // Validate streak
@@ -287,9 +290,15 @@ const ACTION_CONFIG: Record<
 export function awardClinicalXP(
   actionType: ActionType,
   customLabel?: string,
-  userId?: string
+  userId?: string,
+  mutationId?: string
 ): ClinicianRewards {
   const current = getClinicianRewards(userId);
+
+  if (mutationId && current.processedMutations?.includes(mutationId)) {
+    return current;
+  }
+
   const cfg = ACTION_CONFIG[actionType] || { xp: 2, label: "Action" };
   const baseAmount = cfg.xp;
   let totalAwarded = baseAmount;
@@ -354,6 +363,13 @@ export function awardClinicalXP(
   const levelUp = current.level > prevLevel;
 
   // 5. Persist
+  if (mutationId) {
+    current.processedMutations = current.processedMutations || [];
+    current.processedMutations.push(mutationId);
+    if (current.processedMutations.length > 100) {
+      current.processedMutations.shift();
+    }
+  }
   saveClinicianRewards(current, userId);
 
   // 6. Broadcast Event for Toast Pill
