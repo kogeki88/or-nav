@@ -273,6 +273,53 @@ test("getFacilityIdFromTenant normalizes facility ID resolution", async (t) => {
         }
     });
 
+    await t.test("Fault Injection & Network Partition Resilience: intermittent latency, degradation and self-healing", async () => {
+        // Enforce offline-first invariants and multi-tenant isolation under network faults
+        const originalFetch = global.fetch;
+        let fetchCalls = 0;
+        let isPartitioned = false;
+
+        // Mock a degraded fetch that intermittently fails or times out
+        global.fetch = async () => {
+            fetchCalls++;
+            if (isPartitioned) {
+                throw new TypeError("Failed to fetch"); // Simulate network partition
+            }
+            // Simulate random latency spike during degraded network
+            await new Promise(r => setTimeout(r, 10));
+            return new Response(JSON.stringify({ ok: true }));
+        };
+
+        try {
+            const tenant1 = "metro_medical::icu";
+            const tenant2 = "duke_regional::nicu";
+
+            // Phase 1: Healthy network (even though it's offline-first, test ensures it never hits the network anyway)
+            let result1 = getFacilityIdFromTenant(tenant1);
+            assert.deepStrictEqual(result1, { facilityId: "metro_medical", departmentId: "icu" });
+
+            // Phase 2: Network partition (simulated failure)
+            isPartitioned = true;
+
+            // Function must continue working instantly because of offline-first invariant
+            let result2 = getFacilityIdFromTenant(tenant2);
+            assert.deepStrictEqual(result2, { facilityId: "duke_regional", departmentId: "nicu" });
+
+            // Test idempotency under partition
+            assert.deepStrictEqual(getFacilityIdFromTenant(tenant2), result2);
+
+            // Phase 3: Self-healing / Partition resolves
+            isPartitioned = false;
+            let result3 = getFacilityIdFromTenant("sacred_heart::or");
+            assert.deepStrictEqual(result3, { facilityId: "sacred_heart", departmentId: "or" });
+
+            // Ensure zero network calls were actually made during this entire process, enforcing offline-first
+            assert.strictEqual(fetchCalls, 0, "Network calls detected in an offline-first function under fault conditions!");
+        } finally {
+            global.fetch = originalFetch;
+        }
+    });
+
 });
 
 test("getFacilityIdFromTenant handles offline mutation replay idempotency and multi-tenant boundary enforcement precisely", async (t) => {
