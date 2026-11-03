@@ -216,3 +216,48 @@ def test_multi_tenant_boundary_enforcement():
     assert res_b.status_code == 200
     assert res_b.json()["profile"]["facilityId"] == "fac2"
     assert res_b.json()["profile"]["departmentId"] == "fac2::dept2"
+
+def test_network_partition_and_recovery(monkeypatch, tmp_path):
+    import time
+    import uuid
+    import app.auth
+    from fastapi.testclient import TestClient
+    from app.main import app as main_app
+
+    # Use raise_server_exceptions=False to ensure we catch 500 errors gracefully
+    client_local = TestClient(main_app, raise_server_exceptions=False)
+
+    mock_users_file = tmp_path / "hospitals" / "users.json"
+    mock_users_file.parent.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(app.auth, "USERS_FILE", mock_users_file)
+
+    network_state = {"status": "online", "latency": 0.0}
+    original_save = app.auth.save_users
+
+    def mock_save_users(users):
+        if network_state["latency"] > 0:
+            time.sleep(network_state["latency"])
+        if network_state["status"] == "offline":
+            raise OSError("Network/Storage partition: disk offline")
+        original_save(users)
+
+    monkeypatch.setattr(app.auth, "save_users", mock_save_users)
+
+    # 1. Fault injection & Partition: Offline mode (should 500)
+    network_state["status"] = "offline"
+    uid1 = uuid.uuid4().hex
+    res = client_local.post("/api/auth/register", json={"email": f"fail_{uid1}@hospital.org", "password": "password"})
+    assert res.status_code == 500
+
+    # 2. Intermittent latency
+    network_state["status"] = "online"
+    network_state["latency"] = 0.1
+    uid2 = uuid.uuid4().hex
+    res = client_local.post("/api/auth/register", json={"email": f"latency_{uid2}@hospital.org", "password": "password"})
+    assert res.status_code == 200
+
+    # 3. Self-healing / Reconnection (toggle back to online)
+    network_state["latency"] = 0.0
+    uid3 = uuid.uuid4().hex
+    res = client_local.post("/api/auth/register", json={"email": f"recover_{uid3}@hospital.org", "password": "password"})
+    assert res.status_code == 200
