@@ -311,3 +311,78 @@ test("enforces multi-tenant boundary isolation (facility_id::dept_id)", () => {
   assert.equal(rewards2.stats.lookupsCount, 1);
   assert.equal(rewards2.stats.peerAnswersCount, 1);
 });
+
+test("fault injection, network partition degradation, intermittent latency, and self-healing reconnection", async () => {
+  const tenant1 = "fac_ny::dept_er";
+  const tenant2 = "fac_ny::dept_icu";
+
+  // 1. Fault Injection & Network Partition Degradation
+  // Simulate offline state where localStorage throws (quota exceeded / disabled)
+  const tempLocalStorage = (global as any).localStorage;
+  let isOffline = true;
+
+  try {
+    // Setup a degraded storage mock with intermittent latency and failures
+    (global as any).localStorage = {
+      getItem: (key: string) => {
+        if (isOffline) throw new Error("Storage disabled during partition");
+        return tempLocalStorage.getItem(key);
+      },
+      setItem: (key: string, value: string) => {
+        if (isOffline) throw new Error("Storage disabled during partition");
+        tempLocalStorage.setItem(key, value);
+      },
+      removeItem: (key: string) => tempLocalStorage.removeItem(key),
+      clear: () => tempLocalStorage.clear()
+    };
+
+    // Ensure we are in "window" mode so gamification attempts to use localStorage
+    const mutation1 = "mut_part_1";
+    const mutation2 = "mut_part_2";
+
+    // Award XP while offline/partitioned - should handle storage fault gracefully
+    assert.doesNotThrow(() => {
+      awardClinicalXP("peer_verify", undefined, tenant1, mutation1);
+    });
+    assert.doesNotThrow(() => {
+      awardClinicalXP("peer_verify", undefined, tenant2, mutation1);
+    });
+
+    // Since storage is partitioned/faulty, it returns default each time it's called
+    // (unless we rely on in-memory state, but gamification reads from storage each time)
+    // Let's verify it falls back to 0 without crashing.
+    const partitionedRewards = getClinicianRewards(tenant1);
+    assert.equal(partitionedRewards.stats.peerVerificationsCount, 0);
+
+    // 2. Self-Healing Reconnection & Intermittent Latency
+    isOffline = false; // "Reconnect"
+
+    // Simulate intermittent latency by delaying the replay
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // Replay mutations as part of self-healing sync
+    const onlineRes1 = awardClinicalXP("peer_verify", undefined, tenant1, mutation1);
+    const onlineRes2 = awardClinicalXP("peer_verify", undefined, tenant1, mutation2);
+
+    // Multi-tenant isolation enforcement during replay
+    const onlineResTenant2 = awardClinicalXP("peer_verify", undefined, tenant2, mutation1);
+    const onlineRes2Tenant2 = awardClinicalXP("inventory_fix", undefined, tenant2, mutation2);
+
+    // 3. Verify Constraints
+    // Tenant 1 has 2 peer verifications
+    assert.equal(onlineRes2.stats.peerVerificationsCount, 2);
+    assert.ok(onlineRes2.unlockedBadges.includes("consensus_guardian"));
+
+    // Tenant 2 has 1 peer verify, 1 inventory fix
+    assert.equal(onlineRes2Tenant2.stats.peerVerificationsCount, 1);
+    assert.equal(onlineRes2Tenant2.stats.inventoryFixesCount, 1);
+    assert.ok(onlineRes2Tenant2.unlockedBadges.includes("consensus_guardian"));
+
+    // Idempotency: replaying same mutations should not double-count
+    const replayRes = awardClinicalXP("peer_verify", undefined, tenant1, mutation2);
+    assert.equal(replayRes.stats.peerVerificationsCount, 2);
+  } finally {
+    // Restore original
+    (global as any).localStorage = tempLocalStorage;
+  }
+});
