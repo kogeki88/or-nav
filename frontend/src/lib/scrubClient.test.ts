@@ -229,6 +229,163 @@ describe("scrubClient standard and adversarial tests", () => {
     });
   });
 
+  describe("Fault Injection & Network Partition Resilience", () => {
+    test("network partition degradation and self-healing reconnection with multi-tenant isolation", async () => {
+      const { queueOfflineMutation, flushOfflineOutbox, offlineDb } = await import("./offlineDb");
+
+      if (!offlineDb) {
+        return; // Skip if IndexedDB is not supported
+      }
+
+      const networkState = { status: "online" };
+      const originalFetch = (global as any).fetch;
+      const sentRequests: any[] = [];
+
+      try {
+        await offlineDb.offlineOutbox.clear();
+
+        (global as any).fetch = mock.fn(async (url: string, options: any) => {
+           if (networkState.status === "offline") {
+             throw new TypeError("Failed to fetch");
+           }
+           if (options && options.body) {
+             sentRequests.push(JSON.parse(options.body));
+           }
+           return { ok: true, json: async () => ({ success: true }) };
+        });
+
+        // Network partition degradation
+        networkState.status = "offline";
+
+        const scrubbed1 = scrubPhi("Tenant B pt Jane Smith MRN 654321");
+        await queueOfflineMutation({
+          tenant_id: "tenant_B",
+          type: "CREATE_QUESTION",
+          payload: { answer_text: scrubbed1.text }, // Using answer_text matching flushOfflineOutbox implementation
+          timestamp: Date.now()
+        });
+
+        const scrubbed2 = scrubPhi("Tenant A (fac_1) patient MRN 111111");
+        await queueOfflineMutation({
+          tenant_id: "tenant_A",
+          type: "CREATE_QUESTION",
+          payload: { answer_text: scrubbed2.text },
+          timestamp: Date.now()
+        });
+
+        assert.strictEqual(sentRequests.length, 0); // No fetch happened
+        assert.strictEqual(await offlineDb.offlineOutbox.count(), 2);
+
+        const queued = await offlineDb.offlineOutbox.toArray();
+        assert.strictEqual(queued[0].tenant_id, "tenant_B");
+        assert.strictEqual(queued[0].payload.answer_text, `Tenant B pt ${REDACTION} ${REDACTION}`);
+        assert.strictEqual(queued[1].tenant_id, "tenant_A");
+        assert.strictEqual(queued[1].payload.answer_text, `Tenant A (fac_1) patient ${REDACTION}`);
+
+        // Self-healing reconnection
+        networkState.status = "online";
+        await flushOfflineOutbox();
+
+        assert.strictEqual(await offlineDb.offlineOutbox.count(), 0);
+        assert.strictEqual(sentRequests.length, 2);
+
+        // Verify isolation on flush
+        const req1 = sentRequests.find(r => r.tenant_id === "tenant_B");
+        const req2 = sentRequests.find(r => r.answer_text?.includes("fac_1"));
+
+        assert.ok(req1);
+        assert.strictEqual(req1.answer_text, `Tenant B pt ${REDACTION} ${REDACTION}`);
+        assert.ok(req2);
+        assert.strictEqual(req2.answer_text, `Tenant A (fac_1) patient ${REDACTION}`);
+
+      } finally {
+        (global as any).fetch = originalFetch;
+        if (offlineDb) await offlineDb.offlineOutbox.clear();
+      }
+    });
+
+    test("intermittent network latency does not block synchronous scrubPhi", async () => {
+      const originalFetch = (global as any).fetch;
+      try {
+        (global as any).fetch = mock.fn(async (url: string, options: any) => {
+          await new Promise(r => setTimeout(r, 50));
+          return { ok: true, json: async () => ({ success: true }) };
+        });
+
+        const start = performance.now();
+        const scrubbed = scrubPhi("Patient MRN 123456");
+        const scrubTime = performance.now() - start;
+
+        assert.ok(scrubTime < 5, `scrubPhi took ${scrubTime}ms, expected < 5ms`);
+        assert.strictEqual(scrubbed.text, `Patient ${REDACTION}`);
+
+        const fetchStart = performance.now();
+        await (global as any).fetch("/api/chat", {
+           method: "POST",
+           body: JSON.stringify({ message: scrubbed.text })
+        });
+        const fetchTime = performance.now() - fetchStart;
+
+        assert.ok(fetchTime >= 40, `fetch took ${fetchTime}ms, expected >= 40ms`);
+
+      } finally {
+        (global as any).fetch = originalFetch;
+      }
+    });
+
+    test("fault injection: persistence quota exceeded gracefully degrades", async () => {
+      const { queueOfflineMutation, offlineDb } = await import("./offlineDb");
+
+      if (!offlineDb) {
+        return;
+      }
+
+      const originalAdd = offlineDb.offlineOutbox.add;
+      const storageState = { isFull: false };
+
+      try {
+        offlineDb.offlineOutbox.add = async (mutation: any) => {
+          if (storageState.isFull) {
+            throw new Error("QuotaExceededError");
+          }
+          return originalAdd.call(offlineDb.offlineOutbox, mutation);
+        };
+
+        const scrubbed = scrubPhi("Patient MRN 123456");
+
+        await queueOfflineMutation({
+          tenant_id: "tenant_A",
+          type: "CREATE_QUESTION",
+          payload: { answer_text: scrubbed.text },
+          timestamp: Date.now()
+        });
+
+        assert.strictEqual(await offlineDb.offlineOutbox.count(), 1);
+
+        const queued = await offlineDb.offlineOutbox.toArray();
+        assert.strictEqual(queued[0].payload.answer_text, `Patient ${REDACTION}`);
+
+        // Inject fault
+        storageState.isFull = true;
+        const scrubbed2 = scrubPhi("Patient MRN 654321");
+
+        // Should not throw, should gracefully catch the error internally in queueOfflineMutation
+        await queueOfflineMutation({
+          tenant_id: "tenant_A",
+          type: "CREATE_QUESTION",
+          payload: { answer_text: scrubbed2.text },
+          timestamp: Date.now()
+        });
+
+        assert.strictEqual(await offlineDb.offlineOutbox.count(), 1); // Remains 1 due to failure
+
+      } finally {
+        offlineDb.offlineOutbox.add = originalAdd;
+        await offlineDb.offlineOutbox.clear();
+      }
+    });
+  });
+
   describe("Offline-first and Multi-tenant Isolation", () => {
     test("scrubPhi executes successfully completely offline (offline-first invariant)", async () => {
       const originalFetch = (global as any).fetch;
