@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Download, X, Sparkles } from "lucide-react";
+import { Download, X, Sparkles, AlertCircle, RefreshCw } from "lucide-react";
 import type { VersionManifest } from "@/lib/version";
 import { openApkDownload } from "@/hooks/useAppUpdate";
 import { useModalA11y } from "@/hooks/useModalA11y";
@@ -24,6 +24,7 @@ export default function AutoUpdateModal({
   const modalRef = useRef<HTMLDivElement>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   useModalA11y(isOpen, onClose, modalRef);
 
@@ -32,13 +33,20 @@ export default function AutoUpdateModal({
   const handleInstall = async () => {
     setIsDownloading(true);
     setProgress(0);
-    for (let i = 0; i <= 100; i += 10) {
-      setProgress(i);
-      await new Promise(r => setTimeout(r, 50));
+    setError(null);
+    try {
+      for (let i = 0; i <= 100; i += 10) {
+        setProgress(i);
+        // Simulate intermittent latency by adding some randomness
+        await new Promise(r => setTimeout(r, 50 + Math.random() * 20));
+      }
+      await openApkDownload(manifest.apk_download_url);
+      setIsDownloading(false);
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || "Failed to download update");
+      setIsDownloading(false);
     }
-    await openApkDownload(manifest.apk_download_url);
-    setIsDownloading(false);
-    onClose();
   };
 
   return (
@@ -82,7 +90,23 @@ export default function AutoUpdateModal({
         )}
 
         <div className="space-y-2 pt-1">
-          {isDownloading ? (
+          {error ? (
+            <div className="w-full space-y-3">
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-400 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <p>Download failed: {error}. Please check your connection and try again.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleInstall}
+                data-testid="btn-retry-apk-modal"
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-100 text-xs font-bold transition-colors cursor-pointer"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Retry Download</span>
+              </button>
+            </div>
+          ) : isDownloading ? (
             <div className="w-full space-y-2 py-2" data-testid="progress-container">
               <div className="w-full bg-zinc-800 rounded-full h-2.5">
                 <div
