@@ -329,3 +329,69 @@ def test_offline_first_concurrent_answers_and_verifications():
     ans = next((a for a in final_q["answers"] if a["answerId"] == a_id), None)
     assert ans is not None
     assert len(ans["verifiedBy"]) == num_verifications
+
+def test_extended_multi_tenant_boundary_enforcement_and_offline_replay():
+    """Verify facility_id::dept_id multi-tenant boundary isolation alongside offline mutation replay idempotency."""
+    fac_dept_1 = "alpha_facility::icu"
+    fac_dept_2 = "beta_facility::er"
+
+    # Replay idempotency for tenant 1
+    q_payload_1 = {
+        "tenant_id": fac_dept_1,
+        "question_text": "How to operate alpha equipment?",
+        "asked_by": "Alpha Nurse",
+        "idempotency_key": f"idem-alpha-q-{uuid.uuid4().hex}"
+    }
+
+    # 1st creation
+    r1a = client.post("/api/peer-questions", json=q_payload_1)
+    assert r1a.status_code == 200
+    q_id_1 = r1a.json()["id"]
+
+    # 2nd creation (replay)
+    r1b = client.post("/api/peer-questions", json=q_payload_1)
+    assert r1b.status_code == 200
+    assert r1a.json() == r1b.json()
+
+    # Replay idempotency for answers in tenant 1
+    a_payload_1 = {
+        "answered_by": "Alpha Doctor",
+        "answer_text": "Push the red button.",
+        "idempotency_key": f"idem-alpha-a-{uuid.uuid4().hex}"
+    }
+    ra1a = client.post(f"/api/peer-questions/{q_id_1}/answers", json=a_payload_1)
+    ra1b = client.post(f"/api/peer-questions/{q_id_1}/answers", json=a_payload_1)
+    assert ra1a.json() == ra1b.json()
+
+    a_id_1 = ra1a.json()["answers"][-1]["answerId"]
+
+    # Replay idempotency for verifications in tenant 1
+    v_payload_1 = {"verified_by": "Alpha Verifier"}
+    rv1a = client.post(f"/api/peer-questions/{q_id_1}/answers/{a_id_1}/verify", json=v_payload_1)
+    rv1b = client.post(f"/api/peer-questions/{q_id_1}/answers/{a_id_1}/verify", json=v_payload_1)
+    assert rv1a.json() == rv1b.json()
+
+    # Same for tenant 2 to ensure data exists for both
+    q_payload_2 = {
+        "tenant_id": fac_dept_2,
+        "question_text": "How to operate beta equipment?",
+        "asked_by": "Beta Nurse",
+        "idempotency_key": f"idem-beta-q-{uuid.uuid4().hex}"
+    }
+    r2 = client.post("/api/peer-questions", json=q_payload_2)
+    q_id_2 = r2.json()["id"]
+
+    # Now enforce Multi-tenant boundary isolation
+    res_get1 = client.get(f"/api/peer-questions?tenant_id={fac_dept_1}")
+    res_get2 = client.get(f"/api/peer-questions?tenant_id={fac_dept_2}")
+
+    data1 = res_get1.json()
+    data2 = res_get2.json()
+
+    # Tenant 1 should only see tenant 1 questions
+    assert any(q["id"] == q_id_1 for q in data1)
+    assert not any(q["id"] == q_id_2 for q in data1)
+
+    # Tenant 2 should only see tenant 2 questions
+    assert any(q["id"] == q_id_2 for q in data2)
+    assert not any(q["id"] == q_id_1 for q in data2)
