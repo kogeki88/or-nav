@@ -86,14 +86,16 @@ test('renders partial coordinates and handles missing values gracefully', () => 
 test('offline mutation idempotency and multi-tenant isolation', async () => {
     const originalFetch = global.fetch;
     try {
-        global.fetch = (async () => { throw new Error('Network offline'); }) as any;
+        global.fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch'))) as any;
 
         const cardData1: CoordinateCardData = {
             item: 'Item Y', room: 'OR 1', cabinet: '2', shelf: '3', container: '4', full_code: 'OR 1-2-3-4',
             category: 'Surgical', surgeon_notes: '', pending_location: '', verify_count: 0,
         };
 
-        render(<CoordinateCard card={cardData1} facilityId="tenant_A" />);
+        const facilityIdCompound = 'tenant_A::dept_1';
+
+        const { unmount: unmountA } = render(<CoordinateCard card={cardData1} facilityId={facilityIdCompound} departmentId="dept_1" />);
 
         const addBtn = screen.getByTestId('add-local-alias-btn');
         fireEvent.click(addBtn);
@@ -113,20 +115,21 @@ test('offline mutation idempotency and multi-tenant isolation', async () => {
         });
 
         // check lexicon
-        const lexA = loadFacilityLexicon('tenant_A');
-        const lexB = loadFacilityLexicon('tenant_B');
+        const lexA = loadFacilityLexicon(facilityIdCompound);
+        const lexB = loadFacilityLexicon('tenant_B::dept_2');
 
         assert.ok(lexA.some(l => l.spokenTerm === 'y-alias'));
         assert.ok(!lexB.some(l => l.spokenTerm === 'y-alias'));
 
-        cleanup();
+        unmountA();
 
         // re-render to check cross-tenant leakage
-        render(<CoordinateCard card={cardData1} facilityId="tenant_B" />);
+        const { unmount: unmountB } = render(<CoordinateCard card={cardData1} facilityId="tenant_B::dept_2" departmentId="dept_2" />);
         await waitFor(() => {
             const tenantBAliases = screen.queryAllByText('Y-Alias');
             assert.ok(tenantBAliases.length === 0);
         });
+        unmountB();
 
     } finally {
         global.fetch = originalFetch;
