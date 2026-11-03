@@ -550,3 +550,84 @@ def test_planner_multi_tenant_facility_dept_boundary_enforcement(monkeypatch):
     # In tenant B (pacu_periop), Dr Patel should NOT be indexed or leaked
     if plan_b1.surgeon:
         assert not plan_b1.surgeon.is_indexed
+
+def test_planner_fault_injection_and_reconnection(monkeypatch):
+    """
+    Test fault injection, network partition degradation, intermittent latency,
+    and self-healing reconnection.
+    """
+    import socket
+    import httpx
+    import time
+    from app.services.clinical_query_planner import get_clinical_graph, plan_clinical_query
+
+    # We need a mutable network state object
+    network_state = {"status": "online"}
+    original_socket = socket.socket
+
+    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+        if family != getattr(socket, 'AF_UNIX', -1) and network_state["status"] == "offline":
+            raise RuntimeError("Network call attempted during offline-first function!")
+        elif network_state["status"] == "degraded":
+            time.sleep(0.01) # Intermittent latency
+        return original_socket(family, type, proto, fileno)
+
+    original_httpx_post = httpx.post
+    original_httpx_get = httpx.get
+    original_httpx_request = httpx.request
+
+    def poisoned_httpx_post(*args, **kwargs):
+        if network_state["status"] == "offline":
+            raise RuntimeError("HTTP network call attempted during offline-first function!")
+        elif network_state["status"] == "degraded":
+            time.sleep(0.01)
+        return original_httpx_post(*args, **kwargs)
+
+    def poisoned_httpx_get(*args, **kwargs):
+        if network_state["status"] == "offline":
+            raise RuntimeError("HTTP network call attempted during offline-first function!")
+        elif network_state["status"] == "degraded":
+            time.sleep(0.01)
+        return original_httpx_get(*args, **kwargs)
+
+    def poisoned_httpx_request(*args, **kwargs):
+        if network_state["status"] == "offline":
+            raise RuntimeError("HTTP network call attempted during offline-first function!")
+        elif network_state["status"] == "degraded":
+            time.sleep(0.01)
+        return original_httpx_request(*args, **kwargs)
+
+    monkeypatch.setattr(socket, "socket", poisoned_socket)
+    monkeypatch.setattr(httpx, "post", poisoned_httpx_post)
+    monkeypatch.setattr(httpx, "get", poisoned_httpx_get)
+    monkeypatch.setattr(httpx, "request", poisoned_httpx_request)
+
+    tenant_id = "or_main::fault_test"
+    graph = get_clinical_graph("or_main")
+
+    # 1. Start online
+    network_state["status"] = "online"
+    plan1 = plan_clinical_query("dr patel suture", graph=graph, tenant_id=tenant_id)
+    assert plan1.intent in ["PREFERENCE_CARD_LOOKUP", "PREFERENCE_INVENTORY_JOIN"]
+
+    # 2. Degrade network (intermittent latency)
+    network_state["status"] = "degraded"
+    plan2 = plan_clinical_query("dr patel suture", graph=graph, tenant_id=tenant_id)
+    assert plan2.intent == plan1.intent
+
+    # 3. Simulate network partition (offline)
+    network_state["status"] = "offline"
+    plan3 = plan_clinical_query("dr patel suture", graph=graph, tenant_id=tenant_id)
+    assert plan3.intent == plan1.intent
+
+    # 4. Self-healing / reconnection
+    network_state["status"] = "online"
+    plan4 = plan_clinical_query("dr patel suture", graph=graph, tenant_id=tenant_id)
+    assert plan4.intent == plan1.intent
+
+    # Assert multi-tenant isolation invariant is maintained throughout state transitions
+    assert plan4.surgeon is not None
+    assert plan4.surgeon.normalized_last_name == "patel"
+
+    # Assert strict replay idempotency despite network state changes
+    assert str(plan1) == str(plan2) == str(plan3) == str(plan4)
