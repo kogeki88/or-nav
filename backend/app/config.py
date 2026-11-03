@@ -16,7 +16,7 @@ load_dotenv()
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 HOSPITALS_DIR = PROJECT_ROOT / "hospitals"
 
-_VALID_TENANT_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_\/]+$")
+_VALID_TENANT_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_]+(?:/[a-zA-Z0-9_]+)*$")
 
 
 def validate_tenant_id(tenant_id: str) -> str:
@@ -25,7 +25,11 @@ def validate_tenant_id(tenant_id: str) -> str:
     Rejects directory traversal (../, ..\\) and special characters.
     Normalizes double-colon notation (e.g. sacred_heart::or -> sacred_heart/or).
     """
-    if not tenant_id or not tenant_id.strip():
+    if tenant_id is None:
+        return 'or_main'
+    if not isinstance(tenant_id, str):
+        raise ValueError("tenant_id must be a string")
+    if not tenant_id.strip():
         return 'or_main'
 
     clean = tenant_id.strip().replace("::", "/")
