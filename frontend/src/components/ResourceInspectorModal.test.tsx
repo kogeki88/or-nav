@@ -1,8 +1,8 @@
-import React from 'react';
 import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ResourceInspectorModal from './ResourceInspectorModal';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import fc from 'fast-check';
 
 vi.mock('@/lib/offlineDb', () => ({
   offlineDb: {},
@@ -19,7 +19,7 @@ vi.mock('@/lib/offlineDb', () => ({
   getOfflineDepartmentGuideline: vi.fn(() => Promise.resolve(null)),
   saveOfflineDepartmentGuideline: vi.fn(),
   exportTenantResourcesJson: vi.fn(),
-  importTenantResourcesJson: vi.fn(),
+  importTenantResourcesJson: vi.fn(() => Promise.resolve({ success: true, importedItems: 0, importedCards: 0, importedAliases: 0 })),
   hydrateOrUpgradeOfflineInventory: vi.fn(),
 }));
 
@@ -162,5 +162,100 @@ describe('ResourceInspectorModal', () => {
     expect(screen.getByText(/Installed Resources Explorer & Studio/i)).toBeTruthy();
 
     global.fetch = originalFetch;
+  });
+
+  it('resists malformed payloads during backup import', async () => {
+    const user = userEvent.setup();
+    const { importTenantResourcesJson } = await import('@/lib/offlineDb');
+
+    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
+    });
+
+    await user.click(screen.getByTestId('tab-protocols-management'));
+
+    const fileInput = screen.getByTestId('btn-import-json-backup').querySelector('input')!;
+
+    await fc.assert(
+      fc.asyncProperty(fc.string(), async (malformedContent) => {
+        vi.mocked(importTenantResourcesJson).mockClear();
+        vi.mocked(importTenantResourcesJson).mockImplementationOnce(() => Promise.resolve({ success: false, message: 'Parse error' }));
+
+        const file = new File([malformedContent], 'backup.json', { type: 'application/json' });
+        await act(async () => {
+          await user.upload(fileInput, file);
+        });
+
+        if (malformedContent) {
+           expect(importTenantResourcesJson).toHaveBeenCalledWith('sacred_heart::or_main', malformedContent);
+        }
+        fileInput.value = '';
+      }),
+      { numRuns: 10 }
+    );
+  });
+
+  it('resists malformed payloads when adding inventory', async () => {
+    const user = userEvent.setup();
+    const { createOfflineInventoryItem } = await import('@/lib/offlineDb');
+
+    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
+    });
+
+    await fc.assert(
+      fc.asyncProperty(fc.string(), fc.string(), fc.string(), async (nameRaw, categoryRaw, aliasesRaw) => {
+        vi.mocked(createOfflineInventoryItem).mockClear();
+        vi.mocked(createOfflineInventoryItem).mockImplementationOnce(() => Promise.resolve({ item: nameRaw, full_code: 'code' }));
+
+        const name = nameRaw.replace(/[{[]/g, '');
+        const category = categoryRaw.replace(/[{[]/g, '');
+        const aliases = aliasesRaw.replace(/[{[]/g, '');
+
+        await act(async () => {
+          await user.click(screen.getByTestId('btn-add-inventory-item'));
+        });
+
+        const itemNameInput = screen.getByTestId('input-new-item-name');
+        const categoryInput = screen.getByTestId('input-new-item-category');
+        const aliasesInput = screen.getByTestId('input-new-item-aliases');
+
+
+        await act(async () => {
+          await user.clear(itemNameInput);
+          if (name) await user.type(itemNameInput, name);
+
+          await user.clear(categoryInput);
+          if (category) await user.type(categoryInput, category);
+
+          await user.clear(aliasesInput);
+          if (aliases) await user.type(aliasesInput, aliases);
+
+                    const saveBtn2 = screen.getByTestId('btn-save-new-item');
+          await user.click(saveBtn2);
+        });
+
+        if (name && name.trim()) {
+           expect(createOfflineInventoryItem).toHaveBeenCalledWith(
+             'sacred_heart::or_main',
+             expect.objectContaining({
+               item: name.trim(),
+               category: category || "General Supplies",
+               aliases: aliases || ""
+             })
+           );
+        } else {
+           expect(createOfflineInventoryItem).not.toHaveBeenCalled();
+           await act(async () => {
+              await user.click(screen.getByText('Cancel'));
+           });
+        }
+      }),
+      { numRuns: 10 }
+    );
   });
 });
