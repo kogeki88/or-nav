@@ -410,3 +410,46 @@ test('extended multi-tenant boundary & offline mutation idempotency (facility_id
 
   unmountB();
 });
+
+test('fault injection & network partition degradation: validates self-healing reconnection logic with intermittent latency', async () => {
+  let attempt = 0;
+  let networkState = { status: 'offline' };
+
+  fetchNetworkInfoMock.mock.mockImplementation(async () => {
+    attempt++;
+    if (networkState.status === 'offline') {
+      return new Promise((_, reject) => setTimeout(() => reject(new Error('Network partitioned')), 50));
+    }
+    return new Promise(resolve => setTimeout(() => resolve({
+      lan_ip: 'fac_99::dept_X_IP',
+      lan_url: 'http://fac_99::dept_X_IP:4000',
+      mobile_url: 'http://fac_99::dept_X_IP:4000',
+      https_url: 'https://healed.example.com',
+      https_active: true
+    }), 100));
+  });
+
+  const { unmount } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  // First check offline degradation fallback
+  await waitFor(() => {
+    const qrImage = screen.getByRole('img');
+    const alt = qrImage.getAttribute('alt') || '';
+    assert.ok(alt.includes('http://'), 'Fallback degraded to local URL correctly');
+  });
+
+  // Heal partition
+  networkState.status = 'online';
+
+  // Force re-render or re-fetch interaction by toggling (mimicking self-healing / retry)
+  const httpsBtn = screen.getByText('🔒 HTTPS Tunnel');
+  fireEvent.click(httpsBtn);
+
+  // Validate self-healing reconnection & latency accommodation
+  await waitFor(() => {
+    const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+    assert.ok(args.some((arg: string) => arg.includes('healed.example.com')), 'Self-healing recovered the HTTPS URL');
+  }, { timeout: 2000 });
+
+  unmount();
+});
