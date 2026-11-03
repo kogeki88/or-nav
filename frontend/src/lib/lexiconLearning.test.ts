@@ -338,4 +338,102 @@ describe("lexiconLearning & Teaching Intent", () => {
         }
       });
     });
+
+    describe("High-Concurrency & Stress Benchmarks", () => {
+      beforeEach(() => { mockStorage.clear(); });
+
+      test("should handle concurrent burst execution without race conditions", async () => {
+        const tenant = "burst_tenant";
+        const numRequests = 100;
+        const promises = [];
+
+        for (let i = 0; i < numRequests; i++) {
+          promises.push(
+            Promise.resolve().then(() => {
+              learnAliasClient(tenant, "or", "burst_alias", "Burst Item", `user_${i}`);
+            })
+          );
+        }
+
+        await Promise.all(promises);
+
+        const lexicon = loadFacilityLexicon(tenant);
+        const entries = lexicon.filter(e => e.spokenTerm === "burst_alias");
+
+        assert.strictEqual(entries.length, 1, "Should deduplicate concurrent bursts to a single entry");
+        assert.strictEqual(entries[0].usageCount, numRequests, "Usage count should match number of requests");
+        assert.strictEqual(entries[0].usedByUsers.length, numRequests, "All users should be recorded");
+        assert.strictEqual(entries[0].canonicalItemName, "Burst Item");
+      });
+
+      test("should maintain latency limits under heavy load", () => {
+        const tenant = "latency_tenant";
+        const numItems = 500;
+
+        // Seed items
+        for (let i = 0; i < numItems; i++) {
+          learnAliasClient(tenant, "or", `alias_${i}`, `Item ${i}`, "user_1");
+        }
+
+        const startRead = performance.now();
+        for (let i = 0; i < numItems; i++) {
+          resolveSpokenAliasClient(tenant, `alias_${i}`);
+        }
+        const endRead = performance.now();
+        const readLatencyMs = endRead - startRead;
+        assert.ok(readLatencyMs < 2000, `Read latency too high: ${readLatencyMs}ms`);
+
+        const startWrite = performance.now();
+        for (let i = 0; i < 100; i++) {
+          learnAliasClient(tenant, "or", `new_alias_${i}`, `New Item ${i}`, "user_2");
+        }
+        const endWrite = performance.now();
+        const writeLatencyMs = endWrite - startWrite;
+        assert.ok(writeLatencyMs < 1000, `Write latency too high: ${writeLatencyMs}ms`);
+      });
+
+      test("offline-first invariants hold during concurrent operations", async () => {
+        const tenant = "offline_concurrent";
+        const originalFetch = global.fetch;
+        global.fetch = mock.fn(async () => { throw new Error("Network offline"); });
+
+        try {
+          const promises = Array.from({ length: 50 }, (_, i) =>
+            Promise.resolve().then(() => {
+              learnAliasClient(tenant, "or", "offline_alias", "Offline Item", `user_${i}`);
+            })
+          );
+
+          await Promise.all(promises);
+
+          const resolved = resolveSpokenAliasClient(tenant, "offline_alias");
+          assert.ok(resolved);
+          assert.strictEqual(resolved?.canonicalItemName, "Offline Item");
+          assert.strictEqual(resolved?.usageCount, 50);
+          assert.strictEqual((global.fetch as any).mock.callCount(), 0);
+        } finally {
+          global.fetch = originalFetch;
+        }
+      });
+
+      test("multi-tenant isolation holds during concurrent bursts", async () => {
+        const numRequests = 50;
+        const promises = [];
+
+        for (let i = 0; i < numRequests; i++) {
+          promises.push(Promise.resolve().then(() => learnAliasClient("tenant_A", "or", "shared_alias", "Item A", `user_${i}`)));
+          promises.push(Promise.resolve().then(() => learnAliasClient("tenant_B", "or", "shared_alias", "Item B", `user_${i}`)));
+        }
+
+        await Promise.all(promises);
+
+        const r1 = resolveSpokenAliasClient("tenant_A", "shared_alias");
+        assert.strictEqual(r1?.canonicalItemName, "Item A");
+        assert.strictEqual(r1?.usageCount, numRequests);
+
+        const r2 = resolveSpokenAliasClient("tenant_B", "shared_alias");
+        assert.strictEqual(r2?.canonicalItemName, "Item B");
+        assert.strictEqual(r2?.usageCount, numRequests);
+      });
+    });
   });
