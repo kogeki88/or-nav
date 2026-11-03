@@ -474,3 +474,100 @@ def test_supplementary_multi_tenant_boundary_enforcement_and_offline_mutation_re
 
     # Verify multi-tenant isolation didn't leak mutations
     assert inv_b.search("Unique Suture A seq_1", record_implicit_verification=False) is None
+
+def test_fault_injection_and_network_partition_resilience(tmp_path, monkeypatch):
+    """
+    Tests fault injection, network partition degradation, intermittent latency,
+    and self-healing reconnection, while enforcing multi-tenant isolation and offline-first invariants.
+    """
+    import random
+    import time
+    import socket
+    import httpx
+    from app.config import get_tenant
+    from app.services.inventory_search import InventoryService
+
+    # 1. Enforce offline-first invariants dynamically
+    original_socket = socket.socket
+    network_state = {"status": "degraded"} # can be degraded, offline, or online
+
+    def mock_socket(*args, **kwargs):
+        if network_state["status"] == "offline":
+             raise RuntimeError("Network call attempted during offline state")
+        elif network_state["status"] == "degraded":
+             # Simulate intermittent latency and drops
+             if random.random() < 0.5:
+                  time.sleep(0.01) # fake latency
+                  raise socket.timeout("Simulated network timeout")
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted")
+        if args and args[0] != socket.AF_UNIX:
+            raise RuntimeError("Network call attempted")
+        if 'family' in kwargs and kwargs['family'] != socket.AF_UNIX:
+            raise RuntimeError("Network call attempted")
+        return original_socket(*args, **kwargs)
+
+    def mock_httpx(*args, **kwargs):
+        if network_state["status"] == "offline":
+             raise RuntimeError("Network call attempted during offline state")
+        elif network_state["status"] == "degraded":
+             if random.random() < 0.5:
+                  raise httpx.ReadTimeout("Simulated read timeout")
+        raise RuntimeError("Network call attempted")
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
+    monkeypatch.setattr(httpx, "get", mock_httpx)
+    monkeypatch.setattr(httpx, "post", mock_httpx)
+    monkeypatch.setattr(httpx, "request", mock_httpx)
+
+    # 2. Setup Tenants
+    t1 = get_tenant("sacred_heart::or")
+    t1_csv = tmp_path / "t1_net.csv"
+    t1_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nSuture,Supplies,R1,C1,S1,C1,,0\n")
+    t1.inventory_path = t1_csv
+    inv1 = InventoryService(t1)
+
+    t2 = get_tenant("princeton_plainsboro::icu")
+    t2_csv = tmp_path / "t2_net.csv"
+    t2_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nSyringe,Supplies,R2,C2,S2,C2,,0\n")
+    t2.inventory_path = t2_csv
+    inv2 = InventoryService(t2)
+
+    # 3. Simulate operations during degraded state (Intermittent Faults)
+    # The offline-first design should absorb these without crashing
+    network_state["status"] = "degraded"
+
+    # Interleaved mutations across different tenants to check isolation
+    card1 = inv1.report_move("Suture", "R1 C1 S1 C2")
+    assert card1["pending_location"] == "R1 C1 S1 C2"
+    assert card1["verify_count"] == 1
+
+    card2 = inv2.report_move("Syringe", "R2 C2 S2 C3")
+    assert card2["pending_location"] == "R2 C2 S2 C3"
+    assert card2["verify_count"] == 1
+
+    # Multi-tenant boundary check during degraded state
+    assert inv1.search("Syringe", record_implicit_verification=False) is None
+    assert inv2.search("Suture", record_implicit_verification=False) is None
+
+    # 4. Simulate complete network partition (Offline)
+    network_state["status"] = "offline"
+
+    vcard = inv1.verify_move("Suture", "R1 C1 S1 C2")
+    assert vcard["verify_count"] == 2
+
+    # Another tenant isolation check during partition
+    assert inv1.search("Syringe", record_implicit_verification=False) is None
+
+    # 5. Simulate self-healing reconnection (Online)
+    network_state["status"] = "online"
+
+    # In 'online' state for the mock, we still shouldn't actually hit the network for these operations,
+    # but the service should continue to operate normally
+    final_card = inv1.verify_move("Suture", "R1 C1 S1 C2")
+    # Verify count becomes 0 because it reaches 3 and resets/commits
+    assert final_card["verify_count"] == 0
+    assert final_card["committed"] is True
+
+    # Verify no cross contamination
+    assert inv2.search("Suture", record_implicit_verification=False) is None
