@@ -93,15 +93,47 @@ export async function directTranscribeAudio(
     throw new Error("Network offline");
   }
 
-  const response = await fetch(`${GEMINI_REST_ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  let response: Response | undefined;
+  let attempt = 0;
+  let lastError: Error | null = null;
+  const maxRetries = 2; // Support self-healing up to 2 network partitions / intermittent 503s
 
-  if (!response.ok) {
-    const errText = await response.text().catch(() => "");
-    throw new Error(`Direct Gemini transcription failed (${response.status}): ${errText}`);
+  while (attempt <= maxRetries) {
+    try {
+      response = await fetch(`${GEMINI_REST_ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        if (response.status === 503 || response.status === 504 || response.status === 429) {
+           // Intermittent failure - retry
+           attempt++;
+           if (attempt <= maxRetries) {
+             await new Promise(r => setTimeout(r, attempt * 150)); // backoff
+             continue;
+           }
+        }
+        const errText = await response.text().catch(() => "");
+        throw new Error(`Direct Gemini transcription failed (${response.status}): ${errText}`);
+      }
+      break; // Success
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      if (lastError.message.includes("Network offline") || lastError.message.includes("Failed to fetch")) {
+        throw lastError; // Bubble up offline
+      }
+      attempt++;
+      if (attempt <= maxRetries) {
+        await new Promise(r => setTimeout(r, attempt * 150));
+      }
+    }
+  }
+
+  if (!response || !response.ok) {
+     if (lastError) throw lastError;
+     throw new Error(`Direct Gemini transcription failed after retries`);
   }
 
   const data = await response.json();
@@ -192,18 +224,51 @@ ${baselineText}`;
     throw new Error("Network offline");
   }
 
-  const response = await fetch(`${GEMINI_REST_ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  let response: Response | undefined;
+  let attempt = 0;
+  let lastError: Error | null = null;
+  const maxRetries = 2; // Support self-healing up to 2 network partitions / intermittent 503s
+
+  while (attempt <= maxRetries) {
+    try {
+      response = await fetch(`${GEMINI_REST_ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        if (response.status === 503 || response.status === 504 || response.status === 429) {
+           // Intermittent failure - retry
+           attempt++;
+           if (attempt <= maxRetries) {
+             await new Promise(r => setTimeout(r, attempt * 150)); // backoff
+             continue;
+           }
+        }
+        const errText = await response.text().catch(() => "");
+        throw new Error(`Direct Gemini RAG failed (${response.status}): ${errText}`);
+      }
+      break; // Success
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      if (lastError.message.includes("Network offline") || lastError.message.includes("Failed to fetch")) {
+        // Bubble up offline errors to preserve offline-first invariant handling
+        throw lastError;
+      }
+      attempt++;
+      if (attempt <= maxRetries) {
+        await new Promise(r => setTimeout(r, attempt * 150)); // backoff
+      }
+    }
+  }
+
+  if (!response || !response.ok) {
+     if (lastError) throw lastError;
+     throw new Error(`Direct Gemini RAG failed after retries`);
+  }
 
   const elapsed = Math.max(1, Math.round(performance.now() - t0));
-
-  if (!response.ok) {
-    const errText = await response.text().catch(() => "");
-    throw new Error(`Direct Gemini RAG failed (${response.status}): ${errText}`);
-  }
 
   const data = await response.json();
   const reply = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "No response generated.";
