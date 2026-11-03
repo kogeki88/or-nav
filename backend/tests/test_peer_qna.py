@@ -149,3 +149,81 @@ def test_offline_mutation_replay_verify_idempotency():
 
     assert data1 == data2
     assert data2["verificationsCount"] == 1
+
+def test_create_question_validation_boundary():
+    """Boundary testing for schema validation in CreateQuestionRequest."""
+    # Exceeding max length for question_text (max_length=1000)
+    res = client.post(
+        "/api/peer-questions",
+        json={
+            "tenant_id": "valid_tenant::or",
+            "question_text": "A" * 1001,
+        },
+    )
+    assert res.status_code == 422
+
+    # Invalid tenant_id pattern (pattern=r"^[a-zA-Z0-9_\-\:]+$")
+    res = client.post(
+        "/api/peer-questions",
+        json={
+            "tenant_id": "invalid tenant id with spaces",
+            "question_text": "Is this valid?",
+        },
+    )
+    assert res.status_code == 422
+
+    # Empty tenant_id (min_length=1)
+    res = client.post(
+        "/api/peer-questions",
+        json={
+            "tenant_id": "",
+            "question_text": "Is this valid?",
+        },
+    )
+    assert res.status_code == 422
+
+    # Empty question_text (min_length=1)
+    res = client.post(
+        "/api/peer-questions",
+        json={
+            "tenant_id": "valid_tenant::or",
+            "question_text": "",
+        },
+    )
+    assert res.status_code == 422
+
+def test_create_question_malformed_payload():
+    """Resilience against malformed payloads."""
+    # Incorrect types
+    res = client.post(
+        "/api/peer-questions",
+        json={
+            "tenant_id": {"not": "a string"},
+            "question_text": ["also", "not", "a string"],
+        },
+    )
+    assert res.status_code == 422
+
+def test_fuzzing_create_question():
+    """Fuzzing input fields to ensure zero unhandled exceptions."""
+    import random
+    import string
+
+    def random_string(length):
+        return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
+
+    for _ in range(20):
+        # Generate random length but valid tenant_id and question_text
+        tenant_id = random_string(random.randint(1, 95)) + "::or"
+        question_text = random_string(random.randint(1, 1000))
+
+        res = client.post(
+            "/api/peer-questions",
+            json={
+                "tenant_id": tenant_id,
+                "question_text": question_text,
+                "idempotency_key": f"fuzz-{uuid.uuid4().hex}"
+            },
+        )
+        # Should be successful with valid (even if random) inputs
+        assert res.status_code == 200
