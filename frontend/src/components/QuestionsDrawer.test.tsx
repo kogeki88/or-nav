@@ -192,6 +192,60 @@ describe("QuestionsDrawer", () => {
     });
   });
 
+
+
+  it("should enforce multi-tenant boundary (facility_id::dept_id) isolation", async () => {
+    // Override fetch properly for this test specifically
+    const fetchCalls: any[] = [];
+    global.fetch = mock.fn(async (url: any, options: any) => {
+      fetchCalls.push({ url, options });
+      return { ok: true, json: async () => ({}) };
+    }) as any;
+
+    const { unmount: unmountFacilityA } = render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId="facility1::deptA"
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const inputA = screen.getByPlaceholderText("e.g. Where are backup 5-0 Prolene sutures kept?");
+    await userEvent.type(inputA, "Question for Facility 1 Dept A");
+    const askButtonA = screen.getByText("Ask");
+    await userEvent.click(askButtonA);
+    unmountFacilityA();
+
+    const { unmount: unmountFacilityB } = render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId="facility1::deptB"
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const inputB = screen.getByPlaceholderText("e.g. Where are backup 5-0 Prolene sutures kept?");
+    await userEvent.type(inputB, "Question for Facility 1 Dept B");
+    const askButtonB = screen.getByText("Ask");
+    await userEvent.click(askButtonB);
+    unmountFacilityB();
+
+    assert.strictEqual(fetchCalls.length, 2);
+
+    const bodyA = JSON.parse(fetchCalls[0].options.body);
+    const bodyB = JSON.parse(fetchCalls[1].options.body);
+
+    assert.strictEqual(bodyA.tenant_id, "facility1::deptA");
+    assert.strictEqual(bodyA.question_text, "Question for Facility 1 Dept A");
+
+    assert.strictEqual(bodyB.tenant_id, "facility1::deptB");
+    assert.strictEqual(bodyB.question_text, "Question for Facility 1 Dept B");
+  });
+
   it("should enforce multi-tenant isolation when submitting questions", async () => {
     const fetchCalls: any[] = [];
     global.fetch = mock.fn(async (url: any, options: any) => {
@@ -248,7 +302,7 @@ describe("QuestionsDrawer", () => {
   });
 
   it("should enforce offline-first invariants gracefully", async () => {
-    global.fetch = undefined as any;
+    global.fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch"))) as any;
 
     render(
       <QuestionsDrawer
@@ -274,7 +328,7 @@ describe("QuestionsDrawer", () => {
   });
 
   it("should verify offline mutation replay idempotency", async () => {
-    global.fetch = undefined as any;
+    global.fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch"))) as any;
 
     const propsA = {
       isOpen: true,
