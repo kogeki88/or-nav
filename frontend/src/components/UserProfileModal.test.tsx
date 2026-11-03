@@ -354,3 +354,75 @@ test('UserProfileModal enforces multi-tenant isolation and offline-first invaria
   (global as any).fetch = origFetch;
   mock.restoreAll();
 });
+
+
+test('UserProfileModal handles network partition degradation, intermittent latency, and self-healing reconnection', async (t) => {
+  cleanup();
+  const onSaveProfileMock = mock.fn();
+  const mockOnClose = mock.fn();
+
+  // Mock global fetch to simulate a network partition (offline state) followed by recovery (online with latency)
+  let fetchAttempts = 0;
+  const origFetch = global.fetch;
+
+  (global as any).fetch = mock.fn(async (...args: any[]) => {
+    fetchAttempts++;
+    if (fetchAttempts === 1) {
+      // Simulate network partition / offline
+      return Promise.reject(new TypeError('Failed to fetch'));
+    } else {
+      // Simulate intermittent latency and self-healing reconnection
+      await new Promise(resolve => setTimeout(resolve, 50));
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ status: 'success' })
+      } as Response);
+    }
+  });
+
+  const { rerender } = render(
+    <UserProfileModal
+      isOpen={true}
+      onClose={mockOnClose}
+      currentProfile={{
+        ...DEFAULT_USER_PROFILE,
+        facilityId: 'tenant_x',
+        departmentId: 'or_main',
+      }}
+      onSaveProfile={onSaveProfileMock}
+    />
+  );
+
+  const roleSelect = screen.getByTestId('select-role') as HTMLSelectElement;
+  fireEvent.change(roleSelect, { target: { value: 'Scrub Tech' } });
+
+  const saveBtn = screen.getAllByTestId('button-save-profile')[0];
+
+  // 1. Trigger save during simulated network partition
+  fireEvent.click(saveBtn);
+
+  await waitFor(() => {
+    assert.strictEqual(onSaveProfileMock.mock.calls.length, 1);
+  });
+
+  const savedDataPartition = onSaveProfileMock.mock.calls[0].arguments[0];
+  assert.strictEqual(savedDataPartition.facilityId, 'tenant_x');
+  assert.strictEqual(savedDataPartition.clinicalRole, 'Scrub Tech');
+  assert.ok(fetchAttempts >= 1, "fetch should be called at least once");
+
+  // 2. Trigger save during self-healing / intermittent latency
+  await new Promise(r => setTimeout(r, 600)); // wait for setSavedSuccess(false) timeout
+  fireEvent.click(saveBtn);
+
+  await waitFor(() => {
+    assert.strictEqual(onSaveProfileMock.mock.calls.length, 2);
+  });
+
+  const savedDataRecovered = onSaveProfileMock.mock.calls[1].arguments[0];
+  assert.strictEqual(savedDataRecovered.facilityId, 'tenant_x');
+  assert.strictEqual(savedDataRecovered.clinicalRole, 'Scrub Tech');
+  assert.ok(fetchAttempts >= 2, "fetch should be called at least twice");
+
+  (global as any).fetch = origFetch;
+  mock.restoreAll();
+});
