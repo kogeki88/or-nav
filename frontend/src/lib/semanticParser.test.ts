@@ -411,3 +411,59 @@ test("Supplementary Tests: Edge Cases & Enforcements", async (t) => {
     }
   });
 });
+
+
+test("Semantic Query Parser Network Resilience & Fault Injection", async (t) => {
+  await t.test("Network partition degradation and intermittent latency recovery", async () => {
+    // We will simulate a fetch environment that randomly times out or errors,
+    // and verify the offline parser remains completely oblivious and resilient.
+    const originalFetch = global.fetch;
+    const originalXHR = (global as any).XMLHttpRequest;
+
+    let fetchAttempts = 0;
+
+    global.fetch = () => {
+      fetchAttempts++;
+      // Intermittent latency: simulate a 10s timeout on fetch
+      if (fetchAttempts % 2 === 0) {
+        return new Promise(resolve => setTimeout(() => resolve(new Response("Delayed")), 10000));
+      }
+      // Network partition / disconnect:
+      return Promise.reject(new Error("ENETUNREACH: Network partition detected"));
+    };
+
+    (global as any).XMLHttpRequest = function() {
+      throw new Error("XHR blocked by offline enforcement");
+    };
+
+    try {
+      const start = performance.now();
+
+      // Execute a batch of queries under network duress
+      const q1 = parseClinicalIntent("where is the 2-0 vicryl");
+      const q2 = parseClinicalIntent("move bovie to OR 1");
+      const q3 = parseClinicalIntent("what is the malignant hyperthermia protocol");
+
+      const duration = performance.now() - start;
+
+      // The parser should execute instantly and correctly despite the corrupted global network state
+      assert.strictEqual(q1.intent, ClinicalIntent.FIND_INVENTORY);
+      assert.strictEqual(q2.intent, ClinicalIntent.MUTATE_INVENTORY);
+      assert.strictEqual(q3.intent, ClinicalIntent.GENERAL_QUERY);
+
+      // Should not be delayed by the 10s fetch latency mock
+      assert.ok(duration < 50, `Parser blocked by network mock! Took ${duration}ms`);
+
+      // Self-healing reconnection: After mock is restored, parser should still work
+      global.fetch = originalFetch;
+      (global as any).XMLHttpRequest = originalXHR;
+
+      const q4 = parseClinicalIntent("where is the 3-0 silk");
+      assert.strictEqual(q4.intent, ClinicalIntent.FIND_INVENTORY);
+
+    } finally {
+      global.fetch = originalFetch;
+      (global as any).XMLHttpRequest = originalXHR;
+    }
+  });
+});
