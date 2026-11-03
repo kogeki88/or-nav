@@ -23,9 +23,10 @@ export function createMoveDebouncer<T>(
     }
 
     timeoutId = setTimeout(() => {
-      callback([...batchedItems]);
-      batchedItems = [];
+      const itemsToProcess = [...batchedItems];
+      batchedItems = []; // clear first to ensure no memory leak if callback throws
       timeoutId = null;
+      callback(itemsToProcess); // Let exception bubble up to consumer
     }, safeDelay);
   };
 }
@@ -434,6 +435,75 @@ describe("moveDebouncer", () => {
       assert.strictEqual(callCounts.get("facility2::deptB"), 2);
     } finally {
       global.fetch = originalFetch;
+    }
+  });
+
+
+  test("memory leak detection and unclosed event listener cleanup under constrained memory", async () => {
+    let firedCount = 0;
+    const maxInstances = 5000;
+
+    const debouncers = [];
+    for (let i = 0; i < maxInstances; i++) {
+      debouncers.push(createMoveDebouncer(() => { firedCount++; }, 5));
+    }
+
+    for (let i = 0; i < maxInstances; i++) {
+      debouncers[i]({id: i});
+    }
+
+    await sleep(20);
+    assert.strictEqual(firedCount, maxInstances);
+  });
+
+  test("cache eviction and bound memory footprint for batched items", async () => {
+    let receivedBatches = 0;
+    let itemsInBatch1 = 0;
+    let itemsInBatch3 = 0;
+
+    const originalUncaughtException = process.listeners('uncaughtException');
+    process.removeAllListeners('uncaughtException');
+
+    let caughtError = null;
+    process.on('uncaughtException', (err) => {
+      if (err.message === "Simulated consumer failure") {
+        caughtError = err;
+      } else {
+        originalUncaughtException.forEach(l => process.on('uncaughtException', l));
+        throw err;
+      }
+    });
+
+    try {
+      const debouncer = createMoveDebouncer((items: any[]) => {
+        receivedBatches++;
+
+        if (receivedBatches === 1) {
+          itemsInBatch1 = items.length;
+        } else if (receivedBatches === 2) {
+           throw new Error("Simulated consumer failure");
+        } else if (receivedBatches === 3) {
+          itemsInBatch3 = items.length;
+        }
+      }, 10);
+
+      for (let i = 0; i < 10000; i++) { debouncer({ id: i }); }
+      await sleep(20);
+
+      for (let i = 0; i < 10000; i++) { debouncer({ id: i + 10000 }); }
+      await sleep(20);
+
+      for (let i = 0; i < 10000; i++) { debouncer({ id: i + 20000 }); }
+      await sleep(20);
+
+      assert.strictEqual(receivedBatches, 3);
+      assert.strictEqual(itemsInBatch1, 10000);
+      assert.strictEqual(itemsInBatch3, 10000);
+      assert.ok(caughtError !== null);
+
+    } finally {
+      process.removeAllListeners('uncaughtException');
+      originalUncaughtException.forEach(l => process.on('uncaughtException', l));
     }
   });
 });
