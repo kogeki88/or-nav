@@ -47,7 +47,104 @@ describe("QuestionsDrawer", () => {
         ok: true,
         json: async () => ({})
       };
+
+  it("should handle intermittent network latency seamlessly without double submission", async () => {
+    let callCount = 0;
+    const fetchMock = mock.fn(() => {
+        callCount++;
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                resolve({ ok: true, json: async () => ({}) });
+            }, 100);
+        });
+    }) as any;
+
+    global.fetch = fetchMock;
+
+    const { unmount } = render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const input = screen.getByPlaceholderText("e.g. Where are backup 5-0 Prolene sutures kept?") as HTMLInputElement;
+    const askButton = screen.getByText("Ask").closest('button') as HTMLButtonElement;
+
+    await userEvent.type(input, "Latency Question");
+
+    // Fire click and don't await it so we can check immediate state
+    userEvent.click(askButton);
+
+    await waitFor(() => {
+        assert.strictEqual(askButton.hasAttribute("disabled"), true);
     });
+
+    await waitFor(() => {
+        assert.strictEqual(input.value, "");
+        assert.strictEqual(askButton.hasAttribute("disabled"), true); // Since input is now empty
+    });
+
+    assert.strictEqual(callCount, 1);
+    unmount();
+  });
+
+  it("should handle network partition degradation and self-healing reconnection", async () => {
+    let fetchState = "offline";
+    const fetchMock = mock.fn(() => {
+        if (fetchState === "offline") {
+            return Promise.reject(new TypeError("Failed to fetch"));
+        } else {
+            return Promise.resolve({ ok: true, json: async () => ({}) });
+        }
+    }) as any;
+
+    global.fetch = fetchMock;
+
+    const { unmount } = render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const input = screen.getByPlaceholderText("e.g. Where are backup 5-0 Prolene sutures kept?") as HTMLInputElement;
+    const askButton = screen.getByText("Ask").closest('button') as HTMLButtonElement;
+
+    await userEvent.type(input, "First Offline Question");
+    await userEvent.click(askButton);
+
+    await waitFor(() => {
+        assert.strictEqual(input.value, "");
+    });
+
+    fetchState = "online";
+
+    await userEvent.type(input, "Online Question");
+    await userEvent.click(askButton);
+
+    await waitFor(() => {
+        assert.strictEqual(input.value, "");
+    });
+
+    fetchState = "offline";
+
+    await userEvent.type(input, "Second Offline Question");
+    await userEvent.click(askButton);
+
+    await waitFor(() => {
+        assert.strictEqual(input.value, "");
+    });
+
+    unmount();
+  });
+});
     global.fetch = fetchMock;
   });
 
