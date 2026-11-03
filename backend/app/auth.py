@@ -134,7 +134,7 @@ class UpdateProfileRequest(BaseModel):
 async def register(request: Request, req: RegisterRequest):
     """Register a brand-new user account with onboardingCompleted: False."""
     email = req.email.strip().lower()
-    if not email or "@" not in email:
+    if not email or "@" not in email or email.startswith("@") or email.endswith("@") or " " in email:
         raise HTTPException(status_code=400, detail="A valid email address is required.")
 
     password = (req.password or "").strip()
