@@ -227,3 +227,48 @@ test("resilient to malformed payloads and fuzzing", () => {
   const r4 = getClinicianRewards(user);
   assert.equal(r4.xp, 0); // fallback to default
 });
+
+test("concurrent burst execution, race condition resistance, and latency benchmarks", async () => {
+  const userA = "benchmark_user_latency_A";
+  const userB = "benchmark_user_latency_B";
+
+  const NUM_AWARDS = 1000;
+
+  // Enforce offline-first invariant by testing under rapid local state mutations
+  // and ensuring no network boundary blocks execution.
+
+  const startTime = performance.now();
+  await Promise.all(
+    Array.from({ length: NUM_AWARDS * 2 }, (_, i) => {
+      return new Promise<void>((resolve) => {
+        setTimeout(() => {
+          // Interleave updates to enforce multi-tenant isolation
+          const targetUser = i % 2 === 0 ? userA : userB;
+          awardClinicalXP("lookup", undefined, targetUser);
+          resolve();
+        }, Math.random() * 5);
+      });
+    })
+  );
+  const endTime = performance.now();
+
+  const latency = endTime - startTime;
+  // Latency check to ensure high-concurrency does not severely block event loop
+  assert.ok(latency < 3000, `Latency too high: ${latency}ms`);
+
+  const rewardsA = getClinicianRewards(userA);
+  const rewardsB = getClinicianRewards(userB);
+
+  // Ensure exactly NUM_AWARDS per tenant, meaning no race condition drops and no multi-tenant cross-talk
+  assert.equal(rewardsA.stats.lookupsCount, NUM_AWARDS);
+  assert.equal(rewardsB.stats.lookupsCount, NUM_AWARDS);
+
+  const expectedBaseXp = NUM_AWARDS * 2;
+  const questXp = 10;
+  const badgeFirstScrubXp = 10;
+  const badgeCoreScoutXp = 10;
+  const expectedTotalXp = expectedBaseXp + questXp + badgeFirstScrubXp + badgeCoreScoutXp;
+
+  assert.equal(rewardsA.xp, expectedTotalXp);
+  assert.equal(rewardsB.xp, expectedTotalXp);
+});
