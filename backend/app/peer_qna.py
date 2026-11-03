@@ -11,6 +11,8 @@ REST endpoints:
 """
 
 from datetime import datetime, timezone
+import fcntl
+from contextlib import contextmanager
 import json
 import os
 from pathlib import Path
@@ -23,6 +25,18 @@ router = APIRouter(prefix="/api/peer-questions", tags=["peer-questions"])
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PEER_QUESTIONS_FILE = PROJECT_ROOT / "hospitals" / "peer_questions.json"
+
+@contextmanager
+def peer_qna_lock():
+    lock_file = str(PEER_QUESTIONS_FILE) + ".lock"
+    # Ensure directory exists
+    PEER_QUESTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(lock_file, "w") as f:
+        try:
+            fcntl.flock(f, fcntl.LOCK_EX)
+            yield
+        finally:
+            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 # --- Data Models ---
@@ -229,44 +243,45 @@ def save_peer_questions(questions: List[PeerQuestion]) -> None:
 # --- Endpoints ---
 
 @router.post("", response_model=PeerQuestion)
-async def create_peer_question(req: CreateQuestionRequest):
+def create_peer_question(req: CreateQuestionRequest):
     """Broadcast an orientee clinical question to department peers."""
-    t_id = req.tenant_id or req.tenantId
-    if not t_id:
-        raise HTTPException(status_code=400, detail="tenant_id is required.")
+    with peer_qna_lock():
+        t_id = req.tenant_id or req.tenantId
+        if not t_id:
+            raise HTTPException(status_code=400, detail="tenant_id is required.")
 
-    q_text = req.question_text or req.questionText
-    if not q_text or not q_text.strip():
-        raise HTTPException(status_code=400, detail="question_text cannot be empty.")
+        q_text = req.question_text or req.questionText
+        if not q_text or not q_text.strip():
+            raise HTTPException(status_code=400, detail="question_text cannot be empty.")
 
-    asked_by = req.asked_by or req.askedBy or "Sean Iglesia, RN (Orientee)"
-    role = req.role or "Orientee"
-    now_iso = datetime.now(timezone.utc).isoformat()
+        asked_by = req.asked_by or req.askedBy or "Sean Iglesia, RN (Orientee)"
+        role = req.role or "Orientee"
+        now_iso = datetime.now(timezone.utc).isoformat()
 
-    questions = load_peer_questions()
+        questions = load_peer_questions()
 
-    # Idempotency check
-    if getattr(req, 'idempotency_key', None):
-        for q in questions:
-            if getattr(q, 'idempotencyKey', None) == getattr(req, 'idempotency_key', None):
-                return q
+        # Idempotency check
+        if getattr(req, 'idempotency_key', None):
+            for q in questions:
+                if getattr(q, 'idempotencyKey', None) == getattr(req, 'idempotency_key', None):
+                    return q
 
-    new_q = PeerQuestion(
-        id=f"pq-{uuid.uuid4().hex[:8]}",
-        tenantId=t_id.strip(),
-        questionText=q_text.strip(),
-        askedBy=asked_by.strip(),
-        role=role.strip(),
-        createdAt=now_iso,
-        answers=[],
-        status="unverified",
-        verificationsCount=0,
-        idempotencyKey=getattr(req, 'idempotency_key', None),
-    )
+        new_q = PeerQuestion(
+            id=f"pq-{uuid.uuid4().hex[:8]}",
+            tenantId=t_id.strip(),
+            questionText=q_text.strip(),
+            askedBy=asked_by.strip(),
+            role=role.strip(),
+            createdAt=now_iso,
+            answers=[],
+            status="unverified",
+            verificationsCount=0,
+            idempotencyKey=getattr(req, 'idempotency_key', None),
+        )
 
-    questions.insert(0, new_q)
-    save_peer_questions(questions)
-    return new_q
+        questions.insert(0, new_q)
+        save_peer_questions(questions)
+        return new_q
 
 
 @router.get("", response_model=List[PeerQuestion])
@@ -299,86 +314,88 @@ async def list_peer_questions(tenant_id: Optional[str] = Query(None)):
 
 
 @router.post("/{question_id}/answers", response_model=PeerQuestion)
-async def answer_peer_question(question_id: str, req: CreateAnswerRequest):
+def answer_peer_question(question_id: str, req: CreateAnswerRequest):
     """Submit an answer to an orientee clinical question."""
-    a_text = req.answer_text or req.answerText
-    if not a_text or not a_text.strip():
-        raise HTTPException(status_code=400, detail="answer_text cannot be empty.")
+    with peer_qna_lock():
+        a_text = req.answer_text or req.answerText
+        if not a_text or not a_text.strip():
+            raise HTTPException(status_code=400, detail="answer_text cannot be empty.")
 
-    answered_by = req.answered_by or req.answeredBy or "Clinical Colleague"
+        answered_by = req.answered_by or req.answeredBy or "Clinical Colleague"
 
-    questions = load_peer_questions()
-    target_q: Optional[PeerQuestion] = None
-    for q in questions:
-        if q.id == question_id:
-            target_q = q
-            break
+        questions = load_peer_questions()
+        target_q: Optional[PeerQuestion] = None
+        for q in questions:
+            if q.id == question_id:
+                target_q = q
+                break
 
-    if not target_q:
-        raise HTTPException(status_code=404, detail=f"Question {question_id} not found.")
+        if not target_q:
+            raise HTTPException(status_code=404, detail=f"Question {question_id} not found.")
 
-    # Idempotency check for answers
-    if getattr(req, 'idempotency_key', None):
-        for ans in target_q.answers:
-            if getattr(ans, 'idempotencyKey', None) == getattr(req, 'idempotency_key', None):
-                return target_q
+        # Idempotency check for answers
+        if getattr(req, 'idempotency_key', None):
+            for ans in target_q.answers:
+                if getattr(ans, 'idempotencyKey', None) == getattr(req, 'idempotency_key', None):
+                    return target_q
 
-    new_answer = PeerAnswer(
-        answerId=f"pa-{uuid.uuid4().hex[:8]}",
-        answeredBy=answered_by.strip(),
-        answerText=a_text.strip(),
-        verifiedBy=[],
-        isVerifiedConsensus=False,
-        idempotencyKey=getattr(req, 'idempotency_key', None),
-    )
+        new_answer = PeerAnswer(
+            answerId=f"pa-{uuid.uuid4().hex[:8]}",
+            answeredBy=answered_by.strip(),
+            answerText=a_text.strip(),
+            verifiedBy=[],
+            isVerifiedConsensus=False,
+            idempotencyKey=getattr(req, 'idempotency_key', None),
+        )
 
-    target_q.answers.append(new_answer)
-    save_peer_questions(questions)
-    return target_q
+        target_q.answers.append(new_answer)
+        save_peer_questions(questions)
+        return target_q
 
 
 @router.post("/{question_id}/answers/{answer_id}/verify", response_model=PeerQuestion)
-async def verify_peer_answer(question_id: str, answer_id: str, req: VerifyAnswerRequest):
+def verify_peer_answer(question_id: str, answer_id: str, req: VerifyAnswerRequest):
     """
     Register a clinician verification vote.
     When verifiedBy count reaches >= 2, marks answer as verified consensus
     and question status as 'verified' (upgrading badge to 🟢 Verified).
     """
-    verifier = req.verified_by or req.verifiedBy or "Clinical Verifier"
-    verifier = verifier.strip()
+    with peer_qna_lock():
+        verifier = req.verified_by or req.verifiedBy or "Clinical Verifier"
+        verifier = verifier.strip()
 
-    questions = load_peer_questions()
-    target_q: Optional[PeerQuestion] = None
-    for q in questions:
-        if q.id == question_id:
-            target_q = q
-            break
+        questions = load_peer_questions()
+        target_q: Optional[PeerQuestion] = None
+        for q in questions:
+            if q.id == question_id:
+                target_q = q
+                break
 
-    if not target_q:
-        raise HTTPException(status_code=404, detail=f"Question {question_id} not found.")
+        if not target_q:
+            raise HTTPException(status_code=404, detail=f"Question {question_id} not found.")
 
-    target_ans: Optional[PeerAnswer] = None
-    for a in target_q.answers:
-        if a.answerId == answer_id:
-            target_ans = a
-            break
+        target_ans: Optional[PeerAnswer] = None
+        for a in target_q.answers:
+            if a.answerId == answer_id:
+                target_ans = a
+                break
 
-    if not target_ans:
-        raise HTTPException(status_code=404, detail=f"Answer {answer_id} not found in question {question_id}.")
+        if not target_ans:
+            raise HTTPException(status_code=404, detail=f"Answer {answer_id} not found in question {question_id}.")
 
-    # Duplicate verification prevention: do not double-count same clinician
-    if verifier not in target_ans.verifiedBy:
-        target_ans.verifiedBy.append(verifier)
+        # Duplicate verification prevention: do not double-count same clinician
+        if verifier not in target_ans.verifiedBy:
+            target_ans.verifiedBy.append(verifier)
 
-    # Multi-peer threshold: >= 2 verifications establishes verified consensus
-    if len(target_ans.verifiedBy) >= 2:
-        target_ans.isVerifiedConsensus = True
-        target_q.status = "verified"
+        # Multi-peer threshold: >= 2 verifications establishes verified consensus
+        if len(target_ans.verifiedBy) >= 2:
+            target_ans.isVerifiedConsensus = True
+            target_q.status = "verified"
 
-    # Compute overall question verificationsCount (max across answers)
-    target_q.verificationsCount = max((len(a.verifiedBy) for a in target_q.answers), default=0)
-    if target_q.verificationsCount >= 2:
-        target_q.status = "verified"
+        # Compute overall question verificationsCount (max across answers)
+        target_q.verificationsCount = max((len(a.verifiedBy) for a in target_q.answers), default=0)
+        if target_q.verificationsCount >= 2:
+            target_q.status = "verified"
 
-    save_peer_questions(questions)
-    return target_q
+        save_peer_questions(questions)
+        return target_q
