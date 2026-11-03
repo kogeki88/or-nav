@@ -395,3 +395,99 @@ def test_extended_multi_tenant_boundary_enforcement_and_offline_replay():
     # Tenant 2 should only see tenant 2 questions
     assert any(q["id"] == q_id_2 for q in data2)
     assert not any(q["id"] == q_id_1 for q in data2)
+
+from unittest.mock import patch
+import time
+
+def test_network_partition_unhandled_storage_failure():
+    """Simulate a network partition / storage failure that results in a 500 error."""
+    tenant = "sacred_heart::or"
+    payload = {
+        "tenant_id": tenant,
+        "question_text": "Is this system completely down?",
+        "idempotency_key": f"fail-q-{uuid.uuid4().hex}"
+    }
+
+    # Simulate storage failing unexpectedly
+    with patch("app.peer_qna.save_peer_questions", side_effect=OSError("Network partition / Disk unreachable")):
+        try:
+            res = client.post("/api/peer-questions", json=payload)
+            # The test client can raise or return 500 depending on raise_server_exceptions
+            assert res.status_code == 500
+        except OSError:
+            # If it bubbles up directly because of test client configuration
+            pass
+
+def test_fault_injection_intermittent_latency_create_question():
+    """Simulate intermittent network latency / degraded backend state."""
+    tenant = "county_general::or"
+
+    # Use side_effect to inject a small sleep, then return the actual load result
+    def slow_load():
+        time.sleep(0.5)
+        return load_peer_questions()
+
+    with patch("app.peer_qna.load_peer_questions", side_effect=slow_load):
+        payload = {
+            "tenant_id": tenant,
+            "question_text": "Is this system degraded?",
+            "idempotency_key": f"lat-q-{uuid.uuid4().hex}"
+        }
+        start = time.time()
+        res = client.post("/api/peer-questions", json=payload)
+        duration = time.time() - start
+
+        assert res.status_code == 200
+        # Allow some flexibility for test flakiness
+        assert duration >= 0.1
+        assert res.json()["questionText"] == "Is this system degraded?"
+
+def test_self_healing_reconnection_idempotent_sync():
+    """Simulate a network state changing from offline to online and assert self-healing synchronization."""
+    network_state = {"status": "offline"}
+    tenant = "sacred_heart::or"
+    q_idempotency = f"heal-q-{uuid.uuid4().hex}"
+
+    payload = {
+        "tenant_id": tenant,
+        "question_text": "Will this sync when online?",
+        "idempotency_key": q_idempotency
+    }
+
+    original_save = save_peer_questions
+
+    def mocked_save(questions):
+        if network_state["status"] == "offline":
+            raise OSError("Network partition")
+        original_save(questions)
+
+    # 1. Offline attempt fails
+    with patch("app.peer_qna.save_peer_questions", side_effect=mocked_save):
+        try:
+            client.post("/api/peer-questions", json=payload)
+        except OSError:
+            pass
+
+    # Question should not be saved yet
+    res_get_1 = client.get(f"/api/peer-questions?tenant_id={tenant}")
+    assert not any(q["idempotencyKey"] == q_idempotency for q in res_get_1.json())
+
+    # 2. State recovers to online, sync queue flushes (client retries)
+    network_state["status"] = "online"
+
+    with patch("app.peer_qna.save_peer_questions", side_effect=mocked_save):
+        res_sync = client.post("/api/peer-questions", json=payload)
+        assert res_sync.status_code == 200
+
+    # 3. Question should now be successfully saved and accessible
+    res_get_2 = client.get(f"/api/peer-questions?tenant_id={tenant}")
+    assert any(q["idempotencyKey"] == q_idempotency for q in res_get_2.json())
+
+    # 4. A duplicate retry from another tab/queue should be idempotent and not create duplicates
+    with patch("app.peer_qna.save_peer_questions", side_effect=mocked_save):
+        res_sync_dup = client.post("/api/peer-questions", json=payload)
+        assert res_sync_dup.status_code == 200
+
+    res_get_3 = client.get(f"/api/peer-questions?tenant_id={tenant}")
+    matches = [q for q in res_get_3.json() if q["idempotencyKey"] == q_idempotency]
+    assert len(matches) == 1
