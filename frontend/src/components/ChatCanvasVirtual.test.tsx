@@ -216,6 +216,63 @@ test('ChatCanvas resilience against malformed coordinateCards (fuzzing/boundary)
   assert.ok(container.innerHTML.includes('&lt;script&gt;alert(1)&lt;/script&gt;'));
 });
 
+test('ChatCanvas concurrent burst execution (race condition resistance & latency)', async () => {
+  const originalFetch = global.fetch;
+  try {
+    global.fetch = async () => { throw new Error('Network offline'); };
+
+    let savedCalls = 0;
+    const mockSave = async (item: string, location: string, category?: string, notes?: string) => {
+      savedCalls++;
+      // Simulate variable latency between 10ms and 50ms
+      await new Promise(resolve => setTimeout(resolve, 10 + Math.random() * 40));
+    };
+
+    const messages: MessageItem[] = [
+      {
+        id: 'msg-concurrent',
+        sender: 'assistant',
+        text: 'Concurrent Test:',
+        timestamp: '2023-01-01T10:00:00Z',
+        quickAddWidget: { item: 'Concurrent_Item', suggested_location: 'Loc' }
+      }
+    ];
+
+    const { container } = render(
+      <ChatCanvas
+        messages={messages}
+        loading={false}
+        tenantId="or_main"
+        onVerifyPendingMove={async () => {}}
+        onSaveQuickAddItem={mockSave}
+      />
+    );
+
+    const btn = container.querySelector('[data-testid="save-quick-add-btn"]') as HTMLButtonElement;
+    assert.ok(btn, 'save button not found');
+
+    const startTime = Date.now();
+
+    // Fire 50 rapid concurrent click events (burst execution)
+    for (let i = 0; i < 50; i++) {
+      fireEvent.click(btn);
+    }
+
+    // Wait for all simulated asynchronous saves to potentially resolve
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    const latency = Date.now() - startTime;
+
+    // Idempotency: despite 50 clicks, it should only trigger a single save call
+    assert.strictEqual(savedCalls, 1, `Expected exactly 1 save call but got ${savedCalls} under burst execution`);
+
+    // Check that rendering + async handling completes within reasonable bounds
+    assert.ok(latency < 1000, `Latency benchmark failed: burst took ${latency}ms, expected < 1000ms`);
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
 test('ChatCanvas resilience against malformed payloads in quickAddWidget and teachingCard (fuzzing/boundary)', async () => {
   const malformedMessages: MessageItem[] = [
     {
