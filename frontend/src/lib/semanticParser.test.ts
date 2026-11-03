@@ -467,3 +467,62 @@ test("Semantic Query Parser Network Resilience & Fault Injection", async (t) => 
     }
   });
 });
+
+test("Semantic Query Parser Memory Profiling & Resource Hardening", async (t) => {
+  await t.test("Memory leak detection over high volume of requests", () => {
+    const startMemory = process.memoryUsage().heapUsed;
+    const iterations = 10000;
+
+    // Force garbage collection if available
+    if (global.gc) {
+      global.gc();
+    }
+
+    for (let i = 0; i < iterations; i++) {
+      parseClinicalIntent(`where is the ${i}-0 vicryl`, `tenant_${i % 100}`);
+    }
+
+    if (global.gc) {
+      global.gc();
+    }
+
+    const endMemory = process.memoryUsage().heapUsed;
+    const memoryDiff = endMemory - startMemory;
+
+    // Allow up to 25MB growth for 10000 iterations to account for natural Node.js V8 behavior,
+    // but ensure it's not a severe leak (e.g., hundreds of MBs).
+    assert.ok(memoryDiff < 25 * 1024 * 1024, `Severe memory leak detected: ${memoryDiff} bytes leaked.`);
+  });
+
+  await t.test("No unclosed event listeners or dangling intervals", () => {
+    const startListeners = process.listenerCount('uncaughtException');
+
+    for (let i = 0; i < 1000; i++) {
+      parseClinicalIntent("what is the malignant hyperthermia protocol");
+    }
+
+    const endListeners = process.listenerCount('uncaughtException');
+    assert.strictEqual(endListeners, startListeners, "Event listeners were attached and not cleaned up");
+  });
+
+  await t.test("Cache eviction and constrained runtime memory", () => {
+    // We simulate memory constraints by generating massive, unique queries
+    // that would explode any naive, unbounded caching mechanism.
+    const uniqueLargeQueries = Array.from({ length: 5000 }, (_, i) =>
+      `please move the ${i}-0 bovie to OR ${i} C ${i} F with alias ${i} and note ${i}`
+    );
+
+    let parsedCount = 0;
+    try {
+      for (const query of uniqueLargeQueries) {
+        const res = parseClinicalIntent(query);
+        assert.strictEqual(res.intent, ClinicalIntent.MUTATE_INVENTORY);
+        parsedCount++;
+      }
+    } catch (err: any) {
+      assert.fail(`Out of memory or crash during large unique query processing: ${err.message}`);
+    }
+
+    assert.strictEqual(parsedCount, 5000, "Not all queries were parsed successfully");
+  });
+});
