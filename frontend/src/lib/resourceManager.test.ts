@@ -621,6 +621,70 @@ describe("ResourceManagerChecksum", () => {
     );
   });
 
+  test("ResourceManagerChecksum fault injection, network partition degradation, intermittent latency, and self-healing reconnection", async () => {
+    // 1. Setup multi-tenant data
+    const csvContentFac1 = "item,room,cabinet,shelf,container,full_code\nScalpel,Main OR,A,1,A,Main OR A 1 A\n";
+
+    // Simulate network state
+    let networkState = { status: "online" };
+
+    mock.method(global, 'fetch', async (url) => {
+      if (networkState.status === "offline") {
+        throw new TypeError("Failed to fetch"); // Correct way to simulate offline in fetch
+      }
+
+      if (networkState.status === "degraded") {
+        // Intermittent latency
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        text: async () => csvContentFac1
+      };
+    });
+
+    const fac1PackMeta = {
+      packId: "pack_fault_injection",
+      facilityId: "fac1",
+      departmentId: "or",
+      title: "Test Pack 1",
+      category: "department",
+      filePath: "fac1/or/inventory.csv",
+      sizeBytes: 100,
+      versionHash: "v1",
+      updatedAt: "2023-01-01T00:00:00Z"
+    };
+
+    // Phase 1: Try to install pack while network is degraded (intermittent latency)
+    networkState.status = "degraded";
+    await resourceManager.installPack(fac1PackMeta);
+    let fac1Items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    assert.ok(fac1Items && fac1Items.some(i => i.item === "Scalpel"));
+
+    // Clear inventory for next phase
+    await offlineDb?.inventoryItems.clear();
+
+    // Phase 2: Complete network partition (offline)
+    networkState.status = "offline";
+    await assert.rejects(
+      async () => {
+        await resourceManager.installPack(fac1PackMeta);
+      },
+      /Failed to download pack file/
+    );
+    fac1Items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    assert.strictEqual(fac1Items?.length, 0);
+
+    // Phase 3: Self-healing reconnection (online again)
+    networkState.status = "online";
+    await resourceManager.installPack(fac1PackMeta);
+    fac1Items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    assert.ok(fac1Items && fac1Items.some(i => i.item === "Scalpel"));
+
+  });
+
   test("unpackInstalledPacksToDexie hydrates inventory successfully", async () => {
     const csvContent = "item,room,cabinet,shelf,container,full_code\nForceps,Main OR,B,2,C,Main OR B 2 C\n";
     mock.method(global, 'fetch', async () => ({
