@@ -203,3 +203,48 @@ test('boundary inputs and schema enforcement for fuzzing inputs', () => {
         cleanup();
     }
 });
+
+test('high-concurrency and latency benchmarks (stress testing)', async () => {
+    const cardData: CoordinateCardData = {
+        item: 'Item Z', room: 'OR 1', cabinet: '2', shelf: '3', container: '4', full_code: 'OR 1-2-3-4',
+        category: 'Surgical', surgeon_notes: '', pending_location: '', verify_count: 0,
+    };
+
+    const iterations = 50;
+    const start = performance.now();
+
+    const originalFetch = global.fetch;
+    global.fetch = (async () => { throw new Error('Network offline'); }) as any;
+
+    try {
+        await Promise.all(
+            Array.from({ length: iterations }).map(async (_, idx) => {
+                const { queryAllByText, unmount } = render(<CoordinateCard card={cardData} facilityId={`tenant_stress_${idx}`} />);
+
+                const addBtns = screen.getAllByTestId('add-local-alias-btn');
+                fireEvent.click(addBtns[addBtns.length - 1]);
+
+                const inputs = screen.getAllByTestId('add-local-alias-input');
+                fireEvent.change(inputs[inputs.length - 1], { target: { value: `Alias-${idx}` } });
+
+                const saveBtns = screen.getAllByTestId('save-local-alias-btn');
+                fireEvent.click(saveBtns[saveBtns.length - 1]);
+                fireEvent.click(saveBtns[saveBtns.length - 1]);
+                fireEvent.click(saveBtns[saveBtns.length - 1]);
+
+                await waitFor(() => {
+                    const found = queryAllByText(`Alias-${idx}`);
+                    assert.ok(found.length > 0);
+                });
+
+                unmount();
+            })
+        );
+    } finally {
+        global.fetch = originalFetch;
+    }
+
+    const end = performance.now();
+    const duration = end - start;
+    assert.ok(duration < 5000, `Latency benchmark failed: took ${duration}ms`);
+});
