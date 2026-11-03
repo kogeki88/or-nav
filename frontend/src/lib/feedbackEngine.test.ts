@@ -264,8 +264,12 @@ test("FeedbackEngine - Malformed Payload Resilience & Strict schema validation f
 });
 
 test("FeedbackEngine - Extended multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency", async (t) => {
+
+  // Allow any background fetches from previous tests to fail and enqueue
+  await new Promise(r => setTimeout(r, 50));
   localStorage.clear();
   localStorage.setItem(FEEDBACK_OFFLINE_QUEUE_KEY, "[]");
+
 
   const originalFetch = global.fetch;
   let networkFails = true;
@@ -413,6 +417,112 @@ test("FeedbackEngine - High-Concurrency & Stress Benchmarks", async (t) => {
 
     // Drain queue to ensure no local crashes during batch processing
     await drainFeedbackQueue();
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
+
+test("FeedbackEngine - Fault Injection, Intermittent Latency, and Network Partition Resilience", async (t) => {
+
+  // Allow any background fetches from previous tests to fail and enqueue
+  await new Promise(r => setTimeout(r, 50));
+  localStorage.clear();
+  localStorage.setItem(FEEDBACK_OFFLINE_QUEUE_KEY, "[]");
+
+
+  const originalFetch = global.fetch;
+
+  // Network State
+  let networkState = "online";
+  let fetchCallCount = 0;
+  let latencyMs = 0;
+
+  global.fetch = async (input, init) => {
+    fetchCallCount++;
+    if (latencyMs > 0) {
+      await new Promise(r => setTimeout(r, latencyMs));
+    }
+
+    if (networkState === "offline") {
+      throw new TypeError("Failed to fetch");
+    } else if (networkState === "partitioned") {
+      // Simulate flaky network - 500 error or random timeout
+      throw new TypeError("Failed to fetch");
+    }
+
+    return { ok: true, status: 200 } as any;
+  };
+
+  try {
+    // 1. Initial online state, low latency
+    latencyMs = 10;
+    networkState = "online";
+
+
+
+    const item1 = await submitManualFeedback({
+      rawText: "Test item 1",
+      userProfile: { facilityId: "tenant_F", departmentId: "icu" }
+    });
+
+    // Give time for fetch to complete successfully
+    await new Promise(r => setTimeout(r, 20));
+
+    assert.strictEqual(getOfflineQueue().length, 0, "Online queue should be empty");
+
+
+
+    // 2. Introduce Network Partition / Intermittent Failures
+    networkState = "partitioned";
+
+    // Attempt mutation
+
+    await upvoteFeedback(item1.id);
+    await updateFeedbackStatus(item1.id, "in_progress");
+
+    // Allow background fetches to fail and enqueue
+    await new Promise(r => setTimeout(r, 10));
+
+
+    const partitionQueue = getOfflineQueue();
+    assert.strictEqual(partitionQueue.length, 2, "Mutations during partition must be queued");
+
+    // Try draining during partition - should fail gracefully and increment backoff
+    await drainFeedbackQueue();
+    const afterDrainQueue = getOfflineQueue();
+    assert.strictEqual(afterDrainQueue.length, 2, "Queue should retain items on partition drain failure");
+    assert.ok(afterDrainQueue[0].retryCount > 0, "Retry count must increment");
+
+    // 3. Self-healing / Reconnection
+    networkState = "online";
+    latencyMs = 50; // Some latency
+
+    // Fast-forward lastAttempt to bypass backoff
+    afterDrainQueue.forEach(q => q.lastAttempt = Date.now() - 5000);
+    localStorage.setItem(FEEDBACK_OFFLINE_QUEUE_KEY, JSON.stringify(afterDrainQueue));
+
+    await drainFeedbackQueue();
+
+    const healedQueue = getOfflineQueue();
+    assert.strictEqual(healedQueue.length, 0, "Queue must be empty after self-healing drain");
+
+    // Ensure local data integrity matches expectations
+    const finalItems = getLocalFeedback();
+    const finalItem = finalItems.find(i => i.id === item1.id)!;
+    assert.strictEqual(finalItem.status, "in_progress");
+    assert.strictEqual(finalItem.upvotes, item1.upvotes + 1);
+
+    // 4. Fault injection: Simulated 500 Server Error
+
+
+    global.fetch = async () => { throw new TypeError("Failed to fetch"); };
+    await upvoteFeedback(item1.id);
+    await new Promise(r => setTimeout(r, 10));
+
+    const errorQueue = getOfflineQueue();
+    assert.strictEqual(errorQueue.length, 1, "Network errors must trigger offline queueing fallback");
+
+
   } finally {
     global.fetch = originalFetch;
   }
