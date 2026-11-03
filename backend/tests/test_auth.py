@@ -90,3 +90,89 @@ def test_update_profile():
     data = response.json()
     assert data["onboardingCompleted"] is True
     assert data["profile"]["fullName"] == "Profile User"
+
+def test_register_fuzzing_and_boundaries():
+    # Invalid emails
+    for i, invalid_email in enumerate(["not-an-email", "missing-at.com", "@missing-local.com", "space in@email.com", ""]):
+        res = client.post("/api/auth/register", json={"email": invalid_email, "password": "password123"})
+        if res.status_code != 400:
+            print(f"FAILED EMAIL: '{invalid_email}' got {res.status_code}")
+        assert res.status_code == 400
+
+    # Invalid passwords (boundary - less than 4 chars)
+    for i, invalid_pw in enumerate(["", "12", "123", "   "]):
+        res = client.post("/api/auth/register", json={"email": f"valid_pw_{i}@email.com", "password": invalid_pw})
+        if res.status_code != 400:
+            print(f"FAILED PW: '{invalid_pw}' got {res.status_code}")
+        assert res.status_code == 400
+
+    # Malformed payload (missing fields)
+    res = client.post("/api/auth/register", json={"email": "valid2@email.com"})
+    assert res.status_code == 422
+
+    res = client.post("/api/auth/register", json={"password": "password123"})
+    assert res.status_code == 422
+
+    # Malformed JSON
+    res = client.post("/api/auth/register", content="Not a json")
+    assert res.status_code == 422
+
+def test_login_fuzzing():
+    # Invalid email login attempt
+    for invalid_email in ["not-an-email", "", "   "]:
+        res = client.post("/api/auth/login", json={"email": invalid_email, "password": "password123"})
+        assert res.status_code == 401
+
+    # Missing fields
+    res = client.post("/api/auth/login", json={"email": "valid@email.com"})
+    assert res.status_code == 422
+
+def test_reset_password_fuzzing():
+    for invalid_email in ["not-an-email", "", "   "]:
+        res = client.post("/api/auth/reset-password", json={"email": invalid_email, "newPassword": "password123"})
+        assert res.status_code == 404
+
+    # Missing new password
+    res = client.post("/api/auth/reset-password", json={"email": "valid@email.com"})
+    assert res.status_code == 400
+
+def test_profile_schema_validation():
+    # Invalid profile schema (nested dict expected but got string)
+    res = client.put("/api/auth/profile", json={"userId": "123", "profile": "string instead of dict"})
+    assert res.status_code == 422
+
+def test_offline_first_invariant(monkeypatch):
+    import httpx
+    def mock_post(*args, **kwargs):
+        raise httpx.NetworkError("Network is disconnected")
+    monkeypatch.setattr(httpx, 'post', mock_post)
+
+    # We should still be able to authenticate and register locally when offline
+    res = client.post("/api/auth/register", json={"email": "offline@hospital.org", "password": "password123"})
+    assert res.status_code == 200
+
+    res = client.post("/api/auth/login", json={"email": "offline@hospital.org", "password": "password123"})
+    assert res.status_code == 200
+
+def test_multi_tenant_isolation_invariant(tmp_path, monkeypatch):
+    import app.auth
+
+    # Tenant A
+    tenant_a_dir = tmp_path / "tenant_a"
+    tenant_a_dir.mkdir()
+    monkeypatch.setattr(app.auth, "USERS_FILE", tenant_a_dir / "users.json")
+    client.post("/api/auth/register", json={"email": "user@tenant-a.com", "password": "password123"})
+
+    # Tenant B
+    tenant_b_dir = tmp_path / "tenant_b"
+    tenant_b_dir.mkdir()
+    monkeypatch.setattr(app.auth, "USERS_FILE", tenant_b_dir / "users.json")
+    client.post("/api/auth/register", json={"email": "user@tenant-b.com", "password": "password123"})
+
+    # Check Tenant B doesn't see Tenant A
+    res = client.post("/api/auth/login", json={"email": "user@tenant-a.com", "password": "password123"})
+    assert res.status_code == 401
+
+    # Check Tenant B sees Tenant B
+    res = client.post("/api/auth/login", json={"email": "user@tenant-b.com", "password": "password123"})
+    assert res.status_code == 200
