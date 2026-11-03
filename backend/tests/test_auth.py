@@ -176,3 +176,43 @@ def test_multi_tenant_isolation_invariant(tmp_path, monkeypatch):
     # Check Tenant B sees Tenant B
     res = client.post("/api/auth/login", json={"email": "user@tenant-b.com", "password": "password123"})
     assert res.status_code == 200
+
+def test_offline_mutation_replay_idempotency():
+    res1 = client.put("/api/auth/profile", json={
+        "email": "idempotent@hospital.org",
+        "facilityId": "sacred_heart",
+        "departmentId": "sacred_heart::or",
+        "clinicalRole": "RN"
+    })
+    assert res1.status_code == 200
+    profile1 = res1.json()["profile"]
+
+    res2 = client.put("/api/auth/profile", json={
+        "email": "idempotent@hospital.org",
+        "facilityId": "sacred_heart",
+        "departmentId": "sacred_heart::or",
+        "clinicalRole": "RN"
+    })
+    assert res2.status_code == 200
+    profile2 = res2.json()["profile"]
+
+    assert profile1 == profile2
+
+def test_multi_tenant_boundary_enforcement():
+    res = client.put("/api/auth/profile", json={
+        "email": "tenant1@hospital.org",
+        "facilityId": "fac1",
+        "departmentId": "fac1::dept1"
+    })
+    assert res.status_code == 200
+    assert res.json()["profile"]["facilityId"] == "fac1"
+    assert res.json()["profile"]["departmentId"] == "fac1::dept1"
+
+    res_b = client.put("/api/auth/profile", json={
+        "email": "tenant2@hospital.org",
+        "facilityId": "fac2",
+        "departmentId": "fac2::dept2"
+    })
+    assert res_b.status_code == 200
+    assert res_b.json()["profile"]["facilityId"] == "fac2"
+    assert res_b.json()["profile"]["departmentId"] == "fac2::dept2"
