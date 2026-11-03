@@ -28,8 +28,13 @@ export class LiveKitAudioVisualizer {
     if (!track || typeof track.on !== 'function') {
       throw new Error('Invalid audio track provided');
     }
+    if (this.track) {
+      this.track.off('muted', this.handleMuted);
+      this.track.off('unmuted', this.handleUnmuted);
+    }
     this.track = track;
     this.track.on('muted', this.handleMuted);
+    this.track.on('unmuted', this.handleUnmuted);
 
     const draw = () => {
       if (this.canvasCtx) {
@@ -38,11 +43,26 @@ export class LiveKitAudioVisualizer {
       }
       this.animationFrameId = requestAnimationFrame(draw);
     };
-    this.animationFrameId = requestAnimationFrame(draw);
+    if (this.animationFrameId === null) {
+      this.animationFrameId = requestAnimationFrame(draw);
+    }
   }
 
   private handleMuted = () => {
     this.stop();
+  };
+
+  private handleUnmuted = () => {
+    if (this.track && this.animationFrameId === null) {
+      const draw = () => {
+        if (this.canvasCtx) {
+          this.canvasCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+          // Draw visualizer bars based on audio track frequencies
+        }
+        this.animationFrameId = requestAnimationFrame(draw);
+      };
+      this.animationFrameId = requestAnimationFrame(draw);
+    }
   };
 
   stop() {
@@ -55,6 +75,7 @@ export class LiveKitAudioVisualizer {
   disconnect() {
     if (this.track) {
       this.track.off('muted', this.handleMuted);
+      this.track.off('unmuted', this.handleUnmuted);
       this.track = null;
     }
     this.stop();
