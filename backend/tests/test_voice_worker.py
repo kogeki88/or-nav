@@ -530,3 +530,66 @@ async def test_supplementary_offline_mutation_replay_idempotency_multi_tenant(mo
         tenant_id="county_general::er"
     )
     assert "could not locate" in spoken_cvor.lower()
+
+@pytest.mark.asyncio
+async def test_fault_injection_intermittent_latency_and_reconnection(monkeypatch):
+    """Test network partition degradation, intermittent latency, and self-healing reconnection."""
+    network_state = {"status": "online", "latency": 0.0}
+
+    import socket
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        if network_state["status"] == "offline":
+            raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+        if network_state["latency"] > 0:
+            time.sleep(network_state["latency"])
+
+        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
+        if family != getattr(socket, 'AF_UNIX', -1):
+            if network_state["status"] == "offline":
+                 raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+        return original_socket(*args, **kwargs)
+
+    def mock_httpx_raise(*args, **kwargs):
+        if network_state["status"] == "offline":
+            raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+        if network_state["latency"] > 0:
+            time.sleep(network_state["latency"])
+        raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+    monkeypatch.setattr("socket.socket", mock_socket)
+    monkeypatch.setattr("httpx.get", mock_httpx_raise)
+    monkeypatch.setattr("httpx.post", mock_httpx_raise)
+    monkeypatch.setattr("httpx.request", mock_httpx_raise)
+
+    # 1. Start Online (Latency = 0)
+    network_state["status"] = "online"
+    network_state["latency"] = 0.0
+    res1 = await lookup_item_location(item_query="3-0 silk", tenant_id="general_memorial_cvor")
+    assert "3-0 Silk Suture" in res1
+
+    # 2. Intermittent Latency
+    network_state["latency"] = 0.05
+    start = time.time()
+    res2 = await lookup_item_location(item_query="rapid infuser", tenant_id="general_memorial/er")
+    end = time.time()
+    assert "Belmont" in res2
+    assert (end - start) >= 0.05
+
+    # 3. Network Partition (Offline)
+    network_state["status"] = "offline"
+    network_state["latency"] = 0.0
+    res3 = await lookup_item_location(item_query="rapid infuser", tenant_id="general_memorial/er")
+    assert "Belmont" in res3 and "Rapid Infuser" in res3
+
+    res4 = await report_item_move(item_name="3-0 silk", new_location="OR 10", tenant_id="general_memorial_cvor")
+    assert "Relocation logged" in res4
+
+    # Multi-tenant isolation check while offline
+    res_isolated = await lookup_item_location(item_query="rapid infuser", tenant_id="general_memorial_cvor")
+    assert "could not locate" in res_isolated.lower()
+
+    # 4. Self-Healing Reconnection (Online)
+    network_state["status"] = "online"
+    res5 = await lookup_item_location(item_query="3-0 silk", tenant_id="general_memorial_cvor")
+    assert "3-0 Silk Suture" in res5
