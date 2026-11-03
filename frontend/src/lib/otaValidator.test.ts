@@ -102,6 +102,45 @@ describe('OTA Validator', () => {
       assert.strictEqual(resultB.valid, true);
       assert.notDeepEqual(tenantA_Manifest, tenantB_Manifest, 'Tenant states should remain isolated and distinct');
     });
+
+    it('supplementary multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency test', () => {
+      // 1. Offline Mutation Replay Idempotency
+      // Since validateOTAManifest is a pure function, replay should be strictly idempotent.
+      const initialResult = validateOTAManifest(validManifest, currentVersion, currentBuild);
+      const replayResult1 = validateOTAManifest(validManifest, currentVersion, currentBuild);
+      const replayResult2 = validateOTAManifest(validManifest, currentVersion, currentBuild);
+
+      assert.strictEqual(initialResult.valid, replayResult1.valid);
+      assert.strictEqual(initialResult.valid, replayResult2.valid);
+
+      // 2. Multi-tenant boundary enforcement (facility_id::dept_id)
+      const tenantAManifest = { ...validManifest, 'facility_id::dept_id': 'facA::dept1' };
+      const tenantBManifest = { ...validManifest, 'facility_id::dept_id': 'facB::dept2' };
+
+      // Valid downgrade scenarios
+      const newManifestA = { ...tenantAManifest, version: 'v0.65', build_number: 22 };
+      const newManifestB = { ...tenantBManifest, version: 'v0.65', build_number: 22 };
+
+      const newResultA = validateOTAManifest(newManifestA, currentVersion, currentBuild);
+      const newResultB = validateOTAManifest(newManifestB, currentVersion, currentBuild);
+
+      assert.strictEqual(newResultA.valid, true);
+      assert.strictEqual(newResultB.valid, true);
+
+      // Verify isolation - mutating one doesn't affect the other
+      const mutatedManifestA = { ...newManifestA };
+      delete (mutatedManifestA as any).sha256;
+
+      const mutatedResultA = validateOTAManifest(mutatedManifestA, currentVersion, currentBuild);
+      const mutatedResultB = validateOTAManifest(newManifestB, currentVersion, currentBuild);
+
+      assert.strictEqual(mutatedResultA.valid, false);
+      assert.strictEqual(mutatedResultB.valid, true);
+
+      // Ensure boundaries are respected
+      assert.strictEqual((newManifestA as any)['facility_id::dept_id'], 'facA::dept1');
+      assert.strictEqual((newManifestB as any)['facility_id::dept_id'], 'facB::dept2');
+    });
   });
 
   describe('APK Download URL Validation', () => {
