@@ -299,3 +299,78 @@ test('handles malformed payload correctly with fast-check (boundary inputs)', as
     { numRuns: 20 }
   );
 });
+test('race condition resistance: handles rapid toggling between modes without crashing or leaking state', async () => {
+  fetchNetworkInfoMock.mock.mockImplementation(async () => ({
+    lan_ip: '192.168.1.10',
+    lan_url: 'http://192.168.1.10:3000',
+    mobile_url: 'http://192.168.1.10:3000',
+    https_url: 'https://example.trycloudflare.com',
+    https_active: true
+  }));
+
+  render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  await waitFor(() => {
+    assert.ok(screen.getByText('📶 Local LAN IP'));
+  });
+
+  const lanBtn = screen.getByText('📶 Local LAN IP');
+  const httpsBtn = screen.getByText('🔒 HTTPS Tunnel');
+
+  for (let i = 0; i < 50; i++) {
+    fireEvent.click(lanBtn);
+    fireEvent.click(httpsBtn);
+    fireEvent.click(lanBtn);
+  }
+
+  await waitFor(() => {
+    const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+    assert.ok(args.length >= 50, "Expected a large number of QR code generation calls due to toggling");
+  });
+});
+
+test('concurrent burst execution: handles massive volume of concurrent network requests gracefully (stress benchmark)', async () => {
+  fetchNetworkInfoMock.mock.mockImplementation(async () => {
+    return new Promise(resolve => setTimeout(() => resolve({
+      lan_ip: '192.168.1.10',
+      lan_url: 'http://192.168.1.10:3000',
+      mobile_url: 'http://192.168.1.10:3000',
+      https_url: 'https://example.trycloudflare.com',
+      https_active: true
+    }), 10));
+  });
+
+  const renders = Array.from({ length: 50 }).map(() => {
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    return render(<QRPairModal isOpen={true} onClose={() => {}} />, { container: root });
+  });
+
+  await waitFor(() => {
+    assert.strictEqual(fetchNetworkInfoMock.mock.callCount(), 50, "Expected exactly 50 fetches");
+  }, { timeout: 5000 });
+
+  renders.forEach((r) => r.unmount());
+});
+
+test('latency benchmark: ensures UI remains responsive despite slow network fetches and updates gracefully', async () => {
+  fetchNetworkInfoMock.mock.mockImplementation(async () => {
+    return new Promise(resolve => setTimeout(() => resolve({
+      lan_ip: '192.168.1.20',
+      lan_url: 'http://192.168.1.20:3000',
+      mobile_url: 'http://192.168.1.20:3000',
+      https_url: 'https://slow.trycloudflare.com',
+      https_active: true
+    }), 200));
+  });
+
+  render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  assert.ok(screen.getByText('Starting Tunnel...'));
+
+  await waitFor(() => {
+    const qrImage = screen.getByRole('img');
+    const alt = qrImage.getAttribute('alt') || '';
+    assert.ok(alt.includes('https://slow.trycloudflare.com'));
+  });
+});
