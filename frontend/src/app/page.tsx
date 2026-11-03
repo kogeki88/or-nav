@@ -804,6 +804,50 @@ export default function Home() {
   };
 
   // Implicit slang learning confirmation handler (Pathway B)
+  // ⚡ Bolt Optimization: Memoized inline handler to prevent unnecessary re-renders of ChatCanvas and its virtualized lists.
+  // Impact: Reduces re-renders of ChatCanvas by avoiding new function instances on every page render.
+  const handleSaveQuickAddItem = useCallback(async (item: string, loc: string, cat?: string, notes?: string) => {
+    try {
+      const card = await addInventoryItemApi(item, loc, selectedTenant, cat || "Supplies", notes || "");
+      awardClinicalXP("inventory_fix", `Added "${card.item}" to Inventory (+5 XP)`);
+
+      let confirmText = `✓ Added "${card.item}" to ${card.full_code}.`;
+      if (notes) {
+        const mAl = notes.match(/(?:also\s+called|aka|alias)[:\s]+([^;\.]+)/i);
+        if (mAl) {
+          const al = mAl[1].trim();
+          if (al) {
+            confirmText += `\n\n🧠 Also learned facility alias: "${titleCaseTerm(al)}" ↔ ${card.item}.`;
+          }
+        }
+      }
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `sys-${Date.now()}`,
+          sender: "assistant",
+          text: confirmText,
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          coordinateCard: card,
+          coordinateCards: [card],
+          routingTier: "TIER_1_LOCAL_CSV",
+        },
+      ]);
+    } catch (err) {
+      console.error("Failed to add inventory item:", err);
+    }
+  }, [selectedTenant]);
+
+  // ⚡ Bolt Optimization: Memoized to prevent unnecessary re-renders of ChatCanvas and its virtualized lists.
+  const handleAskDepartmentPeers = useCallback((qContext?: string) => {
+    setPeerQnAPrefill(qContext || "");
+    setPeerQnAOpen(true);
+  }, []);
+
   const handleConfirmImplicitLearn = async (slangTerm: string, canonicalItem: string) => {
     try {
       const facId = selectedTenant.includes("::") ? selectedTenant.split("::")[0] : selectedTenant;
@@ -1303,45 +1347,8 @@ export default function Home() {
           onSpeakSingleMessage={speakSingleMessage}
           onStarterChipClick={handleSendMessage}
           onConfirmImplicitLearn={handleConfirmImplicitLearn}
-          onSaveQuickAddItem={async (item, loc, cat, notes) => {
-            try {
-              const card = await addInventoryItemApi(item, loc, selectedTenant, cat || "Supplies", notes || "");
-              awardClinicalXP("inventory_fix", `Added "${card.item}" to Inventory (+5 XP)`);
-
-              let confirmText = `✓ Added "${card.item}" to ${card.full_code}.`;
-              if (notes) {
-                const mAl = notes.match(/(?:also\s+called|aka|alias)[:\s]+([^;\.]+)/i);
-                if (mAl) {
-                  const al = mAl[1].trim();
-                  if (al) {
-                    confirmText += `\n\n🧠 Also learned facility alias: "${titleCaseTerm(al)}" ↔ ${card.item}.`;
-                  }
-                }
-              }
-
-              setMessages((prev) => [
-                ...prev,
-                {
-                  id: `sys-${Date.now()}`,
-                  sender: "assistant",
-                  text: confirmText,
-                  timestamp: new Date().toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }),
-                  coordinateCard: card,
-                  coordinateCards: [card],
-                  routingTier: "TIER_1_LOCAL_CSV",
-                },
-              ]);
-            } catch (err) {
-              console.error("Failed to add inventory item:", err);
-            }
-          }}
-          onAskDepartmentPeers={(qContext) => {
-            setPeerQnAPrefill(qContext || "");
-            setPeerQnAOpen(true);
-          }}
+          onSaveQuickAddItem={handleSaveQuickAddItem}
+          onAskDepartmentPeers={handleAskDepartmentPeers}
         />
 
         {/* Unified Bottom Omnibar with PTT & Voice Mode */}
