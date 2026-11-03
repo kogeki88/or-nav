@@ -112,6 +112,45 @@ describe('ResourceInspectorModal', () => {
     expect(end - start).toBeLessThan(1500);
   });
 
+    it('enforces offline mutation replay idempotency and multi-tenant boundary for createOfflineInventoryItem', async () => {
+    const { createOfflineInventoryItem } = await import('@/lib/offlineDb');
+    vi.mocked(createOfflineInventoryItem).mockImplementation((tenantId, itemData) => {
+      return new Promise(resolve => {
+        setTimeout(() => resolve({ ...itemData, id: '123' }), 50);
+      });
+    });
+    vi.mocked(createOfflineInventoryItem).mockClear();
+
+    await act(async () => {
+      render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId="sacred_heart::or_main" />);
+    });
+
+    const addItemBtn = screen.getByTestId('btn-add-inventory-item');
+    await userEvent.click(addItemBtn);
+
+    const itemInput = screen.getByTestId('input-new-item-name');
+    await userEvent.type(itemInput, 'New Scalpel');
+
+    const saveBtn = screen.getByTestId('btn-save-new-item');
+
+    await act(async () => {
+        saveBtn.click();
+        saveBtn.click();
+        saveBtn.click();
+    });
+
+    await waitFor(() => {
+        expect(createOfflineInventoryItem).toHaveBeenCalledWith('sacred_heart::or_main', expect.objectContaining({ item: 'New Scalpel' }));
+    });
+
+    expect(createOfflineInventoryItem).toHaveBeenCalledTimes(1);
+
+    // Wait for the mock promise to resolve to prevent act() warning
+    await waitFor(() => {
+        expect(screen.queryByTestId('btn-save-new-item')).toBeNull(); // Wait for form to close
+    });
+  });
+
   it('enforces offline-first invariants by surviving network failures', async () => {
     const originalFetch = global.fetch;
     global.fetch = vi.fn(() => Promise.reject(new TypeError('Failed to fetch')));
