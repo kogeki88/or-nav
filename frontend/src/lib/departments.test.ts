@@ -1,4 +1,4 @@
-import { describe, test, beforeEach, afterEach } from "node:test";
+import { describe, test, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import {
   DEPARTMENTS,
@@ -160,13 +160,46 @@ describe("Departments Configuration and Lookups", () => {
       ls.getItem = (key: string) => mockStorage.get(key) || null;
       ls.setItem = (key: string, value: string) => mockStorage.set(key, value);
     });
+
+    test("should enforce strict multi-tenant boundary isolation using facility_id::dept_id format", () => {
+      const facilityA_Storage = new Map<string, string>();
+      const facilityB_Storage = new Map<string, string>();
+      const ls = (global as { localStorage?: any }).localStorage;
+
+      // Facility A Tenant Isolation
+      ls.getItem = (key: string) => facilityA_Storage.get(key) || null;
+      ls.setItem = (key: string, value: string) => facilityA_Storage.set(key, value);
+
+      const tenantAId = "facility_a::or_main";
+      setActiveDepartmentId(tenantAId);
+
+      // Verify isolation
+      assert.strictEqual(getActiveDepartmentId(), tenantAId);
+
+      // Facility B Tenant Isolation
+      ls.getItem = (key: string) => facilityB_Storage.get(key) || null;
+      ls.setItem = (key: string, value: string) => facilityB_Storage.set(key, value);
+
+      const tenantBId = "facility_b::icu_critical_care";
+      setActiveDepartmentId(tenantBId);
+
+      assert.strictEqual(getActiveDepartmentId(), tenantBId);
+
+      // Ensure cross-tenant data didn't leak
+      ls.getItem = (key: string) => facilityA_Storage.get(key) || null;
+      assert.strictEqual(getActiveDepartmentId(), tenantAId);
+
+      // Restore default mockStorage behavior
+      ls.getItem = (key: string) => mockStorage.get(key) || null;
+      ls.setItem = (key: string, value: string) => mockStorage.set(key, value);
+    });
   });
 
   describe("Offline-first invariants", () => {
     test("should maintain configuration and contract invariants offline without network access", async () => {
       const originalFetch = global.fetch;
       try {
-        global.fetch = async () => { throw new Error('Network offline'); };
+        global.fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
 
         setActiveDepartmentId("pacu_periop");
         assert.strictEqual(getActiveDepartmentId(), "pacu_periop");
@@ -183,18 +216,30 @@ describe("Departments Configuration and Lookups", () => {
     test("offline mutation replay idempotency simulation (storage unavailability)", () => {
       const originalLocalStorage = (global as any).localStorage;
       try {
+        let attempts = 0;
         (global as any).localStorage = {
           getItem: () => { throw new Error("Storage offline"); },
-          setItem: () => { throw new Error("Storage offline"); },
+          setItem: () => {
+            attempts++;
+            throw new Error("Storage offline");
+          },
         };
+
+        // Mutation 1
+        assert.doesNotThrow(() => {
+          setActiveDepartmentId("icu_critical_care");
+        });
+
+        // Mutation 2 (Replay)
+        assert.doesNotThrow(() => {
+          setActiveDepartmentId("icu_critical_care");
+        });
+
+        assert.strictEqual(attempts, 2);
 
         assert.doesNotThrow(() => {
           const id = getActiveDepartmentId();
           assert.strictEqual(id, DEFAULT_DEPARTMENT_ID);
-        });
-
-        assert.doesNotThrow(() => {
-          setActiveDepartmentId("icu_critical_care");
         });
       } finally {
         (global as any).localStorage = originalLocalStorage;
@@ -238,7 +283,7 @@ describe("Departments Configuration and Lookups", () => {
     test("concurrent burst under offline-first network failure", async () => {
       const originalFetch = global.fetch;
       try {
-        global.fetch = async () => { throw new Error('Network offline'); };
+        global.fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
 
         const promises = Array.from({ length: 1000 }, async () => {
           setActiveDepartmentId("pacu_periop");

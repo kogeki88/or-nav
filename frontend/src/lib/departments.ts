@@ -96,8 +96,18 @@ export function getActiveDepartmentId(): string {
   if (typeof window !== "undefined") {
     try {
       const saved = localStorage.getItem(LOCAL_STORAGE_DEPT_KEY);
-      if (saved && (DEPARTMENTS[saved] || saved === "general_memorial_cvor")) {
-        return saved === "general_memorial_cvor" ? DEFAULT_DEPARTMENT_ID : saved;
+      if (saved) {
+        if (saved === "general_memorial_cvor") return DEFAULT_DEPARTMENT_ID;
+
+        let deptId = saved;
+        if (saved.includes("::")) {
+          const parts = saved.split("::");
+          deptId = parts[1];
+        }
+
+        if (DEPARTMENTS[deptId]) {
+          return saved;
+        }
       }
     } catch (error) {
       console.warn("Storage unavailable, falling back to default department");
