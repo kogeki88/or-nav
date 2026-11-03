@@ -80,6 +80,8 @@ export default function ResourceInspectorModal({
 
   const [activeTab, setActiveTab] = useState<TabType>("inventory");
   const [loading, setLoading] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const submitRef = useRef<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: "success" | "error" | "info" } | null>(null);
 
   // Tab 1: Inventory state
@@ -264,6 +266,9 @@ export default function ResourceInspectorModal({
 
   const handleSaveEditItem = async () => {
     if (!editingItem) return;
+    if (submitRef.current) return;
+    submitRef.current = true;
+    setIsSubmitting(true);
     try {
       const updated = await updateOfflineInventoryItem(activeTenant, editingItem.id || editingItem.item, {
         item: editingItem.item,
@@ -285,6 +290,9 @@ export default function ResourceInspectorModal({
       }
     } catch {
       showStatus("Error saving inventory item.", "error");
+    } finally {
+      setIsSubmitting(false);
+      submitRef.current = false;
     }
   };
 
@@ -309,6 +317,9 @@ export default function ResourceInspectorModal({
       showStatus("Item name is required.", "error");
       return;
     }
+    if (submitRef.current) return;
+    submitRef.current = true;
+    setIsSubmitting(true);
     try {
       const created = await createOfflineInventoryItem(activeTenant, {
         item: newItemData.item.trim(),
@@ -336,6 +347,9 @@ export default function ResourceInspectorModal({
       onDataChanged?.();
     } catch {
       showStatus("Error creating inventory item.", "error");
+    } finally {
+      setIsSubmitting(false);
+      submitRef.current = false;
     }
   };
 
@@ -348,6 +362,9 @@ export default function ResourceInspectorModal({
       showStatus("Surgeon and procedure are required.", "error");
       return;
     }
+    if (submitRef.current) return;
+    submitRef.current = true;
+    setIsSubmitting(true);
     try {
       const saved = await saveOfflinePreferenceCard(activeTenant, cardToSave);
       showStatus(`Saved preference card for ${saved.surgeon}`);
@@ -358,6 +375,9 @@ export default function ResourceInspectorModal({
       onDataChanged?.();
     } catch {
       showStatus("Failed to save preference card.", "error");
+    } finally {
+      setIsSubmitting(false);
+      submitRef.current = false;
     }
   };
 
@@ -841,7 +861,8 @@ export default function ResourceInspectorModal({
                     <button
                       onClick={handleCreateItem}
                       data-testid="btn-save-new-item"
-                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow"
+                      disabled={isSubmitting}
+                      className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow disabled:opacity-50"
                     >
                       Save Item
                     </button>
@@ -1207,7 +1228,8 @@ export default function ResourceInspectorModal({
                               <button
                                 onClick={() => handleSaveCard(selectedCard)}
                                 data-testid="btn-save-preference-card"
-                                className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-lg flex items-center gap-1 shadow"
+                                disabled={isSubmitting}
+                                className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-lg flex items-center gap-1 shadow disabled:opacity-50"
                               >
                                 <Save className="w-3.5 h-3.5" /> Save Card
                               </button>
