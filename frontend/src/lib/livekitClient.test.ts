@@ -243,3 +243,86 @@ describe("Fuzzing & Invariants", () => {
     }
   });
 });
+
+describe("Fault Injection, Network Partition & Self-Healing", () => {
+  let originalRequestAnimationFrame: typeof global.requestAnimationFrame;
+  let originalCancelAnimationFrame: typeof global.cancelAnimationFrame;
+  let requestAnimationFrameSpy: ReturnType<typeof mock.fn>;
+  let cancelAnimationFrameSpy: ReturnType<typeof mock.fn>;
+
+  beforeEach(() => {
+    originalRequestAnimationFrame = global.requestAnimationFrame;
+    originalCancelAnimationFrame = global.cancelAnimationFrame;
+
+    requestAnimationFrameSpy = mock.fn((cb: FrameRequestCallback) => 123);
+    cancelAnimationFrameSpy = mock.fn((id: number) => { return; });
+
+    global.requestAnimationFrame = requestAnimationFrameSpy as unknown as typeof global.requestAnimationFrame;
+    global.cancelAnimationFrame = cancelAnimationFrameSpy as unknown as typeof global.cancelAnimationFrame;
+  });
+
+  afterEach(() => {
+    mock.restoreAll();
+    global.requestAnimationFrame = originalRequestAnimationFrame;
+    global.cancelAnimationFrame = originalCancelAnimationFrame;
+  });
+
+  it("should handle intermittent network degradation and self-heal on reconnection", async () => {
+    const canvas = document.createElement('canvas');
+    canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+    const visualizer = new LiveKitAudioVisualizer(canvas);
+    const mockTrack = new MockAudioTrack();
+
+    visualizer.start(mockTrack as unknown as LocalAudioTrack);
+    assert.strictEqual(requestAnimationFrameSpy.mock.calls.length, 1);
+
+    // Simulate network partition/degradation causing 'muted'
+    const mutedListeners = mockTrack.getListeners('muted');
+    assert.strictEqual(mutedListeners.length, 1);
+    mutedListeners[0]();
+
+    // verify stopped
+    assert.strictEqual((visualizer as unknown as { animationFrameId: number | null }).animationFrameId, null);
+    assert.strictEqual(cancelAnimationFrameSpy.mock.calls.length, 1);
+
+    // Simulate self-healing on network recovery causing 'unmuted'
+    const unmutedListeners = mockTrack.getListeners('unmuted');
+    assert.strictEqual(unmutedListeners.length, 1);
+    unmutedListeners[0]();
+
+    // verify started again
+    assert.strictEqual(requestAnimationFrameSpy.mock.calls.length, 2);
+    assert.notStrictEqual((visualizer as unknown as { animationFrameId: number | null }).animationFrameId, null);
+
+    visualizer.dispose();
+  });
+
+  it("should handle out-of-order or duplicate event sequences gracefully without crashing or leaking timers", async () => {
+    const canvas = document.createElement('canvas');
+    canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+    const visualizer = new LiveKitAudioVisualizer(canvas);
+    const mockTrack = new MockAudioTrack();
+
+    visualizer.start(mockTrack as unknown as LocalAudioTrack);
+
+    const mutedListeners = mockTrack.getListeners('muted');
+    const unmutedListeners = mockTrack.getListeners('unmuted');
+
+    // Multiple unmuted events while already running
+    unmutedListeners[0]();
+    unmutedListeners[0]();
+    assert.strictEqual(requestAnimationFrameSpy.mock.calls.length, 1); // should not trigger new timer
+
+    // Multiple muted events
+    mutedListeners[0]();
+    mutedListeners[0]();
+    assert.strictEqual(cancelAnimationFrameSpy.mock.calls.length, 1); // Only gets called once because stop sets it to null
+    assert.strictEqual((visualizer as unknown as { animationFrameId: number | null }).animationFrameId, null);
+
+    // Recovery
+    unmutedListeners[0]();
+    assert.strictEqual(requestAnimationFrameSpy.mock.calls.length, 2);
+
+    visualizer.dispose();
+  });
+});
