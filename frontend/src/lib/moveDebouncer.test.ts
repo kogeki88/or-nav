@@ -290,6 +290,83 @@ describe("moveDebouncer", () => {
     }
   });
 
+  test("fault injection, network partition degradation, intermittent latency, and self-healing reconnection", async () => {
+    const originalFetch = global.fetch;
+    let networkState = "ONLINE";
+
+    global.fetch = async () => {
+      if (networkState === "PARTITIONED") {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      } else if (networkState === "DEGRADED") {
+        await sleep(100);
+        return Promise.resolve({ ok: true } as Response);
+      } else {
+        await sleep(5);
+        return Promise.resolve({ ok: true } as Response);
+      }
+    };
+
+    try {
+      const successfulSyncs: any[] = [];
+      const callCounts = new Map<string, number>();
+      const validator = (payload: any) => payload && typeof payload.tenant_id === "string";
+
+      const retryQueue: any[] = [];
+
+      const syncEngine = async (items: any[]) => {
+        const batch = [...retryQueue, ...items];
+        retryQueue.length = 0; // Clear it, we attempt all
+
+        try {
+          await global.fetch("https://api.example.com/sync", {});
+
+          successfulSyncs.push(...batch);
+          for (const item of batch) {
+            const count = callCounts.get(item.tenant_id) || 0;
+            callCounts.set(item.tenant_id, count + 1);
+          }
+        } catch (error) {
+          retryQueue.push(...batch);
+        }
+      };
+
+      const debouncer = createMoveDebouncer((items: any[]) => {
+        // Fire and forget in the debouncer callback
+        syncEngine(items).catch(() => {});
+      }, 50, validator);
+
+      // 1. ONLINE
+      debouncer({ tenant_id: "tenant1::icu", action: "move1" });
+      await sleep(80);
+      assert.strictEqual(successfulSyncs.length, 1);
+      assert.strictEqual(retryQueue.length, 0);
+
+      // 2. PARTITIONED (Fault Injection)
+      networkState = "PARTITIONED";
+      debouncer({ tenant_id: "tenant2::er", action: "move2" });
+      debouncer({ tenant_id: "tenant1::icu", action: "move3" });
+      await sleep(80);
+      assert.strictEqual(successfulSyncs.length, 1);
+      assert.strictEqual(retryQueue.length, 2);
+
+      // 3. DEGRADED (Latency and Self-healing)
+      networkState = "DEGRADED";
+      debouncer({ tenant_id: "tenant3::or", action: "move4" });
+      await sleep(250); // wait for 50ms debouncer + 100ms fetch delay + buffer
+
+      assert.strictEqual(successfulSyncs.length, 4);
+      assert.strictEqual(retryQueue.length, 0);
+
+      // Multi-tenant isolation checks
+      assert.strictEqual(callCounts.get("tenant1::icu"), 2);
+      assert.strictEqual(callCounts.get("tenant2::er"), 1);
+      assert.strictEqual(callCounts.get("tenant3::or"), 1);
+
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
   test("offline mutation replay idempotency and multi-tenant boundaries (facility_id::dept_id)", async () => {
     const originalFetch = global.fetch;
     global.fetch = undefined as any;
