@@ -95,10 +95,29 @@ export function QRPairModal({ isOpen, onClose }: QRPairModalProps) {
 
   const handleModeChange = async (newMode: "https" | "lan") => {
     setMode(newMode);
+
+    // Attempt self-healing reconnection if we're switching to HTTPS but lack a valid HTTPS URL (likely due to previous network failure)
+    let currentHttpsCandidate = httpsCandidate;
+    let currentNetworkInfo = networkInfo;
+
+    if (newMode === "https" && (!currentHttpsCandidate || !currentNetworkInfo?.https_active)) {
+      setLoading(true);
+      try {
+        const info = await fetchNetworkInfo();
+        setNetworkInfo(info);
+        currentNetworkInfo = info;
+        currentHttpsCandidate = info.https_url || (info.mobile_url && info.mobile_url.startsWith("https://") ? info.mobile_url : null);
+      } catch (err) {
+        // Silently fail and fallback to LAN if reconnection fails
+        setMode("lan");
+      }
+      setLoading(false);
+    }
+
     const targetUrl =
-      newMode === "https" && httpsCandidate
-        ? httpsCandidate
-        : networkInfo?.lan_url || "http://192.168.1.217:3000";
+      newMode === "https" && currentHttpsCandidate
+        ? currentHttpsCandidate
+        : currentNetworkInfo?.lan_url || "http://192.168.1.217:3000";
     await generateQR(targetUrl);
   };
 
