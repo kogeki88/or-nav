@@ -664,7 +664,118 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
 
 
 
+
+  test("Fault injection, network partition degradation, intermittent latency, and self-healing reconnection", async () => {
+    const originalFetch = global.fetch;
+    let networkState = { status: "online", latency: 5 };
+
+    global.fetch = mock.fn(() => {
+      if (networkState.status === "offline") {
+        return Promise.reject(new TypeError("Failed to fetch"));
+      }
+      return Promise.resolve({ ok: true });
+    }) as any;
+
+    try {
+      // Setup mutable mocks for fault injection
+      offlineDbMocks.flushOfflineOutbox = mock.fn(async () => {
+        if (networkState.status === "offline") {
+          throw new Error("Network offline");
+        }
+        if (networkState.status === "degraded") {
+          await new Promise(r => setTimeout(r, 50));
+          throw new Error("Degraded network timeout");
+        }
+        await new Promise(r => setTimeout(r, networkState.latency));
+        return 3;
+      });
+
+      offlineDbMocks.syncTenantInventoryToOfflineDb = mock.fn(async (tId: string) => {
+        if (networkState.status === "offline") {
+          throw new Error("Network offline");
+        }
+        if (networkState.status === "degraded") {
+          await new Promise(r => setTimeout(r, 50));
+          throw new Error("Degraded network timeout");
+        }
+        await new Promise(r => setTimeout(r, networkState.latency));
+      });
+
+      setNetworkOnline(true);
+      const tenantId = "tenant-fault-healing";
+
+      const { result, unmount } = renderHook(() => useSyncEngine(tenantId, false));
+
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
+      // 1. Online: Normal operation
+      let syncRes;
+      await act(async () => {
+        syncRes = await result.current.triggerSync();
+      });
+      assert.strictEqual(syncRes.success, true);
+      assert.strictEqual(result.current.status, "synced");
+
+      // 2. Network partition (offline)
+      setNetworkOnline(false);
+      networkState.status = "offline";
+
+      await act(async () => {
+        window.dispatchEvent(new Event('offline'));
+      });
+      assert.strictEqual(result.current.status, "offline");
+
+      let offlineRes;
+      await act(async () => {
+        offlineRes = await result.current.triggerSync();
+      });
+      // Offline-first invariant: fails gracefully without crashing
+      assert.strictEqual(offlineRes.success, false);
+      assert.strictEqual(result.current.status, "offline");
+
+      // 3. Degraded network (intermittent latency / fault injection)
+      setNetworkOnline(true);
+      networkState.status = "degraded";
+
+      await act(async () => {
+        window.dispatchEvent(new Event('online'));
+      });
+
+      let degradedRes;
+      await act(async () => {
+        degradedRes = await result.current.triggerSync();
+      });
+      assert.strictEqual(degradedRes.success, false);
+
+      // 4. Self-healing reconnection
+      networkState.status = "online";
+      networkState.latency = 2;
+
+      let healedRes;
+      await act(async () => {
+        healedRes = await result.current.triggerSync();
+      });
+
+      assert.strictEqual(healedRes.success, true);
+      assert.strictEqual(result.current.status, "synced");
+
+      // Enforce multi-tenant isolation invariants on successful syncs
+      const syncCalls = offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls;
+      assert.ok(syncCalls.length > 0);
+      syncCalls.forEach((call: any) => {
+        assert.strictEqual(call.arguments[0], tenantId);
+      });
+
+      unmount();
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
   test("Offline mutation replay idempotency and multi-tenant boundary enforcement", async () => {
+
     const originalFetch = global.fetch;
     global.fetch = undefined as any;
 
