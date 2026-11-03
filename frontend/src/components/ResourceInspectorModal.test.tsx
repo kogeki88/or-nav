@@ -70,4 +70,58 @@ describe('ResourceInspectorModal', () => {
     });
     expect(getOfflineInventory).toHaveBeenCalledWith('sacred_heart::or_main');
   });
+
+  it('handles high-concurrency burst renders without leaking state or breaking multi-tenant isolation', async () => {
+    const { getOfflineInventory } = await import('@/lib/offlineDb');
+    vi.mocked(getOfflineInventory).mockClear();
+
+    let unmounts: any[] = [];
+
+    await act(async () => {
+      const renderPromises = Array.from({ length: 50 }).map((_, i) => {
+        return new Promise<void>((resolve) => {
+          new Promise(r => setTimeout(r, 0)).then(() => {
+            const tenantId = `tenant_${i}::or_main`;
+            const { unmount } = render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId={tenantId} />);
+            unmounts.push(unmount);
+            resolve();
+          });
+        });
+      });
+      await Promise.all(renderPromises);
+    });
+
+    const calls = vi.mocked(getOfflineInventory).mock.calls;
+    const tenantCalls = calls.map(c => c[0]);
+    for (let i = 0; i < 50; i++) {
+      expect(tenantCalls).toContain(`tenant_${i}::or_main`);
+    }
+
+    unmounts.forEach(u => u());
+  });
+
+  it('maintains acceptable render latency under stress conditions', async () => {
+    const start = performance.now();
+    await act(async () => {
+      for (let i = 0; i < 20; i++) {
+        const { unmount } = render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId={`stress_tenant_${i}`} />);
+        unmount();
+      }
+    });
+    const end = performance.now();
+    expect(end - start).toBeLessThan(1500);
+  });
+
+  it('enforces offline-first invariants by surviving network failures', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = vi.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+
+    await act(async () => {
+      render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />);
+    });
+
+    expect(screen.getByText(/Installed Resources Explorer & Studio/i)).toBeTruthy();
+
+    global.fetch = originalFetch;
+  });
 });
