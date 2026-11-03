@@ -1,4 +1,7 @@
 import pytest
+import time
+from pathlib import Path
+from unittest.mock import patch
 from app.config import validate_tenant_id, get_tenant, list_tenants, TenantConfig
 import app.config
 
@@ -256,3 +259,85 @@ def test_offline_mutation_replay_idempotency(tmp_path, monkeypatch):
     assert config_1.tenant_id == config_2.tenant_id == config_3.tenant_id
     assert config_1.inventory_path == config_2.inventory_path == config_3.inventory_path
     assert config_1.orientation_path == config_2.orientation_path == config_3.orientation_path
+
+def test_config_offline_first_caching_and_healing(tmp_path, monkeypatch):
+    """
+    Test fault injection, network/storage partition degradation, intermittent latency,
+    and self-healing reconnection for ConfigBackend (list_tenants and get_tenant).
+    Offline-first: should fallback to cached state rather than throw OSError.
+    """
+
+    # Reset caches for this test specifically
+    monkeypatch.setattr(app.config, "_tenant_cache", {})
+    monkeypatch.setattr(app.config, "_list_tenants_cache", [])
+
+
+    hospitals_mock = tmp_path / "hospitals"
+    hospitals_mock.mkdir()
+
+    tenant_1 = hospitals_mock / "or_main"
+    tenant_1.mkdir()
+    (tenant_1 / "inventory.csv").touch()
+
+    tenant_2 = hospitals_mock / "er_trauma"
+    tenant_2.mkdir()
+    (tenant_2 / "inventory.csv").touch()
+
+    monkeypatch.setattr(app.config, "HOSPITALS_DIR", hospitals_mock)
+
+    network_state = {"status": "online", "latency": 0.0}
+
+    original_iterdir = Path.iterdir
+    original_resolve = Path.resolve
+
+    def mock_iterdir(self):
+        if network_state["status"] == "offline":
+            raise OSError("Storage partition offline")
+        if network_state["latency"] > 0:
+            time.sleep(network_state["latency"])
+        return original_iterdir(self)
+
+    def mock_resolve(self, *args, **kwargs):
+        if network_state["status"] == "offline":
+            raise OSError("Storage partition offline")
+        if network_state["latency"] > 0:
+            time.sleep(network_state["latency"])
+        return original_resolve(self, *args, **kwargs)
+
+    with patch.object(Path, 'iterdir', new=mock_iterdir), \
+         patch.object(Path, 'resolve', new=mock_resolve):
+
+        # 1. Normal state - warm up the cache
+        tenants = list_tenants()
+        assert "or_main" in tenants
+
+        config_online = get_tenant("or_main")
+        assert config_online.tenant_id == "or_main"
+
+        # 2. Intermittent latency
+        network_state["latency"] = 0.05
+        start_time = time.time()
+        tenants_latency = list_tenants()
+        elapsed = time.time() - start_time
+        assert "or_main" in tenants_latency
+        assert elapsed >= 0.05
+
+        # 3. Network partition degradation (Offline)
+        network_state["status"] = "offline"
+        network_state["latency"] = 0.0
+
+        # Should self-heal / fallback to cache
+        tenants_offline = list_tenants()
+        assert "or_main" in tenants_offline
+
+        config_offline = get_tenant("or_main")
+        assert config_offline.tenant_id == "or_main"
+
+        # 4. Self-healing reconnection (Online)
+        network_state["status"] = "online"
+
+        tenants_recovered = list_tenants()
+        assert "or_main" in tenants_recovered
+
+        config_recovered = get_tenant("or_main")
+        assert config_recovered.tenant_id == "or_main"
