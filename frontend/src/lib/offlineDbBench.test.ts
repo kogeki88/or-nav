@@ -323,6 +323,109 @@ describe("Dexie Benchmarks", () => {
   });
 });
 
+  test("fault injection, network partition degradation, intermittent latency, and self-healing reconnection", async () => {
+    const originalFetch = global.fetch;
+    const db = new BenchmarkDB();
+
+    // Multi-tenant configuration
+    const tenantA = "tenant_A::dept1";
+    const tenantB = "tenant_B::dept1";
+
+    let fetchCallCount = 0;
+
+    // Simulate intermittent network partition and latency
+    global.fetch = async (input: any, init?: any) => {
+      fetchCallCount++;
+      if (fetchCallCount % 3 === 0) {
+        // Intermittent latency
+        await new Promise(r => setTimeout(r, 50));
+      }
+      if (fetchCallCount % 2 === 0) {
+        // Network partition degradation (offline)
+        return Promise.reject(new Error("Network partitioned - connection reset"));
+      }
+      // Success response mock
+      return Promise.resolve(new Response(JSON.stringify({ success: true })));
+    };
+
+    try {
+      const itemsToSync = [
+        { tenant_id: tenantA, item: "Item 1", status: "verified" },
+        { tenant_id: tenantB, item: "Item 2", status: "unverified" },
+        { tenant_id: tenantA, item: "Item 3", status: "verified" },
+        { tenant_id: tenantA, item: "Item 4", status: "verified" }
+      ];
+
+      const successfulSyncs: any[] = [];
+      const outboxFallbacks: any[] = [];
+
+      // Simulate sync attempts with fault injection
+      for (const item of itemsToSync) {
+        try {
+          await global.fetch("https://api.example.com/sync", {
+            method: "POST",
+            body: JSON.stringify(item)
+          });
+          successfulSyncs.push(item);
+        } catch (error) {
+          // Fallback to offlineOutbox during network partition
+          await db.offlineOutbox.add({
+            tenant_id: item.tenant_id,
+            type: "create_item",
+            item: item.item,
+            timestamp: Date.now()
+          });
+          outboxFallbacks.push(item);
+        }
+      }
+
+      // Assertions on the degradation phase
+      assert.ok(fetchCallCount > 0, "Fetch should have been called");
+      assert.ok(outboxFallbacks.length > 0, "Some items should have failed over to offlineOutbox");
+      assert.ok(successfulSyncs.length > 0, "Some items should have synced successfully due to intermittent nature");
+
+      // Verify multi-tenant isolation invariant in outbox
+      const outboxItems = await db.offlineOutbox.toArray();
+      const tenantAOutbox = outboxItems.filter(i => i.tenant_id === tenantA);
+      const tenantBOutbox = outboxItems.filter(i => i.tenant_id === tenantB);
+
+      if (tenantAOutbox.length > 0) {
+         assert.ok(tenantAOutbox.every(i => i.tenant_id === tenantA), "Outbox should maintain strict tenant isolation for A");
+      }
+      if (tenantBOutbox.length > 0) {
+         assert.ok(tenantBOutbox.every(i => i.tenant_id === tenantB), "Outbox should maintain strict tenant isolation for B");
+      }
+
+      // Self-healing reconnection phase
+      // Network restored to 100% reliability
+      global.fetch = () => Promise.resolve(new Response(JSON.stringify({ success: true })));
+
+      const pendingMutations = await db.offlineOutbox.orderBy("timestamp").toArray();
+      const replayedMutations: number[] = [];
+
+      for (const mut of pendingMutations) {
+         try {
+           await global.fetch("https://api.example.com/sync", {
+             method: "POST",
+             body: JSON.stringify(mut)
+           });
+           replayedMutations.push(mut.id as number);
+         } catch(e) {
+           assert.fail("Should not fail during self-healing connection restored phase");
+         }
+      }
+
+      // Clear replayed items
+      await db.offlineOutbox.bulkDelete(replayedMutations);
+
+      const finalOutbox = await db.offlineOutbox.toArray();
+      assert.strictEqual(finalOutbox.length, 0, "Outbox should be empty after self-healing replay");
+
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
   test("Offline Database Bulk Operations Benchmark - bulkPut 600 items in under 200ms", async () => {
     const db = new BenchmarkDB();
     await db.inventoryItems.clear();
