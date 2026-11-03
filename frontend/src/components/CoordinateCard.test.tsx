@@ -251,3 +251,154 @@ test('high-concurrency and latency benchmarks (stress testing)', async () => {
     const duration = end - start;
     assert.ok(duration < 5000, `Latency benchmark failed: took ${duration}ms`);
 });
+
+
+test('fault injection: missing local storage and degraded state self-healing', async () => {
+    const d: CoordinateCardData = {
+        item: 'Recovery Item',
+        room: 'OR X',
+        cabinet: 'Y',
+        shelf: 'Z',
+        container: 'W',
+        full_code: 'OR X-Y-Z-W',
+        category: 'Surgical',
+        surgeon_notes: '',
+        pending_location: '',
+        verify_count: 0
+    };
+
+    let storageFailing = true;
+
+    // Store original methods from global
+    const originalGetItem = (global as any).localStorage?.getItem;
+    const originalSetItem = (global as any).localStorage?.setItem;
+
+    // Create a mock local storage if it doesn't exist
+    if (!(global as any).localStorage) {
+      (global as any).localStorage = {
+         getItem: () => null,
+         setItem: () => {}
+      }
+    }
+
+    (global as any).localStorage.getItem = mock.fn((key: string) => {
+        if (storageFailing) throw new Error('QuotaExceededError');
+        return originalGetItem ? originalGetItem.call((global as any).localStorage, key) : null;
+    });
+
+    (global as any).localStorage.setItem = mock.fn((key: string, value: string) => {
+        if (storageFailing) throw new Error('QuotaExceededError');
+        if (originalSetItem) originalSetItem.call((global as any).localStorage, key, value);
+    });
+
+    try {
+        const { unmount, rerender } = render(<CoordinateCard card={d} facilityId="tenant_recovery" />);
+
+        // Try adding alias while storage is failing (should fallback to memory)
+        const addBtn = screen.getByTestId('add-local-alias-btn');
+        fireEvent.click(addBtn);
+
+        const input = screen.getByTestId('add-local-alias-input');
+        fireEvent.change(input, { target: { value: 'Recovery-Alias' } });
+
+        const saveBtn = screen.getByTestId('save-local-alias-btn');
+        fireEvent.click(saveBtn);
+
+        await waitFor(() => {
+            assert.ok(screen.getAllByText('Recovery-Alias').length >= 1);
+        });
+
+        // Heal storage
+        storageFailing = false;
+
+        // Force a re-render or new action to see if it heals
+        rerender(<CoordinateCard card={{...d, item: 'Recovery Item 2'}} facilityId="tenant_recovery" />);
+
+        // Try adding another alias while storage is healed
+        fireEvent.click(screen.getByTestId('add-local-alias-btn'));
+        const input2 = screen.getByTestId('add-local-alias-input');
+        fireEvent.change(input2, { target: { value: 'Healed-Alias' } });
+        fireEvent.click(screen.getByTestId('save-local-alias-btn'));
+
+        await waitFor(() => {
+            assert.ok(screen.getAllByText('Healed-Alias').length >= 1);
+        });
+
+        // Ensure the alias persisted to local storage (loadFacilityLexicon reads from it)
+        const lex = loadFacilityLexicon('tenant_recovery');
+        assert.ok(lex.some(l => l.spokenTerm === 'recovery-alias' || l.spokenTerm === 'healed-alias'));
+
+        unmount();
+    } finally {
+        if (originalGetItem) (global as any).localStorage.getItem = originalGetItem;
+        if (originalSetItem) (global as any).localStorage.setItem = originalSetItem;
+        cleanup();
+    }
+});
+
+test('fault injection: intermittent latency network partition reconnection and self-healing', async () => {
+    const d: CoordinateCardData = {
+        item: 'Network Self-Healing Item',
+        room: 'OR A',
+        cabinet: 'B',
+        shelf: 'C',
+        container: 'D',
+        full_code: 'OR A-B-C-D',
+        category: 'Surgical',
+        surgeon_notes: '',
+        pending_location: '',
+        verify_count: 0
+    };
+
+    const originalFetch = global.fetch;
+    let networkState = { status: 'offline' };
+    let fetchCallCount = 0;
+
+    // Simulate network partition and self-healing
+    global.fetch = mock.fn(async () => {
+        fetchCallCount++;
+        if (networkState.status === 'offline') {
+            await new Promise(r => setTimeout(r, 50));
+            return Promise.reject(new TypeError('Failed to fetch'));
+        }
+        // Online state
+        return Promise.resolve({ ok: true, json: async () => ({}) } as any);
+    }) as any;
+
+    try {
+        const { unmount } = render(<CoordinateCard card={d} facilityId="tenant_network" />);
+
+        // Action 1: Add alias during offline state
+        fireEvent.click(screen.getByTestId('add-local-alias-btn'));
+        fireEvent.change(screen.getByTestId('add-local-alias-input'), { target: { value: 'Partition-Alias' } });
+        fireEvent.click(screen.getByTestId('save-local-alias-btn'));
+
+        // Wait for the UI to optimistically update despite network failure
+        await waitFor(() => {
+            assert.ok(screen.getAllByText('Partition-Alias').length >= 1);
+        });
+
+        // Ensure fetch was called at least once
+        assert.ok(fetchCallCount >= 1);
+
+        // Heal network
+        networkState.status = 'online';
+
+        // Action 2: Add another alias during online state
+        fireEvent.click(screen.getByTestId('add-local-alias-btn'));
+        fireEvent.change(screen.getByTestId('add-local-alias-input'), { target: { value: 'Recovered-Alias' } });
+        fireEvent.click(screen.getByTestId('save-local-alias-btn'));
+
+        await waitFor(() => {
+            assert.ok(screen.getAllByText('Recovered-Alias').length >= 1);
+        });
+
+        // Ensure fetch was called again
+        assert.ok(fetchCallCount >= 2);
+
+        unmount();
+    } finally {
+        global.fetch = originalFetch;
+        cleanup();
+    }
+});
