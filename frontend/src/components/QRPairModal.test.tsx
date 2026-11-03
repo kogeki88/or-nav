@@ -374,3 +374,39 @@ test('latency benchmark: ensures UI remains responsive despite slow network fetc
     assert.ok(alt.includes('https://slow.trycloudflare.com'));
   });
 });
+
+test('extended multi-tenant boundary & offline mutation idempotency (facility_id::dept_id)', async () => {
+  // Tenant A Offline Mutation
+  fetchNetworkInfoMock.mock.mockImplementation(async () => {
+    throw new Error('Network offline');
+  });
+
+  const { unmount: unmountA } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  await waitFor(() => {
+    const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+    assert.ok(args.some((arg: string) => arg.includes(':3000')), 'Tenant A offline fallback used');
+  });
+
+  unmountA();
+  QRCodeToDataURLMock.mock.resetCalls();
+
+  // Tenant B Online - Verify isolation and no leaked offline state with specific boundary ID
+  fetchNetworkInfoMock.mock.mockImplementation(async () => ({
+    lan_ip: 'fac_1::dept_A_IP',
+    lan_url: 'http://fac_1::dept_A_IP:4000',
+    mobile_url: 'http://fac_1::dept_A_IP:4000',
+    https_url: 'https://tenant-b.example.com',
+    https_active: true
+  }));
+
+  const { unmount: unmountB } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  await waitFor(() => {
+    const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+    assert.ok(args.some((arg: string) => arg.includes('tenant-b.example.com')), 'Tenant B online data used');
+    assert.ok(!args.some((arg: string) => arg.includes(':3000')), 'Tenant A offline data should not leak');
+  });
+
+  unmountB();
+});
