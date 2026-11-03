@@ -18,6 +18,10 @@ HOSPITALS_DIR = PROJECT_ROOT / "hospitals"
 
 _VALID_TENANT_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_]+(?:/[a-zA-Z0-9_]+)*$")
 
+# Simple in-memory cache for offline resilience
+_tenant_cache = {}
+_list_tenants_cache = []
+
 
 def validate_tenant_id(tenant_id: str) -> str:
     """
@@ -94,50 +98,66 @@ DEPARTMENTS = {
 
 def get_tenant(tenant_id: str) -> TenantConfig:
     """Load tenant configuration by ID. Supports flat and hierarchical facility/dept paths."""
+    global _tenant_cache
     valid_id = validate_tenant_id(tenant_id)
-    hospitals_resolved = HOSPITALS_DIR.resolve()
 
-    # 1. Direct path e.g. hospitals/or_main or hospitals/general_memorial/or
-    tenant_dir = (HOSPITALS_DIR / valid_id).resolve()
+    try:
+        hospitals_resolved = HOSPITALS_DIR.resolve()
 
-    # 2. If not found, attempt splitting underscore e.g. general_memorial_or -> general_memorial/or
-    if not (tenant_dir.is_relative_to(hospitals_resolved) and tenant_dir.is_dir()):
-        parts = valid_id.split("_")
-        for i in range(1, len(parts)):
-            fac_part = "_".join(parts[:i])
-            dept_part = "_".join(parts[i:])
-            candidate = (HOSPITALS_DIR / fac_part / dept_part).resolve()
-            if candidate.is_relative_to(hospitals_resolved) and candidate.is_dir():
-                tenant_dir = candidate
-                break
+        # 1. Direct path e.g. hospitals/or_main or hospitals/general_memorial/or
+        tenant_dir = (HOSPITALS_DIR / valid_id).resolve()
 
-    if not (tenant_dir.is_relative_to(hospitals_resolved) and tenant_dir.is_dir()):
-        raise ValueError(f"Tenant directory not found: {valid_id}")
+        # 2. If not found, attempt splitting underscore e.g. general_memorial_or -> general_memorial/or
+        if not (tenant_dir.is_relative_to(hospitals_resolved) and tenant_dir.is_dir()):
+            parts = valid_id.split("_")
+            for i in range(1, len(parts)):
+                fac_part = "_".join(parts[:i])
+                dept_part = "_".join(parts[i:])
+                candidate = (HOSPITALS_DIR / fac_part / dept_part).resolve()
+                if candidate.is_relative_to(hospitals_resolved) and candidate.is_dir():
+                    tenant_dir = candidate
+                    break
 
-    dept_key = valid_id.split("/")[-1] if "/" in valid_id else valid_id.split("_")[-1]
-    dept_info = DEPARTMENTS.get(valid_id) or DEPARTMENTS.get(dept_key) or DEPARTMENTS.get(f"{dept_key}_main")
-    display_name = dept_info["name"] if dept_info else valid_id.replace("_", " ").title()
+        if not (tenant_dir.is_relative_to(hospitals_resolved) and tenant_dir.is_dir()):
+            raise ValueError(f"Tenant directory not found: {valid_id}")
 
-    return TenantConfig(
-        tenant_id=valid_id,
-        display_name=display_name,
-        inventory_path=tenant_dir / "inventory.csv",
-        orientation_path=tenant_dir / "orientation.md",
-    )
+        dept_key = valid_id.split("/")[-1] if "/" in valid_id else valid_id.split("_")[-1]
+        dept_info = DEPARTMENTS.get(valid_id) or DEPARTMENTS.get(dept_key) or DEPARTMENTS.get(f"{dept_key}_main")
+        display_name = dept_info["name"] if dept_info else valid_id.replace("_", " ").title()
+
+        config = TenantConfig(
+            tenant_id=valid_id,
+            display_name=display_name,
+            inventory_path=tenant_dir / "inventory.csv",
+            orientation_path=tenant_dir / "orientation.md",
+        )
+        _tenant_cache[valid_id] = config
+        return config
+    except OSError:
+        if valid_id in _tenant_cache:
+            return _tenant_cache[valid_id]
+        raise
 
 
 def list_tenants() -> list[str]:
     """Return all available tenant IDs (subdirectories of /hospitals/)."""
-    if not HOSPITALS_DIR.is_dir():
-        return []
-    found = [
-        d.name for d in HOSPITALS_DIR.iterdir()
-        if d.is_dir() and (d / "inventory.csv").exists()
-    ]
-    preferred_order = ["or_main", "icu_critical_care", "er_trauma", "pacu_periop"]
-    ordered = [t for t in preferred_order if t in found]
-    ordered.extend([t for t in found if t not in ordered])
-    return ordered
+    global _list_tenants_cache
+    try:
+        if not HOSPITALS_DIR.is_dir():
+            return []
+        found = [
+            d.name for d in HOSPITALS_DIR.iterdir()
+            if d.is_dir() and (d / "inventory.csv").exists()
+        ]
+        preferred_order = ["or_main", "icu_critical_care", "er_trauma", "pacu_periop"]
+        ordered = [t for t in preferred_order if t in found]
+        ordered.extend([t for t in found if t not in ordered])
+        _list_tenants_cache = ordered
+        return ordered
+    except OSError:
+        if _list_tenants_cache:
+            return _list_tenants_cache
+        raise
 
 
 # --- Environment-driven settings ---
