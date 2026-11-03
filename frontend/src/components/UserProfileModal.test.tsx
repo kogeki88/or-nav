@@ -220,3 +220,53 @@ test('UserProfileModal enforces schema validation, boundaries, and multi-tenant 
   );
   mock.restoreAll();
 });
+
+test('UserProfileModal enforces multi-tenant isolation and offline-first invariants under concurrent burst execution', async (t) => {
+  cleanup();
+  const onSaveProfileMock = mock.fn();
+  const mockOnClose = mock.fn();
+
+  const origFetch = global.fetch;
+  (global as any).fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+
+  const startRender = performance.now();
+  render(
+    <UserProfileModal
+      isOpen={true}
+      onClose={mockOnClose}
+      currentProfile={{
+        ...DEFAULT_USER_PROFILE,
+        facilityId: 'tenant_burst',
+        departmentId: 'or_main',
+      }}
+      onSaveProfile={onSaveProfileMock}
+    />
+  );
+  const endRender = performance.now();
+  assert.ok((endRender - startRender) < 200, `Render latency too high: ${endRender - startRender}ms`);
+
+  const roleSelect = screen.getByTestId('select-role') as HTMLSelectElement;
+  fireEvent.change(roleSelect, { target: { value: 'Scrub Tech' } });
+
+  const saveBtn = screen.getAllByTestId('button-save-profile')[0];
+
+  const burstClicks = Array.from({ length: 50 }, () =>
+    new Promise(resolve => setImmediate(() => {
+      fireEvent.click(saveBtn);
+      resolve(null);
+    }))
+  );
+
+  await Promise.all(burstClicks);
+
+  await waitFor(() => {
+    assert.strictEqual(onSaveProfileMock.mock.calls.length, 1);
+  });
+
+  const savedData = onSaveProfileMock.mock.calls[0].arguments[0];
+  assert.strictEqual(savedData.facilityId, 'tenant_burst');
+  assert.strictEqual(savedData.clinicalRole, 'Scrub Tech');
+
+  (global as any).fetch = origFetch;
+  mock.restoreAll();
+});
