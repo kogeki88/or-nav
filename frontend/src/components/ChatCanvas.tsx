@@ -93,6 +93,8 @@ const InlineQuickAddCard = React.memo(function InlineQuickAddCard({
     try {
       await onSave(item, location.trim(), category, notes);
       setSaved(true);
+    } catch (err: unknown) {
+      console.error("Save failed (possibly offline or partitioned):", err);
     } finally {
       setSaving(false);
     }
