@@ -193,12 +193,12 @@ describe("Fuzzing & Invariants", () => {
     const visualizer = new LiveKitAudioVisualizer(canvas);
 
     // Schema validation - valid UUID
-    visualizer.setTenantId('123e4567-e89b-12d3-a456-426614174000');
-    assert.strictEqual(visualizer.getTenantId(), '123e4567-e89b-12d3-a456-426614174000');
+    visualizer.setTenantId('facility_a::or_main');
+    assert.strictEqual(visualizer.getTenantId(), 'facility_a::or_main');
 
     // Fuzzing with fast-check to ensure malformed inputs are caught by Zod
     fc.assert(
-      fc.property(fc.string().filter(s => !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)), (invalidTenantId) => {
+      fc.property(fc.string().filter(s => !/^[a-zA-Z0-9_]+::[a-zA-Z0-9_]+$/.test(s)), (invalidTenantId) => {
         try {
           visualizer.setTenantId(invalidTenantId);
           return false; // Should not reach here
@@ -207,5 +207,39 @@ describe("Fuzzing & Invariants", () => {
         }
       })
     );
+  });
+
+  it("should enforce multi-tenant boundary (facility_id::dept_id) and offline mutation replay idempotency", async () => {
+    const originalFetch = global.fetch;
+    try {
+      // @ts-ignore
+      global.fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch'))) as any;
+      const canvas = document.createElement('canvas');
+      canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+      const visualizer = new LiveKitAudioVisualizer(canvas);
+
+      const tenantAId = "facility_a::dept_1";
+
+      visualizer.setTenantId(tenantAId);
+      assert.strictEqual(visualizer.getTenantId(), tenantAId);
+
+      // Replaying the mutation multiple times (offline idempotency)
+      visualizer.setTenantId(tenantAId);
+      visualizer.setTenantId(tenantAId);
+      assert.strictEqual(visualizer.getTenantId(), tenantAId);
+
+      try {
+        visualizer.setTenantId("invalid_format");
+        assert.fail("Should throw on invalid format");
+      } catch (e: any) {
+        assert.match(e.message, /Invalid tenant ID format/);
+      }
+
+      // Ensure state didn't leak or reset improperly on failed mutations
+      assert.strictEqual(visualizer.getTenantId(), tenantAId);
+
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });

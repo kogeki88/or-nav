@@ -1,7 +1,7 @@
 import type { LocalAudioTrack, RemoteAudioTrack } from "livekit-client";
 import { z } from "zod";
 
-const TenantIdSchema = z.string().uuid();
+const TenantIdSchema = z.string().regex(/^[a-zA-Z0-9_]+::[a-zA-Z0-9_]+$/, "Invalid tenant ID format. Expected facility_id::dept_id");
 
 export class LiveKitAudioVisualizer {
   private canvasCtx: CanvasRenderingContext2D | null = null;
