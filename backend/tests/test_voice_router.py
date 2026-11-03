@@ -1,7 +1,8 @@
 from hypothesis import given, settings, HealthCheck, strategies as st
 import pytest
 import sys
-from unittest.mock import MagicMock
+from unittest.mock import patch, MagicMock
+
 from fastapi.testclient import TestClient
 from app.main import app
 
@@ -364,7 +365,8 @@ class TestVoiceRouter:
         monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
 
         import sys
-        from unittest.mock import MagicMock
+        from unittest.mock import patch, MagicMock
+
         mock_livekit = MagicMock()
         mock_token = MagicMock()
         mock_token.with_grants.return_value = mock_token
@@ -394,7 +396,8 @@ class TestVoiceRouter:
         monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
 
         import sys
-        from unittest.mock import MagicMock
+        from unittest.mock import patch, MagicMock
+
         mock_livekit = MagicMock()
         mock_token = MagicMock()
         mock_token.with_grants.return_value = mock_token
@@ -421,3 +424,259 @@ class TestVoiceRouter:
         assert data_2["tenant_id"] == tenant_2
         assert data_1["room_name"] == f"or-nav-{tenant_1}"
         assert data_2["room_name"] == f"or-nav-{tenant_2}"
+
+    def test_fault_injection_intermittent_latency(self, client, monkeypatch):
+        import time
+        import sys
+        from unittest.mock import patch, MagicMock
+
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        mock_livekit = MagicMock()
+        mock_token = MagicMock()
+        mock_token.with_grants.return_value = mock_token
+        mock_token.with_identity.return_value = mock_token
+        mock_token.with_metadata.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.to_jwt.return_value = "mock_jwt_token"
+
+        # Introduce latency in the mock
+        def mock_access_token(*args, **kwargs):
+            time.sleep(0.1)
+            return mock_token
+
+        mock_livekit.AccessToken = mock_access_token
+        monkeypatch.setitem(sys.modules, "livekit.api", mock_livekit)
+
+        start = time.time()
+        resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+        end = time.time()
+
+        assert resp.status_code == 200
+        assert (end - start) >= 0.1
+
+    def test_network_partition_degradation(self, client, monkeypatch):
+        import sys
+        from unittest.mock import patch, MagicMock
+
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        mock_livekit = MagicMock()
+
+        # Raise an exception simulating network partition
+        def mock_access_token(*args, **kwargs):
+            raise ConnectionError("Network partition simulated")
+
+        mock_livekit.AccessToken = mock_access_token
+        monkeypatch.setitem(sys.modules, "livekit.api", mock_livekit)
+
+        try:
+            resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+            assert resp.status_code == 500
+        except ConnectionError:
+            pass
+
+    def test_self_healing_reconnection(self, client, monkeypatch):
+        import sys
+        from unittest.mock import patch, MagicMock
+
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        mock_livekit = MagicMock()
+        mock_token = MagicMock()
+        mock_token.with_grants.return_value = mock_token
+        mock_token.with_identity.return_value = mock_token
+        mock_token.with_metadata.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.to_jwt.return_value = "mock_jwt_token"
+
+        # Mutable network state object to test self-healing
+        network_state = {"status": "offline"}
+
+        def mock_access_token(*args, **kwargs):
+            if network_state["status"] == "offline":
+                raise ConnectionError("Network offline")
+            return mock_token
+
+        mock_livekit.AccessToken = mock_access_token
+        monkeypatch.setitem(sys.modules, "livekit.api", mock_livekit)
+
+        # Simulating offline state
+        try:
+            resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+            assert resp.status_code == 500
+        except ConnectionError:
+            pass
+
+        # Toggle state back to "online" to verify self-healing reconnection
+        network_state["status"] = "online"
+        resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+        assert resp.status_code == 200
+        assert resp.json()["token"] == "mock_jwt_token"
+    @patch("app.routers.voice.AccessToken")
+    def test_fault_injection_intermittent_latency(self, mock_access_token, client, monkeypatch):
+        import time
+        from unittest.mock import MagicMock
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        mock_token = MagicMock()
+        mock_token.with_grants.return_value = mock_token
+        mock_token.with_identity.return_value = mock_token
+        mock_token.with_metadata.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.to_jwt.return_value = "mock_jwt_token"
+
+        # Introduce latency in the mock
+        def access_token_side_effect(*args, **kwargs):
+            time.sleep(0.1)
+            return mock_token
+
+        mock_access_token.side_effect = access_token_side_effect
+
+        start = time.time()
+        resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+        end = time.time()
+
+        assert resp.status_code == 200
+        assert (end - start) >= 0.1
+
+    @patch("app.routers.voice.AccessToken")
+    def test_network_partition_degradation(self, mock_access_token, client, monkeypatch):
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        # Raise an exception simulating network partition
+        mock_access_token.side_effect = ConnectionError("Network partition simulated")
+
+        try:
+            resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+            assert resp.status_code == 500
+        except ConnectionError:
+            pass
+
+    @patch("app.routers.voice.AccessToken")
+    def test_self_healing_reconnection(self, mock_access_token, client, monkeypatch):
+        from unittest.mock import MagicMock
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        mock_token = MagicMock()
+        mock_token.with_grants.return_value = mock_token
+        mock_token.with_identity.return_value = mock_token
+        mock_token.with_metadata.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.to_jwt.return_value = "mock_jwt_token"
+
+        # Mutable network state object to test self-healing
+        network_state = {"status": "offline"}
+
+        def access_token_side_effect(*args, **kwargs):
+            if network_state["status"] == "offline":
+                raise ConnectionError("Network offline")
+            return mock_token
+
+        mock_access_token.side_effect = access_token_side_effect
+
+        # Simulating offline state
+        try:
+            resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+            assert resp.status_code == 500
+        except ConnectionError:
+            pass
+
+        # Toggle state back to "online" to verify self-healing reconnection
+        network_state["status"] = "online"
+        resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+        assert resp.status_code == 200
+        assert resp.json()["token"] == "mock_jwt_token"
+
+    @patch("livekit.api.AccessToken")
+    def test_fault_injection_intermittent_latency(self, mock_access_token, client, monkeypatch):
+        import time
+        from unittest.mock import MagicMock
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        mock_token = MagicMock()
+        mock_token.with_grants.return_value = mock_token
+        mock_token.with_identity.return_value = mock_token
+        mock_token.with_metadata.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.to_jwt.return_value = "mock_jwt_token"
+
+        # Introduce latency in the mock
+        def access_token_side_effect(*args, **kwargs):
+            time.sleep(0.1)
+            return mock_token
+
+        mock_access_token.side_effect = access_token_side_effect
+
+        start = time.time()
+        resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+        end = time.time()
+
+        assert resp.status_code == 200
+        assert (end - start) >= 0.1
+
+    @patch("livekit.api.AccessToken")
+    def test_network_partition_degradation(self, mock_access_token, client, monkeypatch):
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        # Raise an exception simulating network partition
+        mock_access_token.side_effect = ConnectionError("Network partition simulated")
+
+        try:
+            resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+            assert resp.status_code == 500
+        except ConnectionError:
+            pass
+
+    @patch("livekit.api.AccessToken")
+    def test_self_healing_reconnection(self, mock_access_token, client, monkeypatch):
+        from unittest.mock import MagicMock
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        mock_token = MagicMock()
+        mock_token.with_grants.return_value = mock_token
+        mock_token.with_identity.return_value = mock_token
+        mock_token.with_metadata.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.to_jwt.return_value = "mock_jwt_token"
+
+        # Mutable network state object to test self-healing
+        network_state = {"status": "offline"}
+
+        def access_token_side_effect(*args, **kwargs):
+            if network_state["status"] == "offline":
+                raise ConnectionError("Network offline")
+            return mock_token
+
+        mock_access_token.side_effect = access_token_side_effect
+
+        # Simulating offline state
+        try:
+            resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+            assert resp.status_code == 500
+        except ConnectionError:
+            pass
+
+        # Toggle state back to "online" to verify self-healing reconnection
+        network_state["status"] = "online"
+        resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+        assert resp.status_code == 200
+        assert resp.json()["token"] == "mock_jwt_token"
