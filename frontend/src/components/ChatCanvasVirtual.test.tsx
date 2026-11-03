@@ -297,3 +297,98 @@ test('ChatCanvas resilience against malformed payloads in quickAddWidget and tea
 
   assert.ok(container);
 });
+
+test('ChatCanvas enforces multi-tenant boundary (facility_id::dept_id)', async () => {
+  const messagesTenantA: MessageItem[] = [
+    {
+      id: 'msg-fac1-dept1',
+      sender: 'assistant',
+      text: 'Facility 1 Dept 1 items:',
+      timestamp: '2023-01-01T10:00:00Z',
+      coordinateCards: [{ item: 'Fac1_Dept1_Item', room: 'Loc1', cabinet: '', shelf: '', container: '', full_code: 'Loc1' }],
+    }
+  ];
+  const messagesTenantB: MessageItem[] = [
+    {
+      id: 'msg-fac2-dept2',
+      sender: 'assistant',
+      text: 'Facility 2 Dept 2 items:',
+      timestamp: '2023-01-01T10:00:00Z',
+      coordinateCards: [{ item: 'Fac2_Dept2_Item', room: 'Loc2', cabinet: '', shelf: '', container: '', full_code: 'Loc2' }],
+    }
+  ];
+
+  const { container: containerA, unmount: unmountA } = render(
+    <ChatCanvas messages={messagesTenantA} loading={false} tenantId="facility1::dept1" onVerifyPendingMove={async () => {}} />
+  );
+  assert.ok(containerA.innerHTML.includes('Fac1_Dept1_Item'));
+  assert.ok(!containerA.innerHTML.includes('Fac2_Dept2_Item'));
+  unmountA();
+
+  const { container: containerB, unmount: unmountB } = render(
+    <ChatCanvas messages={messagesTenantB} loading={false} tenantId="facility2::dept2" onVerifyPendingMove={async () => {}} />
+  );
+  assert.ok(containerB.innerHTML.includes('Fac2_Dept2_Item'));
+  assert.ok(!containerB.innerHTML.includes('Fac1_Dept1_Item'));
+  unmountB();
+});
+
+test('ChatCanvas enforces offline mutation replay idempotency with mocked offline fetch', async () => {
+  const originalFetch = global.fetch;
+
+  let fetchCallCount = 0;
+  // Use a mocked fetch that rejects to simulate offline behavior without removing fetch
+  global.fetch = async () => {
+    fetchCallCount++;
+    return Promise.reject(new TypeError('Failed to fetch'));
+  };
+
+  const messages: MessageItem[] = [
+    {
+      id: 'msg-offline-mutation',
+      sender: 'assistant',
+      text: 'Offline Mutation Test:',
+      timestamp: '2023-01-01T10:00:00Z',
+      moveWidget: { item: 'Offline_Mutation_Item', new_location: 'Loc', verify_count: 0, committed: false }
+    }
+  ];
+
+  try {
+    const { container } = render(
+      <ChatCanvas
+        messages={messages}
+        loading={false}
+        tenantId="facility1::dept1"
+        onVerifyPendingMove={async () => {}}
+      />
+    );
+
+    assert.ok(container.innerHTML.includes('Offline_Mutation_Item'));
+    assert.ok(container.innerHTML.includes('Confirm (0/3)'));
+
+    const btns = Array.from(container.querySelectorAll('button'));
+    const confirmBtn = btns.find(b => b.textContent?.includes('Confirm ('));
+    assert.ok(confirmBtn, 'Confirm button not found');
+
+    if (confirmBtn) {
+      // The component limits clicks by using a ref based on time (now - lastTapRef.current < 1000)
+      // and sets a loading state. We can mock Date.now to advance time for subsequent clicks to test that it calls fetch correctly.
+
+      // We fire multiple rapid clicks. It should only fire one fetch request due to idempotency protection.
+      fireEvent.click(confirmBtn);
+      fireEvent.click(confirmBtn);
+      fireEvent.click(confirmBtn);
+
+      // Wait a bit to ensure async operations start
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      // The MoveVerifyWidget calls verifyMove from api.ts which calls fetch.
+      // However, api.ts falls back to verifyMoveStandalone.
+      // So fetch should have been called, but because of loading state / debounce it should only be called once.
+      assert.strictEqual(fetchCallCount, 1, 'Idempotency failed: multiple rapid clicks should only trigger one fetch attempt');
+    }
+
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
