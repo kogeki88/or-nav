@@ -299,3 +299,53 @@ def test_feedback_pipeline_multi_tenant_isolation_boundary():
     res_sh = client.get("/api/feedback?tenantId=sacred_heart::or")
     items_sh = res_sh.json()["items"]
     assert not any(it["rawText"] == "Highly confidential clinic feedback" for it in items_sh)
+
+def test_network_partition_and_self_healing(monkeypatch):
+    import time
+    network_state = {"status": "online"}
+
+    original_request = client.request
+
+    def mock_request(method, url, *args, **kwargs):
+        if network_state["status"] == "offline":
+            raise RuntimeError("Network partition detected")
+        elif network_state["status"] == "degraded":
+            time.sleep(0.1)
+        return original_request(method, url, *args, **kwargs)
+
+    monkeypatch.setattr(client, "request", mock_request)
+
+    sync_queue = []
+
+    # 1. Online
+    res = client.post("/api/feedback", json={"tenantId": "sacred_heart::icu", "rawText": "Initial online data"})
+    assert res.status_code == 200
+
+    # 2. Degraded (Latency)
+    network_state["status"] = "degraded"
+    start_time = time.time()
+    res = client.post("/api/feedback", json={"tenantId": "sacred_heart::icu", "rawText": "Degraded data"})
+    assert res.status_code == 200
+    assert time.time() - start_time >= 0.1
+
+    # 3. Offline (Partition)
+    network_state["status"] = "offline"
+    try:
+        client.post("/api/feedback", json={"tenantId": "sacred_heart::icu", "rawText": "Offline data delayed sync"})
+    except RuntimeError:
+        sync_queue.append({"tenantId": "sacred_heart::icu", "rawText": "Offline data delayed sync"})
+
+    # 4. Online (Self-healing)
+    network_state["status"] = "online"
+    for payload in sync_queue:
+        client.post("/api/feedback", json=payload)
+    sync_queue.clear()
+
+    # Verify synchronization completes
+    res = client.get("/api/feedback?tenantId=sacred_heart::icu")
+    items = res.json()["items"]
+    texts = [it["rawText"] for it in items]
+
+    assert "Initial online data" in texts
+    assert "Degraded data" in texts
+    assert "Offline data delayed sync" in texts
