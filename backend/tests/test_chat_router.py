@@ -572,3 +572,99 @@ class TestChatRouterMultiTenant:
                 del data["latency_ms"]
 
         assert data1 == data2 == data3
+
+
+
+    def test_network_partition_recovery(self, monkeypatch):
+        # We need to test the multi-tenant chat router offline capabilities properly.
+        # ChatRouter does use httpx to talk to peer qna, or some internal services,
+        # But looking at previous tests (like test_offline_mutation_replay_idempotency),
+        # they successfully mock httpx.post. Let's use the exact mock from test_offline_mutation_replay_idempotency
+        # but structured as a partition that recovers.
+        import httpx
+        client = TestClient(app)
+
+        network_state = {"status": "offline"}
+        orig_post = httpx.post
+        orig_get = httpx.get
+        orig_request = httpx.request
+
+        def mock_post(*args, **kwargs):
+            if network_state["status"] == "offline":
+                # Create a real httpx request to avoid dummy request issues
+                req = httpx.Request("POST", args[0] if args else kwargs.get("url", ""))
+                raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
+            return orig_post(*args, **kwargs)
+
+        def mock_get(*args, **kwargs):
+            if network_state["status"] == "offline":
+                req = httpx.Request("GET", args[0] if args else kwargs.get("url", ""))
+                raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
+            return orig_get(*args, **kwargs)
+
+        def mock_request(*args, **kwargs):
+            if network_state["status"] == "offline":
+                req = httpx.Request(args[0] if args else kwargs.get("method", "GET"), args[1] if len(args) > 1 else kwargs.get("url", ""))
+                raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
+            return orig_request(*args, **kwargs)
+
+        monkeypatch.setattr(httpx, "post", mock_post)
+        monkeypatch.setattr(httpx, "get", mock_get)
+        monkeypatch.setattr(httpx, "request", mock_request)
+
+        payload = {
+            "tenant_id": "general_memorial_cvor",
+            "message": "add new scalpel to inventory"
+        }
+
+        # 1. Offline attempt
+        resp1 = client.post("/api/chat", json=payload)
+        assert resp1.status_code == 200 # It should still succeed due to offline-first design
+
+        # 2. Network Recovers
+        network_state["status"] = "online"
+        resp2 = client.post("/api/chat", json=payload)
+
+        assert resp2.status_code == 200
+
+        data1 = resp1.json()
+        data2 = resp2.json()
+
+        if "latency_ms" in data1: del data1["latency_ms"]
+        if "latency_ms" in data2: del data2["latency_ms"]
+
+        assert data1 == data2
+
+    def test_intermittent_latency_injection(self, monkeypatch):
+        import time
+        from app.main import app
+
+        client = TestClient(app)
+        latency_state = {"simulate": True}
+
+        from app.intent_parser import parse_clinical_intent
+        orig_parse = parse_clinical_intent
+
+        def delayed_parse(*args, **kwargs):
+            if latency_state["simulate"]:
+                time.sleep(0.5)
+            return orig_parse(*args, **kwargs)
+
+        monkeypatch.setattr("app.routers.chat.parse_clinical_intent", delayed_parse)
+
+        payload = {
+            "tenant_id": "general_memorial_cvor",
+            "message": "where is 3-0 silk suture"
+        }
+
+        start = time.time()
+        resp_slow = client.post("/api/chat", json=payload)
+        slow_time = time.time() - start
+
+        latency_state["simulate"] = False
+        start = time.time()
+        resp_fast = client.post("/api/chat", json=payload)
+
+        assert resp_slow.status_code == 200
+        assert resp_fast.status_code == 200
+        assert slow_time >= 0.5
