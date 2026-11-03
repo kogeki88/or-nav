@@ -733,3 +733,84 @@ def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
 
     # 4. Assess total wall execution time is well within burst limits
     assert total_time < 2.5, f"Total execution time too high: {total_time:.2f}s"
+def test_surgical_ontology_network_partition_and_self_healing(monkeypatch):
+    import socket
+    import httpx
+    import time
+    from app.services.surgical_ontology import (
+        normalize_or_lingo,
+        normalize_acoustic_speech,
+        extract_eponyms,
+        is_eponym_conflict,
+        is_generic_class_only,
+        strip_spoken_disfluencies
+    )
+
+    network_state = {"status": "online"}
+    original_socket = socket.socket
+
+    def mock_socket(family=socket.AF_INET, type=socket.SOCK_STREAM, proto=0, fileno=None):
+        if family == getattr(socket, "AF_UNIX", -1):
+            return original_socket(family, type, proto, fileno)
+        if network_state["status"] == "offline":
+            raise socket.timeout("Mock network partition: connection timed out")
+        elif network_state["status"] == "latency":
+            time.sleep(0.05)
+        return original_socket(family, type, proto, fileno)
+
+    def mock_httpx_post(*args, **kwargs):
+        if network_state["status"] == "offline":
+            raise httpx.ConnectTimeout("Mock network partition: httpx post timed out")
+        elif network_state["status"] == "latency":
+            time.sleep(0.05)
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
+    def mock_httpx_get(*args, **kwargs):
+        if network_state["status"] == "offline":
+            raise httpx.ConnectTimeout("Mock network partition: httpx get timed out")
+        elif network_state["status"] == "latency":
+            time.sleep(0.05)
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
+    def mock_httpx_request(*args, **kwargs):
+        if network_state["status"] == "offline":
+            raise httpx.ConnectTimeout("Mock network partition: httpx request timed out")
+        elif network_state["status"] == "latency":
+            time.sleep(0.05)
+        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
+    monkeypatch.setattr(httpx, "post", mock_httpx_post)
+    monkeypatch.setattr(httpx, "get", mock_httpx_get)
+    monkeypatch.setattr(httpx, "request", mock_httpx_request)
+
+    tenant_id = "facility_network::dept_test"
+    query = f"{tenant_id} umm get me the metz"
+
+    # 1. Online baseline
+    assert "metzenbaum scissors" in normalize_or_lingo(query)
+
+    # 2. Inject network partition degradation
+    network_state["status"] = "offline"
+
+    # Despite offline network partition, multi-tenant isolation and ontology logic MUST resolve synchronously
+    # as an offline-first invariant.
+    res_lingo_offline = normalize_or_lingo(query)
+    assert tenant_id in res_lingo_offline
+    assert "metzenbaum scissors" in res_lingo_offline
+    assert extract_eponyms(query) == {"metzenbaum"}
+    assert strip_spoken_disfluencies(query) == f"{tenant_id} get me the metz"
+
+    # 3. Intermittent Latency
+    network_state["status"] = "latency"
+    res_acoust_latency = normalize_acoustic_speech(query)
+    assert tenant_id in res_acoust_latency
+
+    # 4. Self-healing reconnection
+    network_state["status"] = "online"
+    res_conf_online = is_eponym_conflict(query, query)
+    assert res_conf_online is False
+    res_gen_online = is_generic_class_only(query)
+    assert res_gen_online is False
+
+    assert tenant_id in normalize_or_lingo(query)
