@@ -813,3 +813,193 @@ test('supplementary multi-tenant boundary enforcement (facility_id::dept_id) and
         global.fetch = originalFetch;
     }
 });
+
+test('supplementary invariant test 3: intermittent latency and self-healing reconnection', async () => {
+    // 1. Simulate network offline using missing fetch
+    const originalFetch = global.fetch;
+    try {
+        let fetchCallCount = 0;
+
+        global.fetch = mock.fn(async (url: any, options: any) => {
+            fetchCallCount++;
+
+            // First call fails (network partition)
+            if (fetchCallCount === 1) {
+                throw new Error('Network offline');
+            }
+
+            // Second call has latency but succeeds (intermittent latency / reconnection)
+            if (fetchCallCount === 2) {
+                await new Promise(resolve => setTimeout(resolve, 50)); // Simulating latency
+                return {
+                    ok: true,
+                    json: async () => [{
+                        id: 'q1-recovered',
+                        tenantId: 'facility2::dept3',
+                        questionText: 'Recovered question text?',
+                        askedBy: 'Nurse Joy',
+                        role: 'RN',
+                        createdAt: new Date().toISOString(),
+                        answers: [],
+                        status: 'unverified',
+                        verificationsCount: 0
+                    }]
+                };
+            }
+
+            // Subsequent POSTs
+            if (options && options.method === 'POST') {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        id: 'q-new',
+                        tenantId: 'facility2::dept3',
+                        questionText: 'New question text?',
+                        askedBy: 'Nurse Joy',
+                        role: 'RN',
+                        createdAt: new Date().toISOString(),
+                        answers: [],
+                        status: 'unverified',
+                        verificationsCount: 0
+                    })
+                };
+            }
+
+            return {
+                ok: true,
+                json: async () => []
+            };
+        });
+
+        // 2. Clear any previous offline calls
+        mockSaveOfflinePeerQuestionCalls = [];
+
+        // 3. Render the panel
+        const root = document.createElement('div');
+        document.body.appendChild(root);
+        const comp = render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility2::dept3" userProfile={dummyProfile} />, { container: root });
+
+        // Wait for initial fetch to fail and fallback
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        // 4. Force a re-fetch (simulating self-healing reconnection)
+        // Closing and reopening triggers fetchQuestions
+        comp.rerender(<PeerQnAPanel isOpen={false} onClose={() => {}} tenantId="facility2::dept3" userProfile={dummyProfile} />);
+        comp.rerender(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility2::dept3" userProfile={dummyProfile} />);
+
+        // Wait for the re-fetch with latency to resolve
+        await waitFor(() => {
+            assert.ok(comp.getByText('Recovered question text?'));
+        });
+
+        // 5. Navigate to Ask Tab and input a question to verify normal operation restored
+        const askTab = comp.getByText('Ask Department Peers');
+        fireEvent.click(askTab);
+        const textarea = comp.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+        fireEvent.change(textarea, { target: { value: 'New question text?' } });
+
+        const submitBtn = comp.getByText('Broadcast Question');
+        fireEvent.click(submitBtn);
+
+        // 6. Wait for the state to update
+        await waitFor(() => {
+            assert.ok(comp.getByText('New question text?'));
+        });
+
+        // Assert we successfully reconnected and performed the operation online
+        assert.strictEqual(fetchCallCount, 3, 'Fetch should be called 3 times (fail, recover, post)');
+
+        comp.unmount();
+    } finally {
+        global.fetch = originalFetch;
+    }
+});
+
+test('supplementary invariant test 4: network partition degradation and retry fallback', async () => {
+    // 1. Simulate network degradation: fails first time, succeeds second time
+    const originalFetch = global.fetch;
+    try {
+        let callCount = 0;
+        global.fetch = mock.fn(async (url: any, options: any) => {
+            callCount++;
+
+            if (callCount === 1) {
+                throw new Error('Network offline');
+            }
+
+            return {
+                ok: true,
+                json: async () => [{
+                    id: 'q-retry-success',
+                    tenantId: 'facility3::dept4',
+                    questionText: 'Retry success?',
+                    askedBy: 'Doctor Bob',
+                    role: 'MD',
+                    createdAt: new Date().toISOString(),
+                    answers: [],
+                    status: 'unverified',
+                    verificationsCount: 0
+                }]
+            };
+        });
+
+        // 2. Clear previous calls
+        mockSaveOfflinePeerQuestionCalls = [];
+
+        // 3. Render panel
+        const root = document.createElement('div');
+        document.body.appendChild(root);
+        const comp = render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility3::dept4" userProfile={dummyProfile} />, { container: root });
+
+        // 4. Wait for initial failed fetch
+        await new Promise(resolve => setTimeout(resolve, 20));
+
+        // Ensure no mock questions
+        assert.ok(!comp.queryByText('Retry success?'));
+
+        // 5. Force refetch
+        comp.rerender(<PeerQnAPanel isOpen={false} onClose={() => {}} tenantId="facility3::dept4" userProfile={dummyProfile} />);
+        comp.rerender(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility3::dept4" userProfile={dummyProfile} />);
+
+        // 6. Wait for success
+        await waitFor(() => {
+            assert.ok(comp.getByText('Retry success?'));
+        });
+
+        comp.unmount();
+    } finally {
+        global.fetch = originalFetch;
+    }
+});
+
+test('supplementary invariant test 5: multi-tenant isolation offline-first fetch validation', async () => {
+    // 1. Simulate network offline
+    const originalFetch = global.fetch;
+    try {
+        global.fetch = mock.fn(async () => { throw new Error('Network offline'); });
+
+        // 2. Setup offline questions for two different tenants
+        mockOfflineQuestions = [
+            { id: 'q1-t1', tenantId: 'tenant1', questionText: 'Tenant 1 question?' },
+            { id: 'q2-t2', tenantId: 'tenant2', questionText: 'Tenant 2 question?' },
+            { id: 'q3-t1', tenantId: 'tenant1', questionText: 'Another Tenant 1 question?' }
+        ];
+
+        // 3. Render panel for tenant1
+        const root = document.createElement('div');
+        document.body.appendChild(root);
+        const comp = render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="tenant1" userProfile={dummyProfile} />, { container: root });
+
+        // 4. Wait for offline fallback
+        await waitFor(() => {
+            assert.ok(comp.getByText('Tenant 1 question?'));
+            assert.ok(comp.getByText('Another Tenant 1 question?'));
+            assert.strictEqual(comp.queryByText('Tenant 2 question?'), null, 'Tenant 2 data must not leak into Tenant 1 panel');
+        });
+
+        comp.unmount();
+    } finally {
+        global.fetch = originalFetch;
+        mockOfflineQuestions = []; // Cleanup
+    }
+});
