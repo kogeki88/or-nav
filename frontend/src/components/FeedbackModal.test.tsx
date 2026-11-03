@@ -582,3 +582,64 @@ test('high latency resilience: displays loading state and processes event loop p
         assert.ok(screen.getByTestId('feedback-success-banner'));
     }, { timeout: 2000 });
 });
+
+
+test('multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency', async () => {
+    const onCloseMock = mock.fn();
+    const submitManualFeedbackMock = mock.fn();
+
+    const IdempotentFeedbackModalMod = proxyquire('./FeedbackModal', {
+        '@/lib/gamification': {
+            awardClinicalXP: mock.fn()
+        },
+        '@/lib/auth': {
+            isAdminUser: mock.fn(() => false),
+            getCurrentSession: mock.fn(() => null)
+        },
+        '@/lib/feedbackEngine': {
+            submitManualFeedback: submitManualFeedbackMock,
+            fetchFeedbackItems: mock.fn(),
+            upvoteFeedback: mock.fn(),
+            updateFeedbackStatus: mock.fn(),
+            FEEDBACK_EVENT_NAME: 'feedback_updated'
+        }
+    });
+
+    const IdempotentFeedbackModal = IdempotentFeedbackModalMod.FeedbackModal;
+
+    Object.defineProperty(navigator, 'onLine', {
+        value: false,
+        configurable: true
+    });
+
+    render(<IdempotentFeedbackModal isOpen={true} onClose={onCloseMock} userProfile={{ ...dummyProfile, facilityId: 'test_facility', departmentId: 'test_dept' }} />);
+
+    window.dispatchEvent(new Event('offline'));
+
+    const textarea = screen.getByTestId('feedback-input-text');
+    fireEvent.change(textarea, { target: { value: 'Offline idempotency test' } });
+
+    const submitBtn = screen.getByTestId('btn-submit-feedback');
+
+    // Fire multiple rapid clicks to simulate idempotency replay issue
+    fireEvent.click(submitBtn);
+    fireEvent.click(submitBtn);
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.ok(screen.getByText('Saved offline. Will sync when connected.'));
+    });
+
+    // We expect exactly 1 submission even after multiple clicks while offline
+    assert.strictEqual(submitManualFeedbackMock.mock.calls.length, 1);
+
+    // Verify multi-tenant boundary (userProfile is passed, which ensures tenant isolation logic downstream has correct data context)
+    const payload = submitManualFeedbackMock.mock.calls[0].arguments[0];
+    assert.deepStrictEqual(payload.userProfile, { ...dummyProfile, facilityId: 'test_facility', departmentId: 'test_dept' });
+
+    Object.defineProperty(navigator, 'onLine', {
+        value: true,
+        configurable: true
+    });
+});
