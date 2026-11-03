@@ -501,4 +501,69 @@ describe('Supplementary tests', () => {
             global.fetch = originalFetch;
         }
     });
+
+    it('should handle fault injection, network partition degradation, intermittent latency, and self-healing reconnection', () => {
+        let networkState = 'online';
+        let failNextSave = false;
+
+        const originalError = console.error;
+        console.error = mock.fn();
+        const originalWarn = console.warn;
+        console.warn = mock.fn();
+
+        const getStorageItemMockOrig = global.localStorage.getItem;
+        const setStorageItemMockOrig = global.localStorage.setItem;
+
+        const mockSet = mock.fn((key, value) => {
+            if (networkState === 'online' && failNextSave) {
+                failNextSave = false;
+                throw new Error('Intermittent latency/fault');
+            }
+            if (networkState === 'offline') {
+                throw new Error('QuotaExceededError: Local storage disabled during network partition');
+            }
+            return setStorageItemMockOrig.call(global.localStorage, key, value);
+        });
+
+        const mockGet = mock.fn((key) => {
+             // Do not throw so that it falls back to the previous value during an offline exception
+             return getStorageItemMockOrig.call(global.localStorage, key);
+        });
+
+        Object.defineProperty(global.localStorage, 'setItem', { value: mockSet, writable: true, configurable: true });
+        Object.defineProperty(global.localStorage, 'getItem', { value: mockGet, writable: true, configurable: true });
+
+        try {
+            const { result } = renderHook(() => useUserProfile());
+
+            act(() => {
+                result.current.saveProfile({ ...DEFAULT_USER_PROFILE, fullName: 'Online User 1' });
+            });
+            assert.strictEqual(result.current.profile.fullName, 'Online User 1');
+
+            failNextSave = true;
+            act(() => {
+                result.current.saveProfile({ ...DEFAULT_USER_PROFILE, fullName: 'Online User 2' });
+            });
+            assert.strictEqual(result.current.profile.fullName, 'Online User 1');
+
+            networkState = 'offline';
+            act(() => {
+                result.current.saveProfile({ ...DEFAULT_USER_PROFILE, fullName: 'Offline User' });
+            });
+            assert.strictEqual(result.current.profile.fullName, 'Online User 1');
+
+            networkState = 'online';
+            act(() => {
+                result.current.saveProfile({ ...DEFAULT_USER_PROFILE, fullName: 'Recovered User' });
+            });
+            assert.strictEqual(result.current.profile.fullName, 'Recovered User');
+
+        } finally {
+            Object.defineProperty(global.localStorage, 'setItem', { value: setStorageItemMockOrig, writable: true, configurable: true });
+            Object.defineProperty(global.localStorage, 'getItem', { value: getStorageItemMockOrig, writable: true, configurable: true });
+            console.error = originalError;
+            console.warn = originalWarn;
+        }
+    });
 });
