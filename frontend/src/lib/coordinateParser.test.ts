@@ -451,3 +451,113 @@ describe("Phase 4 Offline Partition & Multi-Tenant Isolation Extension", () => {
     }
   });
 });
+
+
+describe("Phase 5: Fault Injection & Network Partition Resilience", () => {
+  test("Network Partition Degradation: Parser functions locally during simulated partition", async () => {
+    // We mock fetch to reject immediately to simulate network partition
+    const originalFetch = global.fetch;
+    const fetchMock = async () => { throw new Error("Network Partition Simulated Error"); };
+    global.fetch = fetchMock as any;
+
+    try {
+      const input = "OR 1 A 1 B";
+      const start = performance.now();
+      const result = extractAndNormalizeCoordinateClient(input);
+      const end = performance.now();
+
+      // Parser must resolve correctly via offline heuristic engine
+      assert.ok(result);
+      assert.strictEqual(result.location, "OR 1 A 1 B");
+
+      // Ensures the local engine responds quickly despite the degraded network
+      assert.ok(end - start < 50, `Expected degradation response to be fast (< 50ms), got ${end - start}ms`);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  test("Intermittent Latency Resilience: Interleaved latency does not block subsequent rapid local requests", async () => {
+    const originalFetch = global.fetch;
+    let requestCount = 0;
+
+    // Simulate intermittent high latency
+    global.fetch = async () => {
+      requestCount++;
+      if (requestCount % 2 === 0) {
+        // Even requests experience high latency
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        throw new Error("Timeout");
+      }
+      return { ok: true, json: async () => ({}) } as any;
+    };
+
+    try {
+      const start = performance.now();
+
+      // Fire 5 distinct concurrent local parse jobs
+      // They should execute offline and completely bypass the fetch latency trap
+      const jobs = Array.from({ length: 5 }).map((_, i) => {
+        return new Promise<ReturnType<typeof extractAndNormalizeCoordinateClient>>((resolve) => {
+          setTimeout(() => {
+            resolve(extractAndNormalizeCoordinateClient(`OR ${i + 1} A 1 B`));
+          }, i * 5); // Start slightly staggered
+        });
+      });
+
+      const results = await Promise.all(jobs);
+      const end = performance.now();
+
+      // Verify all results
+      results.forEach((res, i) => {
+        assert.ok(res);
+        assert.strictEqual(res.location, `OR ${i + 1} A 1 B`);
+      });
+
+      // The total time should be negligible (<< 2000ms latency trap) since it runs offline
+      assert.ok(end - start < 500, `Expected total time to bypass latency to be < 500ms, got ${end - start}ms`);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  test("Self-Healing Reconnection: Verify deterministic output when toggling between partitioned and connected states", async () => {
+    const originalFetch = global.fetch;
+    let isConnected = true;
+
+    global.fetch = async () => {
+      if (!isConnected) {
+        throw new Error("Partitioned");
+      }
+      return { ok: true, json: async () => ({ status: "mocked" }) } as any;
+    };
+
+    try {
+      const inputs = [
+        "Core Supply A 1 B",
+        "Trauma Bay 2 C 3 D"
+      ];
+
+      // Run Connected
+      const connectedRes1 = extractAndNormalizeCoordinateClient(inputs[0]);
+      assert.ok(connectedRes1);
+      assert.strictEqual(connectedRes1.location, "Core Supply A 1 B");
+
+      // Partition Network
+      isConnected = false;
+      const offlineRes1 = extractAndNormalizeCoordinateClient(inputs[0]);
+      const offlineRes2 = extractAndNormalizeCoordinateClient(inputs[1]);
+
+      assert.deepStrictEqual(connectedRes1, offlineRes1, "Offline parse must yield identical object to connected parse");
+      assert.strictEqual(offlineRes2?.location, "Trauma Bay 2 C 3 D");
+
+      // Reconnect (Self-healing simulation)
+      isConnected = true;
+      const reconnectedRes2 = extractAndNormalizeCoordinateClient(inputs[1]);
+
+      assert.deepStrictEqual(offlineRes2, reconnectedRes2, "Reconnected parse must yield identical object to offline parse");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});
