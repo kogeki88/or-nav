@@ -561,3 +561,76 @@ describe("Phase 5: Fault Injection & Network Partition Resilience", () => {
     }
   });
 });
+
+describe("Phase 6: Memory Profiling & Resource Eviction Hardening", () => {
+  test("Memory Leak Detection & Eviction Under Constrained Memory Burst", async () => {
+    // We mock fetch to ensure offline invariants are strictly maintained
+    const originalFetch = global.fetch;
+    global.fetch = () => { throw new Error("Offline Invariant Violated"); };
+
+    try {
+      // Warm up garbage collector approximation if available, but primarily test structural memory limit behaviors
+      if (global.gc) {
+        global.gc();
+      }
+
+      const initialMemory = process.memoryUsage().heapUsed;
+
+      const burstSize = 25000;
+      const inputs = [
+        "OR 21 A 2 C",
+        "ICU 1 B 3 D",
+        "Trauma Bay 4 C 1 A",
+        "Core Supply A 2 B"
+      ];
+
+      // Simulate extreme load representing constrained memory scenarios
+      const tasks = [];
+      for(let i = 0; i < burstSize; i++) {
+        tasks.push(
+          new Promise((resolve) => {
+             // Microtask execution
+             setTimeout(() => {
+                const res = extractAndNormalizeCoordinateClient(inputs[i % inputs.length]);
+                resolve(res);
+             }, 0);
+          })
+        );
+      }
+
+      const results = await Promise.all(tasks);
+
+      // Verify processing validity despite large burst
+      assert.ok(results.length === burstSize);
+      assert.strictEqual(results[0].location, "OR 21 A 2 C");
+
+      if (global.gc) {
+        global.gc();
+      }
+
+      const finalMemory = process.memoryUsage().heapUsed;
+      const memoryGrowthBytes = finalMemory - initialMemory;
+      const growthMB = memoryGrowthBytes / 1024 / 1024;
+
+      // We expect the pure function stateless parser to NOT leak memory.
+      // Heap usage increase should be less than 50MB (allowing for JS engine compilation & V8 caches).
+      assert.ok(growthMB < 50, `Expected memory growth < 50MB, but grew by ${growthMB.toFixed(2)}MB. Potential memory leak detected.`);
+
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  test("Dangling Event Listener & Closure Leak Prevention", async () => {
+    // Assert that the offline coordinate parser does not unintentionally register global listeners
+    const initialListeners = process.listenerCount("unhandledRejection") + process.listenerCount("uncaughtException");
+
+    for(let i = 0; i < 1000; i++) {
+      extractAndNormalizeCoordinateClient("OR 1 A 1 B");
+    }
+
+    const finalListeners = process.listenerCount("unhandledRejection") + process.listenerCount("uncaughtException");
+
+    assert.strictEqual(initialListeners, finalListeners, "Coordinate parser leaked global event listeners");
+  });
+});
