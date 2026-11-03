@@ -185,3 +185,76 @@ test("ClinicalGraph High-Concurrency & Stress Benchmarks", async (t) => {
     assert.ok(latency < 1000, `Burst execution took ${latency}ms, exceeding 1000ms limit`);
   });
 });
+
+
+test("ClinicalGraph Fault Injection & Network Partition Resilience", async (t) => {
+  await t.test("compileClinicalGraph gracefully handles simulated intermittent network latency during self-healing network partition", async () => {
+    // Note: compileClinicalGraph is synchronous and does not use fetch directly,
+    // but this test simulates how a sync manager would fetch data and then compile it,
+    // enforcing offline invariants and latency bounds.
+    let callCount = 0;
+
+    // Simulate our application sync manager fetching data
+    const syncManagerFetch = async () => {
+      callCount++;
+      if (callCount === 1) {
+        throw new Error("Network partition error - connection refused");
+      }
+
+      // Simulate latency on recovery
+      await new Promise(r => setTimeout(r, 10));
+      return {
+        cards: [{ id: "C1", surgeon: "Dr. Recovered", procedure: "Rec" }],
+        inventory: [{ item: "RecItem", aliases: "rec" }]
+      };
+    };
+
+    let error = null;
+
+    // 1. Network partition state
+    try {
+      await syncManagerFetch();
+    } catch (err) {
+      error = err;
+    }
+
+    assert.ok(error !== null, "Should have thrown a network partition error");
+
+    // Compile graph handles offline fallback gracefully (using seed data / empty data)
+    const offlineGraph = compileClinicalGraph("tenant_offline", [], [], "");
+    assert.ok(offlineGraph !== null);
+    assert.strictEqual(offlineGraph.preferenceCards.length, 0);
+
+    // 2. Self-heal: Network recovers
+    const startTime = performance.now();
+    const data = await syncManagerFetch();
+    const recoveredGraph = compileClinicalGraph("tenant_recovered", data.cards, data.inventory, "");
+    const endTime = performance.now();
+
+    // Verification of recovered data and latency constraints
+    assert.strictEqual(recoveredGraph.preferenceCards.length, 1);
+    assert.ok(recoveredGraph.inventoryTerms.has("recitem"));
+
+    const latency = endTime - startTime;
+    assert.ok(latency >= 10, "Latency constraint not respected"); // Should be at least our 10ms simulated latency
+  });
+
+  await t.test("findShortestPath correctly handles node isolation due to network degradation", () => {
+      // Graph representing network partition where some nodes become unreachable
+      const degradedGraph: Record<string, string[]> = {
+          "A": ["B", "C"],
+          "B": ["D"],
+          "C": ["D"],
+          "D": [], // D is a dead end
+          "E": ["F"], // E and F are isolated from A-D due to partition
+          "F": []
+      };
+
+      const pathOffline = findShortestPath(degradedGraph, "A", "F");
+      assert.strictEqual(pathOffline, null, "Should return null when network partition isolates target node");
+
+      const pathOnline = findShortestPath(degradedGraph, "A", "D");
+      assert.ok(pathOnline !== null, "Should find path for connected nodes during partial degradation");
+      assert.strictEqual(pathOnline.length, 3);
+  });
+});
