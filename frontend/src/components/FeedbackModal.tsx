@@ -48,6 +48,7 @@ export function FeedbackModal({
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isOffline, setIsOffline] = useState(false);
+  const submitRef = useRef(false);
 
   // Recommendations / Admin Triage State
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
@@ -112,7 +113,8 @@ export function FeedbackModal({
   // Handle Manual Submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!rawText.trim()) return;
+    if (!rawText.trim() || submitRef.current) return;
+    submitRef.current = true;
 
     setErrorMsg("");
     setIsSubmitting(true);
@@ -148,6 +150,7 @@ export function FeedbackModal({
       setErrorMsg("Failed to submit feedback. Please try again.");
     } finally {
       setIsSubmitting(false);
+      submitRef.current = false;
     }
   };
 

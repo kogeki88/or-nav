@@ -643,3 +643,117 @@ test('multi-tenant boundary enforcement (facility_id::dept_id) and offline mutat
         configurable: true
     });
 });
+
+test('network partition degradation and self-healing reconnection', async () => {
+    const onCloseMock = mock.fn();
+    const submitManualFeedbackMock = mock.fn();
+
+    const PatchedFeedbackModalMod = proxyquire('./FeedbackModal', {
+        '@/lib/gamification': {
+            awardClinicalXP: mock.fn()
+        },
+        '@/lib/auth': {
+            isAdminUser: mock.fn(() => false),
+            getCurrentSession: mock.fn(() => null)
+        },
+        '@/lib/feedbackEngine': {
+            submitManualFeedback: submitManualFeedbackMock,
+            fetchFeedbackItems: mock.fn(),
+            upvoteFeedback: mock.fn(),
+            updateFeedbackStatus: mock.fn(),
+            FEEDBACK_EVENT_NAME: 'feedback_updated'
+        }
+    });
+
+    const PatchedFeedbackModal = PatchedFeedbackModalMod.FeedbackModal;
+
+    Object.defineProperty(navigator, 'onLine', {
+        value: true,
+        configurable: true
+    });
+
+    render(<PatchedFeedbackModal isOpen={true} onClose={onCloseMock} userProfile={{ ...dummyProfile, facilityId: 'test_facility', departmentId: 'test_dept' }} />);
+
+    // Go offline
+    Object.defineProperty(navigator, 'onLine', {
+        value: false,
+        configurable: true
+    });
+    window.dispatchEvent(new Event('offline'));
+
+    const textarea = screen.getByTestId('feedback-input-text');
+    fireEvent.change(textarea, { target: { value: 'Partition test' } });
+
+    const submitBtn = screen.getByTestId('btn-submit-feedback');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.ok(screen.getByText('Saved offline. Will sync when connected.'));
+    });
+
+    // Come back online
+    Object.defineProperty(navigator, 'onLine', {
+        value: true,
+        configurable: true
+    });
+    window.dispatchEvent(new Event('online'));
+
+    await waitFor(() => {
+        // Since we mock submitManualFeedback, we just want to ensure it was called once
+        assert.strictEqual(submitManualFeedbackMock.mock.calls.length, 1);
+    });
+});
+
+test('intermittent network latency and delayed response resilience', async () => {
+    const submitManualFeedbackMock = mock.fn(async () => {
+        // Simulate high latency
+        await new Promise(r => setTimeout(r, 500));
+        return {
+            id: 'fb-456',
+            tenantId: 'facility-1::dept-1',
+            userName: 'Test Nurse',
+            userRole: 'Circulating RN',
+            source: 'manual_submission',
+            category: 'bug_friction',
+            severity: 'medium',
+            rawText: 'Latency test',
+            aiRecommendation: 'Fix issue',
+            suggestedFixPrompt: 'Fix this bug',
+            upvotes: 1,
+            status: 'open',
+            createdAt: new Date().toISOString(),
+        }
+    });
+
+    const PatchedFeedbackModalMod = proxyquire('./FeedbackModal', {
+        '@/lib/gamification': { awardClinicalXP: mock.fn() },
+        '@/lib/auth': { isAdminUser: mock.fn(() => true), getCurrentSession: mock.fn(() => null) },
+        '@/lib/feedbackEngine': {
+            submitManualFeedback: submitManualFeedbackMock,
+            fetchFeedbackItems: mock.fn(async () => []),
+            upvoteFeedback: mock.fn(),
+            updateFeedbackStatus: mock.fn(),
+            FEEDBACK_EVENT_NAME: 'feedback_updated'
+        }
+    });
+
+    const PatchedFeedbackModal = PatchedFeedbackModalMod.FeedbackModal;
+    const onCloseMock = mock.fn();
+    render(<PatchedFeedbackModal isOpen={true} onClose={onCloseMock} userProfile={dummyProfile} />);
+
+    const textarea = screen.getByTestId('feedback-input-text');
+    fireEvent.change(textarea, { target: { value: 'Testing latency' } });
+
+    const submitBtn = screen.getByTestId('btn-submit-feedback');
+    fireEvent.click(submitBtn);
+
+    assert.ok(screen.getByText('Submitting...'));
+    assert.strictEqual((submitBtn as HTMLButtonElement).disabled, true);
+
+    await waitFor(() => {
+        assert.ok(screen.getByTestId('feedback-success-banner'));
+    }, { timeout: 1500 });
+
+    assert.strictEqual(submitManualFeedbackMock.mock.calls.length, 1);
+});
