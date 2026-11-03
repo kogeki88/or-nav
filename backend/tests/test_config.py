@@ -142,3 +142,62 @@ def test_get_tenant_invalid_paths(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match="Tenant directory not found: non_existent_tenant"):
         get_tenant("non_existent_tenant")
+
+def test_validate_tenant_id_fuzzing():
+    # Attempting various bad inputs
+    bad_inputs = [
+        "../../etc/passwd",
+        "/etc/passwd",
+        "some_tenant/../../../etc/passwd",
+        "sacred_heart::or/../../",
+        "te!nant",
+        "tenant_1;",
+        "tenant space",
+        "tenant#name",
+        "\x00tenant",
+        "tenant\n1",
+        "  ..  ",
+        "//etc/passwd",
+        "/",
+        "foo//bar",
+        "foo/"
+    ]
+    for bad in bad_inputs:
+        with pytest.raises(ValueError):
+            validate_tenant_id(bad)
+
+def test_validate_tenant_id_malformed_payloads():
+    # Non-string types should be rejected with ValueError, except None
+    malformed_inputs = [
+        123,
+        ["or_main"],
+        {"tenant": "or_main"},
+        True,
+        object()
+    ]
+    for bad in malformed_inputs:
+        with pytest.raises(ValueError, match="tenant_id must be a string"):
+            validate_tenant_id(bad)  # type: ignore
+
+def test_get_tenant_boundary_isolation(tmp_path, monkeypatch):
+    """Enforce strict boundary checks for tenant isolation."""
+    hospitals_mock = tmp_path / "hospitals"
+    hospitals_mock.mkdir()
+    monkeypatch.setattr(app.config, "HOSPITALS_DIR", hospitals_mock)
+
+    # Valid tenant
+    tenant_a_dir = hospitals_mock / "valid_tenant"
+    tenant_a_dir.mkdir()
+    (tenant_a_dir / "inventory.csv").touch()
+
+    # Getting outside should fail due to regex check or direct isolation
+    with pytest.raises(ValueError):
+         get_tenant("valid_tenant/../../../etc/passwd")
+
+def test_list_tenants_empty_and_offline_invariants(tmp_path, monkeypatch):
+    """Verify list_tenants works under empty or non-existent directories."""
+    # When directory doesn't exist at all
+    hospitals_mock = tmp_path / "non_existent_hospitals"
+    monkeypatch.setattr(app.config, "HOSPITALS_DIR", hospitals_mock)
+
+    assert list_tenants() == []
