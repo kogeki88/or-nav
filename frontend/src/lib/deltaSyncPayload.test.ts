@@ -152,3 +152,56 @@ test("deltaSyncPayload fuzzing and boundaries", async (t) => {
     assert.deepStrictEqual(decompressed, fuzzData);
   });
 });
+
+test("deltaSyncPayload concurrency, race conditions, and performance benchmarks", async (t) => {
+  await t.test("concurrent burst execution and race condition resistance", async () => {
+    const numWorkers = 50;
+    const workerTask = async (workerId: number) => {
+      const data = Array.from({ length: 100 }, (_, i) => ({
+        workerId,
+        id: i,
+        val: `worker-${workerId}-item-${i}`,
+        tenant_id: `tenant_${workerId}`,
+      }));
+      // Simulate asynchronous timing
+      await new Promise((resolve) => setTimeout(resolve, Math.random() * 10));
+      const compressed = compressPayload(data);
+      await new Promise((resolve) => setTimeout(resolve, Math.random() * 10));
+      const decompressed = decompressPayload(compressed);
+      return decompressed;
+    };
+
+    const results = await Promise.all(
+      Array.from({ length: numWorkers }, (_, i) => workerTask(i))
+    );
+
+    for (let i = 0; i < numWorkers; i++) {
+      const decompressed = results[i] as any[];
+      assert.strictEqual(decompressed.length, 100);
+      assert.strictEqual(decompressed[0].workerId, i);
+      assert.strictEqual(decompressed[0].tenant_id, `tenant_${i}`);
+    }
+  });
+
+  await t.test("latency benchmark for payload compression and decompression", () => {
+    const data = Array.from({ length: 10000 }, (_, i) => ({
+      id: i,
+      tenant_id: "latency_tenant",
+      type: "benchmark",
+      status: "pending",
+      value: i * 100,
+    }));
+
+    const startCompress = performance.now();
+    const compressed = compressPayload(data);
+    const compressTime = performance.now() - startCompress;
+
+    const startDecompress = performance.now();
+    const decompressed = decompressPayload(compressed);
+    const decompressTime = performance.now() - startDecompress;
+
+    assert.ok(compressTime < 200, `Compression took too long: ${compressTime}ms`);
+    assert.ok(decompressTime < 200, `Decompression took too long: ${decompressTime}ms`);
+    assert.strictEqual(decompressed.length, 10000);
+  });
+});
