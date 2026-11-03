@@ -202,6 +202,58 @@ describe("Departments Configuration and Lookups", () => {
     });
   });
 
+  describe("High-Concurrency & Stress Benchmarks", () => {
+    test("concurrent burst execution and race condition resistance", async () => {
+      const NUM_OPERATIONS = 10000;
+      const ids = ["or_main", "icu_critical_care", "er_trauma", "pacu_periop", "invalid_id"];
+
+      const promises = Array.from({ length: NUM_OPERATIONS }, async (_, i) => {
+        const id = ids[i % ids.length];
+        setActiveDepartmentId(id);
+        const activeId = getActiveDepartmentId();
+        const dept = getDepartment(activeId);
+
+        assert.ok(DEPARTMENTS[activeId] !== undefined);
+        assert.ok(dept !== undefined);
+      });
+
+      await Promise.all(promises);
+
+      const finalId = getActiveDepartmentId();
+      assert.ok(DEPARTMENTS[finalId] !== undefined);
+    });
+
+    test("latency benchmark under heavy load", () => {
+      const startTime = Date.now();
+      const ITERATIONS = 10000;
+      for (let i = 0; i < ITERATIONS; i++) {
+        setActiveDepartmentId("icu_critical_care");
+        getActiveDepartmentId();
+        getDepartment("icu_critical_care");
+      }
+      const duration = Date.now() - startTime;
+      assert.ok(duration < 1000, `Latency benchmark took too long: ${duration}ms`);
+    });
+
+    test("concurrent burst under offline-first network failure", async () => {
+      const originalFetch = global.fetch;
+      try {
+        global.fetch = async () => { throw new Error('Network offline'); };
+
+        const promises = Array.from({ length: 1000 }, async () => {
+          setActiveDepartmentId("pacu_periop");
+          assert.strictEqual(getActiveDepartmentId(), "pacu_periop");
+          const dept = getDepartment(getActiveDepartmentId());
+          assert.strictEqual(dept.id, "pacu_periop");
+        });
+
+        await Promise.all(promises);
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+  });
+
   describe("Fuzzing & boundary inputs", () => {
     test("malformed or massive payloads do not crash setActiveDepartmentId", () => {
       const fuzzInputs = [
