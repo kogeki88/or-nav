@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test, describe, mock } from "node:test";
 import assert from "node:assert/strict";
 import { scrubPhi, REDACTION } from "./scrubClient.ts";
 
@@ -233,7 +233,7 @@ describe("scrubClient standard and adversarial tests", () => {
     test("scrubPhi executes successfully completely offline (offline-first invariant)", async () => {
       const originalFetch = (global as any).fetch;
       try {
-        (global as any).fetch = undefined as any;
+        (global as any).fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch")));
         const result = scrubPhi("Patient MRN 123456 needs 3-0 silk");
         assert.strictEqual(result.text, `Patient ${REDACTION} needs 3-0 silk`);
         assert.strictEqual(result.redactionCount, 1);
@@ -242,19 +242,37 @@ describe("scrubClient standard and adversarial tests", () => {
       }
     });
 
+    test("offline mutation replay idempotency", async () => {
+      const originalFetch = (global as any).fetch;
+      try {
+        (global as any).fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch")));
+        const mutationPayload = "Update patient MRN 123456";
+
+        const replay1 = scrubPhi(mutationPayload);
+        const replay2 = scrubPhi(mutationPayload);
+        const replay3 = scrubPhi(mutationPayload);
+
+        assert.strictEqual(replay1.text, `Update patient ${REDACTION}`);
+        assert.deepStrictEqual(replay1, replay2);
+        assert.deepStrictEqual(replay2, replay3);
+      } finally {
+        (global as any).fetch = originalFetch;
+      }
+    });
+
     test("scrubPhi maintains stateless multi-tenant isolation", () => {
-      const tenantAData = "Tenant A patient John Smith MRN 111111";
-      const tenantBData = "Tenant B pt Jane Doe MRN 222222";
+      const tenantAData = "Tenant A (fac_1::dept_1) patient John Smith MRN 111111";
+      const tenantBData = "Tenant B (fac_2::dept_2) pt Jane Doe MRN 222222";
 
       const resultA1 = scrubPhi(tenantAData);
       const resultB1 = scrubPhi(tenantBData);
       const resultA2 = scrubPhi(tenantAData);
       const resultB2 = scrubPhi(tenantBData);
 
-      assert.strictEqual(resultA1.text, `Tenant A patient ${REDACTION} ${REDACTION}`);
-      assert.strictEqual(resultB1.text, `Tenant B pt ${REDACTION} ${REDACTION}`);
-      assert.strictEqual(resultA2.text, `Tenant A patient ${REDACTION} ${REDACTION}`);
-      assert.strictEqual(resultB2.text, `Tenant B pt ${REDACTION} ${REDACTION}`);
+      assert.strictEqual(resultA1.text, `Tenant A (fac_1::dept_1) patient ${REDACTION} ${REDACTION}`);
+      assert.strictEqual(resultB1.text, `Tenant B (fac_2::dept_2) pt ${REDACTION} ${REDACTION}`);
+      assert.strictEqual(resultA2.text, `Tenant A (fac_1::dept_1) patient ${REDACTION} ${REDACTION}`);
+      assert.strictEqual(resultB2.text, `Tenant B (fac_2::dept_2) pt ${REDACTION} ${REDACTION}`);
       assert.strictEqual(resultA1.redactionCount, 2);
       assert.strictEqual(resultB1.redactionCount, 2);
       assert.strictEqual(resultA2.redactionCount, 2);
@@ -307,7 +325,7 @@ describe("scrubClient standard and adversarial tests", () => {
       const originalFetch = (global as any).fetch;
       try {
         // Enforce offline-first invariant during stress test
-        (global as any).fetch = () => Promise.reject(new TypeError("Failed to fetch"));
+        (global as any).fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch")));
 
         const promises = Array.from({ length: iterations }, (_, i) => {
           const input = inputs[i % inputs.length];
