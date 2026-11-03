@@ -435,3 +435,120 @@ class TestScrubberServiceFuzzing:
         assert result_tenant_1.redaction_count == result_tenant_2.redaction_count == 1
         assert "9999999" not in result_tenant_1.text
         assert "3-0 suture" in result_tenant_1.text
+import socket
+import pytest
+import time
+import httpx
+import concurrent.futures
+from app.scrubber import scrub_phi, ScrubResult, REDACTION
+
+class TestScrubberServiceFaultInjection:
+    def test_scrub_phi_network_partition_degradation(self, monkeypatch):
+        """
+        Simulate a network partition / degradation where socket calls hang or fail.
+        The scrubber must operate strictly offline-first and not be affected.
+        """
+        _orig_socket = socket.socket
+        def flaky_socket(*args, **kwargs):
+            if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+                return _orig_socket(*args, **kwargs)
+            time.sleep(0.5)  # simulate hang
+            raise socket.timeout("Connection timed out")
+
+        monkeypatch.setattr(socket, "socket", flaky_socket)
+        monkeypatch.setattr(httpx, "get", flaky_socket)
+        monkeypatch.setattr(httpx, "post", flaky_socket)
+
+        # Scrubber should succeed and not be affected by the network degradation
+        start_time = time.time()
+        result = scrub_phi("Patient MRN 1234567")
+        elapsed = time.time() - start_time
+
+        assert result.redaction_count == 1
+        assert "1234567" not in result.text
+        # Assert that it didn't actually hang (because it shouldn't call socket)
+        assert elapsed < 0.1, f"Scrubber took {elapsed}s, likely impacted by network mock"
+
+    def test_scrub_phi_self_healing_reconnection(self, monkeypatch):
+        """
+        Test that offline-first logic operates regardless of network state transitions
+        (e.g., partition -> healed).
+        We toggle the mocked network state and verify idempotency and deterministic
+        execution of the stateless scrubber logic.
+        """
+        network_state = {"status": "offline"}
+
+        _orig_socket = socket.socket
+        def dynamic_socket(*args, **kwargs):
+            if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+                return _orig_socket(*args, **kwargs)
+            if network_state["status"] == "offline":
+                raise socket.error("Network is unreachable")
+            elif network_state["status"] == "degraded":
+                time.sleep(0.1)
+                raise socket.timeout("Timeout")
+            return _orig_socket(*args, **kwargs)
+
+        monkeypatch.setattr(socket, "socket", dynamic_socket)
+        monkeypatch.setattr(httpx, "get", dynamic_socket)
+        monkeypatch.setattr(httpx, "post", dynamic_socket)
+
+        # Stage 1: Offline
+        result_offline = scrub_phi("Patient DOB 01/01/2000")
+        assert result_offline.redaction_count == 1
+
+        # Stage 2: Degraded
+        network_state["status"] = "degraded"
+        result_degraded = scrub_phi("Patient DOB 01/01/2000")
+        assert result_degraded.redaction_count == 1
+
+        # Stage 3: Online (Healed)
+        network_state["status"] = "online"
+        result_online = scrub_phi("Patient DOB 01/01/2000")
+        assert result_online.redaction_count == 1
+
+        # Assert consistent states
+        assert result_offline.text == result_degraded.text == result_online.text
+        assert "01/01/2000" not in result_online.text
+
+    def test_scrub_phi_intermittent_latency_multi_tenant(self, monkeypatch):
+        """
+        Test intermittent latency combined with multi-tenant concurrent requests.
+        Ensures that latency in mocked network does not block or leak state
+        across tenants for the offline-first scrubber.
+        """
+        network_state = {"status": "degraded"}
+
+        _orig_socket = socket.socket
+        def dynamic_socket(*args, **kwargs):
+            if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+                return _orig_socket(*args, **kwargs)
+            if network_state["status"] == "degraded":
+                time.sleep(0.05)
+                raise socket.timeout("Timeout")
+            return _orig_socket(*args, **kwargs)
+
+        monkeypatch.setattr(socket, "socket", dynamic_socket)
+
+        def worker_task(tenant_id, payload):
+            return scrub_phi(f"{tenant_id} {payload}")
+
+        tenant_a = "fac_A::dept_A"
+        tenant_b = "fac_B::dept_B"
+        payload = "Patient MRN 111222333"
+
+        start_time = time.time()
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = []
+            for i in range(50):
+                tenant_id = tenant_a if i % 2 == 0 else tenant_b
+                futures.append(executor.submit(worker_task, tenant_id, payload))
+
+            results = [f.result() for f in futures]
+
+        elapsed = time.time() - start_time
+        assert elapsed < 1.0, f"Total makespan {elapsed}s exceeded expected offline execution time"
+
+        for r in results:
+            assert r.redaction_count == 1
+            assert "111222333" not in r.text
