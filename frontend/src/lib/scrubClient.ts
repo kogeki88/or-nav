@@ -49,6 +49,16 @@ const PATIENT_NAME_PATTERN = /\b(?:[Pp]atient|[Pp]aciente|[Pp]t\.?)\s*(?:named\s
 function normalizePhone(phone: string): string {
   return phone.replace(/\D/g, "");
 }
+const MAX_CACHE_SIZE = 1000;
+const scrubCache = new Map<string, ScrubResult>();
+
+export function getScrubCacheSize(): number {
+  return scrubCache.size;
+}
+
+export function clearScrubCache(): void {
+  scrubCache.clear();
+}
 
 /**
  * Scrub PHI from text before sending to the backend.
@@ -61,8 +71,17 @@ export function scrubPhi(text: string): ScrubResult {
     return { text: "", redactionCount: 0 };
   }
 
+  if (scrubCache.has(text)) {
+    const cached = scrubCache.get(text)!;
+    // LRU: remove and re-insert
+    scrubCache.delete(text);
+    scrubCache.set(text, cached);
+    return cached;
+  }
+
   let count = 0;
   let result = text;
+
 
   // Pass 1: MRN
   result = result.replace(MRN_PATTERN, () => {
@@ -131,9 +150,19 @@ export function scrubPhi(text: string): ScrubResult {
     const prefix = fullMatch.slice(0, fullMatch.indexOf(name));
     return prefix + REDACTION;
   });
+const scrubResult = { text: result, redactionCount: count };
+  scrubCache.set(text, scrubResult);
 
-  return { text: result, redactionCount: count };
+  if (scrubCache.size > MAX_CACHE_SIZE) {
+    const firstKey = scrubCache.keys().next().value;
+    if (firstKey !== undefined) {
+      scrubCache.delete(firstKey);
+    }
+  }
+
+  return scrubResult;
 }
 
 export { REDACTION };
+
 export type { ScrubResult };
