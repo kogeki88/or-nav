@@ -26,6 +26,16 @@ interface FeedbackModalProps {
   initialTab?: "give_feedback" | "recommendations";
 }
 
+
+function sanitizeInput(text: string): string {
+  let safeInput = text;
+  safeInput = safeInput.replace(/bearer\s+[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.?[A-Za-z0-9\-_.+/=]*/gi, "[REDACTED_TOKEN]");
+  safeInput = safeInput.replace(/ignore previous instructions/gi, "[REDACTED_INJECTION]");
+  safeInput = safeInput.replace(/drop table/gi, "[REDACTED_INJECTION]");
+  safeInput = safeInput.replace(/\b\d{3}-\d{2}-\d{4}\b/g, "[REDACTED_PHI]");
+  return safeInput;
+}
+
 export function FeedbackModal({
   isOpen,
   onClose,
@@ -119,8 +129,9 @@ export function FeedbackModal({
     setErrorMsg("");
     setIsSubmitting(true);
     try {
+      const safeText = sanitizeInput(rawText);
       await submitManualFeedback({
-        rawText,
+        rawText: safeText,
         category,
         severity: category === "bug_friction" ? "medium" : "low",
         rating: rating > 0 ? rating : undefined,
