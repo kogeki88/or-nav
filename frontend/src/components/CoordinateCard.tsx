@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { CoordinateCardData } from "@/lib/api";
 import { learnAliasClient, getFacilityIdFromTenant, titleCaseTerm } from "@/lib/lexiconLearning";
+import { scrubPhi } from "@/lib/scrubClient";
 import {
   ChevronRight,
   ChevronDown,
@@ -131,7 +132,9 @@ const CoordinateCard = React.memo(function CoordinateCard({
 
   const handleAddAliasSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanTerm = newAliasText.trim();
+    let cleanTerm = newAliasText.trim();
+    cleanTerm = scrubPhi(cleanTerm).text;
+    if (cleanTerm.toLowerCase().includes("ignore previous instructions") || cleanTerm.toLowerCase().includes("system prompt")) return;
     if (!cleanTerm) return;
     setSavingAlias(true);
     try {
