@@ -16,6 +16,7 @@ import os
 from pathlib import Path
 import re
 from typing import List, Optional, Union
+from app.scrubber import scrub_phi
 import uuid
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -331,7 +332,7 @@ async def create_or_intercept_feedback(req: CreateFeedbackRequest):
     Create a feedback item or merge/upvote if a similar complaint already exists.
     Auto-classifies category & severity and synthesizes AI recommendation + prompt if omitted.
     """
-    raw = req.rawText.strip()
+    raw = scrub_phi(req.rawText).text.strip()
     if not raw:
         raise HTTPException(status_code=400, detail="rawText must not be empty.")
 

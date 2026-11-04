@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import List, Optional
 import uuid
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter(prefix="/api/peer-questions", tags=["peer-questions"])
 
@@ -67,6 +67,15 @@ class PeerQuestion(BaseModel):
 from pydantic import Field
 
 class CreateQuestionRequest(BaseModel):
+
+    @field_validator("question_text", "questionText", mode="before", check_fields=False)
+    @classmethod
+    def sanitize_html(cls, v):
+        if isinstance(v, str):
+            if "<script" in v.lower():
+                raise ValueError("Payload contains forbidden HTML/Script tags")
+        return v
+
     tenant_id: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
     tenantId: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
     question_text: Optional[str] = Field(default=None, min_length=1, max_length=1000)

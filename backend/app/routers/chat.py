@@ -24,7 +24,7 @@ from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, Request, Response
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from app.limiter import limiter
 
 from app.config import get_tenant, settings, TenantConfig
@@ -178,10 +178,22 @@ class VerifyMoveRequest(BaseModel):
     tenant_id: str = Field(default=settings.default_tenant, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
     item: str = Field(..., min_length=1, max_length=200, description="Exact item name to verify move for")
     expected_location: Optional[str] = Field(
-        default=None, max_length=200, description="Expected pending coordinate target (prevents stale confirms)")
+        default=None, max_length=200, pattern=r"^[a-zA-Z0-9_\-\s:·]+$", description="Expected pending coordinate target (prevents stale confirms)")
     timestamp: Optional[str] = Field(
         default=None, max_length=50, description="Mutation timestamp for offline conflict resolution")
 
+
+
+
+
+
+    @field_validator("item", "expected_location", mode="before", check_fields=False)
+    @classmethod
+    def sanitize_html(cls, v):
+        if isinstance(v, str):
+            if "<script" in v.lower():
+                raise ValueError("Payload contains forbidden HTML/Script tags")
+        return v
 
 class VerifyMoveResponse(BaseModel):
     """Response from POST /api/inventory/verify-move."""
@@ -204,12 +216,36 @@ class FlagWrongRequest(BaseModel):
         default=None, max_length=50, description="Mutation timestamp for offline conflict resolution")
 
 
+
+
+
+
+    @field_validator("item", "reason", mode="before", check_fields=False)
+    @classmethod
+    def sanitize_html(cls, v):
+        if isinstance(v, str):
+            if "<script" in v.lower():
+                raise ValueError("Payload contains forbidden HTML/Script tags")
+        return v
+
 class CreateQuestionRequest(BaseModel):
     """Request body for POST /api/questions."""
     tenant_id: str = Field(default=settings.default_tenant, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
     question_text: str = Field(..., min_length=3, max_length=1000)
     asked_by_role: str = Field(default="Clinical Orientee RN", min_length=1, max_length=100)
 
+
+
+
+
+
+    @field_validator("question_text", "asked_by_role", mode="before", check_fields=False)
+    @classmethod
+    def sanitize_html(cls, v):
+        if isinstance(v, str):
+            if "<script" in v.lower():
+                raise ValueError("Payload contains forbidden HTML/Script tags")
+        return v
 
 class AnswerQuestionRequest(BaseModel):
     """Request body for POST /api/questions/{question_id}/answer."""
