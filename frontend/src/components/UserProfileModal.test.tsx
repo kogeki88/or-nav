@@ -426,3 +426,113 @@ test('UserProfileModal handles network partition degradation, intermittent laten
   (global as any).fetch = origFetch;
   mock.restoreAll();
 });
+
+test('UserProfileModal prevents memory leaks and DOM accumulation over high-volume remount cycles', async (t) => {
+  cleanup();
+
+  // Force garbage collection before profiling
+  if (global.gc) global.gc();
+  const initialMemory = process.memoryUsage().heapUsed;
+
+  const originalAddEventListener = window.addEventListener;
+  const originalRemoveEventListener = window.removeEventListener;
+
+  let activeListeners = 0;
+
+  window.addEventListener = function(type, listener, options) {
+    activeListeners++;
+    originalAddEventListener.call(window, type, listener, options);
+  };
+
+  window.removeEventListener = function(type, listener, options) {
+    activeListeners--;
+    originalRemoveEventListener.call(window, type, listener, options);
+  };
+
+  const ITERATIONS = 100;
+
+  for (let i = 0; i < ITERATIONS; i++) {
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+
+    const { unmount } = render(
+      <UserProfileModal
+        isOpen={true}
+        onClose={() => {}}
+        currentProfile={DEFAULT_USER_PROFILE}
+        onSaveProfile={() => {}}
+      />,
+      { container: root }
+    );
+
+    unmount();
+    document.body.removeChild(root);
+  }
+
+  // Force GC after test
+  if (global.gc) global.gc();
+
+  const finalMemory = process.memoryUsage().heapUsed;
+  const memoryGrowth = finalMemory - initialMemory;
+
+  // Allowing 50MB of growth overhead for testing library and jsdom caches
+  assert.ok(memoryGrowth < 50 * 1024 * 1024, `Memory leak detected: heap grew by ${(memoryGrowth / 1024 / 1024).toFixed(2)} MB`);
+
+  // Ensure DOM is clean
+  assert.strictEqual(document.body.childNodes.length, 0, 'DOM leak detected: elements accumulated on document.body');
+
+  // Ensure active listeners count returns to original (0 differential)
+  assert.strictEqual(activeListeners, 0, 'Resource leak detected: unclosed event listeners remaining');
+
+  window.addEventListener = originalAddEventListener;
+  window.removeEventListener = originalRemoveEventListener;
+});
+
+test('UserProfileModal handles offline QuotaExceededError gracefully during multi-tenant profiling', async (t) => {
+  cleanup();
+
+  const originalSetItem = localStorage.setItem;
+
+  localStorage.setItem = mock.fn((key: string, value: string) => {
+    throw new DOMException('QuotaExceededError: DOM Exception 22', 'QuotaExceededError');
+  });
+
+  const origFetch = global.fetch;
+  (global as any).fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+
+  const onSaveProfileMock = mock.fn();
+
+  render(
+    <UserProfileModal
+      isOpen={true}
+      onClose={() => {}}
+      currentProfile={{
+        ...DEFAULT_USER_PROFILE,
+        facilityId: 'tenant_quota',
+        departmentId: 'or_main',
+      }}
+      onSaveProfile={onSaveProfileMock}
+    />
+  );
+
+  const roleSelect = screen.getByTestId('select-role') as HTMLSelectElement;
+  fireEvent.change(roleSelect, { target: { value: 'Scrub Tech' } });
+
+  const saveBtn = screen.getAllByTestId('button-save-profile')[0];
+
+  // Should not crash when clicking save
+  assert.doesNotThrow(() => {
+    fireEvent.click(saveBtn);
+  }, 'Should handle QuotaExceededError gracefully without throwing');
+
+  await waitFor(() => {
+    assert.strictEqual(onSaveProfileMock.mock.calls.length, 1);
+  });
+
+  const savedProfile = onSaveProfileMock.mock.calls[0].arguments[0];
+  assert.strictEqual(savedProfile.facilityId, 'tenant_quota');
+
+  localStorage.setItem = originalSetItem;
+  (global as any).fetch = origFetch;
+  mock.restoreAll();
+});
