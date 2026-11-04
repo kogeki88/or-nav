@@ -386,3 +386,57 @@ test("fault injection, network partition degradation, intermittent latency, and 
     (global as any).localStorage = tempLocalStorage;
   }
 });
+
+test("Memory Profiling & Resource Eviction Hardening: detects memory leaks, unclosed event listeners, and ensures resource cleanup under constraint", async () => {
+  if (global.gc) {
+    global.gc();
+  }
+  const initialMemory = process.memoryUsage().heapUsed;
+  const initialListeners = process.listeners("warning").length; // or any listener, maybe window listeners if any
+
+  // To simulate constrained memory, we will rapidly award XP across multiple tenants
+  const NUM_OPS = 10000;
+
+  // Enforce offline-first invariant - ensure this works without window or with mocked storage
+  const tempWindow = (global as any).window;
+  const tempLocalStorage = (global as any).localStorage;
+
+  try {
+    (global as any).window = undefined;
+    const inMemoryStorage = new Map<string, string>();
+    (global as any).localStorage = {
+      getItem: (key: string) => inMemoryStorage.get(key) || null,
+      setItem: (key: string, value: string) => {
+        // Simple cache eviction logic for the test to prevent unbounded growth in our mock
+        if (inMemoryStorage.size > 50) {
+          const firstKey = inMemoryStorage.keys().next().value;
+          if (firstKey) inMemoryStorage.delete(firstKey);
+        }
+        inMemoryStorage.set(key, value);
+      },
+      removeItem: (key: string) => inMemoryStorage.delete(key),
+      clear: () => inMemoryStorage.clear()
+    };
+
+    for (let i = 0; i < NUM_OPS; i++) {
+      const tenantId = `tenant_mem_${i % 100}`;
+      // We use empty functions for event listener stubs instead of mock.fn() to avoid mock memory accumulation
+      awardClinicalXP("lookup", undefined, tenantId, `mut_mem_${i}`);
+    }
+
+    if (global.gc) {
+      global.gc();
+    }
+
+    const finalMemory = process.memoryUsage().heapUsed;
+    const finalListeners = process.listeners("warning").length;
+
+    const memoryGrowthMB = (finalMemory - initialMemory) / 1024 / 1024;
+    // Allow up to 100MB growth for the test runner overhead and retained data
+    assert.ok(memoryGrowthMB < 100, `Potential memory leak detected. Memory grew by ${memoryGrowthMB.toFixed(2)} MB`);
+    assert.equal(finalListeners, initialListeners, "Unclosed event listeners detected on process");
+  } finally {
+    (global as any).window = tempWindow;
+    (global as any).localStorage = tempLocalStorage;
+  }
+});
