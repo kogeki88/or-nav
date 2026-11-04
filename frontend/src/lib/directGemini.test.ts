@@ -668,6 +668,80 @@ describe('directGemini', () => {
       }
     });
 
+
+    test('Memory profiling and cache eviction under constrained runtime memory', async () => {
+      setClientGeminiApiKey("test-memory-key");
+      const originalFetch = global.fetch;
+      try {
+        let fetchCount = 0;
+        global.fetch = async () => {
+        fetchCount++;
+        return {
+          ok: true,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: "Memory response" }] } }]
+          })
+        } as unknown as Response;
+      };
+
+      if (global.gc) global.gc();
+      const initialMemory = process.memoryUsage().heapUsed;
+
+      const CONCURRENCY = 50;
+      const promises = Array.from({ length: CONCURRENCY }).map((_, i) => directGeminiRAG(`memory query ${i}`));
+
+      await Promise.all(promises);
+
+      if (global.gc) global.gc();
+      const finalMemory = process.memoryUsage().heapUsed;
+
+      const diff = finalMemory - initialMemory;
+
+      // Allow up to 100MB of growth, which is generous enough to prevent flakiness
+      assert.ok(diff < 100 * 1024 * 1024, `Memory growth should be bounded, grew by ${diff} bytes`);
+      assert.strictEqual(fetchCount, CONCURRENCY);
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+
+    test('Unclosed event listeners and memory leaks in directTranscribeAudio under constraint', async () => {
+      setClientGeminiApiKey("test-memory-audio-key");
+
+      const initialListeners = process.listeners('uncaughtException').length + process.listeners('unhandledRejection').length;
+      if (global.gc) global.gc();
+      const initialMemory = process.memoryUsage().heapUsed;
+
+      const originalFetch = global.fetch;
+      try {
+        global.fetch = async () => ({
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: "Audio response" }] } }]
+        })
+      }) as unknown as Response;
+
+      const mockBlob = new Blob(["mock audio data for memory test"], { type: "audio/webm" });
+      const CONCURRENCY = 30;
+      const promises = Array.from({ length: CONCURRENCY }).map(() => directTranscribeAudio(mockBlob));
+
+      await Promise.all(promises);
+
+      if (global.gc) global.gc();
+      const finalMemory = process.memoryUsage().heapUsed;
+      const finalListeners = process.listeners('uncaughtException').length + process.listeners('unhandledRejection').length;
+
+      const diff = finalMemory - initialMemory;
+
+      // Allow up to 100MB of growth, verify no stray listeners
+      assert.ok(diff < 100 * 1024 * 1024, `Memory growth should be bounded, grew by ${diff} bytes`);
+      assert.strictEqual(finalListeners, initialListeners, "No unclosed event listeners should remain");
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
     test('Offline-first invariant: gracefully handles sudden network loss under high concurrency', async () => {
       setClientGeminiApiKey("test-offline-key");
 
