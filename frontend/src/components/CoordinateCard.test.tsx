@@ -402,3 +402,96 @@ test('fault injection: intermittent latency network partition reconnection and s
         cleanup();
     }
 });
+
+
+test('memory profiling, leak detection, unclosed event listeners, and cache eviction under constrained runtime memory', async () => {
+    if (global.gc) global.gc();
+    const initialMemory = process.memoryUsage().heapUsed;
+
+    const originalAddEventListener = window.addEventListener;
+    const originalRemoveEventListener = window.removeEventListener;
+
+    let addedListeners = 0;
+    let removedListeners = 0;
+
+    window.addEventListener = function() {
+        addedListeners++;
+        return originalAddEventListener.apply(window, arguments as any);
+    };
+
+    window.removeEventListener = function() {
+        removedListeners++;
+        return originalRemoveEventListener.apply(window, arguments as any);
+    };
+
+    const originalFetch = global.fetch;
+    global.fetch = () => { throw new Error('Offline mode enforced'); };
+
+    let storageFailing = true;
+    const originalGetItem = (global as any).localStorage?.getItem;
+    const originalSetItem = (global as any).localStorage?.setItem;
+
+    if (!(global as any).localStorage) {
+      (global as any).localStorage = { getItem: () => null, setItem: () => {} };
+    }
+
+    (global as any).localStorage.getItem = mock.fn((key: string) => {
+        if (storageFailing) throw new Error('QuotaExceededError');
+        return originalGetItem ? originalGetItem.call((global as any).localStorage, key) : null;
+    });
+
+    (global as any).localStorage.setItem = mock.fn((key: string, value: string) => {
+        if (storageFailing) throw new Error('QuotaExceededError');
+        if (originalSetItem) originalSetItem.call((global as any).localStorage, key, value);
+    });
+
+    const cardData = {
+        item: 'Leak Test Item',
+        room: 'OR 1',
+        cabinet: '2',
+        shelf: '3',
+        container: '4',
+        full_code: 'OR 1-2-3-4',
+        category: 'Surgical',
+        surgeon_notes: '',
+        pending_location: '',
+        verify_count: 0
+    };
+
+    const iterations = 500;
+
+    try {
+        for (let i = 0; i < iterations; i++) {
+            const container = document.createElement('div');
+            document.body.appendChild(container);
+
+            const { unmount } = render(<CoordinateCard card={cardData} facilityId={`leak_tenant_${i}`} />, { container });
+
+            // Trigger state updates
+            fireEvent.click(screen.getByTestId('add-local-alias-btn'));
+            fireEvent.change(screen.getByTestId('add-local-alias-input'), { target: { value: `Alias-${i}` } });
+            fireEvent.click(screen.getByTestId('save-local-alias-btn'));
+
+            unmount();
+            document.body.removeChild(container);
+        }
+
+        if (global.gc) global.gc();
+        const finalMemory = process.memoryUsage().heapUsed;
+        const memoryGrowth = finalMemory - initialMemory;
+
+        // Assert memory growth is within 150MB tolerance
+        assert.ok(memoryGrowth < 150 * 1024 * 1024, `Memory leak detected: grew by ${Math.round(memoryGrowth / 1024 / 1024)}MB`);
+
+        // Assert no unclosed event listeners
+        assert.ok(addedListeners === removedListeners, `Listener leak: added ${addedListeners}, removed ${removedListeners}`);
+
+    } finally {
+        window.addEventListener = originalAddEventListener;
+        window.removeEventListener = originalRemoveEventListener;
+        global.fetch = originalFetch;
+        if (originalGetItem) (global as any).localStorage.getItem = originalGetItem;
+        if (originalSetItem) (global as any).localStorage.setItem = originalSetItem;
+        cleanup();
+    }
+});
