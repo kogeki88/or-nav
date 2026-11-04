@@ -856,3 +856,112 @@ def test_hipaa_phi_boundary_prompt_injection_and_zero_trust(tmp_path, monkeypatc
 
     res_cross2 = inv2.search("Suture")
     assert res_cross2 is None
+
+
+def test_clinical_workflow_snapshot_and_deterministic_state_verifications(tmp_path, monkeypatch):
+    """
+    Clinical Workflow Snapshot & Deterministic State Verifications for InventorySearch.
+    Tests preference card conflict resolution, and clinical state snapshot consistency.
+    Enforces multi-tenant isolation and offline-first invariants.
+    """
+    import socket
+    import httpx
+    import json
+    from app.services.inventory_search import InventoryService
+    from app.config import get_tenant
+
+    # Enforce offline-first invariants dynamically
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted")
+        if args and args[0] != socket.AF_UNIX:
+            raise RuntimeError("Network call attempted")
+        if 'family' in kwargs and kwargs['family'] != socket.AF_UNIX:
+            raise RuntimeError("Network call attempted")
+        return original_socket(*args, **kwargs)
+
+    def mock_httpx(*args, **kwargs):
+        raise RuntimeError("Network call attempted")
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
+    monkeypatch.setattr(httpx, "get", mock_httpx)
+    monkeypatch.setattr(httpx, "post", mock_httpx)
+    monkeypatch.setattr(httpx, "request", mock_httpx)
+
+    # Mock lexicon path
+    monkeypatch.setattr("app.services.lexicon_learning._get_facility_lexicon_path", lambda tid: tmp_path / f"{tid}_lexicon.json")
+
+    # Setup Tenant 1 (Valid)
+    t1 = get_tenant("sacred_heart::or")
+    t1_csv = tmp_path / "t1_sec.csv"
+    t1_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nSuture,Supplies,R1,C1,S1,C1,,0\nScalpel,Supplies,R1,C1,S2,C1,,0\n")
+    t1.inventory_path = t1_csv
+    inv1 = InventoryService(t1)
+
+    # Setup Tenant 2 (For Isolation Testing)
+    t2 = get_tenant("princeton_plainsboro::icu")
+    t2_csv = tmp_path / "t2_sec.csv"
+    t2_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nSuture,Supplies,R2,C2,S2,C2,,0\n")
+    t2.inventory_path = t2_csv
+    inv2 = InventoryService(t2)
+
+    # 1. Deterministic State Transition: Move an item and verify state
+    # Move item
+    move_res = inv1.report_move("Suture", "R1 C1 S1 C2")
+    assert move_res is not None
+    assert move_res["pending_location"] == "R1 C1 S1 C2"
+    assert move_res["verify_count"] == 1
+
+    # Verify move (count increases)
+    verify_res = inv1.verify_move("Suture")
+    assert verify_res is not None
+    assert verify_res["verify_count"] == 2
+
+    # Verify again to complete move (threshold is 3)
+    verify_res2 = inv1.verify_move("Suture")
+    assert verify_res2 is not None
+    assert verify_res2["verify_count"] == 0
+    assert verify_res2["container"] == "C2" # Moved successfully
+    assert verify_res2["pending_location"] == ""
+
+    # 2. Preference card conflict resolution / Split-brain prevention
+    # Report move to Loc A
+    inv1.report_move("Scalpel", "R1 C2 S1 C1")
+    state = inv1.search("Scalpel")
+    assert state["pending_location"] == "R1 C2 S1 C1"
+    assert state["verify_count"] == 1
+
+    # Report move to Loc B (Conflict!)
+    inv1.report_move("Scalpel", "R1 C3 S1 C1")
+    state2 = inv1.search("Scalpel")
+    assert state2["pending_location"] == "R1 C3 S1 C1" # State updated to new location
+    assert state2["verify_count"] == 1 # Verify count reset to 1 to prevent split-brain
+
+    # 3. Clinical state snapshot consistency
+    # Export state and verify it matches the deterministic state
+    snapshot = inv1.get_sync_payload()
+    assert snapshot is not None
+    # We expect Suture to be in C2 and Scalpel to have pending move to C3
+    suture_snap = next(item for item in snapshot if item["item"] == "Suture")
+    assert suture_snap["container"] == "C2"
+    scalpel_snap = next(item for item in snapshot if item["item"] == "Scalpel")
+    assert scalpel_snap["pending_location"] == "R1 C3 S1 C1"
+
+    # Verify snapshot can be loaded back idempotently (simulated offline mutation replay idempotency)
+    # Using internal _load_csv logic by triggering a re-read
+    # Manually write state to simulate a loaded snapshot
+    inv1._save_csv()
+
+    # Re-instantiate service to simulate a fresh load from the snapshot
+    inv1_reloaded = InventoryService(t1)
+    state3 = inv1_reloaded.search("Scalpel")
+    assert state3["pending_location"] == "R1 C3 S1 C1"
+    assert state3["verify_count"] == 1
+
+    # 4. Multi-tenant isolation verification
+    # Tenant 2 should not see Tenant 1's moves
+    t2_suture = inv2.search("Suture")
+    assert t2_suture["container"] == "C2" # Original t2 container
+    assert t2_suture["verify_count"] == 0
+    assert t2_suture["pending_location"] == ""
