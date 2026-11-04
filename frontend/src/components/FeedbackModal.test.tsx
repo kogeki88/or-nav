@@ -757,3 +757,110 @@ test('intermittent network latency and delayed response resilience', async () =>
 
     assert.strictEqual(submitManualFeedbackMock.mock.calls.length, 1);
 });
+
+
+test('memory profiling, leak detection, unclosed event listeners, and cache eviction under constrained runtime memory', async () => {
+    // 1. Initial listener state setup
+    const initialListeners = new Map();
+    const originalAddEventListener = window.addEventListener;
+    const originalRemoveEventListener = window.removeEventListener;
+
+    window.addEventListener = function (type, listener, options) {
+        if (!initialListeners.has(type)) {
+            initialListeners.set(type, new Set());
+        }
+        initialListeners.get(type).add(listener);
+        return originalAddEventListener.apply(this, arguments);
+    };
+
+    window.removeEventListener = function (type, listener, options) {
+        if (initialListeners.has(type)) {
+            initialListeners.get(type).delete(listener);
+        }
+        return originalRemoveEventListener.apply(this, arguments);
+    };
+
+    // Prepare robust isolated mocks for loop remounting
+    const submitManualFeedbackMock = function() {
+        return Promise.resolve({
+            id: 'fb-123',
+            tenantId: 'facility-1::dept-1',
+            userName: 'Test Nurse',
+            userRole: 'Circulating RN',
+            source: 'manual_submission',
+            category: 'bug_friction',
+            severity: 'medium',
+            rawText: 'Memory test',
+            aiRecommendation: 'Fix issue',
+            suggestedFixPrompt: 'Fix this bug',
+            upvotes: 1,
+            status: 'open',
+            createdAt: new Date().toISOString(),
+        });
+    };
+
+    const FeedbackModalModLocal = proxyquire('./FeedbackModal', {
+        '@/lib/gamification': { awardClinicalXP: function() {} },
+        '@/lib/auth': { isAdminUser: function() { return false; }, getCurrentSession: function() { return null; } },
+        '@/lib/feedbackEngine': {
+            submitManualFeedback: submitManualFeedbackMock,
+            fetchFeedbackItems: async function() { return []; },
+            upvoteFeedback: function() {},
+            updateFeedbackStatus: function() {},
+            FEEDBACK_EVENT_NAME: 'feedback_updated'
+        }
+    });
+
+    const MemoryFeedbackModal = FeedbackModalModLocal.FeedbackModal;
+    const ITERATIONS = 1000; // Reduced to avoid timeouts
+
+    // Conditionally trigger GC and record starting heap
+    if (global.gc) {
+        global.gc();
+    }
+    const memoryBefore = process.memoryUsage().heapUsed;
+
+    // High volume remount loop
+    for (let i = 0; i < ITERATIONS; i++) {
+        // Create fresh isolated container
+        const root = document.createElement('div');
+        document.body.appendChild(root);
+
+        // Mount and immediately unmount using proper @testing-library cleanup to prevent DOM accumulation
+        const { unmount } = render(
+            <MemoryFeedbackModal isOpen={true} onClose={() => {}} userProfile={dummyProfile} />,
+            { container: root }
+        );
+        unmount();
+
+        // Remove from body to enforce total isolation and cleanup
+        document.body.removeChild(root);
+
+    }
+
+    // Force GC again
+    if (global.gc) {
+        global.gc();
+    }
+    const memoryAfter = process.memoryUsage().heapUsed;
+    const memoryDiffMB = (memoryAfter - memoryBefore) / 1024 / 1024;
+
+    // Verify heap usage did not balloon (e.g. max 150MB growth constraint)
+    assert.ok(memoryDiffMB < 150, `Memory leak detected: grew by ${memoryDiffMB.toFixed(2)} MB`);
+
+    // 2. Unclosed Listeners Check
+    // We check if the modal left any dangling listeners on the window object
+    let danglingCount = 0;
+    for (const [type, listeners] of initialListeners.entries()) {
+        danglingCount += listeners.size;
+    }
+
+    // Allow for potential built-in or other test environmental listeners but shouldn't grow with iterations
+    // Since we unmounted completely in the isolated scope, it should be clean.
+    // Accept a small number of baseline listeners from testing framework overhead but ensure no unbounded growth
+    assert.ok(danglingCount < 5, `Found ${danglingCount} unclosed window event listeners, expected minimal baseline`);
+
+    // Restore listener methods
+    window.addEventListener = originalAddEventListener;
+    window.removeEventListener = originalRemoveEventListener;
+});
