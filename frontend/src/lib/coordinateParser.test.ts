@@ -670,3 +670,63 @@ describe("Phase 7: Strict Security Invariants & HIPAA PHI Boundary Verification"
     assert.ok(end - start < 500, `Expected robust regex to evaluate <500ms, took ${end - start}ms`);
   });
 });
+
+
+describe("Phase 8: Clinical Workflow Snapshot & Deterministic State Verifications", () => {
+  test("Deterministic state transition matrices across multiple parse cycles", () => {
+    const inputs = ["OR 1 A 2 B", "ICU 3 B 1 C", "Pump Room A 1 B"];
+    const expected = ["OR 1 A 2 B", "ICU 3 B 1 C", "Pump Room A 1 B"];
+
+    for (let i = 0; i < inputs.length; i++) {
+      const res1 = extractAndNormalizeCoordinateClient(inputs[i]);
+      const res2 = extractAndNormalizeCoordinateClient(inputs[i]);
+      assert.deepStrictEqual(res1, res2, "Parser state must remain deterministic across evaluations");
+      assert.strictEqual(res1?.location, expected[i]);
+    }
+  });
+
+  test("Preference card conflict resolution determinism", () => {
+    // Tests that preference card queries embedded with coordinates parse the coordinate cleanly without interference
+    const inputs = [
+      "Dr. Smith preference card for lap chole in OR 5 A 1 B",
+      "show me preference card for total knee OR 10 B 2 C"
+    ];
+    const expectedCoords = ["OR 5 A 1 B", "OR 10 B 2 C"];
+
+    for (let i = 0; i < inputs.length; i++) {
+      const res = extractAndNormalizeCoordinateClient(inputs[i]);
+      assert.ok(res);
+      assert.strictEqual(res.location, expectedCoords[i]);
+      // Verify the query leaves the clean text indicating the card lookup
+      assert.ok(res.cleanText.includes("preference card"));
+    }
+  });
+
+  test("Clinical state snapshot consistency after repeated parse bursts", async () => {
+    // Mock fetch to simulate offline state explicitly
+    const originalFetch = global.fetch;
+    global.fetch = () => { throw new Error("Network Partition"); };
+
+    try {
+      const initialSnapshot = extractAndNormalizeCoordinateClient("Trauma Bay 1 A 1 B");
+
+      // Burst 100 random coordinate parses
+      const tasks = [];
+      for (let i = 0; i < 100; i++) {
+        tasks.push(new Promise((resolve) => {
+          setTimeout(() => {
+            resolve(extractAndNormalizeCoordinateClient(`OR ${(i % 10) + 1} A 1 B`));
+          }, 0);
+        }));
+      }
+      await Promise.all(tasks);
+
+      const finalSnapshot = extractAndNormalizeCoordinateClient("Trauma Bay 1 A 1 B");
+
+      // Ensure the exact same object structure and values are returned, proving state snapshot consistency
+      assert.deepStrictEqual(initialSnapshot, finalSnapshot, "Clinical state snapshot drifted after load");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});
