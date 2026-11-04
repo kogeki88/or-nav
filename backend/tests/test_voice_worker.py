@@ -593,3 +593,92 @@ async def test_fault_injection_intermittent_latency_and_reconnection(monkeypatch
     network_state["status"] = "online"
     res5 = await lookup_item_location(item_query="3-0 silk", tenant_id="general_memorial_cvor")
     assert "3-0 Silk Suture" in res5
+
+import tracemalloc
+import gc
+import sys
+
+from app.services.inventory_search import _services
+
+@pytest.mark.asyncio
+async def test_memory_leak_and_cache_eviction_voice_worker(monkeypatch: Any, tmp_path):
+    """
+    Test memory profiling, leak detection, unclosed resources, and cache eviction
+    under constrained runtime memory for VoiceWorker.
+    """
+    def raise_offline_error(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+    monkeypatch.setattr("socket.socket", raise_offline_error)
+    monkeypatch.setattr("httpx.get", raise_offline_error)
+    monkeypatch.setattr("httpx.post", raise_offline_error)
+    monkeypatch.setattr("httpx.request", raise_offline_error)
+
+    # Force a small cache size to test eviction
+    monkeypatch.setattr("app.services.inventory_search.MAX_SERVICES_CACHE_SIZE", 5)
+
+    def mock_get_tenant(tenant_id: str):
+        class MockTenant:
+            def __init__(self, tid):
+                self.tenant_id = tid
+                self.inventory_path = tmp_path / f"inventory_{tid}.csv"
+                if not self.inventory_path.exists():
+                    self.inventory_path.write_text("item,category,room,cabinet,shelf,container,human_alias,aliases,surgeon_notes,pending_location,verify_count,verification_score,status,last_verified_at\nrapid infuser,Equipment,ER,A,1,A,ER A1,rapid,,,,,,\n")
+        return MockTenant(tenant_id)
+
+    monkeypatch.setattr("app.config.get_tenant", mock_get_tenant)
+
+    reset_inventory_services()
+
+    # Track Node process-level unclosed event listeners is a JS thing, but in python we check asyncio tasks
+    # We will check tasks before and after to ensure no background tasks are left lingering
+    loop = asyncio.get_running_loop()
+    initial_tasks = len(asyncio.all_tasks(loop))
+
+    # Start memory profiling
+    tracemalloc.start()
+
+    # Run initial baseline memory snapshot
+    gc.collect()
+    snapshot_start = tracemalloc.take_snapshot()
+
+    # High volume burst to simulate heavy load and multi-tenant cache fills
+    num_requests = 100
+
+    # Force multi-tenant isolation by passing unique tenant IDs up to cache limit
+    # and beyond to trigger eviction.
+    tasks = []
+    for i in range(num_requests):
+        # Generate varied tenants to test eviction
+        # (e.g., 20 unique tenants -> causes eviction with max cache size 5)
+        tenant = f"general_memorial_tenant_{i % 20}"
+        tasks.append(lookup_item_location(item_query="rapid infuser", tenant_id=tenant))
+
+    results = await asyncio.gather(*tasks)
+
+    # Trigger garbage collection before final snapshot
+    gc.collect()
+    snapshot_end = tracemalloc.take_snapshot()
+
+    # Calculate memory diff
+    stats = snapshot_end.compare_to(snapshot_start, 'lineno')
+
+    # Allow some memory growth for test runner overhead but not a massive leak
+    # We use generous tolerance 50MB-150MB, so let's allow up to 150000 KB (approx 150MB)
+    # to account for test runner/tracemalloc overhead, but detect massive runaway leaks
+    total_diff_kb = sum(stat.size_diff for stat in stats) / 1024
+    assert total_diff_kb < 150000, f"Memory leak detected! Grew by {total_diff_kb} KB"
+
+    # Ensure cache eviction works correctly - cache shouldn't exceed new max
+    assert len(_services) <= 5, f"Cache eviction failed, expected <= 5, got {len(_services)}"
+
+    # Ensure offline first didn't raise
+    for res in results:
+        assert isinstance(res, str)
+
+    # Check for unclosed tasks/event loop resources
+    final_tasks = len(asyncio.all_tasks(loop))
+    # We allow the current test task, plus any tasks that were running initially
+    assert final_tasks <= initial_tasks, f"Unclosed asyncio tasks detected. Started with {initial_tasks}, ended with {final_tasks} tasks."
+
+    tracemalloc.stop()
