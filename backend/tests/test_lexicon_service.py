@@ -519,3 +519,52 @@ def test_fault_injection_write_partition_and_recovery(mock_lexicon_dir):
     assert "stable term" in terms
     assert "recovered term" in terms
     assert "new term" not in terms
+
+
+def test_lexicon_memory_eviction(mock_lexicon_dir):
+    """Verify memory eviction during heavy cache loads (profiling for leaks)."""
+    import tracemalloc
+    import gc
+    from app.services.lexicon_learning import _LEXICON_CACHE, load_facility_lexicon, MAX_LEXICON_CACHE_SIZE
+
+    tracemalloc.start()
+    gc.collect()
+
+    baseline, _ = tracemalloc.get_traced_memory()
+
+    _LEXICON_CACHE.clear()
+
+    for i in range(MAX_LEXICON_CACHE_SIZE + 50):
+        facility_id = f"evict_fac_{i}"
+        load_facility_lexicon(facility_id)
+        if i % 20 == 0:
+            gc.collect()
+
+    assert len(_LEXICON_CACHE) <= MAX_LEXICON_CACHE_SIZE
+
+    gc.collect()
+    current_mem, peak_mem = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+
+    net_growth_mb = (current_mem - baseline) / (1024 * 1024)
+    assert net_growth_mb < 5.0, f"Memory leak detected: {net_growth_mb:.2f} MB"
+
+
+def test_unclosed_event_listeners_or_threads_in_lexicon(mock_lexicon_dir):
+    """Verify that LexiconLearningService does not leak threads or event listeners."""
+    import threading
+    import gc
+    from app.services.lexicon_learning import learn_alias, _LEXICON_CACHE
+
+    initial_thread_count = threading.active_count()
+
+    # Run heavy operations
+    for i in range(100):
+        facility = f"thread_leak_fac_{i % 5}"
+        learn_alias(facility, "or", f"term_{i}", f"Item {i}", f"user_{i}")
+
+    gc.collect()
+
+    # Active threads shouldn't grow boundlessly
+    final_thread_count = threading.active_count()
+    assert final_thread_count - initial_thread_count < 5, f"Thread leak detected! Initial: {initial_thread_count}, Final: {final_thread_count}"

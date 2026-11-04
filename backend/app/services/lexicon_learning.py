@@ -197,6 +197,20 @@ def _get_facility_lexicon_path(facility_id: str) -> Path:
 _LEXICON_CACHE: dict[str, tuple[int, list[dict]]] = {}
 
 
+
+MAX_LEXICON_CACHE_SIZE = 100
+
+def _enforce_lexicon_cache_eviction() -> None:
+    """Evict oldest caches if cache size exceeds limits to prevent memory leaks. Assumes caller holds _lexicon_lock."""
+    if len(_LEXICON_CACHE) > MAX_LEXICON_CACHE_SIZE:
+        # Sort by mtime (oldest first)
+        sorted_caches = sorted(_LEXICON_CACHE.items(), key=lambda item: item[1][0])
+        # Remove oldest half
+        num_to_remove = len(_LEXICON_CACHE) - (MAX_LEXICON_CACHE_SIZE // 2)
+        for key, _ in sorted_caches[:num_to_remove]:
+            _LEXICON_CACHE.pop(key, None)
+
+
 def load_facility_lexicon(facility_id: str) -> List[dict]:
     """Load all learned aliases for a facility from disk (cached in-memory by mtime)."""
     path = _get_facility_lexicon_path(facility_id)
@@ -208,6 +222,7 @@ def load_facility_lexicon(facility_id: str) -> List[dict]:
                 temp_path.write_text(json.dumps(defaults, indent=2, ensure_ascii=False), encoding="utf-8")
                 temp_path.replace(path)
                 _LEXICON_CACHE[facility_id] = (path.stat().st_mtime_ns, [dict(d) for d in defaults])
+                _enforce_lexicon_cache_eviction()
                 return [dict(d) for d in defaults]
             _LEXICON_CACHE.pop(facility_id, None)
             return []
@@ -219,6 +234,7 @@ def load_facility_lexicon(facility_id: str) -> List[dict]:
             data = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(data, list):
                 _LEXICON_CACHE[facility_id] = (mtime, data)
+                _enforce_lexicon_cache_eviction()
                 return data
             return []
         except Exception:
