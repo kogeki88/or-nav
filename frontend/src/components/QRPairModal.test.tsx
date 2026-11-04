@@ -453,3 +453,76 @@ test('fault injection & network partition degradation: validates self-healing re
 
   unmount();
 });
+
+
+test('memory profiling: unclosed event listeners and component garbage collection under constrained limits', async () => {
+  if (global.gc) global.gc();
+  const initialMemory = process.memoryUsage().heapUsed;
+
+  const originalAddEventListener = window.addEventListener;
+  const originalRemoveEventListener = window.removeEventListener;
+
+  let addedListeners = 0;
+  let removedListeners = 0;
+
+  window.addEventListener = function(type, listener, options) {
+    addedListeners++;
+    return originalAddEventListener.apply(this, [type, listener, options]);
+  };
+
+  window.removeEventListener = function(type, listener, options) {
+    removedListeners++;
+    return originalRemoveEventListener.apply(this, [type, listener, options]);
+  };
+
+  fetchNetworkInfoMock.mock.mockImplementation(async () => ({
+    lan_ip: '192.168.1.10',
+    lan_url: 'http://192.168.1.10:3000',
+    mobile_url: 'http://192.168.1.10:3000',
+    https_url: 'https://example.trycloudflare.com',
+    https_active: true
+  }));
+
+  for (let i = 0; i < 50; i++) {
+    const { unmount } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
+    await waitFor(() => {
+      assert.ok(screen.getByRole('dialog'));
+    });
+    unmount();
+  }
+
+  window.addEventListener = originalAddEventListener;
+  window.removeEventListener = originalRemoveEventListener;
+
+  assert.strictEqual(addedListeners, removedListeners, 'Event listeners should be properly cleaned up on unmount');
+
+  if (global.gc) global.gc();
+  const finalMemory = process.memoryUsage().heapUsed;
+  const memoryGrowth = finalMemory - initialMemory;
+  assert.ok(memoryGrowth < 100 * 1024 * 1024, `Memory growth too high: ${memoryGrowth / 1024 / 1024} MB`);
+});
+
+
+test('cache eviction under constrained runtime memory: simulates memory pressure causing storage/cache eviction during QR generation', async () => {
+  QRCodeToDataURLMock.mock.mockImplementationOnce(async () => {
+    const err = new Error('QuotaExceededError');
+    err.name = 'QuotaExceededError';
+    throw err;
+  });
+
+  fetchNetworkInfoMock.mock.mockImplementation(async () => ({
+    lan_ip: '192.168.1.10',
+    lan_url: 'http://192.168.1.10:3000',
+    mobile_url: 'http://192.168.1.10:3000',
+    https_url: 'https://example.trycloudflare.com',
+    https_active: true
+  }));
+
+  const { unmount } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  await waitFor(() => {
+    assert.ok(screen.getByText('Failed to generate QR code'));
+  });
+
+  unmount();
+});
