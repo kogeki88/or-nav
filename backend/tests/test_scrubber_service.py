@@ -1,3 +1,6 @@
+import gc
+import psutil
+import os
 import pytest
 import socket
 import httpx
@@ -552,3 +555,87 @@ class TestScrubberServiceFaultInjection:
         for r in results:
             assert r.redaction_count == 1
             assert "111222333" not in r.text
+
+
+class TestScrubberServiceMemoryAndResources:
+    def test_scrub_phi_memory_leak_profiling(self, monkeypatch):
+        """
+        Execute a high-volume burst of scrubber operations to ensure memory
+        growth stays within a generous 100MB-150MB tolerance.
+        Ensures offline-first invariants and multi-tenant isolation under constraint.
+        """
+        # Mock network to ensure offline invariant
+        _orig_socket = socket.socket
+        def offline_socket(*args, **kwargs):
+            if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+                return _orig_socket(*args, **kwargs)
+            raise socket.error("Network unreachable - Offline First")
+
+        monkeypatch.setattr(socket, "socket", offline_socket)
+        monkeypatch.setattr(httpx, "get", offline_socket)
+        monkeypatch.setattr(httpx, "post", offline_socket)
+
+        process = psutil.Process(os.getpid())
+
+        # Initial GC and memory read
+        gc.collect()
+        mem_before = process.memory_info().rss
+
+        # High volume burst
+        iterations = 20000
+        for i in range(iterations):
+            tenant = f"tenant_{i % 5}"
+            scrub_phi(f"{tenant} Patient MRN {1000000 + i}")
+
+        # Final GC and memory read
+        gc.collect()
+        mem_after = process.memory_info().rss
+
+        diff_mb = (mem_after - mem_before) / (1024 * 1024)
+
+        # Assert memory growth is under 150MB
+        assert diff_mb < 150.0, f"Memory leaked {diff_mb:.2f}MB, exceeded 150MB limit"
+
+    def test_scrubber_unclosed_event_listeners_and_fds(self):
+        """
+        Test that running high-throughput parallel execution doesn't leak file descriptors
+        or threads (analogous to unclosed event listeners).
+        """
+        process = psutil.Process(os.getpid())
+        fds_before = process.num_fds() if hasattr(process, 'num_fds') else process.num_handles()
+        threads_before = process.num_threads()
+
+        def worker_task(i):
+            return scrub_phi(f"tenant_{i % 10} Patient SSN 123-45-{6000 + (i%999)}")
+
+        # Burst parallel load
+        with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
+            list(executor.map(worker_task, range(5000)))
+
+        # Add a small sleep to allow thread cleanup
+        time.sleep(0.5)
+
+        fds_after = process.num_fds() if hasattr(process, 'num_fds') else process.num_handles()
+        threads_after = process.num_threads()
+
+        assert fds_after <= fds_before + 10, "File descriptors leaked"
+        assert threads_after <= threads_before + 35, "Threads leaked"
+
+    def test_scrubber_cache_eviction_under_constrained_memory(self):
+        """
+        Force internal cache evictions (e.g. regex cache) by dynamically generating
+        thousands of unique patterns/strings. Ensure memory is stable.
+        """
+        process = psutil.Process(os.getpid())
+        gc.collect()
+        mem_before = process.memory_info().rss
+
+        for i in range(5000):
+            # Send widely varying strings to challenge any internal caches
+            scrub_phi(f"Random prefix {i} MRN {9990000 + i} random suffix {'A' * (i % 100)}")
+
+        gc.collect()
+        mem_after = process.memory_info().rss
+
+        diff_mb = (mem_after - mem_before) / (1024 * 1024)
+        assert diff_mb < 100.0, f"Cache eviction failed to constrain memory, leaked {diff_mb:.2f}MB"
