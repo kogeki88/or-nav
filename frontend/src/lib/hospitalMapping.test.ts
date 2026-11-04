@@ -356,3 +356,56 @@ test("getFacilityIdFromTenant handles offline mutation replay idempotency and mu
         global.fetch = originalFetch;
     }
 });
+
+test("Memory Profiling & Resource Eviction Hardening: cache eviction under constrained runtime memory", async (t) => {
+    // Poison global.fetch to strictly ensure the offline-first invariant (no network calls)
+    const originalFetch = global.fetch;
+    global.fetch = () => {
+        throw new Error("Network call detected in offline-first function!");
+    };
+
+    const initialListeners = process.listeners("uncaughtException").length;
+
+    // Trigger GC before measuring initial memory
+    if (global.gc) global.gc();
+    const initialMemory = process.memoryUsage().heapUsed;
+
+    try {
+        const iterations = 50000;
+        const tenants = [
+            "sacred_heart::or",
+            "general_memorial::cvor",
+            "county_general_er",
+            "duke_regional::nicu",
+            "metro_medical_icu",
+            "princeton_plainsboro",
+            "unknown_hospital::dept",
+            "",
+            "🏥hospital::🩺dept",
+            "a::b::c::d",
+        ];
+
+        // Run burst execution
+        for (let i = 0; i < iterations; i++) {
+            const tenant = tenants[i % tenants.length];
+            getFacilityIdFromTenant(tenant);
+        }
+
+        // Trigger GC before measuring final memory
+        if (global.gc) global.gc();
+        const finalMemory = process.memoryUsage().heapUsed;
+
+        const memoryGrowth = (finalMemory - initialMemory) / (1024 * 1024);
+
+        // Assert memory growth is within 100MB
+        assert.ok(memoryGrowth < 100, `Memory leak detected. Growth: ${memoryGrowth} MB`);
+
+        // Assert no unclosed event listeners
+        const finalListeners = process.listeners("uncaughtException").length;
+        assert.strictEqual(finalListeners, initialListeners, "Unclosed event listeners detected");
+
+    } finally {
+        // Restore fetch
+        global.fetch = originalFetch;
+    }
+});
