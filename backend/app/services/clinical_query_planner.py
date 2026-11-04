@@ -1,3 +1,6 @@
+from __future__ import annotations
+from app.scrubber import scrub_phi
+
 """
 Layer 2 & Layer 3: Unified Clinical Query Planner & Relational Execution Engine (Phase 43).
 
@@ -18,7 +21,6 @@ Replaces ad-hoc regex routing with a deterministic 3-Layer Clinical Query Planne
   exact `Room • Cabinet/Rack • Shelf • Bin` coordinates inline!
 """
 
-from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
@@ -295,6 +297,19 @@ def plan_clinical_query(query: str, graph: Optional[ClinicalEntityGraph] = None,
         graph = get_clinical_graph(tenant_id)
 
     raw_query = (query or "").strip()
+
+    # Zero-Trust Token Exchange / Boundary Isolation
+    # If the user tries to inject a tenant prefix (e.g. `sacred_heart::icu `) into the query to spoof another tenant's graph,
+    # we rigidly strip it so it doesn't pollute the downstream routing logic.
+    raw_query = re.sub(r'^[a-z_0-9]+::[a-z_0-9]+\s+', '', raw_query, flags=re.IGNORECASE)
+
+    # HIPAA PHI Boundary Verification and Sanitization
+    scrub_result = scrub_phi(raw_query)
+    raw_query = scrub_result.text
+
+    # Prompt injection / malicious payload boundary
+    if len(raw_query) > 500:
+        raw_query = raw_query[:500]
     if not raw_query:
         return ClinicalQueryPlan(raw_query="", intent="INVENTORY_LOOKUP")
 
