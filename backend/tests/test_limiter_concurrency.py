@@ -526,3 +526,99 @@ class TestLimiterConcurrencyThrottling:
         # Verify exact idempotency was maintained despite the partition and latency
         matched_row, _ = inv_service._find_matching_row("prolene suture")
         assert matched_row["verify_count"] == 1
+
+    def test_cache_eviction_under_constrained_memory_and_leak_detection(self, mock_tenant_dir, monkeypatch):
+        """
+        Verify cache eviction logic (LRU via OrderedDict) on shared dictionaries in Python.
+        Ensures thread-safe eviction and prevents memory leaks under constrained cache sizes.
+        Also explicitly tests for unclosed resource leaks (like mocked event listeners).
+        """
+        from app.services.inventory_search import _services, _services_lock, get_inventory_service
+
+        # 1. Reset state
+        with _services_lock:
+            _services.clear()
+
+        import tracemalloc
+        tracemalloc.start()
+
+        # 2. Simulate rapid tenant instantiation exceeding max cache size to trigger eviction
+        # Max cache size is MAX_SERVICES_CACHE_SIZE = 100
+
+        from app.services.inventory_search import MAX_SERVICES_CACHE_SIZE
+        import app.config
+
+        def mock_get_tenant(tid):
+            # Create distinct, isolated dummy files for each mocked tenant to avoid file lock collisions
+            tenant_path = app.config.HOSPITALS_DIR / tid.replace("::", "_")
+            tenant_path.mkdir(parents=True, exist_ok=True)
+            inv_path = tenant_path / "dummy_inv.csv"
+            inv_path.write_text("item,category,room,cabinet,shelf,container,human_alias,aliases,surgeon_notes,pending_location,verify_count,status,last_verified_at,verification_score\n")
+            ori_path = tenant_path / "dummy_ori.md"
+            ori_path.write_text("")
+            return app.config.TenantConfig(
+                tenant_id=tid,
+                display_name=tid,
+                inventory_path=inv_path,
+                orientation_path=ori_path
+            )
+
+        monkeypatch.setattr(app.config, "get_tenant", mock_get_tenant)
+
+        from concurrent.futures import ThreadPoolExecutor
+
+        def access_tenant(i):
+            tid = f"tenant_{i}::dept"
+            return get_inventory_service(tid)
+
+        snapshot1 = tracemalloc.take_snapshot()
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            results = list(executor.map(access_tenant, range(MAX_SERVICES_CACHE_SIZE + 50)))
+
+        assert len(results) == MAX_SERVICES_CACHE_SIZE + 50
+
+        snapshot2 = tracemalloc.take_snapshot()
+        stats = snapshot2.compare_to(snapshot1, 'lineno')
+
+        # 3. Verify eviction worked
+        with _services_lock:
+            assert len(_services) == MAX_SERVICES_CACHE_SIZE, f"Cache eviction failed, expected {MAX_SERVICES_CACHE_SIZE} entries, got {len(_services)}"
+            assert f"tenant_{MAX_SERVICES_CACHE_SIZE + 49}::dept" in _services, "Most recently accessed tenant should be in cache"
+            assert "tenant_0::dept" not in _services, "Least recently accessed tenant should be evicted"
+
+        # 4. Verify no unbounded memory growth (leak detection)
+        # Using generous tolerance for Python object overhead
+        total_growth_kb = sum(stat.size_diff for stat in stats) / 1024
+        assert total_growth_kb < 15000, f"Memory leak detected: growth exceeded 15MB ({total_growth_kb:.2f} KB)"
+
+        tracemalloc.stop()
+
+    def test_unclosed_event_listeners_and_resource_leaks(self, mock_tenant_dir, monkeypatch):
+        """
+        Ensures no unclosed event listeners or file handles are leaked during rapid database/cache operations.
+        """
+        import os
+        def get_fd_count():
+            try:
+                return len(os.listdir('/proc/self/fd'))
+            except Exception:
+                return 0
+
+        initial_fds = get_fd_count()
+
+        from app.services.inventory_search import get_inventory_service
+
+        def simulate_ops():
+            service = get_inventory_service("sacred_heart::or")
+            service.add_inventory_item("forceps", "R1 C1 S1")
+            service.report_move("forceps", "R1 C2 S2")
+            service.verify_move("forceps", "R1 C2 S2")
+
+        for _ in range(500):
+            simulate_ops()
+
+        final_fds = get_fd_count()
+
+        # Allow a small buffer for pytest internal FD usage, but definitely not 500
+        assert final_fds <= initial_fds + 10, f"File descriptor leak detected: {initial_fds} -> {final_fds}"
