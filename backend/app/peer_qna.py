@@ -25,6 +25,7 @@ router = APIRouter(prefix="/api/peer-questions", tags=["peer-questions"])
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 PEER_QUESTIONS_FILE = PROJECT_ROOT / "hospitals" / "peer_questions.json"
+MAX_PEER_QUESTIONS = 500
 
 @contextmanager
 def peer_qna_lock():
@@ -221,6 +222,25 @@ def _get_default_seed() -> List[dict]:
     ]
 
 
+def _enforce_peer_qna_cache_eviction(questions: List[PeerQuestion]) -> None:
+    """Evict oldest questions per-tenant if size exceeds limits to prevent unbounded growth."""
+    from collections import defaultdict
+    tenant_counts = defaultdict(int)
+    # Count from newest to oldest
+    to_keep = []
+    for q in questions:
+        # Use getattr to be safe with Pydantic aliases
+        tid = getattr(q, 'tenantId', getattr(q, 'tenant_id', None))
+        if not tid:
+            to_keep.append(q)
+            continue
+        tenant_counts[tid] += 1
+        if tenant_counts[tid] <= MAX_PEER_QUESTIONS:
+            to_keep.append(q)
+    # Update list in place
+    questions[:] = to_keep
+
+
 def load_peer_questions() -> List[PeerQuestion]:
     if not PEER_QUESTIONS_FILE.exists():
         initial = _get_default_seed()
@@ -280,6 +300,7 @@ def create_peer_question(req: CreateQuestionRequest):
         )
 
         questions.insert(0, new_q)
+        _enforce_peer_qna_cache_eviction(questions)
         save_peer_questions(questions)
         return new_q
 
