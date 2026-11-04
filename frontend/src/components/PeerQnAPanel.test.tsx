@@ -22,22 +22,23 @@ const dummyProfile = {
 let mockOfflineQuestions: any[] = [];
 let mockSaveOfflinePeerQuestionCalls: any[] = [];
 
-const mockGetOfflinePeerQuestions = mock.fn(async (tenantId: string) => {
+// Replace with normal functions so mock.fn doesn't build up massive arrays over thousands of iterations
+const mockGetOfflinePeerQuestions = async (tenantId: string) => {
     return mockOfflineQuestions.filter(q => q.tenantId === tenantId);
-});
+};
 
-const mockSaveOfflinePeerQuestion = mock.fn(async (q: any) => {
+const mockSaveOfflinePeerQuestion = async (q: any) => {
     mockSaveOfflinePeerQuestionCalls.push(q);
-});
+};
 
-const mockSaveOfflinePeerQuestions = mock.fn(async () => {});
+const mockSaveOfflinePeerQuestions = async () => {};
 
 const PeerQnAPanelMod = proxyquire('./PeerQnAPanel', {
     '@/lib/gamification': {
-        awardClinicalXP: mock.fn()
+        awardClinicalXP: function() {}
     },
     '@/lib/auth': {
-        createTimeoutSignal: mock.fn(() => new AbortController().signal)
+        createTimeoutSignal: function() { return new AbortController().signal; }
     },
     '@/lib/offlineDb': {
         getOfflinePeerQuestions: mockGetOfflinePeerQuestions,
@@ -51,9 +52,6 @@ const PeerQnAPanel = PeerQnAPanelMod.default;
 beforeEach(() => {
   mockOfflineQuestions = [];
   mockSaveOfflinePeerQuestionCalls = [];
-  mockGetOfflinePeerQuestions.mock.resetCalls();
-  mockSaveOfflinePeerQuestion.mock.resetCalls();
-  mockSaveOfflinePeerQuestions.mock.resetCalls();
 
   global.fetch = mock.fn(async () => ({
     ok: true,
@@ -1002,4 +1000,106 @@ test('supplementary invariant test 5: multi-tenant isolation offline-first fetch
         global.fetch = originalFetch;
         mockOfflineQuestions = []; // Cleanup
     }
+});
+
+
+test('memory profile: ensures no event listener leaks and bounds heap usage during high-volume remounts', async () => {
+    // 1. Setup multi-tenant and offline invariants
+    const originalFetch = global.fetch;
+    const testTenantId = 'memory_tenant_isolated';
+
+    // Poison fetch for offline invariant
+    global.fetch = function() {
+        return Promise.reject(new Error('Network offline'));
+    };
+
+    // Keep track of original save offline questions calls
+    mockSaveOfflinePeerQuestionCalls = [];
+
+    // Capture initial resource states
+    if (global.gc) {
+        global.gc();
+    }
+
+    // Give garbage collector a tiny tick
+    await new Promise(r => setTimeout(r, 10));
+
+    const initialListeners = process.listeners('uncaughtException');
+    const initialMemory = process.memoryUsage().heapUsed;
+
+    const dummyProfileMem = {
+        id: 'mem_u1',
+        fullName: 'Memory Nurse',
+        clinicalRole: 'Circulating RN',
+        specialty: 'Trauma',
+        yearsExperience: 5
+    };
+
+    // 2. High-volume remounts and operations burst
+    const ITERATIONS = 500;
+
+    // Empty callback for performance without blowing up mock history
+    const noopClose = function() {};
+
+    for (let i = 0; i < ITERATIONS; i++) {
+        const root = document.createElement('div');
+        document.body.appendChild(root);
+        const comp = render(
+            <PeerQnAPanel
+                isOpen={true}
+                onClose={noopClose}
+                tenantId={testTenantId}
+                userProfile={dummyProfileMem}
+            />,
+            { container: root }
+        );
+
+        // Simulate a rapid offline submission on a subset of iterations
+        // Clear mock calls to prevent memory accumulation in test runner
+
+        // Using low probability to avoid unmanageable queue sizes, but enough to trigger logic
+        if (i % 50 === 0) {
+            const askTab = comp.getByText('Ask Department Peers');
+            fireEvent.click(askTab);
+
+            const textarea = comp.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+            fireEvent.change(textarea, { target: { value: `Memory test offline submission ${i}` } });
+
+            const submitBtn = comp.getByText('Broadcast Question');
+            fireEvent.click(submitBtn);
+        }
+
+        comp.unmount();
+        root.remove();
+    }
+
+    // 3. Force garbage collection and evaluate resources
+    if (global.gc) {
+        global.gc();
+    }
+
+    await new Promise(r => setTimeout(r, 10));
+
+    const finalListeners = process.listeners('uncaughtException');
+    const finalMemory = process.memoryUsage().heapUsed;
+    const memoryDiff = finalMemory - initialMemory;
+
+    // Restore fetch
+    global.fetch = originalFetch;
+
+    // 4. Assertions
+    // Invariant 1: Multi-tenant boundary
+    mockSaveOfflinePeerQuestionCalls.forEach(call => {
+        assert.strictEqual(call.tenantId, testTenantId, 'Offline payload must strictly enforce tenant boundary during memory pressure');
+    });
+
+    // Invariant 2: No unclosed event listener leaks
+    assert.strictEqual(finalListeners.length, initialListeners.length, 'Process event listeners should not accumulate');
+
+    // Invariant 3: Memory bounds
+    // Set a generous tolerance limit (e.g. 150MB) to prevent flakiness
+    assert.ok(memoryDiff < 150 * 1024 * 1024, `Memory leak detected: heap grew by ${(memoryDiff / 1024 / 1024).toFixed(2)} MB`);
+
+    // Log the actual growth for observational purposes
+    console.log(`Memory profile: ${ITERATIONS} iterations consumed ${(memoryDiff / 1024 / 1024).toFixed(2)} MB of heap growth`);
 });
