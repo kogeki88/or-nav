@@ -182,6 +182,53 @@ describe("lexiconLearning & Teaching Intent", () => {
       assert.strictEqual(detectTeachingIntentClient("What is an adson pickup?"), null);
       assert.strictEqual(detectTeachingIntentClient("Where are the sutures located?"), null);
     });
+
+    describe("Memory Leak & Cache Eviction", () => {
+      beforeEach(() => { mockStorage.clear(); });
+
+      test("cache eviction should bound memStorage under local storage error", () => {
+        const originalSetItem = (global as any).localStorage.setItem;
+        (global as any).localStorage.setItem = () => { throw new Error("Quota exceeded"); };
+
+        try {
+          for(let i=0; i<1500; i++) {
+             learnAliasClient(`evict_fac_${i}`, "or", `alias_${i}`, `Item_${i}`, "user1");
+          }
+
+          // Verify that eviction worked: earlier items should be gone and resolve to default pre-seeded state
+          // Specifically, since limit is 1000, indices 0-499 should be evicted.
+          const resolvedEarly = resolveSpokenAliasClient("evict_fac_0", "alias_0");
+          assert.strictEqual(resolvedEarly, null, "Earlier entry should be evicted");
+
+          const resolvedLate = resolveSpokenAliasClient("evict_fac_1499", "alias_1499");
+          assert.ok(resolvedLate);
+          assert.strictEqual(resolvedLate?.canonicalItemName, "Item_1499");
+        } finally {
+          (global as any).localStorage.setItem = originalSetItem;
+        }
+      });
+
+      test("high-volume operation should not leak memory or listeners indefinitely", () => {
+        if (global.gc) global.gc();
+        const initialMem = process.memoryUsage().heapUsed;
+        const initialListeners = process.listeners('warning').length;
+
+        const tenant = "memory_tenant";
+        const iters = 5000;
+
+        for (let i = 0; i < iters; i++) {
+           learnAliasClient(tenant, "or", `mem_alias_${i}`, `Mem Item ${i}`, "user2");
+        }
+
+        if (global.gc) global.gc();
+        const endMem = process.memoryUsage().heapUsed;
+        const endListeners = process.listeners('warning').length;
+
+        // Assert generous tolerance (150MB) to avoid flaky regressions
+        assert.ok((endMem - initialMem) < 150 * 1024 * 1024, "Memory growth exceeds 150MB tolerance");
+        assert.strictEqual(endListeners, initialListeners, "Event listeners leaked");
+      });
+    });
   });
 });
   describe("recordPhoneticCorrection", () => {
