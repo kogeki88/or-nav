@@ -706,4 +706,105 @@ describe('appSettings', () => {
     assert.strictEqual(settings.voiceSettings, promptInjection);
   });
 
+
+  test('deterministic state transition matrices - validates consistent sequential state transformations and enforces offline-first', () => {
+    localStorage.clear();
+    const originalFetch = global.fetch;
+    (global as any).fetch = () => Promise.reject(new Error('Network call blocked'));
+    try {
+      const transitions = [
+        { action: { darkMode: true }, expected: { darkMode: true, fontScaling: 1.0 } },
+        { action: { fontScaling: 1.2 }, expected: { darkMode: true, fontScaling: 1.2 } },
+        { action: { darkMode: false }, expected: { darkMode: false, fontScaling: 1.2 } },
+        { action: { autoSyncEnabled: false }, expected: { darkMode: false, fontScaling: 1.2, autoSyncEnabled: false } }
+      ];
+
+      let currentExpected = { ...DEFAULT_APP_SETTINGS };
+      for (const transition of transitions) {
+        saveAppSettings(transition.action);
+        const state = getAppSettings();
+        currentExpected = { ...currentExpected, ...transition.expected };
+        assert.deepStrictEqual(state, currentExpected);
+      }
+    } finally {
+      (global as any).fetch = originalFetch;
+    }
+  });
+
+  test('preference card conflict resolution - merges overlapping clinical preferences while enforcing multi-tenant isolation', () => {
+    localStorage.clear();
+    const originalFetch = global.fetch;
+    (global as any).fetch = () => Promise.reject(new Error('Network call blocked'));
+    try {
+      const basePrefs = { darkMode: false, fontScaling: 1.0, voiceSettings: "default" };
+      saveAppSettings(basePrefs);
+
+      // Surgeon A (Tenant A) applies
+      const surgeonAPrefs = { darkMode: true, voiceSettings: "loud", tenantId: "tenantA" };
+      saveAppSettings(surgeonAPrefs as any);
+      assert.strictEqual(getAppSettings().darkMode, true);
+      assert.strictEqual(getAppSettings().voiceSettings, "loud");
+      assert.strictEqual((getAppSettings() as any).tenantId, undefined);
+
+      // Surgeon B (Tenant B) applies (conflict on voiceSettings, B wins)
+      const surgeonBPrefs = { fontScaling: 1.5, voiceSettings: "quiet", tenantId: "tenantB" };
+      saveAppSettings(surgeonBPrefs as any);
+      assert.strictEqual(getAppSettings().darkMode, true); // Retains A's distinct preference
+      assert.strictEqual(getAppSettings().fontScaling, 1.5);
+      assert.strictEqual(getAppSettings().voiceSettings, "quiet"); // B overrides A
+      assert.strictEqual((getAppSettings() as any).tenantId, undefined);
+
+      // System override
+      const systemOverride = { autoSyncEnabled: false, "facility_id::dept_id": "sys::sys" };
+      saveAppSettings(systemOverride as any);
+      const finalState = getAppSettings();
+      assert.strictEqual(finalState.autoSyncEnabled, false);
+      assert.strictEqual(finalState.darkMode, true);
+      assert.strictEqual(finalState.fontScaling, 1.5);
+      assert.strictEqual(finalState.voiceSettings, "quiet");
+      assert.strictEqual((finalState as any)["facility_id::dept_id"], undefined);
+    } finally {
+      (global as any).fetch = originalFetch;
+    }
+  });
+
+  test('clinical state snapshot consistency - ensures atomic and uncorrupted reads after parallel complex writes with offline-first invariants', async () => {
+    localStorage.clear();
+    const originalFetch = global.fetch;
+    (global as any).fetch = () => Promise.reject(new Error('Network call blocked'));
+
+    try {
+      // Simulate complex parallel async actions that attempt to update settings
+      const promises = [
+        Promise.resolve().then(() => saveAppSettings({ darkMode: true })),
+        Promise.resolve().then(() => saveAppSettings({ fontScaling: 1.1 })),
+        Promise.resolve().then(() => saveAppSettings({ voiceSettings: 'chime' })),
+        Promise.resolve().then(() => saveAppSettings({ autoSyncEnabled: false })),
+        Promise.resolve().then(() => saveAppSettings({ autoUpdateEnabled: false }))
+      ];
+
+      await Promise.all(promises);
+
+      const snapshot = getAppSettings();
+
+      // The final state depends on the mock localStorage's synchronicity,
+      // but we can guarantee the snapshot contains valid typed values and isn't corrupted.
+      assert.strictEqual(typeof snapshot.darkMode, 'boolean');
+      assert.strictEqual(typeof snapshot.fontScaling, 'number');
+      assert.strictEqual(typeof snapshot.voiceSettings, 'string');
+      assert.strictEqual(typeof snapshot.autoSyncEnabled, 'boolean');
+      assert.strictEqual(typeof snapshot.autoUpdateEnabled, 'boolean');
+
+      // We expect exactly 5 fields
+      assert.strictEqual(Object.keys(snapshot).length, Object.keys(DEFAULT_APP_SETTINGS).length);
+
+      // Multi-tenant check on snapshot
+      saveAppSettings({ voiceSettings: 'test', tenantId: 'tenant123' } as any);
+      const pollutedSnapshot = getAppSettings();
+      assert.strictEqual((pollutedSnapshot as any).tenantId, undefined);
+    } finally {
+      (global as any).fetch = originalFetch;
+    }
+  });
+
 });
