@@ -108,6 +108,38 @@ test("ClinicalGraph Multi-tenant Isolation and Offline Invariants", async (t) =>
       assert.ok(typeof graph.proceduresByPhrase === "object");
     });
 
+    await t.test("multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency", () => {
+      const tenantA = "facility_id::dept_id";
+      const cardsA = [{ id: "A1", surgeon: "Dr. TenantA", procedure: "ProcA" }];
+      const invA = [{ item: "ItemA", aliases: "item_a" }] as any;
+      const graphA = compileClinicalGraph(tenantA, cardsA, invA, "");
+
+      const tenantB = "other_facility::other_dept";
+      const cardsB = [{ id: "B1", surgeon: "Dr. TenantB", procedure: "ProcB" }];
+      const invB = [{ item: "ItemB", aliases: "item_b" }] as any;
+      const graphB = compileClinicalGraph(tenantB, cardsB, invB, "");
+
+      assert.strictEqual(graphA.tenantId, tenantA);
+      assert.ok(graphA.indexedSurgeonNames.includes("Dr. TenantA"));
+      assert.ok(!graphA.indexedSurgeonNames.includes("Dr. TenantB"));
+      assert.ok(graphA.inventoryTerms.has("itema"));
+      assert.ok(!graphA.inventoryTerms.has("itemb"));
+
+      assert.strictEqual(graphB.tenantId, tenantB);
+      assert.ok(graphB.indexedSurgeonNames.includes("Dr. TenantB"));
+      assert.ok(!graphB.indexedSurgeonNames.includes("Dr. TenantA"));
+      assert.ok(graphB.inventoryTerms.has("itemb"));
+      assert.ok(!graphB.inventoryTerms.has("itema"));
+
+      // Simulate Offline Mutation Replay Idempotency
+      const replayGraph1 = compileClinicalGraph(tenantA, cardsA, invA, "");
+      const replayGraph2 = compileClinicalGraph(tenantA, cardsA, invA, "");
+
+      assert.strictEqual(replayGraph1.tenantId, replayGraph2.tenantId);
+      assert.deepStrictEqual(replayGraph1.indexedSurgeonNames, replayGraph2.indexedSurgeonNames);
+      assert.deepStrictEqual(Array.from(replayGraph1.inventoryTerms), Array.from(replayGraph2.inventoryTerms));
+    });
+
   } finally {
     global.fetch = originalFetch;
   }
