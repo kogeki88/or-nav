@@ -819,3 +819,93 @@ test('fault injection and network partition degradation', async () => {
   unmount();
   delete (global as any).MediaRecorder;
 });
+
+test('Memory Profiling & Resource Eviction Hardening', async () => {
+  if (global.gc) global.gc();
+  const initialMemory = process.memoryUsage().heapUsed;
+
+  const onSendMessage = mock.fn();
+  const root = document.createElement('div');
+  document.body.appendChild(root);
+
+  const { unmount } = render(<Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />, { container: root });
+
+  // Burst operations to check memory leak
+  const input = screen.getByTestId('omnibar-input');
+  const submitBtn = screen.getByTestId('omnibar-submit-btn');
+
+  for (let i = 0; i < 1000; i++) {
+    fireEvent.change(input, { target: { value: `Memory test message ${i}` } });
+    fireEvent.click(submitBtn);
+  }
+
+  assert.strictEqual(onSendMessage.mock.calls.length, 1000);
+
+  unmount();
+  root.remove();
+
+  if (global.gc) global.gc();
+  const finalMemory = process.memoryUsage().heapUsed;
+
+  // Generous memory limit assertions (e.g., 100MB - 150MB tolerance)
+  const memoryDelta = finalMemory - initialMemory;
+  const memoryLimit = 150 * 1024 * 1024; // 150MB
+  assert.ok(memoryDelta < memoryLimit, `Memory growth exceeded limit: ${memoryDelta} bytes`);
+
+  // Unclosed event listeners check
+  const originalAddEventListener = EventTarget.prototype.addEventListener;
+  const originalRemoveEventListener = EventTarget.prototype.removeEventListener;
+
+  const listeners = new Map();
+  EventTarget.prototype.addEventListener = function (type, listener, options) {
+    if (!listeners.has(this)) {
+      listeners.set(this, new Map());
+    }
+    const targetListeners = listeners.get(this);
+    if (!targetListeners.has(type)) {
+      targetListeners.set(type, new Set());
+    }
+    targetListeners.get(type).add(listener);
+    return originalAddEventListener.call(this, type, listener, options);
+  };
+
+  EventTarget.prototype.removeEventListener = function (type, listener, options) {
+    const targetListeners = listeners.get(this);
+    if (targetListeners && targetListeners.has(type)) {
+      targetListeners.get(type).delete(listener);
+    }
+    return originalRemoveEventListener.call(this, type, listener, options);
+  };
+
+  try {
+     const onSendMessageLeak = mock.fn();
+     const rootLeak = document.createElement('div');
+     document.body.appendChild(rootLeak);
+     const { unmount: unmountLeak } = render(<Omnibar onSendMessage={onSendMessageLeak} onFileUpload={() => {}} />, { container: rootLeak });
+
+     // Simulate interactions
+     const inputLeak = screen.getByTestId('omnibar-input');
+     fireEvent.change(inputLeak, { target: { value: 'Leak check' } });
+
+     unmountLeak();
+     rootLeak.remove();
+
+     // Check if listeners are cleaned up properly (especially on window or document)
+     const windowListeners = listeners.get(window);
+     if (windowListeners) {
+       for (const [type, typeListeners] of windowListeners.entries()) {
+         assert.strictEqual(typeListeners.size, 0, `Unclosed window listener found: ${type}`);
+       }
+     }
+
+     const documentListeners = listeners.get(document);
+     if (documentListeners) {
+        for (const [type, typeListeners] of documentListeners.entries()) {
+            assert.strictEqual(typeListeners.size, 0, `Unclosed document listener found: ${type}`);
+        }
+     }
+  } finally {
+      EventTarget.prototype.addEventListener = originalAddEventListener;
+      EventTarget.prototype.removeEventListener = originalRemoveEventListener;
+  }
+});
