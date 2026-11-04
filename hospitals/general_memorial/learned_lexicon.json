@@ -238,5 +238,17 @@
     "usedByUsers": [],
     "confidence": "personal",
     "updatedAt": "2026-11-02T20:36:44Z"
+  },
+  {
+    "aliasId": "general_memorial_1793826175_21",
+    "facilityId": "general_memorial",
+    "departmentId": "er",
+    "spokenTerm": "locate",
+    "displayPreferredName": "Locate",
+    "canonicalItemName": "CAT Tourniquet Gen 7",
+    "usageCount": 1,
+    "usedByUsers": [],
+    "confidence": "personal",
+    "updatedAt": "2026-11-04T21:02:55Z"
   }
 ]
