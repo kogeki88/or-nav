@@ -474,3 +474,57 @@ test('ChatCanvas fault injection, network partition degradation, intermittent la
   assert.strictEqual(tenantIsolatedPayloads[0].item, 'Healing_Item', 'Multi-tenant payload isolated correctly');
   assert.ok(container.innerHTML.includes('saved to inventory'), 'Should show saved UI state after self-healing');
 });
+
+test('ChatCanvas prevents memory leaks under constrained cache eviction conditions (high volume creation)', async () => {
+  if (global.gc) global.gc();
+  const initialMemory = process.memoryUsage().heapUsed;
+
+  for (let i = 0; i < 500; i++) {
+    const messages = Array.from({ length: 5 }).map((_, idx) => ({
+      id: "msg-leak-" + i + "-" + idx,
+      sender: 'assistant' as const,
+      text: "Leak test " + i + "-" + idx,
+      timestamp: '2023-01-01T10:00:00Z',
+    }));
+
+    const { unmount } = render(
+      <ChatCanvas
+        messages={messages}
+        loading={false}
+        tenantId="or_main"
+        onVerifyPendingMove={async () => {}}
+      />
+    );
+    unmount();
+  }
+  cleanup();
+
+  if (global.gc) global.gc();
+  const finalMemory = process.memoryUsage().heapUsed;
+  const memoryGrowthMB = (finalMemory - initialMemory) / 1024 / 1024;
+
+  // Generous threshold to prevent flakes, e.g. < 150MB
+  assert.ok(memoryGrowthMB < 150, "Memory leak detected: growth was " + memoryGrowthMB.toFixed(2) + " MB, expected < 150 MB");
+});
+
+test('ChatCanvas ensures no unclosed event listeners (Node.js Process)', async () => {
+  const initialWarningListeners = process.listeners('warning').length;
+  const initialUncaughtExceptionListeners = process.listeners('uncaughtException').length;
+  const initialUnhandledRejectionListeners = process.listeners('unhandledRejection').length;
+
+  for (let i = 0; i < 100; i++) {
+    const { unmount } = render(
+      <ChatCanvas messages={[]} loading={false} tenantId="or_main" onVerifyPendingMove={async () => {}} />
+    );
+    unmount();
+  }
+  cleanup();
+
+  const finalWarningListeners = process.listeners('warning').length;
+  const finalUncaughtExceptionListeners = process.listeners('uncaughtException').length;
+  const finalUnhandledRejectionListeners = process.listeners('unhandledRejection').length;
+
+  assert.strictEqual(finalWarningListeners, initialWarningListeners, 'Leaked warning listeners');
+  assert.strictEqual(finalUncaughtExceptionListeners, initialUncaughtExceptionListeners, 'Leaked uncaughtException listeners');
+  assert.strictEqual(finalUnhandledRejectionListeners, initialUnhandledRejectionListeners, 'Leaked unhandledRejection listeners');
+});
