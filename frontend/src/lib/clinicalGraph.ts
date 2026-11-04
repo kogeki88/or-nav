@@ -154,6 +154,9 @@ export function findShortestPath(
 }
 
 export function normalizeGraphText(text: unknown): string {
+  if (typeof text === 'string') {
+    text = text.replace(/\[REDACTED_PHI\]/gi, ' ');
+  }
   return String(text ?? "")
     .toLowerCase()
     .replace(/[^a-z0-9\s\-#/]/g, " ")
@@ -214,9 +217,9 @@ export function compileClinicalGraph(
          (r.aliases === undefined || typeof r.aliases === 'string')
   );
 
-  const surgeonsByToken: Record<string, any[]> = {};
+  const surgeonsByToken: Record<string, any[]> = Object.create(null);
   const indexedSurgeonNames: string[] = [];
-  const proceduresByPhrase: Record<string, string[]> = {};
+  const proceduresByPhrase: Record<string, string[]> = Object.create(null);
 
   for (const card of cards) {
     const cardId = String(card.id || "");

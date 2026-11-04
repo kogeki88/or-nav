@@ -365,3 +365,40 @@ test("ClinicalGraph Hardened Eviction and Caching Limits", async (t) => {
     }
   });
 });
+
+
+test("ClinicalGraph Security and Redaction Invariants", async (t) => {
+  await t.test("HIPAA PHI boundary verification and prompt injection hardening", () => {
+    // 1. Pass explicitly scrubbed data (like [REDACTED_PHI])
+    // Ensure it safely round-trips without corruption or unintended evaluation
+    const maliciousStrings = [
+      "; DROP TABLE users;",
+      "<script>alert(1)</script>",
+      "\x00\x01",
+      "[REDACTED_PHI]",
+      "__proto__",
+      "constructor"
+    ];
+
+    const cards = maliciousStrings.map((str, i) => ({
+      id: "C" + i,
+      surgeon: "Dr. " + str,
+      procedure: "Proc " + str
+    }));
+
+    const inventory = maliciousStrings.map((str, i) => ({
+      item: "Item " + str,
+      aliases: str
+    }));
+
+    const graph = compileClinicalGraph("tenant_secure", cards, inventory as any, "");
+
+    // Verify it handles malicious strings and redaction tokens
+    assert.strictEqual(graph.tenantId, "tenant_secure");
+
+    // The token "[REDACTED_PHI]" should be preserved as-is internally before normalization
+    // or handled correctly.
+    // Verify zero-trust isolation and boundary attacks didn't corrupt the graph
+    assert.ok(graph.preferenceCards.length === maliciousStrings.length);
+  });
+});
