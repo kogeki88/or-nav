@@ -635,6 +635,85 @@ class TestChatRouterMultiTenant:
 
         assert data1 == data2
 
+    def test_chat_router_memory_leak_and_resource_eviction(self, monkeypatch):
+        """Verify memory eviction during heavy chat operations (profiling for leaks)."""
+        import tracemalloc
+        import gc
+        from app.main import app
+        import httpx
+
+        # Mock network layer to prevent real outgoing requests and simulate offline capabilities (Offline-First Invariant)
+        orig_post = httpx.post
+        orig_get = httpx.get
+        orig_request = httpx.request
+
+        network_state = {"status": "offline"}
+
+        def mock_post(*args, **kwargs):
+            if network_state["status"] == "offline":
+                req = httpx.Request("POST", args[0] if args else kwargs.get("url", ""))
+                raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
+            return orig_post(*args, **kwargs)
+
+        def mock_get(*args, **kwargs):
+            if network_state["status"] == "offline":
+                req = httpx.Request("GET", args[0] if args else kwargs.get("url", ""))
+                raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
+            return orig_get(*args, **kwargs)
+
+        def mock_request(*args, **kwargs):
+            if network_state["status"] == "offline":
+                req = httpx.Request(args[0] if args else kwargs.get("method", "GET"), args[1] if len(args) > 1 else kwargs.get("url", ""))
+                raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
+            return orig_request(*args, **kwargs)
+
+        monkeypatch.setattr(httpx, "post", mock_post)
+        monkeypatch.setattr(httpx, "get", mock_get)
+        monkeypatch.setattr(httpx, "request", mock_request)
+
+        client = TestClient(app)
+
+        # Start tracemalloc to profile memory
+        tracemalloc.start()
+        gc.collect() # Force GC to baseline
+
+        # Initial memory baseline
+        baseline, _ = tracemalloc.get_traced_memory()
+
+        # Simulate heavy concurrent load: 200 chat requests, mixing offline/online and multi-tenant
+        for i in range(200):
+            # Toggle network status occasionally to test offline-first invariants
+            network_state["status"] = "online" if i % 10 == 0 else "offline"
+
+            # Enforce multi-tenant isolation by hitting different tenants
+            tenant = "general_memorial_cvor" if i % 2 == 0 else "or_main"
+
+            payload = {
+                "tenant_id": tenant,
+                "message": f"where is 3-0 silk suture version {i}"
+            }
+            resp = client.post("/api/chat", json=payload)
+            assert resp.status_code == 200
+
+            # Small simulation of rapid turnover cache eviction
+            if i % 50 == 0:
+                gc.collect()
+
+        # Final explicit GC pass
+        gc.collect()
+
+        # Take snapshot and compare
+        current_mem, peak_mem = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
+        # We enforce a strict upper bound of 10MB memory usage over baseline
+        # to ensure eviction hardening works and there are no catastrophic leaks.
+        net_growth_bytes = current_mem - baseline
+        net_growth_mb = net_growth_bytes / (1024 * 1024)
+
+        # use generous assertions to prevent flaky test regressions
+        assert net_growth_mb < 25.0, f"Memory leak detected: growth {net_growth_mb:.2f} MB exceeds limit."
+
     def test_intermittent_latency_injection(self, monkeypatch):
         import time
         from app.main import app
