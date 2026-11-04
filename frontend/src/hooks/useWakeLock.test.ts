@@ -662,3 +662,67 @@ describe("useWakeLock Fault Injection & Network Partition Resilience", () => {
      assert.strictEqual(mockRequest.mock.calls.length, 2);
   });
 });
+
+
+describe("useWakeLock Memory Profiling & Resource Eviction", () => {
+  it("should not leak memory or unclosed event listeners during high-volume rapid toggling", async () => {
+    let mockAddEventListener = function() {};
+    let mockRelease = async function() {};
+    let mockRequest = async function() {
+      return {
+        addEventListener: mockAddEventListener,
+        release: mockRelease,
+        released: false,
+      };
+    };
+
+    Object.defineProperty(global.navigator, "wakeLock", {
+      value: {
+        request: mockRequest,
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    if (global.gc) global.gc();
+    const initialMemory = process.memoryUsage().heapUsed;
+
+    let listenersAdded = 0;
+    let listenersRemoved = 0;
+
+    const originalAdd = document.addEventListener;
+    const originalRemove = document.removeEventListener;
+
+    document.addEventListener = function(type, listener, options) {
+      if (type === 'visibilitychange') listenersAdded++;
+      return originalAdd.call(this, type, listener, options);
+    };
+
+    document.removeEventListener = function(type, listener, options) {
+      if (type === 'visibilitychange') listenersRemoved++;
+      return originalRemove.call(this, type, listener, options);
+    };
+
+    try {
+      const iterations = 1000;
+      for (let i = 0; i < iterations; i++) {
+        const { unmount } = renderHook(() => useWakeLock(true));
+        unmount();
+      }
+
+      await Promise.resolve();
+
+      if (global.gc) global.gc();
+      const finalMemory = process.memoryUsage().heapUsed;
+      const memoryGrowth = finalMemory - initialMemory;
+
+      assert.ok(memoryGrowth < 150 * 1024 * 1024, `Memory growth exceeded 150MB: ${memoryGrowth / 1024 / 1024}MB`);
+
+      assert.strictEqual(listenersAdded, iterations, "Expected listenersAdded to equal iterations");
+      assert.strictEqual(listenersRemoved, iterations, "Expected listenersRemoved to equal iterations");
+    } finally {
+      document.addEventListener = originalAdd;
+      document.removeEventListener = originalRemove;
+    }
+  });
+});
