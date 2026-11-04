@@ -593,4 +593,62 @@ describe('appSettings', () => {
     assert.strictEqual(parsed.autoSyncEnabled, false);
     assert.strictEqual(parsed.darkMode, DEFAULT_APP_SETTINGS.darkMode);
   });
+
+  test('memory leak and unclosed event listeners detection over high-volume burst', () => {
+    localStorage.clear();
+    if (global.gc) {
+      global.gc();
+    }
+    const initialMemory = process.memoryUsage().heapUsed;
+    const initialListeners = process.listeners('uncaughtException').length + process.listeners('unhandledRejection').length; // or general process listeners
+
+    const iterations = 10000;
+    for (let i = 0; i < iterations; i++) {
+      saveAppSettings({
+        fontScaling: 1.0 + (i / iterations),
+        voiceSettings: `voice-${i}`
+      });
+      getAppSettings();
+    }
+
+    if (global.gc) {
+      global.gc();
+    }
+
+    const finalMemory = process.memoryUsage().heapUsed;
+    const finalListeners = process.listeners('uncaughtException').length + process.listeners('unhandledRejection').length;
+
+    // Generous tolerance for memory growth (e.g. 150MB)
+    const memoryGrowth = finalMemory - initialMemory;
+    assert.ok(memoryGrowth < 150 * 1024 * 1024, `Memory growth too high: ${Math.round(memoryGrowth / 1024 / 1024)}MB (Expected < 150MB)`);
+
+    assert.strictEqual(finalListeners, initialListeners, 'Event listeners leaked during operations');
+  });
+
+  test('cache eviction under constrained runtime memory (simulated large payload)', () => {
+    localStorage.clear();
+
+    // Simulate a scenario where large payloads are saved and GC must clean it up
+    const largePayload = new Array(100000).fill('a').join('');
+
+    if (global.gc) global.gc();
+    const initialMemory = process.memoryUsage().heapUsed;
+
+    for (let i = 0; i < 100; i++) {
+      saveAppSettings({
+        voiceSettings: largePayload + i
+      });
+      getAppSettings();
+    }
+
+    // Clear out the setting to simulate cache eviction/cleanup
+    localStorage.clear();
+
+    if (global.gc) global.gc();
+    const finalMemory = process.memoryUsage().heapUsed;
+
+    const memoryGrowth = finalMemory - initialMemory;
+    assert.ok(memoryGrowth < 100 * 1024 * 1024, `Memory did not evict correctly, growth: ${Math.round(memoryGrowth / 1024 / 1024)}MB (Expected < 100MB)`);
+  });
+
 });
