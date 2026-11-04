@@ -1,6 +1,6 @@
 import { test, describe, mock } from "node:test";
 import assert from "node:assert/strict";
-import { scrubPhi, REDACTION } from "./scrubClient.ts";
+import { scrubPhi, REDACTION, getScrubCacheSize, clearScrubCache } from "./scrubClient.ts";
 
 describe("scrubClient standard and adversarial tests", () => {
   describe("Medical Record Numbers (MRNs)", () => {
@@ -529,6 +529,66 @@ describe("scrubClient standard and adversarial tests", () => {
 
       // Ensure average processing time is extremely low (e.g. < 1ms per operation)
       assert.ok(avgTimeMs < 1, `Average latency too high: ${avgTimeMs}ms`);
+    });
+  });
+describe("Memory Profiling & Resource Leaks", () => {
+    test("cache eviction under constrained runtime memory", () => {
+      clearScrubCache();
+      assert.strictEqual(getScrubCacheSize(), 0);
+
+      const iterations = 5000;
+      for (let i = 0; i < iterations; i++) {
+        scrubPhi(`Patient ${i} MRN 123456`);
+      }
+
+      assert.ok(
+        getScrubCacheSize() <= 1000,
+        `Cache size should be bounded to 1000, got ${getScrubCacheSize()}`
+      );
+
+      // Ensure exceptions in callbacks don't happen (since we don't have callbacks here, but just in case)
+      let errorThrown = false;
+      try {
+        scrubPhi(null as any);
+      } catch (e) {
+        errorThrown = true;
+      }
+      assert.strictEqual(errorThrown, false, "scrubPhi should not throw on null input");
+    });
+
+    test("unclosed event listeners & memory leak detection", () => {
+      clearScrubCache();
+      if (global.gc) {
+        global.gc();
+      }
+
+      const initialMemory = process.memoryUsage().heapUsed;
+      const initialListeners = process.listeners("uncaughtException").length + process.listeners("unhandledRejection").length;
+
+      const iterations = 10000;
+      for (let i = 0; i < iterations; i++) {
+        scrubPhi(`Random text ${i} for patient MRN 123456`);
+      }
+
+      if (global.gc) {
+        global.gc();
+      }
+
+      const finalMemory = process.memoryUsage().heapUsed;
+      const finalListeners = process.listeners("uncaughtException").length + process.listeners("unhandledRejection").length;
+
+      const memoryDiffMB = (finalMemory - initialMemory) / 1024 / 1024;
+
+      assert.ok(
+        memoryDiffMB < 100,
+        `Memory leak detected: grew by ${memoryDiffMB.toFixed(2)} MB, expected < 100 MB`
+      );
+
+      assert.strictEqual(
+        finalListeners,
+        initialListeners,
+        "Unclosed event listeners detected"
+      );
     });
   });
 });
