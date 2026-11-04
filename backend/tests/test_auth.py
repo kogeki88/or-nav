@@ -261,3 +261,70 @@ def test_network_partition_and_recovery(monkeypatch, tmp_path):
     uid3 = uuid.uuid4().hex
     res = client_local.post("/api/auth/register", json={"email": f"recover_{uid3}@hospital.org", "password": "password"})
     assert res.status_code == 200
+
+def test_auth_memory_leak_and_gc(monkeypatch):
+    import tracemalloc
+    import gc
+    import weakref
+    from app.auth import RegisterRequest
+
+    # 1. Tracemalloc High Volume Simulation
+    monkeypatch.setattr("app.auth.save_users", lambda users: None) # Aggressive disk write mock
+
+    import psutil
+    import os
+    process = psutil.Process(os.getpid())
+
+    get_fds = lambda: process.num_fds() if hasattr(process, 'num_fds') else process.num_handles()
+    initial_fds = get_fds()
+
+    tracemalloc.start()
+    snapshot1 = tracemalloc.take_snapshot()
+
+    for i in range(500):
+        res = client.post("/api/auth/register", json={"email": f"memleak_{i}@test.com", "password": "password123"})
+        assert res.status_code == 200
+
+    snapshot2 = tracemalloc.take_snapshot()
+    tracemalloc.stop()
+
+    # Verify no file descriptor leaks (unclosed resources)
+    final_fds = get_fds()
+    assert final_fds <= initial_fds + 5  # Small tolerance
+
+    stats = snapshot2.compare_to(snapshot1, 'lineno')
+    # Filter for app code leaks (basic heuristic)
+    app_stats = [s for s in stats if "app/" in s.traceback[0].filename]
+
+    # If app_stats has heavy accumulation, size_diff would be large.
+    if app_stats:
+        max_diff = max(s.size_diff for s in app_stats)
+        # Verify no single line in app code leaked > 100KB over 500 requests
+        assert max_diff < 100 * 1024
+
+    # 2. Object Garbage Collection Test
+    req = RegisterRequest(email="gc_test@test.com", password="password")
+    ref = weakref.ref(req)
+    del req
+    gc.collect()
+    assert ref() is None
+
+def test_auth_cache_eviction_and_partition(monkeypatch, tmp_path):
+    from fastapi.testclient import TestClient
+    from app.main import app as main_app
+    import app.auth
+
+    # Instantiate TestClient without raise_server_exceptions to gracefully handle 500s
+    # instead of crashing the test runner if exceptions bubble up.
+    client_local = TestClient(main_app, raise_server_exceptions=False)
+
+    # 3. Cache Eviction / Storage Quota Limit Simulation
+    # Simulate a cache size/quota exceeded scenario where saving throws an OSError gracefully.
+    def mock_save_users_quota(users):
+        raise OSError("QuotaExceededError: simulated storage offline or quota limit")
+
+    monkeypatch.setattr(app.auth, "save_users", mock_save_users_quota)
+
+    # The endpoint should naturally raise the unhandled OSError bubbling up as 500
+    res = client_local.post("/api/auth/register", json={"email": "quota@test.com", "password": "password"})
+    assert res.status_code == 500
