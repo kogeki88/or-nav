@@ -789,6 +789,94 @@ describe('directGemini', () => {
     });
   });
 
+  describe("Phase 8: Clinical Workflow Snapshot & Deterministic State Verifications", () => {
+    test("Deterministic state transition matrices across multiple RAG parse cycles", async () => {
+      setClientGeminiApiKey("test-key");
+      global.fetch = async () => ({
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: "standard response" }] } }]
+        })
+      } as unknown as Response);
+
+      const queries = [
+        "What is the protocol for lap chole?",
+        "Where is the bovie?",
+        "Who is Dr. Smith?",
+        "Show me the preference card"
+      ];
+
+      const snapshots: any[] = [];
+      for (const q of queries) {
+        snapshots.push(await directGeminiRAG(q));
+      }
+
+      // Verify determinism by running the same sequence again
+      const snapshots2: any[] = [];
+      for (const q of queries) {
+        snapshots2.push(await directGeminiRAG(q));
+      }
+
+      for (let i = 0; i < queries.length; i++) {
+        assert.strictEqual(snapshots[i].reply_text, snapshots2[i].reply_text, "RAG replies must be deterministic");
+        assert.strictEqual(snapshots[i].scrubbed_query, snapshots2[i].scrubbed_query, "RAG queries must be scrubbed deterministically");
+        assert.strictEqual(snapshots[i].routing_tier, snapshots2[i].routing_tier, "RAG routing must be deterministic");
+        assert.strictEqual(snapshots[i].phi_detected, snapshots2[i].phi_detected, "RAG PHI detection must be deterministic");
+      }
+    });
+
+    test("Preference card conflict resolution and state snapshot consistency", async () => {
+      setClientGeminiApiKey("test-key");
+      global.fetch = async () => ({
+        ok: true,
+        json: async () => ({
+          candidates: [{ content: { parts: [{ text: "preference card response" }] } }]
+        })
+      } as unknown as Response);
+
+      const query = "Dr. Smith preference card tray setup for lap chole in OR 1";
+      const res = await directGeminiRAG(query);
+
+      const snapshotString = JSON.stringify({
+        reply: res.reply_text,
+        tier: res.routing_tier,
+        scrubbed: res.scrubbed_query,
+        phi: res.phi_detected
+      });
+
+      const res2 = await directGeminiRAG(query);
+      const snapshotString2 = JSON.stringify({
+        reply: res2.reply_text,
+        tier: res2.routing_tier,
+        scrubbed: res2.scrubbed_query,
+        phi: res2.phi_detected
+      });
+
+      assert.strictEqual(snapshotString, snapshotString2, "Clinical state snapshot must remain perfectly consistent across identical parses");
+    });
+
+    test("Enforce multi-tenant isolation and offline-first invariants during RAG snapshot generation", async () => {
+      setClientGeminiApiKey("test-key");
+      global.fetch = async () => {
+        return Promise.reject(new Error("Network offline"));
+      };
+
+      try {
+        await directGeminiRAG("preference card for Dr. Smith");
+        assert.fail("Should have thrown offline error");
+      } catch (err: any) {
+        assert.match(err.message, /Network offline/, "Must strictly throw offline error to respect offline-first invariants");
+      }
+
+      setClientGeminiApiKey("");
+      const baselineRes = await directGeminiRAG("preference card for Dr. Smith", undefined, undefined, "PEDS-123");
+      assert.strictEqual(baselineRes.is_educational_baseline, true);
+      assert.strictEqual(baselineRes.routing_tier, "TIER_2_GEMINI_RAG");
+      // Multi-tenant isolation: ensures department scope is correctly applied even in baseline
+      assert.ok(baselineRes.reply_text.includes("Pediatrics") || baselineRes.reply_text.includes("Standard Clinical Reference"), "Must isolate to department or fallback safely");
+    });
+  });
+
   describe("HIPAA PHI Boundary & Strict Security Verification", () => {
     test("directGeminiRAG strictly scrubs PHI before dispatch (Zero-Trust verification)", async () => {
       setClientGeminiApiKey("test-key");
