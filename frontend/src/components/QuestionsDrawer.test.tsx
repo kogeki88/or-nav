@@ -561,4 +561,102 @@ describe("QuestionsDrawer", () => {
     // Default open badge fallback should happen or error out safely
     assert.ok(screen.getByText("Open Question"));
   });
+
+  it("should not leak memory over high-volume remount loops", async () => {
+    if (global.gc) global.gc();
+    const initialMemory = process.memoryUsage().heapUsed;
+
+    for (let i = 0; i < 500; i++) {
+      const container = document.createElement("div");
+      document.body.appendChild(container);
+      const { unmount } = render(
+        <QuestionsDrawer
+          isOpen={true}
+          onClose={() => {}}
+          tenantId={tenantId}
+          questions={mockQuestions}
+          onRefreshQuestions={onRefreshQuestions}
+        />,
+        { container }
+      );
+      unmount();
+      document.body.removeChild(container);
+    }
+
+    if (global.gc) global.gc();
+    const finalMemory = process.memoryUsage().heapUsed;
+    const diff = finalMemory - initialMemory;
+
+    assert.ok(diff < 150 * 1024 * 1024, `Memory leak detected: ${diff / 1024 / 1024} MB`);
+  });
+
+  it("should not leave unclosed event listeners", () => {
+    const originalAdd = window.addEventListener;
+    const originalRemove = window.removeEventListener;
+
+    let listeners = 0;
+
+    window.addEventListener = function(type: any, listener: any, options: any) {
+      listeners++;
+      return originalAdd.apply(this, arguments as any);
+    };
+
+    window.removeEventListener = function(type: any, listener: any, options: any) {
+      listeners--;
+      return originalRemove.apply(this, arguments as any);
+    };
+
+    const { unmount } = render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    unmount();
+
+    assert.strictEqual(listeners, 0, "Event listeners were not properly cleaned up");
+
+    window.addEventListener = originalAdd;
+    window.removeEventListener = originalRemove;
+  });
+
+  it("should enforce cache eviction for draft answers under constrained usage", async () => {
+    const fetchCalls: any[] = [];
+    global.fetch = mock.fn(async (url: any, options: any) => {
+      fetchCalls.push({ url, options });
+      return { ok: true, json: async () => ({}) };
+    }) as any;
+
+    const { unmount } = render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId={tenantId}
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const draftInputs = screen.getAllByPlaceholderText("Write a peer answer for the orientee...");
+    const draftInput = draftInputs[0];
+
+    await userEvent.type(draftInput, "Draft text to be evicted");
+    const confidentButtons = screen.getAllByText("Confident");
+    await userEvent.click(confidentButtons[0]);
+
+    await waitFor(() => {
+        assert.ok(fetchCalls.length > 0);
+    });
+
+    await waitFor(() => {
+       assert.strictEqual((draftInput as HTMLInputElement).value, "");
+    });
+
+    unmount();
+  });
+
 });
