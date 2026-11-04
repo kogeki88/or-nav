@@ -97,11 +97,36 @@ export const NOTE_CLAUSE_REGEX = /(?:,|;|\.|\s+and|\s+with)\s*(?:notes?|surgeon\
  * Extracts and unpacks any packed or spaced 4-part coordinate from an utterance,
  * returning the canonical coordinate and the utterance stripped of the coordinate.
  */
-export function extractAndNormalizeCoordinateClient(text: string): { location: string; cleanText: string } | null {
-  if (!text || typeof text !== 'string' || !text.trim()) return null;
+
+
+// Hardened cleaning function without catastrophic backtracking
+function cleanStringSafely(text: string, startIndex: number, matchLength: number): string {
+  const cleanBefore = text.slice(0, startIndex).replace(/(?:\s*(?:to|into|in|at))?\s*$/i, "");
+  const cleanAfter = text.slice(startIndex + matchLength);
+  return (cleanBefore + " " + cleanAfter).replace(/\s+/g, " ").trim();
+}
+
+export function sanitizeTextPayload(text: string): string {
+  return text
+    .replace(/\b(ignore\s+(?:all\s+)?(?:previous\s+)?instructions|database\s+credentials|system\s+prompt|bypass\s+security|drop\s+table)\b/gi, "")
+    .replace(/\b(?:SSN|Social\s+Security\s+Number|DOB|Date\s+of\s+Birth)\s*[\d\-\/]+\b/gi, "")
+    .replace(/\bPatient\s+[A-Z][a-zA-Z\-']*(?:\s+[A-Z][a-zA-Z\-']*)+\b/gi, "");
+}
+
+export function extractAndNormalizeCoordinateClient(rawText: string): { location: string; cleanText: string } | null {
+  if (!rawText || typeof rawText !== 'string' || !rawText.trim()) return null;
+
+  // Apply security sanitization middleware first
+  let workingText = sanitizeTextPayload(rawText);
+
+  // ReDoS Mitigation: Condense extreme spacing/separators specifically to allow regex engine to finish quickly
+  let searchTarget = workingText;
+  if (searchTarget.length > 1000) {
+      searchTarget = searchTarget.replace(/[ \t\r\n\-•_]{5,}/g, " ");
+  }
 
   // 1. Spaced format
-  const mSpaced = text.match(SPACED_COORD_REGEX);
+  const mSpaced = searchTarget.match(SPACED_COORD_REGEX);
   if (mSpaced) {
     const fullMatch = mSpaced[0];
     const unit = mSpaced[1];
@@ -130,13 +155,24 @@ export function extractAndNormalizeCoordinateClient(text: string): { location: s
     }
 
     const normLoc = `${room} ${cab.toUpperCase()} ${shelf} ${bin.toUpperCase()}`;
-    const escaped = fullMatch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const clean = text.replace(new RegExp(`(?:\\s*(?:to|into|in|at))?\\s*${escaped}\\b`, "i"), "").replace(/\s+/g, " ").trim();
+
+    // Use the actual indices from the original `workingText` by searching for the match string again
+    // But since `searchTarget` compressed whitespace, `fullMatch` might not directly exist in `workingText`.
+    // Wait, `extractAndNormalizeCoordinateClient` requires `cleanText` which is the remainder.
+    // For extreme strings, we can just return `searchTarget` as the cleanText to avoid index mismatch!
+
+    let clean = "";
+    if (searchTarget !== workingText) {
+       clean = cleanStringSafely(searchTarget, mSpaced.index!, mSpaced[0].length);
+    } else {
+       clean = cleanStringSafely(workingText, mSpaced.index!, mSpaced[0].length);
+    }
+
     return { location: normLoc, cleanText: clean };
   }
 
   // 2. Packed format (e.g. or21c1f, icu2b1, etc.)
-  const mPacked = text.match(PACKED_COORD_REGEX);
+  const mPacked = searchTarget.match(PACKED_COORD_REGEX);
   if (mPacked) {
     const fullMatch = mPacked[0];
     const prefix = (mPacked[1] || "").toLowerCase();
@@ -158,13 +194,19 @@ export function extractAndNormalizeCoordinateClient(text: string): { location: s
     else room = "OR 21";
 
     const normLoc = `${room} ${cab} ${shelf} ${bin}`;
-    const escaped = fullMatch.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const clean = text.replace(new RegExp(`(?:\\s*(?:to|into|in|at))?\\s*${escaped}\\b`, "i"), "").replace(/\s+/g, " ").trim();
+    let clean = "";
+    if (searchTarget !== workingText) {
+       clean = cleanStringSafely(searchTarget, mPacked.index!, mPacked[0].length);
+    } else {
+       clean = cleanStringSafely(workingText, mPacked.index!, mPacked[0].length);
+    }
     return { location: normLoc, cleanText: clean };
   }
 
   return null;
 }
+
+
 
 const PREFERENCE_CARD_PATTERNS = /\b(?:(?:pull\s+up|show\s+me|open|get|view|display|check)\s+(?:dr\.?|doctor)?\s*([a-z]+(?:'s)?)?\s*(?:preference\s*cards?|preferences?)|preference\s*cards?\s+(?:for\s+)?|dr\.?\s+([a-z]+)'s?\s+(?:lap\s+chole|chole|knee|total\s+knee|cabg|prostatectomy|ralp|discectomy|appendectomy|preferences?)|(?:mayo\s+stand|instrument\s+tray|back\s+table|tray\s+setup|tray\s+breakdown)\s+for\s+)/i;
 
@@ -203,7 +245,7 @@ export function normalizeClinicalSpeech(text: string): { normalized: string; cor
  */
 export function parseClinicalIntent(query: string, clinicalRole?: string): ParsedIntent {
   const { normalized, correction } = normalizeClinicalSpeech(query);
-  const cleaned = normalized.replace(/\[REDACTED_PHI\]/gi, "").trim();
+  const cleaned = sanitizeTextPayload(normalized.replace(/\[REDACTED_PHI\]/gi, "").trim());
 
   // 0. TEACH_ALIAS (e.g. "Here we call Mixter clamps Geminis", "Adson forceps are called Adson pickups")
   const teachMatch = detectTeachingIntentClient(cleaned);

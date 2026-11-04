@@ -264,7 +264,10 @@ function safeSetItem(key: string, val: string): void {
     const keys = memStorage.keys();
     let excess = memStorage.size - 1000;
     while (excess > 0) {
-      memStorage.delete(keys.next().value);
+      const oldestKey = keys.next().value;
+      if (oldestKey !== undefined) {
+        memStorage.delete(oldestKey);
+      }
       excess--;
     }
   }
