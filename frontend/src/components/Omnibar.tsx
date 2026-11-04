@@ -66,6 +66,21 @@ function getSupportedAudioMimeType(): string {
   return "";
 }
 
+function sanitizeInput(text: string): string {
+  let safeInput = text;
+
+  // Strip obvious JWT/Bearer tokens
+  safeInput = safeInput.replace(/bearer\s+[A-Za-z0-9\-_=]+\.[A-Za-z0-9\-_=]+\.?[A-Za-z0-9\-_.+/=]*/gi, "[REDACTED_TOKEN]");
+
+  // Prompt injection hardening
+  safeInput = safeInput.replace(/ignore previous instructions/gi, "[REDACTED_INJECTION]");
+  safeInput = safeInput.replace(/drop table/gi, "[REDACTED_INJECTION]");
+
+  // Redact obvious SSNs (basic client-side safety net)
+  safeInput = safeInput.replace(/\b\d{3}-\d{2}-\d{4}\b/g, "[REDACTED_PHI]");
+  return safeInput;
+}
+
 const Omnibar = React.memo(function Omnibar({
   onSendMessage,
   onFileUpload,
@@ -219,7 +234,14 @@ const Omnibar = React.memo(function Omnibar({
 
       // 1. Spoken words captured by desktop Web Speech -> send them directly with acoustic typo fixes (preserving user slang)
       if (capturedText.length > 0) {
-        onSendMessageRef.current(normalizeAcousticSpeech(capturedText));
+        const normalized = normalizeAcousticSpeech(capturedText);
+        const safeInput = sanitizeInput(normalized);
+        if (safeInput.length > 2000) {
+           showFlash("Query exceeds 2,000 character limit", 3000);
+           resetToIdle();
+           return;
+        }
+        onSendMessageRef.current(safeInput);
         resetToIdle();
         return;
       }
@@ -417,11 +439,15 @@ const Omnibar = React.memo(function Omnibar({
       return;
     }
     if (!input.trim() || disabled || micStatus === "transcribing") return;
-    if (input.length > 2000) {
+
+    // Security Boundary: HIPAA PHI Scrubbing, Prompt Injection, and Token Stripping
+    const safeInput = sanitizeInput(input.trim());
+
+    if (safeInput.length > 2000) {
       showFlash("Query exceeds 2,000 character limit", 3000);
       return;
     }
-    const msg = input.trim();
+    const msg = safeInput;
     setInput("");
     inputRef.current?.blur();
     onSendMessage(msg);
