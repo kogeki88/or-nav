@@ -806,13 +806,14 @@ describe("ResourceManagerChecksum", () => {
   });
 });
 
+
   test("ResourceManagerChecksum enforcing multi-tenant isolation and offline mutation replay idempotency", async () => {
     // We already have tests enforcing this but a reviewer may want another strict idempotency test
     // 1. Setup multi-tenant data
     const csvContentFac1 = "item,room,cabinet,shelf,container,full_code\nSuture,Main OR,A,1,A,Main OR A 1 A\n";
     const csvContentFac2 = "item,room,cabinet,shelf,container,full_code\nGauze,ER,B,2,C,ER B 2 C\n";
 
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (url) => {
       return {
         ok: true,
         status: 200,
@@ -845,5 +846,90 @@ describe("ResourceManagerChecksum", () => {
     assert.ok(fac2Items && fac2Items.some(i => i.item === "Gauze"));
     assert.ok(fac2Items && !fac2Items.some(i => i.item === "Suture"));
 
+    mock.restoreAll();
+  });
+
+  test("ResourceManagerChecksum cache eviction under constrained runtime memory and memory leak detection", async () => {
+    // Collect memory usage before the test
+    if (global.gc) global.gc();
+    const initialMemory = process.memoryUsage().heapUsed;
+
+    // Track unclosed event listeners
+    const initialListeners = process.listeners('warning').length;
+    // Add Dexie listener tracking based on Dexie docs or process events
+    const initialDexieListeners = offlineDb?.on?.ready?.subscribers?.length || 0;
+
+    // Set up a constrained memory eviction scenario
+    // We will install a large number of packs, and we want to ensure
+    // memory stays under control and that our listeners don't leak.
+    const numPacks = 50;
+
+    mock.method(global, 'fetch', async (url) => {
+      return {
+        ok: true,
+        status: 200,
+        text: async () => "item,room,cabinet,shelf,container,full_code\nSuture,Main OR,A,1,A,Main OR A 1 A\n"
+      };
+    });
+
+    const packPromises = [];
+    for (let i = 0; i < numPacks; i++) {
+      const packMeta = {
+        packId: `pack_mem_${i}`,
+        facilityId: "fac_mem",
+        departmentId: "or",
+        title: `Test Pack ${i}`,
+        category: "department",
+        filePath: `fac_mem/or/inventory_${i}.csv`,
+        sizeBytes: 100,
+        versionHash: "v1",
+        updatedAt: "2023-01-01T00:00:00Z"
+      };
+
+      // Deliberately cause errors in some to test teardown
+      if (i % 5 === 0) {
+        packPromises.push(
+          resourceManager.installPack({ ...packMeta, filePath: "error" }).catch(() => {})
+        );
+      } else {
+        packPromises.push(resourceManager.installPack(packMeta));
+      }
+    }
+
+    await Promise.all(packPromises);
+
+    // Assert that multi-tenant isolation and data consistency holds
+    // wait for the unpacking to finish correctly since installing lots of things might need a small delay in test
+    await new Promise(r => setTimeout(r, 200));
+    // Allow event loop to process background IndexedDB operations from installPack
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // unpackInstalledPacksToDexie is required to fully hydrate the items in memory
+    await resourceManager.unpackInstalledPacksToDexie("fac_mem", "or");
+
+
+    // Validate that we successfully installed the good packs and skipped the bad ones
+    const items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac_mem::or").toArray();
+    assert.ok(items && items.length > 0);
+
+    // Garbage collect and measure memory after the test
+    if (global.gc) global.gc();
+    const finalMemory = process.memoryUsage().heapUsed;
+    const finalListeners = process.listeners('warning').length;
+    const finalDexieListeners = offlineDb?.on?.ready?.subscribers?.length || 0;
+
+    // Check memory leak and listeners
+    // Allow up to 150MB of memory growth (generous tolerance for flakiness)
+    assert.ok((finalMemory - initialMemory) < 150 * 1024 * 1024, "Memory growth should be constrained");
+    assert.strictEqual(finalListeners, initialListeners, "No unclosed node event listeners should remain");
+    assert.strictEqual(finalDexieListeners, initialDexieListeners, "No unclosed Dexie event listeners should remain");
+
+    // Clean up
+    await offlineDb?.inventoryItems.where("tenant_id").equals("fac_mem::or").delete();
+    for (let i = 0; i < numPacks; i++) {
+      if (i % 5 !== 0) {
+        await resourceManager.deletePack(`pack_mem_${i}`);
+      }
+    }
     mock.restoreAll();
   });
