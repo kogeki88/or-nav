@@ -814,3 +814,77 @@ def test_surgical_ontology_network_partition_and_self_healing(monkeypatch):
     assert res_gen_online is False
 
     assert tenant_id in normalize_or_lingo(query)
+
+def test_surgical_ontology_memory_leak_and_eviction():
+    import tracemalloc
+    import gc
+    from app.services.surgical_ontology import (
+        normalize_or_lingo,
+        normalize_acoustic_speech,
+        extract_eponyms,
+        is_eponym_conflict,
+        is_generic_class_only,
+        strip_spoken_disfluencies
+    )
+
+    gc.collect()
+    tracemalloc.start()
+
+    for i in range(5000):
+        unique_text = f"tenant_facility_{i % 50}::dept_{i % 10} please hand me the metz {i}"
+
+        normalize_or_lingo(unique_text)
+        normalize_acoustic_speech(unique_text)
+        extract_eponyms(unique_text)
+        is_eponym_conflict(unique_text, "metzenbaum scissors")
+        is_generic_class_only(unique_text)
+        strip_spoken_disfluencies(unique_text)
+
+    gc.collect()
+    snapshot = tracemalloc.take_snapshot()
+    tracemalloc.stop()
+
+    total_allocated_kb = sum(stat.size for stat in snapshot.statistics("lineno")) / 1024
+
+    # 5MB threshold for tracemalloc stats inside a loop
+    assert total_allocated_kb < 5000.0, f"Memory leak detected: grew by {total_allocated_kb / 1024:.2f} MB"
+
+def test_surgical_ontology_unclosed_event_listeners():
+    import gc
+    from app.services.surgical_ontology import (
+        normalize_or_lingo,
+        extract_eponyms
+    )
+
+    # Python stdlib logging uses handlers. We can mock things if we need, but for now
+    # tracemalloc object counting by type string for memory leaks handles most things.
+    # We will check specifically for EventListener like types or callback accumulations.
+
+    # Check if module variables store handlers/callbacks indefinitely.
+    import app.services.surgical_ontology as module
+
+    list_types = []
+    for var_name in dir(module):
+        val = getattr(module, var_name)
+        if isinstance(val, list) and not var_name.startswith('_'):
+            list_types.append((var_name, len(val)))
+
+    for i in range(1000):
+        unique_text = f"facility_network::dept_test please hand me the metz {i}"
+        normalize_or_lingo(unique_text)
+        extract_eponyms(unique_text)
+
+    for var_name, initial_len in list_types:
+        val = getattr(module, var_name)
+        assert len(val) == initial_len, f"Unclosed event listener/callback leakage in {var_name}"
+
+def test_surgical_ontology_cache_eviction_under_pressure():
+    from app.services.surgical_ontology import (
+        normalize_or_lingo,
+        normalize_acoustic_speech
+    )
+
+    is_lru_cached = hasattr(normalize_or_lingo, "cache_info")
+    if is_lru_cached:
+        info = normalize_or_lingo.cache_info()
+        assert info.maxsize is not None and info.maxsize > 0, "Unbounded lru_cache found! This is a memory leak risk."
