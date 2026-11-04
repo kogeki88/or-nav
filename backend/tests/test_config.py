@@ -268,7 +268,8 @@ def test_config_offline_first_caching_and_healing(tmp_path, monkeypatch):
     """
 
     # Reset caches for this test specifically
-    monkeypatch.setattr(app.config, "_tenant_cache", {})
+    from collections import OrderedDict
+    monkeypatch.setattr(app.config, "_tenant_cache", OrderedDict())
     monkeypatch.setattr(app.config, "_list_tenants_cache", [])
 
 
@@ -341,3 +342,100 @@ def test_config_offline_first_caching_and_healing(tmp_path, monkeypatch):
 
         config_recovered = get_tenant("or_main")
         assert config_recovered.tenant_id == "or_main"
+
+import gc
+import weakref
+import tracemalloc
+
+def test_cache_eviction_and_memory_leak(tmp_path, monkeypatch):
+    """
+    Test that the LRU cache evicts items correctly when exceeding MAX_CACHE_SIZE,
+    and that evicted items are properly garbage collected (no memory leaks).
+    """
+    # Patch MAX_CACHE_SIZE to something small for the test
+    monkeypatch.setattr(app.config, "MAX_CACHE_SIZE", 10)
+    from collections import OrderedDict
+    monkeypatch.setattr(app.config, "_tenant_cache", OrderedDict())
+
+    hospitals_mock = tmp_path / "hospitals"
+    hospitals_mock.mkdir()
+
+    # Create 20 mock tenants
+    tenant_dirs = []
+    for i in range(20):
+        t_id = f"tenant_{i}"
+        t_dir = hospitals_mock / t_id
+        t_dir.mkdir()
+        (t_dir / "inventory.csv").touch()
+        tenant_dirs.append(t_id)
+
+    monkeypatch.setattr(app.config, "HOSPITALS_DIR", hospitals_mock)
+
+    # Track one of the first configs to see if it's garbage collected
+    first_config = get_tenant(tenant_dirs[0])
+    first_config_ref = weakref.ref(first_config)
+    del first_config
+
+    # Fill cache beyond MAX_CACHE_SIZE
+    for t_id in tenant_dirs[1:]:
+        get_tenant(t_id)
+
+    # The cache should be exactly MAX_CACHE_SIZE (10)
+    assert len(app.config._tenant_cache) == 10
+
+    # The first config should have been evicted and garbage collected
+    gc.collect()
+    assert first_config_ref() is None
+
+def test_memory_profiling_high_volume(tmp_path, monkeypatch):
+    """
+    Test memory usage under a high volume of requests, ensuring that the cache
+    eviction and limits prevent unbounded memory growth.
+    """
+    # Patch MAX_CACHE_SIZE
+    monkeypatch.setattr(app.config, "MAX_CACHE_SIZE", 50)
+    from collections import OrderedDict
+    monkeypatch.setattr(app.config, "_tenant_cache", OrderedDict())
+
+    hospitals_mock = tmp_path / "hospitals"
+    hospitals_mock.mkdir()
+
+    # Create a dummy valid tenant structure to satisfy get_tenant
+    t_dir = hospitals_mock / "dummy_tenant"
+    t_dir.mkdir()
+    (t_dir / "inventory.csv").touch()
+    monkeypatch.setattr(app.config, "HOSPITALS_DIR", hospitals_mock)
+
+    tracemalloc.start()
+    try:
+        # Take a snapshot before the burst
+        snapshot1 = tracemalloc.take_snapshot()
+
+        # Simulate high volume burst (e.g. 5000 iterations of random tenant lookups or a single one)
+        # We will mock the validation to pass for these dynamic tenants, or we can just mock iterdir/resolve
+        # Actually, let's just request the same tenant repeatedly to test cache hits,
+        # and request many different tenants that we simulate existing.
+
+        def mock_is_dir(self):
+            return True
+        def mock_exists(self):
+            return True
+
+        from unittest.mock import patch
+        with patch.object(Path, 'is_dir', new=mock_is_dir), \
+             patch.object(Path, 'exists', new=mock_exists):
+
+             for i in range(5000):
+                 # We generate IDs like tenant_0, tenant_1... up to 1000
+                 get_tenant(f"tenant_{i % 1000}")
+
+        snapshot2 = tracemalloc.take_snapshot()
+        stats = snapshot2.compare_to(snapshot1, 'lineno')
+
+        # Calculate total memory growth
+        total_growth = sum(stat.size_diff for stat in stats)
+        # Tolerance: 50MB
+        tolerance = 50 * 1024 * 1024
+        assert total_growth < tolerance, f"Memory growth {total_growth} exceeded tolerance {tolerance}"
+    finally:
+        tracemalloc.stop()

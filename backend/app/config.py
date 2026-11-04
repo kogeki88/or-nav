@@ -6,6 +6,8 @@ Multi-tenant settings and environment variable loading.
 
 import os
 import re
+import threading
+from collections import OrderedDict
 from pathlib import Path
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -18,9 +20,19 @@ HOSPITALS_DIR = PROJECT_ROOT / "hospitals"
 
 _VALID_TENANT_ID_PATTERN = re.compile(r"^[a-zA-Z0-9_]+(?:/[a-zA-Z0-9_]+)*$")
 
+MAX_CACHE_SIZE = 100
 # Simple in-memory cache for offline resilience
-_tenant_cache = {}
+_tenant_cache = OrderedDict()
+_cache_lock = threading.Lock()
 _list_tenants_cache = []
+
+def _evict_cache_if_needed():
+    """
+    Helper to enforce cache size limit.
+    ASSUMPTION: Caller already acquires the _cache_lock.
+    """
+    while len(_tenant_cache) > MAX_CACHE_SIZE:
+        _tenant_cache.popitem(last=False)
 
 
 def validate_tenant_id(tenant_id: str) -> str:
@@ -101,6 +113,11 @@ def get_tenant(tenant_id: str) -> TenantConfig:
     global _tenant_cache
     valid_id = validate_tenant_id(tenant_id)
 
+    with _cache_lock:
+        if valid_id in _tenant_cache:
+            _tenant_cache.move_to_end(valid_id)
+            return _tenant_cache[valid_id]
+
     try:
         hospitals_resolved = HOSPITALS_DIR.resolve()
 
@@ -131,11 +148,14 @@ def get_tenant(tenant_id: str) -> TenantConfig:
             inventory_path=tenant_dir / "inventory.csv",
             orientation_path=tenant_dir / "orientation.md",
         )
-        _tenant_cache[valid_id] = config
+        with _cache_lock:
+            _tenant_cache[valid_id] = config
+            _evict_cache_if_needed()
         return config
     except OSError:
-        if valid_id in _tenant_cache:
-            return _tenant_cache[valid_id]
+        with _cache_lock:
+            if valid_id in _tenant_cache:
+                return _tenant_cache[valid_id]
         raise
 
 
