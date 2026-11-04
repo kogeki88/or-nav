@@ -290,3 +290,78 @@ test("ClinicalGraph Fault Injection & Network Partition Resilience", async (t) =
       assert.strictEqual(pathOnline.length, 3);
   });
 });
+
+test("ClinicalGraph Hardened Eviction and Caching Limits", async (t) => {
+  await t.test("cache eviction strategy prevents infinite memory growth under sustained load", () => {
+    if (global.gc) {
+      global.gc();
+    }
+
+    const baselineMemory = process.memoryUsage().heapUsed;
+    const cacheBustingIterations = 20000;
+
+    const uniqueCards = Array.from({ length: 100 }, (_, i) => ({
+      id: "C" + i,
+      surgeon: "Dr. Unique" + i,
+      procedure: "Proc" + i
+    }));
+
+    for (let i = 0; i < cacheBustingIterations; i++) {
+        compileClinicalGraph("tenant_cache_" + String(i % 50), uniqueCards, [], "");
+    }
+
+    if (global.gc) {
+      global.gc();
+    }
+
+    const currentMemory = process.memoryUsage().heapUsed;
+    const growthMB = (currentMemory - baselineMemory) / 1024 / 1024;
+
+    assert.ok(growthMB < 150, "Cache expansion exceeded safe eviction boundaries");
+  });
+
+  await t.test("no DOM event listener accumulation on actual global window/document objects", () => {
+    if (typeof window !== "undefined") {
+        let addedListeners = 0;
+        const originalAddEventListener = window.addEventListener;
+        const originalRemoveEventListener = window.removeEventListener;
+
+        window.addEventListener = function(type, listener, options) {
+            addedListeners++;
+            return originalAddEventListener.apply(window, arguments as any);
+        };
+
+        window.removeEventListener = function(type, listener, options) {
+            addedListeners--;
+            return originalRemoveEventListener.apply(window, arguments as any);
+        };
+
+        compileClinicalGraph("tenant_listeners", [], [], "");
+
+        assert.strictEqual(addedListeners, 0, "compileClinicalGraph should not leave unclosed event listeners on window");
+
+        window.addEventListener = originalAddEventListener;
+        window.removeEventListener = originalRemoveEventListener;
+    } else {
+        let addedListeners = 0;
+        const originalOn = process.on;
+        const originalRemove = process.removeListener;
+
+        process.on = function(event, listener) {
+             addedListeners++;
+             return originalOn.apply(process, arguments as any);
+        };
+        process.removeListener = function(event, listener) {
+             addedListeners--;
+             return originalRemove.apply(process, arguments as any);
+        }
+
+        compileClinicalGraph("tenant_listeners_node", [], [], "");
+
+        assert.strictEqual(addedListeners, 0, "compileClinicalGraph should not leave unclosed event listeners on process");
+
+        process.on = originalOn;
+        process.removeListener = originalRemove;
+    }
+  });
+});
