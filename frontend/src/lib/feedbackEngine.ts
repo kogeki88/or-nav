@@ -7,6 +7,7 @@
  */
 
 import { getCurrentSession } from "./auth";
+import { scrubPhi } from "./scrubClient";
 
 export interface FeedbackItem {
   id: string;
@@ -108,6 +109,21 @@ export const SEED_FEEDBACK_ITEMS: FeedbackItem[] = [
     createdAt: "2026-10-27T21:10:00Z",
   },
 ];
+
+
+
+const PROMPT_INJECTION_REGEX = /\b(ignore\s+all\s+previous\s+instructions|system\s+prompt|you\s+are\s+a|output\s+admin|drop\s+table|system\s+override|bypass\s+instructions|antigravity\s+directive)\b/gi;
+
+export function sanitizeTenantPart(part: string): string {
+  return part.replace(/::/g, "_");
+}
+
+export function sanitizeInput(text: string): string {
+  if (!text) return text;
+  let sanitized = scrubPhi(text).text;
+  sanitized = sanitized.replace(PROMPT_INJECTION_REGEX, "[REDACTED_PROMPT_INJECTION]");
+  return sanitized;
+}
 
 // --- NLP Classification & Prompt Generation ---
 
@@ -478,25 +494,26 @@ export async function interceptChatComplaint(
   rawText: string,
   userProfile?: { fullName?: string; clinicalRole?: string; facilityId?: string; departmentId?: string }
 ): Promise<FeedbackItem | null> {
-  if (!isComplaintOrFeatureWish(rawText)) {
+  if (!isComplaintOrFeatureWish(sanitizeInput(rawText))) {
     return null;
   }
 
   const session = getCurrentSession();
   const userName = session?.fullName || userProfile?.fullName || "Staff Clinician";
   const userRole = session?.profile?.clinicalRole || userProfile?.clinicalRole || "Circulating RN";
-  const fac = session?.profile?.facilityId || userProfile?.facilityId || "sacred_heart";
-  const dept = session?.profile?.departmentId || userProfile?.departmentId || "or";
+  const fac = sanitizeTenantPart(session?.profile?.facilityId || userProfile?.facilityId || "sacred_heart");
+  const dept = sanitizeTenantPart(session?.profile?.departmentId || userProfile?.departmentId || "or");
   const tenantId = `${fac}::${dept}`;
 
-  const { category, severity, sentimentScore } = classifyText(rawText);
-  const { aiRecommendation, suggestedFixPrompt } = synthesizeDevPrompt(rawText, category, severity);
+  const sanitizedText = sanitizeInput(rawText);
+  const { category, severity, sentimentScore } = classifyText(sanitizedText);
+  const { aiRecommendation, suggestedFixPrompt } = synthesizeDevPrompt(sanitizedText, category, severity);
 
   const localItems = getLocalFeedback();
 
   // Check if similar open complaint exists -> auto-upvote
   for (const item of localItems) {
-    if (item.status !== "resolved" && wordsOverlap(item.rawText, rawText)) {
+    if (item.status !== "resolved" && wordsOverlap(item.rawText, sanitizedText)) {
       item.upvotes += 1;
       saveLocalFeedback(localItems);
       // Sync to backend asynchronously
@@ -527,7 +544,7 @@ export async function interceptChatComplaint(
     category,
     severity,
     sentimentScore,
-    rawText: rawText.trim(),
+    rawText: sanitizedText.trim(),
     aiRecommendation,
     suggestedFixPrompt,
     upvotes: 1,
@@ -569,11 +586,11 @@ export async function submitManualFeedback(data: {
   const session = getCurrentSession();
   const userName = session?.fullName || data.userProfile?.fullName || "Staff Clinician";
   const userRole = session?.profile?.clinicalRole || data.userProfile?.clinicalRole || "Circulating RN";
-  const fac = session?.profile?.facilityId || data.userProfile?.facilityId || "sacred_heart";
-  const dept = session?.profile?.departmentId || data.userProfile?.departmentId || "or";
+  const fac = sanitizeTenantPart(session?.profile?.facilityId || data.userProfile?.facilityId || "sacred_heart");
+  const dept = sanitizeTenantPart(session?.profile?.departmentId || data.userProfile?.departmentId || "or");
   const tenantId = `${fac}::${dept}`;
 
-  const raw = data.rawText.trim();
+  const raw = sanitizeInput(data.rawText).trim();
   const auto = classifyText(raw);
   const category = data.category || auto.category;
   const severity = data.severity || auto.severity;
