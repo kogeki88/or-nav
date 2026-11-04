@@ -120,7 +120,7 @@ const Omnibar = React.memo(function Omnibar({
     }
   };
 
-  const clearTimers = () => {
+  const clearTimers = useCallback(() => {
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
@@ -129,9 +129,9 @@ const Omnibar = React.memo(function Omnibar({
       clearTimeout(maxDurationTimerRef.current);
       maxDurationTimerRef.current = null;
     }
-  };
+  }, []);
 
-  const cleanupMediaStream = () => {
+  const cleanupMediaStream = useCallback(() => {
     if (mediaStreamRef.current) {
       try {
         mediaStreamRef.current.getTracks().forEach((t) => {
@@ -143,15 +143,17 @@ const Omnibar = React.memo(function Omnibar({
       mediaStreamRef.current = null;
     }
     mediaRecorderRef.current = null;
-  };
+  }, []);
 
   const resetToIdle = useCallback(() => {
     micStatusRef.current = "idle";
     setMicStatus("idle");
     clearTimers();
     cleanupMediaStream();
+    audioChunksRef.current = []; // Prevent memory leak by ensuring chunk array is explicitly cleared
+    isStartingMicRef.current = false;
     onStopPTT?.();
-  }, [onStopPTT]);
+  }, [onStopPTT, clearTimers, cleanupMediaStream]);
 
   /** Upload an audio blob/file; never uploads tiny/silent blobs. */
   const submitAudio = useCallback(
