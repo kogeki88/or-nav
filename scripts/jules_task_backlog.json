@@ -3481,10 +3481,11 @@
     "id": "backlog-349",
     "title": "Testing: Memory Profiling & Resource Eviction Hardening for CoordinateCard",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 6): Memory Profiling & Resource Eviction Hardening for CoordinateCard\n\n**File:** `frontend/src/components/CoordinateCard.test.tsx`\n**Objective:**\n1. Create or extend memory profiling, leak detection, unclosed event listeners, and cache eviction under constrained runtime memory in `frontend/src/components/CoordinateCard.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "14169378408272748281",
-    "dispatchedAt": "2026-11-04T18:50:31.769Z"
+    "dispatchedAt": "2026-11-04T18:50:31.769Z",
+    "completedAt": "2026-11-04T19:53:03.942Z"
   },
   {
     "id": "backlog-350",
@@ -3509,10 +3510,11 @@
     "id": "backlog-352",
     "title": "Testing: Memory Profiling & Resource Eviction Hardening for QuestionsDrawer",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 6): Memory Profiling & Resource Eviction Hardening for QuestionsDrawer\n\n**File:** `frontend/src/components/QuestionsDrawer.test.tsx`\n**Objective:**\n1. Create or extend memory profiling, leak detection, unclosed event listeners, and cache eviction under constrained runtime memory in `frontend/src/components/QuestionsDrawer.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "10966034649656927895",
-    "dispatchedAt": "2026-11-04T18:50:34.739Z"
+    "dispatchedAt": "2026-11-04T18:50:34.739Z",
+    "completedAt": "2026-11-04T19:38:50.261Z"
   },
   {
     "id": "backlog-353",
@@ -3527,10 +3529,11 @@
     "id": "backlog-354",
     "title": "Testing: Memory Profiling & Resource Eviction Hardening for UserProfileModal",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 6): Memory Profiling & Resource Eviction Hardening for UserProfileModal\n\n**File:** `frontend/src/components/UserProfileModal.test.tsx`\n**Objective:**\n1. Create or extend memory profiling, leak detection, unclosed event listeners, and cache eviction under constrained runtime memory in `frontend/src/components/UserProfileModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "3126246961028970642",
-    "dispatchedAt": "2026-11-04T19:21:02.931Z"
+    "dispatchedAt": "2026-11-04T19:21:02.931Z",
+    "completedAt": "2026-11-04T19:38:55.874Z"
   },
   {
     "id": "backlog-355",
@@ -3546,8 +3549,10 @@
     "id": "backlog-356",
     "title": "Testing: Memory Profiling & Resource Eviction Hardening for PeerQnABackend",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 6): Memory Profiling & Resource Eviction Hardening for PeerQnABackend\n\n**File:** `backend/tests/test_peer_qna.py`\n**Objective:**\n1. Create or extend memory profiling, leak detection, unclosed event listeners, and cache eviction under constrained runtime memory in `backend/tests/test_peer_qna.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 6): Memory Profiling & Resource Eviction Hardening for PeerQnABackend\n\n**File:** `backend/tests/test_peer_qna.py`\n**Objective:**\n1. Create or extend memory profiling, leak detection, unclosed event listeners, and cache eviction under constrained runtime memory in `backend/tests/test_peer_qna.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "587965934835736239",
+    "dispatchedAt": "2026-11-04T19:39:17.143Z"
   },
   {
     "id": "backlog-357",
@@ -3563,33 +3568,39 @@
     "id": "backlog-358",
     "title": "Testing: Strict Security Invariants & HIPAA PHI Boundary Verification for DirectGemini",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "4842030536226382578",
+    "dispatchedAt": "2026-11-04T19:39:18.577Z"
   },
   {
     "id": "backlog-359",
     "title": "Bolt: Strict Security Invariants & HIPAA PHI Boundary Verification for SemanticParser",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for SemanticParser\n\n**File:** `frontend/src/lib/semanticParser.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/lib/semanticParser.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "9698852389739045763",
-    "dispatchedAt": "2026-11-04T18:55:43.518Z"
+    "dispatchedAt": "2026-11-04T18:55:43.518Z",
+    "completedAt": "2026-11-04T19:35:06.232Z"
   },
   {
     "id": "backlog-360",
     "title": "Code Health: Strict Security Invariants & HIPAA PHI Boundary Verification for AppSettings",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Code Health Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for AppSettings\n\n**File:** `frontend/src/lib/appSettings.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/lib/appSettings.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "10037748086486197604",
-    "dispatchedAt": "2026-11-04T19:08:31.898Z"
+    "dispatchedAt": "2026-11-04T19:08:31.898Z",
+    "completedAt": "2026-11-04T19:29:03.669Z"
   },
   {
     "id": "backlog-361",
     "title": "Testing: Strict Security Invariants & HIPAA PHI Boundary Verification for HospitalMapping",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for HospitalMapping\n\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/lib/hospitalMapping.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for HospitalMapping\n\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/lib/hospitalMapping.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "2105557259694616478",
+    "dispatchedAt": "2026-11-04T19:39:21.240Z"
   },
   {
     "id": "backlog-362",
@@ -3622,15 +3633,19 @@
     "id": "backlog-365",
     "title": "Testing: Strict Security Invariants & HIPAA PHI Boundary Verification for DeltaSync",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "8013423177135408146",
+    "dispatchedAt": "2026-11-04T19:53:18.772Z"
   },
   {
     "id": "backlog-366",
     "title": "Sentinel: Strict Security Invariants & HIPAA PHI Boundary Verification for AuthTokenRotation",
     "category": "Security",
-    "status": "pending",
-    "prompt": "# 🚀 Sentinel Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for AuthTokenRotation\n\n**File:** `backend/tests/test_auth_token_rotation.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_auth_token_rotation.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for AuthTokenRotation\n\n**File:** `backend/tests/test_auth_token_rotation.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_auth_token_rotation.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "8883756957153310754",
+    "dispatchedAt": "2026-11-04T19:39:09.566Z"
   },
   {
     "id": "backlog-367",
@@ -3650,7 +3665,48 @@
     "id": "backlog-369",
     "title": "Bolt: Strict Security Invariants & HIPAA PHI Boundary Verification for InventorySearch",
     "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "7080230035164873729",
+    "dispatchedAt": "2026-11-04T19:39:11.287Z"
+  },
+  {
+    "id": "backlog-370",
+    "title": "Code Health: Strict Security Invariants & HIPAA PHI Boundary Verification for LexiconLearningService",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🚀 Code Health Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for LexiconLearningService\n\n**File:** `backend/tests/test_lexicon_service.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_lexicon_service.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "4575250857019455521",
+    "dispatchedAt": "2026-11-04T19:39:12.842Z"
+  },
+  {
+    "id": "backlog-371",
+    "title": "Testing: Strict Security Invariants & HIPAA PHI Boundary Verification for VoiceWorker",
+    "category": "Testing",
     "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-372",
+    "title": "Testing: Strict Security Invariants & HIPAA PHI Boundary Verification for PushToTalkHook",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for PushToTalkHook\n\n**File:** `frontend/src/hooks/usePushToTalk.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/hooks/usePushToTalk.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-373",
+    "title": "Code Health: Strict Security Invariants & HIPAA PHI Boundary Verification for WakeLockHook",
+    "category": "Code Health",
+    "status": "dispatched",
+    "prompt": "# 🚀 Code Health Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for WakeLockHook\n\n**File:** `frontend/src/hooks/useWakeLock.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/hooks/useWakeLock.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1798114869649924951",
+    "dispatchedAt": "2026-11-04T19:39:15.608Z"
+  },
+  {
+    "id": "backlog-374",
+    "title": "Testing: Strict Security Invariants & HIPAA PHI Boundary Verification for UserProfileHook",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for UserProfileHook\n\n**File:** `frontend/src/hooks/useUserProfile.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/hooks/useUserProfile.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]
