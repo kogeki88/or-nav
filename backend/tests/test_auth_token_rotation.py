@@ -527,3 +527,57 @@ class TestAuthTokenRotation:
                 assert data["user"]["fullName"] == payload
                 assert "HACKED" not in data
                 assert "49" not in data.get("user", {}).get("fullName", "")
+
+    def test_auth_deterministic_state_transitions(self, clean_auth_state):
+        """Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency."""
+        # Use existing users or create new test users according to actual endpoints
+        res_reg = client.post(
+            "/api/auth/register",
+            json={"email": "clinical_workflow@test.com", "password": "password123", "fullName": "Dr. Clinical Workflow"}
+        )
+        assert res_reg.status_code == 200
+
+        # Login to establish auth state
+        res_log1 = client.post(
+            "/api/auth/login",
+            json={"email": "clinical_workflow@test.com", "password": "password123"}
+        )
+        assert res_log1.status_code == 200
+        token1 = res_log1.json().get("token")
+
+        # Update profile simulating clinical preference card update
+        payload = {
+            "email": "clinical_workflow@test.com",
+            "facilityId": "sacred_heart",
+            "departmentId": "or_main",
+            "clinicalRole": "Attending"
+        }
+        res_prof = client.put("/api/auth/profile", json=payload)
+        assert res_prof.status_code == 200
+
+        # Resolve a conflict in preferences / verify deterministic update
+        payload_conflict = {
+            "email": "clinical_workflow@test.com",
+            "facilityId": "sacred_heart",
+            "departmentId": "or_main",
+            "clinicalRole": "Chief of Surgery"
+        }
+        res_conflict = client.put("/api/auth/profile", json=payload_conflict)
+        assert res_conflict.status_code == 200
+
+        # Take clinical snapshot and verify consistency and token rotation
+        res_final = client.post(
+            "/api/auth/login",
+            json={"email": "clinical_workflow@test.com", "password": "password123"}
+        )
+        assert res_final.status_code == 200
+        token2 = res_final.json().get("token")
+        data = res_final.json()
+        assert data["profile"]["clinicalRole"] == "Chief of Surgery"
+        assert data["profile"]["facilityId"] == "sacred_heart"
+        assert data["profile"]["departmentId"] == "or_main"
+
+        # Verify token rotation
+        assert token1 != token2
+        assert token1.startswith("token-")
+        assert token2.startswith("token-")
