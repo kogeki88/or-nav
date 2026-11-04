@@ -631,3 +631,85 @@ def test_planner_fault_injection_and_reconnection(monkeypatch):
 
     # Assert strict replay idempotency despite network state changes
     assert str(plan1) == str(plan2) == str(plan3) == str(plan4)
+
+
+def test_planner_memory_leak_and_event_listeners(monkeypatch):
+    import gc
+    import psutil
+    import os
+    import socket
+    import httpx
+
+    # Poison network
+    original_socket = socket.socket
+    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network call attempted during offline-first function!")
+        return original_socket(family, type, proto, fileno)
+
+    monkeypatch.setattr(socket, "socket", poisoned_socket)
+    monkeypatch.setattr(httpx, "post", lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("HTTP call")))
+    monkeypatch.setattr(httpx, "get", lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("HTTP call")))
+
+    # 1. Take initial memory snapshot
+    gc.collect()
+    process = psutil.Process(os.getpid())
+    initial_memory = process.memory_info().rss
+
+    # 2. Run a burst of planner queries
+    burst_size = 10000
+    graph = get_clinical_graph("or_main")
+    for i in range(burst_size):
+        query = f"dr patel suture sequence {i}"
+        plan = plan_clinical_query(query, graph=graph)
+        assert plan.surgeon is not None
+        assert plan.surgeon.normalized_last_name == "patel"
+
+    # 3. Take final memory snapshot
+    gc.collect()
+    final_memory = process.memory_info().rss
+
+    # Memory growth should be well within bounds (e.g. less than 150MB growth)
+    memory_growth_mb = (final_memory - initial_memory) / (1024 * 1024)
+    assert memory_growth_mb < 150, f"Memory growth {memory_growth_mb:.2f} MB exceeded threshold"
+
+
+def test_planner_cache_eviction_under_memory_constraint(monkeypatch):
+    """
+    Test cache eviction and resource release for the clinical query planner graph.
+    """
+    import gc
+    import weakref
+    import socket
+    import httpx
+    from app.services.clinical_graph import _GRAPH_CACHE, reset_clinical_graphs
+
+    # Poison network
+    original_socket = socket.socket
+    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network call attempted during offline-first function!")
+        return original_socket(family, type, proto, fileno)
+
+    monkeypatch.setattr(socket, "socket", poisoned_socket)
+    monkeypatch.setattr(httpx, "post", lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("HTTP call")))
+    monkeypatch.setattr(httpx, "get", lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("HTTP call")))
+
+    reset_clinical_graphs()
+    graph = get_clinical_graph("or_main")
+    graph_ref = weakref.ref(graph)
+
+    # Assert cache is populated
+    assert "or_main" in _GRAPH_CACHE
+    assert _GRAPH_CACHE["or_main"] is graph
+
+    # Under memory pressure, we should be able to evict the cache
+    reset_clinical_graphs()
+
+    # Delete the strong reference
+    del graph
+
+    gc.collect()
+
+    # Assert the graph is properly garbage collected
+    assert graph_ref() is None, "ClinicalEntityGraph instance was not garbage collected, indicating a memory leak"
