@@ -349,3 +349,77 @@ def test_network_partition_and_self_healing(monkeypatch):
     assert "Initial online data" in texts
     assert "Degraded data" in texts
     assert "Offline data delayed sync" in texts
+def test_resource_eviction_and_memory_profiling(monkeypatch, tmp_path):
+    """
+    Test memory bounds and resource management/eviction for the feedback pipeline
+    under a high volume of operations to ensure no memory leak or unclosed listeners.
+    """
+    import os
+    import psutil
+    import gc
+
+    test_file = tmp_path / "feedback.json"
+    monkeypatch.setattr("app.feedback.FEEDBACK_FILE", test_file)
+
+    from app.feedback import _get_default_seed
+    import json
+    initial_seed = _get_default_seed()
+    test_file.write_text(json.dumps(initial_seed, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    # 1. Baseline memory
+    gc.collect()
+    process = psutil.Process(os.getpid())
+    baseline_mem = process.memory_info().rss
+
+    # 2. Simulate high volume of feedback loads and mutations
+    # to evaluate cache/resource eviction
+    for i in range(1000):
+        # Read items
+        client.get("/api/feedback")
+
+        # Inject an item periodically to simulate load
+        if i % 100 == 0:
+            client.post("/api/feedback", json={
+                "tenantId": "sacred_heart::or",
+                "rawText": f"High volume test item {i}"
+            })
+
+    # 3. Cleanup and measure memory again
+    gc.collect()
+    final_mem = process.memory_info().rss
+
+    # Assert memory growth is within a safe bound (e.g., 100 MB generous tolerance)
+    growth = final_mem - baseline_mem
+    assert growth < 100 * 1024 * 1024, f"Memory leak detected! Growth: {growth / (1024*1024):.2f} MB"
+
+def test_unclosed_event_listeners_and_memory_leak(monkeypatch, tmp_path):
+    import os
+    import psutil
+    import gc
+
+    test_file = tmp_path / "feedback.json"
+    monkeypatch.setattr("app.feedback.FEEDBACK_FILE", test_file)
+
+    from app.feedback import _get_default_seed
+    import json
+    initial_seed = _get_default_seed()
+    test_file.write_text(json.dumps(initial_seed, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    # Track open sockets / file descriptors before
+    process = psutil.Process(os.getpid())
+    gc.collect()
+    start_fds = process.num_fds() if hasattr(process, 'num_fds') else 0
+    start_conns = len(process.connections()) if hasattr(process, 'connections') else 0
+
+    # Execute requests sequentially to avoid thread starvation
+    for i in range(500):
+        # This simulates a burst of requests to ensure sockets/fds are closed
+        client.get("/api/feedback")
+
+    gc.collect()
+    end_fds = process.num_fds() if hasattr(process, 'num_fds') else 0
+    end_conns = len(process.connections()) if hasattr(process, 'connections') else 0
+
+    # Give it a generous buffer for testing environment variability
+    assert end_fds <= start_fds + 50, f"Possible FD leak. Start: {start_fds}, End: {end_fds}"
+    assert end_conns <= start_conns + 50, f"Possible connection leak. Start: {start_conns}, End: {end_conns}"
