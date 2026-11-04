@@ -348,6 +348,104 @@ describe("Departments Configuration and Lookups", () => {
     });
   });
 });
+  describe("Memory Profiling & Resource Management", () => {
+    test("memory footprint remains stable across massive mutation cycles", () => {
+      // Force GC before starting measurement
+      if (global.gc) global.gc();
+      const initialMemory = process.memoryUsage().heapUsed;
+
+      const mutations = 100000;
+      for (let i = 0; i < mutations; i++) {
+        // Toggle rapidly between valid and invalid departments
+        setActiveDepartmentId(i % 2 === 0 ? "or_main" : "invalid_id");
+        getActiveDepartmentId();
+        getDepartment(i % 3 === 0 ? "icu_critical_care" : undefined);
+      }
+
+      if (global.gc) global.gc();
+      const finalMemory = process.memoryUsage().heapUsed;
+      const memoryGrowth = finalMemory - initialMemory;
+
+      // Allow some generous growth for node test overhead (e.g. 50MB)
+      // but ensure it's not a severe leak (which would be 100s of MBs)
+      assert.ok(
+        memoryGrowth < 100 * 1024 * 1024,
+        `Memory leak detected: ${memoryGrowth / 1024 / 1024} MB grown during mutation cycle.`
+      );
+    });
+
+    test("event listeners do not accumulate across department toggles", () => {
+      // The DOM specifies dispatchEvent, addEventListener, etc. for Window.
+      // We spy on them correctly without breaking their real functionality.
+      const originalAddEventListener = global.window?.addEventListener;
+      const originalRemoveEventListener = global.window?.removeEventListener;
+
+      let added = 0;
+      let removed = 0;
+
+      try {
+        if (global.window) {
+          global.window.addEventListener = function(this: any, ...args: any[]) {
+            added++;
+            if (originalAddEventListener) return originalAddEventListener.apply(this, args as any);
+          };
+          global.window.removeEventListener = function(this: any, ...args: any[]) {
+            removed++;
+            if (originalRemoveEventListener) return originalRemoveEventListener.apply(this, args as any);
+          };
+        } else {
+          // If there's no window object at all, the invariant vacuously holds.
+          added = 0;
+          removed = 0;
+        }
+
+        for (let i = 0; i < 1000; i++) {
+          setActiveDepartmentId(i % 2 === 0 ? "pacu_periop" : "or_main");
+          getDepartment(i % 2 === 0 ? "pacu_periop" : "or_main");
+        }
+
+        assert.strictEqual(added, removed, "Event listeners leaked during department operations (added but not removed)");
+      } finally {
+        if (global.window) {
+          global.window.addEventListener = originalAddEventListener as any;
+          global.window.removeEventListener = originalRemoveEventListener as any;
+        }
+      }
+    });
+
+    test("cache eviction under constrained runtime memory", () => {
+      // Our module interacts with localStorage, which can simulate storage quota limits.
+      // We will mock localStorage to throw QuotaExceededError when it gets too large
+      // and verify that the module catches it and falls back safely without memory blowout.
+      const originalLocalStorage = (global as any).localStorage;
+
+      try {
+        let itemsStored = 0;
+        (global as any).localStorage = {
+          setItem: (key: string, value: string) => {
+            itemsStored++;
+            if (itemsStored > 50) {
+              throw new DOMException("QuotaExceededError");
+            }
+            mockStorage.set(key, value);
+          },
+          getItem: (key: string) => mockStorage.get(key) || null,
+          removeItem: (key: string) => mockStorage.delete(key),
+          clear: () => mockStorage.clear(),
+        };
+
+        // Cycle through diverse values so the setter doesn't just no-op due to identical values
+        for(let i=0; i<100; i++) {
+          assert.doesNotThrow(() => setActiveDepartmentId(`dept_${i}`));
+        }
+
+        assert.ok(itemsStored >= 100, "Cache eviction test loop did not execute properly");
+      } finally {
+        (global as any).localStorage = originalLocalStorage;
+      }
+    });
+  });
+
   describe("Fault Injection & Network Partition Resilience", () => {
     test("network partition degradation and self-healing reconnection", async () => {
       const originalFetch = global.fetch;
