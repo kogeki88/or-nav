@@ -1,17 +1,24 @@
 import pytest
 from fastapi.testclient import TestClient
+from fastapi import APIRouter
 from app.main import app
-from fastapi.responses import JSONResponse
 import os
 
 client = TestClient(app, raise_server_exceptions=False)
 
-@app.get("/api/test-error-leakage-endpoint")
-async def trigger_error():
-    os.environ["DUMMY_SECRET_KEY"] = "super-secret-12345"
-    raise RuntimeError(f"Failed at /opt/backend/app/db.sqlite: DUMMY_SECRET_KEY={os.environ['DUMMY_SECRET_KEY']}")
-
 def test_unexpected_error_sanitized():
+    router = APIRouter()
+
+    @router.get("/api/test-error-leakage-endpoint")
+    async def trigger_error():
+        try:
+            os.environ["DUMMY_SECRET_KEY"] = "super-secret-12345"
+            raise RuntimeError(f"Failed at /opt/backend/app/db.sqlite: DUMMY_SECRET_KEY={os.environ['DUMMY_SECRET_KEY']}")
+        finally:
+            del os.environ["DUMMY_SECRET_KEY"]
+
+    app.include_router(router)
+
     response = client.get("/api/test-error-leakage-endpoint")
     assert response.status_code == 500
 
