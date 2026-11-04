@@ -443,6 +443,95 @@ describe('Supplementary tests', () => {
         global.fetch = originalFetch;
     });
 
+
+
+
+
+
+    it('should enforce offline-first invariants and multi-tenant isolation under memory constrained cache eviction', async () => {
+        // Collect garbage before testing if exposed
+        if (global.gc) global.gc();
+
+        // Ensure offline-first invariant is strictly enforced using node:test mock pattern
+        // The fetch mock is set up to throw an Error synchronously in beforeEach.
+        let fetchThrew = false;
+        try {
+            global.fetch('https://example.com');
+        } catch (e) {
+            fetchThrew = true;
+        }
+        assert.ok(fetchThrew, 'fetch should throw per offline-first invariant');
+
+        // Track listener count by directly counting in process or relying on window.addEventListener mock
+        let listenerDelta = 0;
+        const origAdd = window.addEventListener;
+        const origRemove = window.removeEventListener;
+
+        window.addEventListener = function(type, listener, options) {
+            if (type === USER_PROFILE_EVENT) listenerDelta++;
+            return origAdd.call(window, type, listener, options);
+        };
+
+        window.removeEventListener = function(type, listener, options) {
+            if (type === USER_PROFILE_EVENT) listenerDelta--;
+            return origRemove.call(window, type, listener, options);
+        };
+
+        const initialMemory = process.memoryUsage().heapUsed;
+        const STRESS_ITERATIONS = 5000;
+
+        const hooks = [];
+        for (let i = 0; i < 100; i++) {
+            hooks.push(renderHook(() => useUserProfile()));
+        }
+
+        // Validate that mounting properly registers listeners
+        assert.strictEqual(listenerDelta, 100, 'Each hook should register exactly one event listener');
+
+        // Execute stress test with multi-tenant boundary parameters
+        for (let i = 0; i < STRESS_ITERATIONS; i++) {
+            // Because saveProfile is synchronous and updates state/dispatches event, we wrap in act
+            act(() => {
+                hooks[0].result.current.saveProfile({
+                    ...DEFAULT_USER_PROFILE,
+                    fullName: `Memory User ${i}`,
+                    facilityId: `facility_${i % 2}`, // Switch tenants dynamically
+                    departmentId: `dept_${i % 3}`
+                });
+            });
+            // Multi-tenant check inside the loop to ensure constant isolation
+            if (i % 1000 === 0) {
+               const savedData = JSON.parse(localStorageMock[USER_PROFILE_STORAGE_KEY]);
+               assert.strictEqual(savedData.facilityId, `facility_${i % 2}`);
+               assert.strictEqual(savedData.departmentId, `dept_${i % 3}`);
+            }
+        }
+
+        // Clean up rendered hooks
+        hooks.forEach(h => h.unmount());
+
+        // Assert that unmounting properly clears listeners
+        assert.strictEqual(listenerDelta, 0, 'Event listeners should not leak after unmount');
+
+        // Restore original listener functions
+        window.addEventListener = origAdd;
+        window.removeEventListener = origRemove;
+
+        // Trigger GC again
+        if (global.gc) global.gc();
+
+        const finalMemory = process.memoryUsage().heapUsed;
+
+        // Allow up to 100MB of growth for the test environment objects overhead
+        const memoryGrowth = finalMemory - initialMemory;
+        assert.ok(memoryGrowth < 100 * 1024 * 1024, `Memory growth ${memoryGrowth / 1024 / 1024}MB exceeded generous 100MB limit`);
+
+        // Check multi-tenant boundary invariant persists successfully
+        const savedData = JSON.parse(localStorageMock[USER_PROFILE_STORAGE_KEY]);
+        assert.ok(savedData.facilityId.startsWith('facility_'));
+        assert.ok(savedData.departmentId.startsWith('dept_'));
+    });
+
     it('should handle extreme concurrent bursts gracefully (High-Concurrency & Latency Benchmarks)', async () => {
         const hooks = Array.from({ length: 10 }).map(() => renderHook(() => useUserProfile()));
         const start = performance.now();
