@@ -381,7 +381,24 @@ export function saveLocalFeedback(items: FeedbackItem[]): void {
   try {
     localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(items));
     window.dispatchEvent(new CustomEvent(FEEDBACK_EVENT_NAME, { detail: items }));
-  } catch (e) {
+  } catch (e: any) {
+    if (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+      console.warn("Quota exceeded, evicting oldest items...");
+      // Cache eviction: keep only the newest 50% of items to free up space
+      if (items.length > 10) {
+        // Sort items by createdAt descending (newest first)
+        const sortedItems = [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        const evictedItems = sortedItems.slice(0, Math.floor(items.length / 2));
+
+        try {
+          localStorage.setItem(FEEDBACK_STORAGE_KEY, JSON.stringify(evictedItems));
+          window.dispatchEvent(new CustomEvent(FEEDBACK_EVENT_NAME, { detail: evictedItems }));
+          return;
+        } catch (retryError) {
+          console.error("Could not save local feedback store even after eviction:", retryError);
+        }
+      }
+    }
     console.error("Could not save local feedback store:", e);
   }
 }

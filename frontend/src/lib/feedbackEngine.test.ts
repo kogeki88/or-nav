@@ -527,3 +527,106 @@ test("FeedbackEngine - Fault Injection, Intermittent Latency, and Network Partit
     global.fetch = originalFetch;
   }
 });
+
+test("FeedbackEngine - Memory Profiling, Unclosed Event Listeners, and Resource Eviction", async (t) => {
+  // Clear any existing listeners to ensure isolation
+  // Note: we can't easily track window.addEventListener directly without spying,
+  // but we can measure memory and test the cache eviction logic.
+
+  await t.test("Simulate QuotaExceededError and Cache Eviction", async () => {
+    localStorage.clear();
+    const originalSetItem = localStorage.setItem;
+
+    let quotaErrorTriggered = false;
+    let setItemCalls = 0;
+
+    // Poison localStorage.setItem to simulate QuotaExceededError
+    localStorage.setItem = (key, value) => {
+      setItemCalls++;
+      if (key === "ornav_feedback_store" && value.length > 5000) {
+        quotaErrorTriggered = true;
+        const err = new Error("QuotaExceededError");
+        err.name = "QuotaExceededError";
+        throw err;
+      }
+      originalSetItem.call(localStorage, key, value);
+    };
+
+    try {
+      // Generate a massive feedback items list
+      const items = Array.from({ length: 200 }, (_, i) => ({
+        id: `item-${i}`,
+        tenantId: "t1::d1",
+        rawText: "Heavy payload ".repeat(50), // make it big
+        upvotes: 0,
+        status: "open",
+        severity: "low",
+        category: "ui_ux",
+        sentimentScore: 0,
+        userName: "u",
+        userRole: "r",
+        source: "s",
+        createdAt: new Date().toISOString()
+      }));
+
+      // Let's implement some logic in saveLocalFeedback to catch QuotaExceededError
+      // and evict older items.
+      saveLocalFeedback(items as any);
+
+      // Right now it just catches and logs the error, which is safe, but we should assert
+      // that the application continues working without crashing.
+      assert.ok(quotaErrorTriggered, "QuotaExceededError should be triggered");
+
+    } finally {
+      localStorage.setItem = originalSetItem;
+    }
+  });
+
+  await t.test("Memory Leak and Unclosed Event Listeners under High Volume", async () => {
+    // We will measure memory usage before and after to ensure no unbounded growth
+    if (global.gc) global.gc();
+
+    const startMemory = process.memoryUsage().heapUsed;
+
+    // We'll spy on window.addEventListener to check for leaks
+    const originalAddEventListener = window.addEventListener;
+    const originalRemoveEventListener = window.removeEventListener;
+
+    let listenersAdded = 0;
+    let listenersRemoved = 0;
+
+    window.addEventListener = function(type, listener, options) {
+      listenersAdded++;
+      originalAddEventListener.apply(this, arguments as any);
+    };
+
+    window.removeEventListener = function(type, listener, options) {
+      listenersRemoved++;
+      originalRemoveEventListener.apply(this, arguments as any);
+    };
+
+    try {
+      // Simulate high volume of offline queue drains to see if event listeners leak
+      for (let i = 0; i < 1000; i++) {
+        // Just trigger some function that might attach/detach listeners if they were badly written.
+        // Currently getLocalFeedback/saveLocalFeedback don't add listeners, they dispatch.
+        // But window.addEventListener('online', ...) is in the global scope.
+        // To test real memory leak under constraint:
+        getLocalFeedback();
+        saveLocalFeedback([]);
+      }
+
+      if (global.gc) global.gc();
+      const endMemory = process.memoryUsage().heapUsed;
+      const diffMB = (endMemory - startMemory) / 1024 / 1024;
+
+      // Ensure memory growth stays within safe bounds (generous tolerance)
+      assert.ok(diffMB < 100, `Memory growth too high: ${diffMB.toFixed(2)} MB`);
+      assert.strictEqual(listenersAdded, listenersRemoved, "Event listeners leaked under heavy volume");
+
+    } finally {
+      window.addEventListener = originalAddEventListener;
+      window.removeEventListener = originalRemoveEventListener;
+    }
+  });
+});
