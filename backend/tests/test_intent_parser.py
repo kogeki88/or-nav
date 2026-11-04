@@ -285,3 +285,24 @@ def test_intent_parser_network_partition_degraded_recovery(monkeypatch):
     assert "hospital_offline" in res1.raw_query
     assert "hospital_degraded" in res2.raw_query
     assert "hospital_online" in res3.raw_query
+
+def test_intent_parser_memory_eviction_hardening(monkeypatch, tmp_path):
+    import tracemalloc
+    from app.services.lexicon_learning import _LEXICON_CACHE, MAX_LEXICON_CACHE_SIZE, load_facility_lexicon
+
+    def mock_get_facility_lexicon_path(facility_id: str):
+        from pathlib import Path
+        return tmp_path / f"mock_facility_{facility_id}.json"
+
+    monkeypatch.setattr("app.services.lexicon_learning._get_facility_lexicon_path", mock_get_facility_lexicon_path)
+
+    tracemalloc.start()
+    for i in range(200):
+        # We need to simulate loading of lexicons for multiple facilities to trigger cache eviction
+        load_facility_lexicon(f"hospital_mem_{i}")
+        parse_clinical_intent(f"hospital_mem_{i}::dept_1 where is the 3-0 vicryl")
+
+    assert len(_LEXICON_CACHE) <= MAX_LEXICON_CACHE_SIZE
+    current, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    assert peak < 50 * 1024 * 1024  # 50 MB
