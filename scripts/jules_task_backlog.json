@@ -3668,19 +3668,21 @@
     "id": "backlog-368",
     "title": "Testing: Strict Security Invariants & HIPAA PHI Boundary Verification for IntentParser",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "15378556756195596181",
-    "dispatchedAt": "2026-11-04T20:21:53.571Z"
+    "dispatchedAt": "2026-11-04T20:21:53.571Z",
+    "completedAt": "2026-11-04T20:34:05.675Z"
   },
   {
     "id": "backlog-369",
     "title": "Bolt: Strict Security Invariants & HIPAA PHI Boundary Verification for InventorySearch",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for InventorySearch\n\n**File:** `backend/tests/test_inventory_search.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_inventory_search.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "7080230035164873729",
-    "dispatchedAt": "2026-11-04T19:39:11.287Z"
+    "dispatchedAt": "2026-11-04T19:39:11.287Z",
+    "completedAt": "2026-11-04T20:34:11.626Z"
   },
   {
     "id": "backlog-370",
@@ -3771,8 +3773,10 @@
     "id": "backlog-380",
     "title": "Bolt: Strict Security Invariants & HIPAA PHI Boundary Verification for ClinicalQueryPlannerService",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for ClinicalQueryPlannerService\n\n**File:** `backend/tests/test_clinical_query_planner.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_clinical_query_planner.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for ClinicalQueryPlannerService\n\n**File:** `backend/tests/test_clinical_query_planner.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_clinical_query_planner.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1221959570716502308",
+    "dispatchedAt": "2026-11-04T20:34:35.022Z"
   },
   {
     "id": "backlog-381",
@@ -3798,5 +3802,21 @@
     "prompt": "# 🚀 Sentinel Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "9057143705894223062",
     "dispatchedAt": "2026-11-04T20:30:42.367Z"
+  },
+  {
+    "id": "backlog-384",
+    "title": "Testing: Strict Security Invariants & HIPAA PHI Boundary Verification for VoiceRouterLiveKit",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for VoiceRouterLiveKit\n\n**File:** `backend/tests/test_voice_router.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_voice_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-385",
+    "title": "Sentinel: Strict Security Invariants & HIPAA PHI Boundary Verification for LimiterConcurrencyThrottling",
+    "category": "Security",
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for LimiterConcurrencyThrottling\n\n**File:** `backend/tests/test_limiter_concurrency.py`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `backend/tests/test_limiter_concurrency.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "9450644634824707424",
+    "dispatchedAt": "2026-11-04T20:34:32.771Z"
   }
 ]
