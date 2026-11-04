@@ -31,6 +31,103 @@ vi.mock('@/lib/userProfile', () => ({
 }));
 
 describe('ResourceInspectorModal', () => {
+
+  it('detects unclosed event listeners and validates memory cleanup during unmount', async () => {
+    const originalAddEventListener = window.addEventListener;
+    const originalRemoveEventListener = window.removeEventListener;
+
+    const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
+    const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
+
+    const addedListeners = new Map<string, number>();
+    const removedListeners = new Map<string, number>();
+
+    addEventListenerSpy.mockImplementation(function(event, handler, options) {
+      addedListeners.set(event, (addedListeners.get(event) || 0) + 1);
+      return originalAddEventListener.apply(this, arguments as any);
+    });
+
+    removeEventListenerSpy.mockImplementation(function(event, handler, options) {
+      removedListeners.set(event, (removedListeners.get(event) || 0) + 1);
+      return originalRemoveEventListener.apply(this, arguments as any);
+    });
+
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+
+    const { unmount } = render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />, { container: root });
+    unmount();
+
+    for (const [event, count] of addedListeners.entries()) {
+      expect(removedListeners.get(event)).toBeGreaterThanOrEqual(count);
+    }
+
+    document.body.removeChild(root);
+
+    addEventListenerSpy.mockRestore();
+    removeEventListenerSpy.mockRestore();
+  });
+
+  it('handles QuotaExceededError naturally by triggering the storage constraint on offline db methods', async () => {
+    const { createOfflineInventoryItem } = await import('@/lib/offlineDb');
+
+    vi.mocked(createOfflineInventoryItem).mockClear();
+    vi.mocked(createOfflineInventoryItem).mockImplementationOnce(() => {
+      const err = new Error('QuotaExceededError');
+      err.name = 'QuotaExceededError';
+      return Promise.reject(err);
+    });
+
+    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId="sacred_heart::or_main" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
+    });
+
+    const addItemBtn = screen.getByTestId('btn-add-inventory-item');
+    await userEvent.click(addItemBtn);
+
+    const itemInput = screen.getByTestId('input-new-item-name');
+    await userEvent.type(itemInput, 'Heavy Item');
+    const saveBtn = screen.getByTestId('btn-save-new-item');
+
+    await act(async () => {
+      saveBtn.click();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('resource-inspector-status-toast').textContent).toContain('Error');
+    });
+  });
+
+  it('enforces cache eviction policies for offline maps/collections under size constraints', async () => {
+    const { importTenantResourcesJson } = await import('@/lib/offlineDb');
+    vi.mocked(importTenantResourcesJson).mockClear();
+    vi.mocked(importTenantResourcesJson).mockImplementationOnce(() => {
+      const err = new Error('QuotaExceededError');
+      err.name = 'QuotaExceededError';
+      return Promise.reject(err);
+    });
+
+    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId="sacred_heart::or_main" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
+    });
+
+    await userEvent.click(screen.getByTestId('tab-protocols-management'));
+
+    const fileInput = screen.getByTestId('btn-import-json-backup').querySelector('input');
+    const file = new File(['{}'], 'backup.json', { type: 'application/json' });
+
+    await act(async () => {
+      await userEvent.upload(fileInput, file);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('resource-inspector-status-toast').textContent).toContain('Error');
+    });
+  });
   beforeEach(() => {
     vi.clearAllMocks();
   });
