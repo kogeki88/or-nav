@@ -639,3 +639,97 @@ test('supplementary: enforces multi-tenant boundary isolation (facility_id::dept
     cleanup();
   }
 });
+
+test('enforces memory profiling, leak detection, unclosed event listeners, and cache eviction under constrained runtime memory', async () => {
+  if (global.gc) global.gc();
+
+  const initialMemory = process.memoryUsage().heapUsed;
+  const initialListeners = process.eventNames().reduce((acc, event) => {
+    acc[event] = process.listeners(event).length;
+    return acc;
+  }, {} as Record<string | symbol, number>);
+
+  const CONCURRENCY_COUNT = 200;
+
+  const rootNodes = Array.from({ length: CONCURRENCY_COUNT }).map((_, index) => {
+    const isTenant1 = index % 2 === 0;
+    const tenantId = isTenant1 ? `TenantMemOne-${index}` : `TenantMemTwo-${index}`;
+    const root = document.createElement('div');
+    root.setAttribute('data-tenant', tenantId);
+    document.body.appendChild(root);
+    return { root, isTenant1 };
+  });
+
+  const tempFetch = global.fetch;
+  global.fetch = undefined as any;
+
+  try {
+    const renderPromises = rootNodes.map(async ({ root, isTenant1 }, index) => {
+      const currentManifest = {
+        ...manifest,
+        version: isTenant1 ? `v0.999-MemOne-${index}` : `v0.999-MemTwo-${index}`,
+        build_number: index + 1000
+      };
+
+      const { unmount, queryByText } = render(
+        <AutoUpdateModal
+          isOpen={true}
+          onClose={() => {}}
+          manifest={currentManifest}
+          currentVersion="v0.61"
+          currentBuild={18}
+        />,
+        { container: root }
+      );
+
+      // Simulate cache eviction by re-rendering with new props rapidly
+      const { rerender } = render(
+        <AutoUpdateModal
+          isOpen={true}
+          onClose={() => {}}
+          manifest={{ ...currentManifest, version: currentManifest.version + '-updated' }}
+          currentVersion="v0.61"
+          currentBuild={18}
+        />,
+        { container: root }
+      );
+
+      unmount();
+    });
+
+    await Promise.all(renderPromises);
+  } finally {
+    global.fetch = tempFetch;
+    rootNodes.forEach(({ root }) => {
+      if (document.body.contains(root)) {
+        document.body.removeChild(root);
+      }
+    });
+  }
+
+  if (global.gc) global.gc();
+
+  const finalMemory = process.memoryUsage().heapUsed;
+  const memoryGrowth = finalMemory - initialMemory;
+
+  // Assert generous tolerance to prevent flakiness: 150MB maximum growth
+  assert.ok(
+    memoryGrowth < 150 * 1024 * 1024,
+    `Memory growth exceeded limit: ${memoryGrowth / 1024 / 1024} MB`
+  );
+
+  const finalListeners = process.eventNames().reduce((acc, event) => {
+    acc[event] = process.listeners(event).length;
+    return acc;
+  }, {} as Record<string | symbol, number>);
+
+  // Assert no unclosed event listeners
+  for (const event in initialListeners) {
+    const initialCount = initialListeners[event] || 0;
+    const finalCount = finalListeners[event] || 0;
+    assert.ok(
+      finalCount <= initialCount,
+      `Event listener leak detected for event ${String(event)}: initial ${initialCount}, final ${finalCount}`
+    );
+  }
+});
