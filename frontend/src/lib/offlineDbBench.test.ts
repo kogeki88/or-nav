@@ -11,6 +11,7 @@ Dexie.dependencies.IDBKeyRange = IDBKeyRange;
 class BenchmarkDB extends Dexie {
   inventoryItems!: Dexie.Table<Record<string, unknown>, string>;
   offlineOutbox!: Dexie.Table<Record<string, unknown>, number>;
+  preferenceCards!: Dexie.Table<Record<string, unknown>, string>;
   constructor() {
     super("ORNavOfflineDB-Bench");
     this.version(7).stores({
@@ -20,6 +21,7 @@ class BenchmarkDB extends Dexie {
       installedPacks: "packId, facilityId, departmentId, roleId, category, versionHash, installedAt",
       chatSessions: "sessionId, tenantId, title, updatedAt",
       peerQuestions: "id, tenantId, status, createdAt",
+      preferenceCards: "id, tenant_id, surgeon, procedure, [tenant_id+surgeon]",
     });
   }
 }
@@ -321,6 +323,120 @@ describe("Dexie Benchmarks", () => {
       global.fetch = originalFetch;
     }
   });
+
+  test("deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency", async () => {
+    const db = new BenchmarkDB();
+    await db.preferenceCards.clear();
+    await db.offlineOutbox.clear();
+
+    const tenantA = "tenant_A::surgery";
+    const tenantB = "tenant_B::surgery";
+
+    // 1. Initial State Snapshot
+    const initialState = [
+      {
+        id: "card_1",
+        tenant_id: tenantA,
+        surgeon: "Dr. Smith",
+        procedure: "Appendectomy",
+        instruments: ["Scalpel"],
+        updatedAt: 1000,
+        deleted: false
+      },
+      {
+        id: "card_2",
+        tenant_id: tenantA,
+        surgeon: "Dr. Jones",
+        procedure: "Cholecystectomy",
+        instruments: ["Trocar"],
+        updatedAt: 1000,
+        deleted: false
+      },
+      {
+        id: "card_3",
+        tenant_id: tenantB,
+        surgeon: "Dr. Smith",
+        procedure: "Appendectomy",
+        instruments: ["Scalpel", "Forceps"],
+        updatedAt: 1000,
+        deleted: false
+      }
+    ];
+
+    await db.preferenceCards.bulkPut(initialState);
+
+    // 2. State Transition Matrix (Actions applied deterministically)
+    const transitions = [
+      // Action 1: Local offline update to card_1 (adds instrument)
+      { type: "UPDATE", payload: { id: "card_1", tenant_id: tenantA, instruments: ["Scalpel", "Scissors"], updatedAt: 2000 } },
+
+      // Action 2: Conflicting server sync for card_1 (older timestamp, should be rejected / resolved in favor of local if we implement LWW, or let's simulate LWW)
+      { type: "SYNC", payload: { id: "card_1", tenant_id: tenantA, instruments: ["Scalpel", "Retractor"], updatedAt: 1500 } },
+
+      // Action 3: Newer server sync for card_2 (newer timestamp, should overwrite)
+      { type: "SYNC", payload: { id: "card_2", tenant_id: tenantA, instruments: ["Trocar", "Camera"], updatedAt: 3000 } },
+
+      // Action 4: Tombstone deletion of card_3 (Tenant B)
+      { type: "DELETE", payload: { id: "card_3", tenant_id: tenantB, updatedAt: 2500 } },
+
+      // Action 5: Cross-tenant unauthorized mutation attempt (Tenant B tries to modify Tenant A's card)
+      { type: "UPDATE", payload: { id: "card_2", tenant_id: tenantB, instruments: ["Malicious"], updatedAt: 9999 } }
+    ];
+
+    for (const action of transitions) {
+      const existing = await db.preferenceCards.get(action.payload.id);
+
+      if (action.type === "UPDATE" || action.type === "SYNC") {
+        if (existing) {
+          // Multi-tenant isolation enforcement
+          if (existing.tenant_id !== action.payload.tenant_id) {
+             // Reject unauthorized cross-tenant mutation
+             continue;
+          }
+
+          // Conflict resolution: Last-Write-Wins (LWW) based on updatedAt
+          if ((action.payload.updatedAt as number) > (existing.updatedAt as number)) {
+            await db.preferenceCards.put({ ...existing, ...action.payload });
+          }
+        }
+      } else if (action.type === "DELETE") {
+        if (existing) {
+          if (existing.tenant_id !== action.payload.tenant_id) continue;
+          if ((action.payload.updatedAt as number) > (existing.updatedAt as number)) {
+            await db.preferenceCards.put({ ...existing, deleted: true, updatedAt: action.payload.updatedAt });
+          }
+        }
+      }
+    }
+
+    // 3. Clinical State Snapshot Consistency Verification
+    const finalCardsA = await db.preferenceCards.where("tenant_id").equals(tenantA).toArray();
+    const finalCardsB = await db.preferenceCards.where("tenant_id").equals(tenantB).toArray();
+
+    // Verify Tenant A Snapshot
+    assert.strictEqual(finalCardsA.length, 2, "Tenant A should have 2 cards");
+
+    const card1 = finalCardsA.find(c => c.id === "card_1");
+    assert.ok(card1, "card_1 should exist");
+    assert.deepStrictEqual(card1?.instruments, ["Scalpel", "Scissors"], "Conflict resolution should favor the latest timestamp");
+    assert.strictEqual(card1?.updatedAt, 2000, "updatedAt should match the winning transaction");
+
+    const card2 = finalCardsA.find(c => c.id === "card_2");
+    assert.ok(card2, "card_2 should exist");
+    assert.deepStrictEqual(card2?.instruments, ["Trocar", "Camera"], "Newer server sync should apply, malicious update should be rejected");
+    assert.strictEqual(card2?.updatedAt, 3000);
+    assert.strictEqual(card2?.tenant_id, tenantA, "Multi-tenant isolation must be preserved");
+
+    // Verify Tenant B Snapshot
+    assert.strictEqual(finalCardsB.length, 1, "Tenant B should have 1 card in the database (tombstoned)");
+    const card3 = finalCardsB.find(c => c.id === "card_3");
+    assert.ok(card3, "card_3 should exist as tombstone");
+    assert.strictEqual(card3?.deleted, true, "card_3 should be marked as deleted (tombstoned)");
+    assert.strictEqual(card3?.updatedAt, 2500);
+
+    await db.preferenceCards.clear();
+  });
+
 });
 
   test("fault injection, network partition degradation, intermittent latency, and self-healing reconnection", async () => {
