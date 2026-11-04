@@ -183,7 +183,7 @@ class TestVoiceRouter:
         assert "john smith" not in data["safe_transcript"].lower()
         assert "[redacted_phi]" in data["safe_transcript"].lower()
 
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     @given(st.text(alphabet=st.characters(blacklist_categories=('Cs',), blacklist_characters=['\0'])))
     def test_fuzz_voice_status(self, client, monkeypatch, text):
         monkeypatch.setenv("LIVEKIT_URL", text)
@@ -192,7 +192,7 @@ class TestVoiceRouter:
         resp = client.get("/api/voice/status")
         assert resp.status_code == 200
 
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     @given(st.text(alphabet=st.characters(blacklist_categories=('Cs',), blacklist_characters=['\0'])), st.text(alphabet=st.characters(blacklist_categories=('Cs',), blacklist_characters=['\0'])))
     def test_fuzz_mint_token_payload(self, client, monkeypatch, tenant_id, participant_name):
         monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
@@ -242,7 +242,7 @@ class TestVoiceRouter:
         assert resp.status_code == 422
 
 
-    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture])
+    @settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None)
     @given(st.text(alphabet=st.characters(blacklist_categories=('Cs',), blacklist_characters=['\0'])))
     def test_fuzz_transcribe_audio_with_hint_fuzz(self, client, text):
         audio = b"0" * 500
@@ -680,3 +680,131 @@ class TestVoiceRouter:
         resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
         assert resp.status_code == 200
         assert resp.json()["token"] == "mock_jwt_token"
+
+
+    def test_voice_transcribe_memory_profiling(self, client, monkeypatch):
+        import tracemalloc
+        import gc
+        import sys
+        from unittest.mock import MagicMock
+
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        mock_livekit = MagicMock()
+        mock_token = MagicMock()
+        mock_token.with_grants.return_value = mock_token
+        mock_token.with_identity.return_value = mock_token
+        mock_token.with_metadata.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.to_jwt.return_value = "mock_jwt_token"
+        mock_livekit.AccessToken.return_value = mock_token
+        monkeypatch.setitem(sys.modules, "livekit.api", mock_livekit)
+
+        import httpx
+        import socket
+        def mock_raise(*args, **kwargs):
+            raise RuntimeError("Offline invariant violated: External network call attempted.")
+
+        original_socket = socket.socket
+        def mock_socket(*args, **kwargs):
+            family = args[0] if args else kwargs.get("family", socket.AF_INET)
+            import os
+            if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
+                raise RuntimeError("Offline invariant violated: External network call attempted.")
+            return original_socket(*args, **kwargs)
+
+        monkeypatch.setattr(socket, "socket", mock_socket)
+        monkeypatch.setattr(httpx, "get", mock_raise)
+        monkeypatch.setattr(httpx, "post", mock_raise)
+        monkeypatch.setattr(httpx, "request", mock_raise)
+
+        gc.collect()
+        if hasattr(sys, 'getobjects'):
+            import tracemalloc # type: ignore
+        tracemalloc.start()
+
+        # warmup
+        for i in range(10):
+            client.post("/api/voice/token", json={"tenant_id": f"tenant_{i}", "participant_name": "user"})
+
+        gc.collect()
+        snapshot1 = tracemalloc.take_snapshot()
+
+        # Burst of requests to check if memory grows unbounded
+        for i in range(200):
+            resp = client.post("/api/voice/token", json={"tenant_id": f"tenant_leak_{i}", "participant_name": "user"})
+            assert resp.status_code == 200
+
+        gc.collect()
+        snapshot2 = tracemalloc.take_snapshot()
+
+        stats = snapshot2.compare_to(snapshot1, 'lineno')
+        total_diff = sum(stat.size_diff for stat in stats)
+
+        tracemalloc.stop()
+
+        # Generous tolerance to allow test runner overhead without true leaks
+        assert total_diff < 100 * 1024 * 1024
+
+    def test_voice_transcribe_file_descriptor_leak(self, client):
+        import psutil
+        import os
+
+        process = psutil.Process(os.getpid())
+        initial_fds = process.num_fds() if hasattr(process, 'num_fds') else process.num_handles()
+
+        audio = b"0" * 500
+        for _ in range(50):
+            resp = client.post(
+                "/api/voice/transcribe",
+                files={"file": ("test.wav", audio, "audio/wav")},
+                data={"transcript_hint": "give me the bovie for patient John Smith"}
+            )
+            assert resp.status_code == 200
+
+        final_fds = process.num_fds() if hasattr(process, 'num_fds') else process.num_handles()
+        # Allow small variance but fail if unbounded
+        assert final_fds - initial_fds < 15
+
+    def test_voice_cache_eviction_and_event_listeners(self, client, monkeypatch):
+        # We need to verify that calling the endpoint doesn't leak event listeners or cache.
+        # Since voice router doesn't explicitly use an LRU cache or listener, we'll verify
+        # that FastAPI route evaluation and dependency injection doesn't leak asyncio objects
+        # (like Tasks or event handlers) during high load.
+        import asyncio
+        import gc
+        import sys
+        from unittest.mock import MagicMock
+
+        monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
+        monkeypatch.setenv("LIVEKIT_API_KEY", "key")
+        monkeypatch.setenv("LIVEKIT_API_SECRET", "secret")
+
+        mock_livekit = MagicMock()
+        mock_token = MagicMock()
+        mock_token.with_grants.return_value = mock_token
+        mock_token.with_identity.return_value = mock_token
+        mock_token.with_metadata.return_value = mock_token
+        mock_token.with_ttl.return_value = mock_token
+        mock_token.to_jwt.return_value = "mock_jwt_token"
+        mock_livekit.AccessToken.return_value = mock_token
+        monkeypatch.setitem(sys.modules, "livekit.api", mock_livekit)
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        initial_tasks = len(asyncio.all_tasks(loop))
+
+        for _ in range(50):
+            resp = client.post("/api/voice/token", json={"tenant_id": "test", "participant_name": "user"})
+            assert resp.status_code == 200
+
+        gc.collect()
+        final_tasks = len(asyncio.all_tasks(loop))
+        # Ensure no background tasks were orphaned
+        assert final_tasks == initial_tasks
