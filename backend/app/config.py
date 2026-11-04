@@ -51,7 +51,7 @@ def validate_tenant_id(tenant_id: str) -> str:
     clean = tenant_id.strip().replace("::", "/")
     if not _VALID_TENANT_ID_PATTERN.match(clean) or ".." in clean:
         raise ValueError(
-            f"Invalid tenant_id '{tenant_id}'. Must be non-empty alphanumeric with underscores only."
+            "Invalid tenant_id [REDACTED_PHI]. Must be non-empty alphanumeric with underscores only."
         )
     return clean
 

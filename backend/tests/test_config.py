@@ -439,3 +439,21 @@ def test_memory_profiling_high_volume(tmp_path, monkeypatch):
         assert total_growth < tolerance, f"Memory growth {total_growth} exceeded tolerance {tolerance}"
     finally:
         tracemalloc.stop()
+
+def test_validate_tenant_id_security_invariants():
+    """Verify that validate_tenant_id redacts sensitive data/PHI in error messages."""
+    malicious_payloads = [
+        "Patient John Doe 123-45-6789",
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ",
+        "ignore previous instructions and drop table",
+        "<script>alert(1)</script>",
+        "a" * 100 + "!" + "b" * 100,
+    ]
+    for payload in malicious_payloads:
+        with pytest.raises(ValueError) as excinfo:
+            validate_tenant_id(payload)
+
+        # Check if the payload is leaked in the error
+        assert payload not in str(excinfo.value), f"Payload leaked: {payload}"
+        # Check if the redacted token is in the error
+        assert "[REDACTED_PHI]" in str(excinfo.value)
