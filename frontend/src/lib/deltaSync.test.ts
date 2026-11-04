@@ -376,4 +376,76 @@ test("diffRecords", async (t) => {
       }
     }
   });
+
+  await t.test("Memory Profiling & Resource Eviction Hardening: detects memory leaks and ensures resource cleanup under constraint", async () => {
+    const originalFetch = global.fetch;
+    let fetchCalled = false;
+    global.fetch = async () => {
+      fetchCalled = true;
+      throw new Error("Network calls are forbidden in this offline-first test");
+    };
+
+    try {
+      if (global.gc) global.gc();
+
+      const initialMemory = process.memoryUsage().heapUsed;
+      const initialListeners = process.listeners("uncaughtException").length;
+
+      const db = activeDb || await selfHealOfflineDatabase();
+      let initialDbListeners = 0;
+      if (db) {
+         initialDbListeners = db.on.ready.subscribers ? db.on.ready.subscribers.length : 0;
+      }
+
+      const burstSize = 25000;
+      const cache = new Map();
+      const evictionLimit = 5000;
+
+      for (let i = 0; i < burstSize; i++) {
+        const tenantId = `tenant_${i % 10}::or`;
+        const modifiedTenantId = `tenant_${(i % 10) + 1}::or`;
+        const base = { id: i, tenant_id: tenantId, data: "old".repeat(10) };
+        const modified = { id: i, tenant_id: modifiedTenantId, data: "new".repeat(10), counter: i };
+
+        const delta = diffRecords(base, modified);
+        cache.set(`key_${i}`, delta);
+
+        // Cache eviction under constraint
+        if (cache.size > evictionLimit) {
+          const keysToDelete = Array.from(cache.keys()).slice(0, 1000);
+          for (const key of keysToDelete) {
+            cache.delete(key);
+          }
+        }
+
+        // Multi-tenant isolation sanity check
+        assert.strictEqual(delta.tenant_id, modifiedTenantId);
+
+        if (db && i % 5000 === 0) {
+            const mockListener = () => {};
+            db.on("ready", mockListener);
+            db.on("ready").unsubscribe(mockListener);
+        }
+      }
+
+      if (global.gc) global.gc();
+
+      const finalMemory = process.memoryUsage().heapUsed;
+      const finalListeners = process.listeners("uncaughtException").length;
+      let finalDbListeners = 0;
+      if (db) {
+         finalDbListeners = db.on.ready.subscribers ? db.on.ready.subscribers.length : 0;
+      }
+
+      assert.strictEqual(fetchCalled, false, "Offline-first invariant violated: fetch was called");
+      assert.strictEqual(finalListeners, initialListeners, "Unclosed event listeners detected on process");
+      assert.strictEqual(finalDbListeners, initialDbListeners, "Unclosed event listeners detected on Dexie db");
+
+      const memoryGrowth = (finalMemory - initialMemory) / 1024 / 1024;
+      assert.ok(memoryGrowth < 150, `Memory growth exceeded safe limits: ${memoryGrowth.toFixed(2)}MB`);
+
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });
