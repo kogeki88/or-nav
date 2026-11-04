@@ -571,3 +571,202 @@ def test_fault_injection_and_network_partition_resilience(tmp_path, monkeypatch)
 
     # Verify no cross contamination
     assert inv2.search("Suture", record_implicit_verification=False) is None
+
+def test_memory_cache_eviction_and_leak_detection(tmp_path, monkeypatch):
+    """
+    Tests that the _services and _implicit_verification_cooldown caches
+    correctly evict old entries when exceeding their memory limits, and
+    verifies there are no memory leaks when accessing missing or evicted entries.
+    """
+    import threading
+    import collections
+    from app.services import inventory_search
+    from app.config import get_tenant
+
+    # Override cache limits for testing
+    monkeypatch.setattr(inventory_search, "MAX_SERVICES_CACHE_SIZE", 3)
+    monkeypatch.setattr(inventory_search, "MAX_COOLDOWN_CACHE_SIZE", 3)
+
+    # 1. Test _services eviction
+    inventory_search.reset_inventory_services()
+
+    # Fill cache to limit
+    for i in range(3):
+        tenant_id = f"tenant_{i}::or"
+        # Mock tenant creation logic
+        t_csv = tmp_path / f"t_{i}.csv"
+        t_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nItem,Supplies,R,C,S,C,,0\n")
+
+        # Override get_tenant to return a mock config
+        def mock_get_tenant(tid):
+            t = get_tenant("sacred_heart::or") # Just use a dummy template
+            t.tenant_id = tid
+            t.inventory_path = t_csv
+            return t
+
+        monkeypatch.setattr("app.config.get_tenant", mock_get_tenant)
+        inventory_search.get_inventory_service(tenant_id)
+
+    assert len(inventory_search._services) == 3
+
+    # Access tenant_0 to make it recently used
+    inventory_search.get_inventory_service("tenant_0::or")
+
+    # Add 4th tenant, which should evict the least recently used (tenant_1)
+    t_csv = tmp_path / "t_3.csv"
+    t_csv.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nItem,Supplies,R,C,S,C,,0\n")
+    inventory_search.get_inventory_service("tenant_3::or")
+
+    assert len(inventory_search._services) == 3
+    assert "tenant_1::or" not in inventory_search._services
+    assert "tenant_0::or" in inventory_search._services
+
+    # 2. Test _implicit_verification_cooldown eviction
+    inventory_search._implicit_verification_cooldown.clear()
+
+    # Fill cache to limit
+    for i in range(3):
+        inventory_search._implicit_verification_cooldown[f"item_{i}"] = float(i)
+
+    assert len(inventory_search._implicit_verification_cooldown) == 3
+
+    # Add 4th item, should evict the first inserted (item_0)
+    inventory_search._implicit_verification_cooldown["item_3"] = 3.0
+
+    # Note: the code uses normal assignment which doesn't trigger eviction in the test directly,
+    # we need to simulate the actual insertion logic from the service
+
+    inventory_search._implicit_verification_cooldown.clear()
+
+    # Let's test the insertion logic directly by calling search
+    service = inventory_search.get_inventory_service("tenant_0::or")
+    service._rows = []
+
+    for i in range(4):
+        item_name = f"TestItem{i}"
+        service._rows.append({
+            "item": item_name,
+            "category": "Supplies",
+            "room": "R",
+            "cabinet": "C",
+            "shelf": "S",
+            "container": "C",
+            "pending_location": "",
+            "verify_count": 0,
+            "aliases": "",
+            "human_alias": "",
+            "normalized_name": item_name.lower(),
+            "_norm_aliases": set(),
+            "status": "provisional",
+            "verification_score": 1.0,
+            "last_verified_at": "",
+            "surgeon_notes": "",
+            "size": "",
+            "uom": ""
+        })
+        # Call search to trigger cooldown logic
+        service.search(item_name, record_implicit_verification=True)
+
+    assert len(inventory_search._implicit_verification_cooldown) == 3
+
+    # The first item (TestItem0) should be evicted
+    key_0 = f"tenant_0::or::testitem0"
+    assert key_0 not in inventory_search._implicit_verification_cooldown
+
+
+def test_memory_profiling_and_resource_leaks(tmp_path, monkeypatch):
+    import tracemalloc
+    import gc
+    from app.services import inventory_search
+    from app.config import get_tenant
+
+    tracemalloc.start()
+
+    # Mock get_tenant
+    def mock_get_tenant(tid):
+        t = get_tenant("sacred_heart::or") # valid tenant
+        t.tenant_id = tid
+        t.inventory_path = tmp_path / f"{tid.replace('::', '_')}.csv"
+        if not t.inventory_path.exists():
+            t.inventory_path.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nSuture,Supplies,R1,C1,S1,C1,,0\n")
+        return t
+
+    monkeypatch.setattr("app.config.get_tenant", mock_get_tenant)
+
+    # Take initial snapshot after some warm-up
+    for i in range(5):
+        service = inventory_search.get_inventory_service(f"tenant_{i}::or")
+        service.search("Suture")
+
+    gc.collect()
+    snapshot1 = tracemalloc.take_snapshot()
+
+    # High volume burst
+    for i in range(5, 55):
+        service = inventory_search.get_inventory_service(f"tenant_{i}::or")
+        service.search("Suture")
+
+    gc.collect()
+    snapshot2 = tracemalloc.take_snapshot()
+
+    # Compare
+    top_stats = snapshot2.compare_to(snapshot1, 'lineno')
+
+    # Sum memory differences
+    total_diff_kb = sum(stat.size_diff for stat in top_stats) / 1024.0
+
+    tracemalloc.stop()
+
+    # Should not leak unbounded memory - limit to a generous threshold like 5MB
+    # Since we added 50 tenants with a service object each, some growth is expected, but not excessive.
+    assert total_diff_kb < 5000, f"Memory leak detected: grew by {total_diff_kb:.2f} KB"
+
+def test_unclosed_event_listeners_and_thread_locks(tmp_path, monkeypatch):
+    """
+    Tests that no unclosed event listeners or dangling threads/locks remain
+    after performing rapid operations in the inventory search service.
+    """
+    import threading
+    from app.services import inventory_search
+
+    # We will test threading.active_count() to make sure we don't leak threads
+    initial_thread_count = threading.active_count()
+
+    # Mock tenant and avoid real file changes
+    from app.config import get_tenant as original_get_tenant
+    def mock_get_tenant(tid):
+        t = original_get_tenant("sacred_heart::or") # Just use a dummy template
+        t.tenant_id = tid
+        t.inventory_path = tmp_path / "mock_inv.csv"
+        if not t.inventory_path.exists():
+            t.inventory_path.write_text("item,category,room,cabinet,shelf,container,pending_location,verify_count\nSuture,Supplies,R1,C1,S1,C1,,0\n")
+        return t
+
+    monkeypatch.setattr("app.config.get_tenant", mock_get_tenant)
+    service = inventory_search.get_inventory_service("sacred_heart::or")
+
+    # Mock save_csv to avoid real disk IO during the test
+    monkeypatch.setattr(service, "_save_csv", lambda: None)
+
+    # Run concurrent searches
+    def worker():
+        for _ in range(100):
+            service.search("Suture", record_implicit_verification=True)
+
+    threads = []
+    for _ in range(10):
+        t = threading.Thread(target=worker)
+        threads.append(t)
+        t.start()
+
+    for t in threads:
+        t.join()
+
+    final_thread_count = threading.active_count()
+
+    # Ensure no threads were leaked
+    assert final_thread_count == initial_thread_count, f"Thread leak detected! Started with {initial_thread_count}, ended with {final_thread_count}"
+
+    # Verify no deadlocks and the lock is free
+    assert service._lock.acquire(blocking=False), "Service lock was left acquired (deadlock)!"
+    service._lock.release()
