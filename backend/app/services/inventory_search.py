@@ -1274,7 +1274,11 @@ class InventoryService:
                 if effective_cd > 0 and (now_ts - last_ts < effective_cd):
                     return self._row_to_card(matched_row)
 
-                _implicit_verification_cooldown[item_key] = now_ts
+                with _services_lock:
+                    _implicit_verification_cooldown.pop(item_key, None)
+                    if len(_implicit_verification_cooldown) >= MAX_COOLDOWN_CACHE_SIZE:
+                        _implicit_verification_cooldown.popitem(last=False)
+                    _implicit_verification_cooldown[item_key] = now_ts
                 new_score = round(min(3.0, float(matched_row.get("verification_score", 1.0)) + 0.5), 2)
                 matched_row["verification_score"] = new_score
                 matched_row["last_verified_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -1637,9 +1641,12 @@ class InventoryService:
 # ---------------------------------------------------------------------------
 # Module-level service cache (one instance per tenant) & Verification Cooldown
 # ---------------------------------------------------------------------------
-_services: dict[str, InventoryService] = {}
+import collections
+_services: collections.OrderedDict[str, 'InventoryService'] = collections.OrderedDict()
 _services_lock = threading.Lock()
-_implicit_verification_cooldown: dict[str, float] = {}
+_implicit_verification_cooldown: collections.OrderedDict[str, float] = collections.OrderedDict()
+MAX_SERVICES_CACHE_SIZE = 100
+MAX_COOLDOWN_CACHE_SIZE = 10000
 
 
 def get_inventory_service(tenant_id: str) -> InventoryService:
@@ -1647,7 +1654,11 @@ def get_inventory_service(tenant_id: str) -> InventoryService:
     with _services_lock:
         if tenant_id not in _services:
             from app.config import get_tenant
+            if len(_services) >= MAX_SERVICES_CACHE_SIZE:
+                _services.popitem(last=False)
             _services[tenant_id] = InventoryService(get_tenant(tenant_id))
+        else:
+            _services.move_to_end(tenant_id)
         return _services[tenant_id]
 
 

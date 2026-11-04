@@ -99,5 +99,17 @@
     "usedByUsers": [],
     "confidence": "personal",
     "updatedAt": "2026-11-03T22:45:37Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793813215_8",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "suture",
+    "displayPreferredName": "Suture",
+    "canonicalItemName": "Mayo Scissors Heavy Straight",
+    "usageCount": 1000,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-11-04T17:26:59Z"
   }
 ]
