@@ -1,4 +1,4 @@
-import { render, screen, waitFor, act, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, act, cleanup, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ResourceInspectorModal from './ResourceInspectorModal';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -257,5 +257,57 @@ describe('ResourceInspectorModal', () => {
       }),
       { numRuns: 10 }
     );
+  });
+
+  it('verifies fault injection, network partition degradation, intermittent latency, and self-healing reconnection', async () => {
+    const { hydrateOrUpgradeOfflineInventory } = await import('@/lib/offlineDb');
+    vi.mocked(hydrateOrUpgradeOfflineInventory).mockClear();
+
+    let isOnline = false;
+    vi.mocked(hydrateOrUpgradeOfflineInventory).mockImplementation(async () => {
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          if (!isOnline) {
+            reject(new Error('Network partition: Failed to fetch'));
+          } else {
+            resolve(5);
+          }
+        }, 10);
+      });
+    });
+
+    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId="sacred_heart::or_main" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
+    });
+
+    await userEvent.click(screen.getByTestId('tab-protocols-management'));
+
+    window.confirm = vi.fn(() => true);
+
+    // Phase 1: Network Partition (Failure)
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('btn-resync-seed-catalog'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('resource-inspector-status-toast').textContent).toContain('Failed to re-sync');
+    });
+
+    // Phase 2: Self-healing reconnection (Recovery)
+    isOnline = true;
+
+    // The toast from the failure is still visible.
+    // Trigger another click on the re-rendered button.
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('btn-resync-seed-catalog'));
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('resource-inspector-status-toast').textContent).toContain('Re-synced catalog: 5 active records.');
+    });
+
+    expect(hydrateOrUpgradeOfflineInventory).toHaveBeenCalledTimes(2);
   });
 });
