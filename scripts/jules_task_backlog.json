@@ -3107,7 +3107,7 @@
     "prompt": "# 🚀 Testing Task (Phase 6): Memory Profiling & Resource Eviction Hardening for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Create or extend memory profiling, leak detection, unclosed event listeners, and cache eviction under constrained runtime memory in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "11955696319568533583",
     "dispatchedAt": "2026-11-04T17:05:30.180Z",
-    "completedAt": "2026-11-04T18:13:42.587Z"
+    "completedAt": "2026-11-04T20:05:14.062Z"
   },
   {
     "id": "backlog-312",
@@ -3616,10 +3616,11 @@
     "id": "backlog-363",
     "title": "Bolt: Strict Security Invariants & HIPAA PHI Boundary Verification for MoveDebouncer",
     "category": "Performance",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Bolt Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for MoveDebouncer\n\n**File:** `frontend/src/lib/moveDebouncer.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/lib/moveDebouncer.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "8923626464608252269",
-    "dispatchedAt": "2026-11-04T19:08:30.454Z"
+    "dispatchedAt": "2026-11-04T19:08:30.454Z",
+    "completedAt": "2026-11-04T20:05:06.987Z"
   },
   {
     "id": "backlog-364",
@@ -3718,5 +3719,14 @@
     "prompt": "# 🚀 Code Health Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for AutoUpdateModal\n\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "879212579835344978",
     "dispatchedAt": "2026-11-04T19:59:25.646Z"
+  },
+  {
+    "id": "backlog-376",
+    "title": "Bolt: Strict Security Invariants & HIPAA PHI Boundary Verification for OmnibarSearch",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for OmnibarSearch\n\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/components/Omnibar.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "9398418286744365335",
+    "dispatchedAt": "2026-11-04T20:05:36.568Z"
   }
 ]
