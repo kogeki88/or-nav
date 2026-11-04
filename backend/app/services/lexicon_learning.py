@@ -194,7 +194,10 @@ def _get_facility_lexicon_path(facility_id: str) -> Path:
     return fac_dir / "learned_lexicon.json"
 
 
-_LEXICON_CACHE: dict[str, tuple[int, list[dict]]] = {}
+from collections import OrderedDict
+
+MAX_LEXICON_CACHE_SIZE = 100
+_LEXICON_CACHE: OrderedDict[str, tuple[int, list[dict]]] = OrderedDict()
 
 
 def load_facility_lexicon(facility_id: str) -> List[dict]:
@@ -207,6 +210,10 @@ def load_facility_lexicon(facility_id: str) -> List[dict]:
                 temp_path = path.with_suffix(".tmp")
                 temp_path.write_text(json.dumps(defaults, indent=2, ensure_ascii=False), encoding="utf-8")
                 temp_path.replace(path)
+                if facility_id in _LEXICON_CACHE:
+                    _LEXICON_CACHE.pop(facility_id)
+                elif len(_LEXICON_CACHE) >= MAX_LEXICON_CACHE_SIZE:
+                    _LEXICON_CACHE.popitem(last=False)
                 _LEXICON_CACHE[facility_id] = (path.stat().st_mtime_ns, [dict(d) for d in defaults])
                 return [dict(d) for d in defaults]
             _LEXICON_CACHE.pop(facility_id, None)
@@ -215,9 +222,14 @@ def load_facility_lexicon(facility_id: str) -> List[dict]:
             mtime = path.stat().st_mtime_ns
             cached = _LEXICON_CACHE.get(facility_id)
             if cached is not None and cached[0] == mtime:
+                _LEXICON_CACHE.move_to_end(facility_id)
                 return cached[1]
             data = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(data, list):
+                if facility_id in _LEXICON_CACHE:
+                    _LEXICON_CACHE.pop(facility_id)
+                elif len(_LEXICON_CACHE) >= MAX_LEXICON_CACHE_SIZE:
+                    _LEXICON_CACHE.popitem(last=False)
                 _LEXICON_CACHE[facility_id] = (mtime, data)
                 return data
             return []
