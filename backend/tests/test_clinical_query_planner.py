@@ -713,3 +713,89 @@ def test_planner_cache_eviction_under_memory_constraint(monkeypatch):
 
     # Assert the graph is properly garbage collected
     assert graph_ref() is None, "ClinicalEntityGraph instance was not garbage collected, indicating a memory leak"
+
+def test_planner_hipaa_phi_boundary_attack(monkeypatch):
+    """
+    Test that the query planner properly redacts PHI and limits long queries
+    (prompt injection / memory exhaustion bounds), without network calls.
+    """
+    import socket
+    import httpx
+
+    original_socket = socket.socket
+    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network call attempted during offline-first function!")
+        return original_socket(family, type, proto, fileno)
+
+    monkeypatch.setattr(socket, "socket", poisoned_socket)
+
+    def poisoned_httpx_call(*args, **kwargs):
+        raise RuntimeError("HTTP network call attempted during offline-first function!")
+
+    monkeypatch.setattr(httpx, "post", poisoned_httpx_call)
+    monkeypatch.setattr(httpx, "get", poisoned_httpx_call)
+    monkeypatch.setattr(httpx, "request", poisoned_httpx_call)
+
+    tenant_id = "or_main::hipaa_test"
+    graph = get_clinical_graph("or_main")
+
+    # 1. PII/PHI Boundary Attack
+    attack_query = "what size prolene does dr chen use MRN: 123-456-7890 DOB: 01/01/1980 pt Jane Doe"
+    plan = plan_clinical_query(attack_query, graph=graph, tenant_id=tenant_id)
+
+    # The output raw query should have been scrubbed
+    assert "123-456-7890" not in plan.raw_query
+    assert "01/01/1980" not in plan.raw_query
+    assert "Jane Doe" not in plan.raw_query
+    assert "[REDACTED_PHI]" in plan.raw_query
+
+    # Intent should still be routed correctly
+    assert plan.intent == "PREFERENCE_INVENTORY_JOIN"
+    assert plan.surgeon is not None
+    assert plan.surgeon.normalized_last_name == "chen"
+
+    # 2. Prompt Injection / Token Exhaustion Hardening
+    massive_query = "dr patel suture preference " + "A" * 10000
+    plan_massive = plan_clinical_query(massive_query, graph=graph, tenant_id=tenant_id)
+
+    # The query string should be bounded (e.g., 500 chars)
+    assert len(plan_massive.raw_query) <= 500
+
+    # Core intent is preserved in bounded string
+    assert plan_massive.intent in ["PREFERENCE_CARD_LOOKUP", "PREFERENCE_INVENTORY_JOIN"]
+    assert plan_massive.surgeon is not None
+    assert plan_massive.surgeon.normalized_last_name == "patel"
+
+def test_planner_zero_trust_token_exchange(monkeypatch):
+    """
+    Test zero-trust token exchange / multi-tenant boundary enforcement by simulating
+    cross-talk spoofing via malicious query payloads (e.g., injecting another tenant's prefix).
+    """
+    import socket
+    import httpx
+
+    original_socket = socket.socket
+    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network call attempted during offline-first function!")
+        return original_socket(family, type, proto, fileno)
+
+    monkeypatch.setattr(socket, "socket", poisoned_socket)
+
+    tenant_id = "or_main::zero_trust"
+    graph = get_clinical_graph("or_main")
+
+    # Simulate a query where a malicious user attempts to cross-talk into `sacred_heart::icu`
+    # by prefixing the raw query. Our zero-trust token exchange should strip it out.
+    attack_query = "sacred_heart::icu dr patel suture preference"
+    plan = plan_clinical_query(attack_query, graph=graph, tenant_id=tenant_id)
+
+    # The output raw query should have stripped the spoofed token
+    assert "sacred_heart::icu" not in plan.raw_query
+    assert plan.raw_query.startswith("dr patel") or plan.raw_query.startswith("[REDACTED") or "dr patel" in plan.raw_query
+
+    # Intent should still be routed correctly to Dr. Patel on the legitimate graph
+    assert plan.intent == "PREFERENCE_CARD_LOOKUP"
+    assert plan.surgeon is not None
+    assert plan.surgeon.normalized_last_name == "patel"
