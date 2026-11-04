@@ -609,4 +609,89 @@ describe("moveDebouncer", () => {
       global.fetch = originalFetch;
     }
   });
+
+
+  test("deterministic state transition matrices and clinical state snapshot consistency", async () => {
+    let receivedItems: any[] = [];
+    const strictValidator = (payload: any) => {
+       if (!payload || typeof payload.tenant_id !== "string") return false;
+       return true;
+    };
+
+    const originalFetch = global.fetch;
+    global.fetch = () => {
+      throw new Error("Network call detected! Offline-first invariant violated.");
+    };
+
+    try {
+      const debouncer = createMoveDebouncer((items: any[]) => {
+        receivedItems.push(...items);
+      }, 10, strictValidator);
+
+      debouncer({ tenant_id: "facility1::deptA", state: "START", data: "init" });
+      debouncer({ tenant_id: "facility1::deptA", state: "TRANSITION_1", data: "move_1" });
+      debouncer({ tenant_id: "facility2::deptB", state: "START", data: "init_b" });
+      debouncer({ tenant_id: "facility1::deptA", state: "FINAL", data: "complete" });
+
+      await sleep(20);
+
+      assert.strictEqual(receivedItems.length, 4);
+
+      const tenantA_items = receivedItems.filter((i) => i.tenant_id === "facility1::deptA");
+      assert.strictEqual(tenantA_items.length, 3);
+      assert.strictEqual(tenantA_items[0].state, "START");
+      assert.strictEqual(tenantA_items[1].state, "TRANSITION_1");
+      assert.strictEqual(tenantA_items[2].state, "FINAL");
+
+      const tenantB_items = receivedItems.filter((i) => i.tenant_id === "facility2::deptB");
+      assert.strictEqual(tenantB_items.length, 1);
+      assert.strictEqual(tenantB_items[0].state, "START");
+
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  test("preference card conflict resolution", async () => {
+    let receivedItems: any[] = [];
+    const strictValidator = (payload: any) => {
+       if (!payload || typeof payload.tenant_id !== "string") return false;
+       return true;
+    };
+
+    const originalFetch = global.fetch;
+    global.fetch = () => {
+      throw new Error("Network call detected! Offline-first invariant violated.");
+    };
+
+    try {
+      const debouncer = createMoveDebouncer((items: any[]) => {
+        // Resolve conflicts by picking the latest item for a given preference_card_id within a tenant
+        const resolved = new Map<string, any>();
+        for (const item of items) {
+          const key = `${item.tenant_id}::${item.preference_card_id}`;
+          // simple latest-wins resolution
+          resolved.set(key, item);
+        }
+        receivedItems.push(...Array.from(resolved.values()));
+      }, 10, strictValidator);
+
+      debouncer({ tenant_id: "facility1::deptA", preference_card_id: "card_1", action: "ADD", item: "scalpel" });
+      debouncer({ tenant_id: "facility1::deptA", preference_card_id: "card_1", action: "REMOVE", item: "scalpel" });
+      debouncer({ tenant_id: "facility2::deptB", preference_card_id: "card_1", action: "ADD", item: "scalpel" });
+
+      await sleep(20);
+
+      assert.strictEqual(receivedItems.length, 2);
+
+      const tenantA = receivedItems.find(i => i.tenant_id === "facility1::deptA");
+      assert.strictEqual(tenantA.action, "REMOVE"); // Latest wins
+
+      const tenantB = receivedItems.find(i => i.tenant_id === "facility2::deptB");
+      assert.strictEqual(tenantB.action, "ADD");
+
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });
