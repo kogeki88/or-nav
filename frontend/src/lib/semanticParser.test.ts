@@ -579,3 +579,74 @@ test("Strict Security Invariants & HIPAA PHI Boundary Verification", async (t) =
     }
   });
 });
+
+test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t) => {
+  await t.test("Deterministic State Transition Matrices for parsing sequences", () => {
+    // Tests that state transitions between parsed intents are deterministic and stateless
+    const sequence = [
+      "where is the 3-0 silk",
+      "move bovie to OR 1",
+      "preference card for Dr. Smith lap chole",
+      "has anyone seen the raytec"
+    ];
+
+    const expectedIntents = [
+      ClinicalIntent.FIND_INVENTORY,
+      ClinicalIntent.MUTATE_INVENTORY,
+      ClinicalIntent.VIEW_PREFERENCE_CARD,
+      ClinicalIntent.PEER_BROADCAST
+    ];
+
+    // Ensure parsing one doesn't affect the next
+    let parsedIntents = sequence.map(q => parseClinicalIntent(q).intent);
+    assert.deepStrictEqual(parsedIntents, expectedIntents);
+
+    // Run again to ensure matrix remains deterministic
+    parsedIntents = sequence.map(q => parseClinicalIntent(q).intent);
+    assert.deepStrictEqual(parsedIntents, expectedIntents);
+  });
+
+  await t.test("Preference card conflict resolution and state snapshot consistency", () => {
+    // Ensure that when multiple preference card parameters are provided, it resolves them deterministically
+    const query = "Dr. Smith preference card tray setup for lap chole";
+    const res = parseClinicalIntent(query);
+
+    assert.strictEqual(res.intent, ClinicalIntent.VIEW_PREFERENCE_CARD);
+    assert.strictEqual(res.entities.surgeon, "Dr. Smith");
+    assert.strictEqual(res.entities.procedure, "Lap Chole");
+    assert.strictEqual(res.entities.action, "view_card");
+
+    // Snapshot consistency check
+    const snapshot = JSON.stringify(res);
+    const res2 = parseClinicalIntent(query);
+    assert.strictEqual(JSON.stringify(res2), snapshot, "Clinical state snapshot must remain perfectly consistent across identical parses");
+  });
+
+  await t.test("Enforce multi-tenant isolation and offline-first invariants during snapshot generation", () => {
+    const originalFetch = global.fetch;
+    let fetchCalled = false;
+    global.fetch = () => {
+      fetchCalled = true;
+      return Promise.reject(new Error("Network call detected in offline-first function"));
+    };
+
+    try {
+      const tenantA = "facilityA::dept1";
+      const tenantB = "facilityB::dept2";
+
+      const query = "move the bovie to OR 2";
+
+      const snapA = parseClinicalIntent(query, tenantA);
+      const snapB = parseClinicalIntent(query, tenantB);
+
+      assert.strictEqual(fetchCalled, false, "Offline-first invariant violated during snapshot");
+
+      // Should be deeply equal structurally, but represent independent parses
+      assert.deepStrictEqual(snapA.intent, snapB.intent);
+      assert.deepStrictEqual(snapA.entities, snapB.entities);
+      assert.notStrictEqual(snapA, snapB, "Snapshots must not share object references across tenants");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});
