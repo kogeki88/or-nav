@@ -816,4 +816,59 @@ describe('usePushToTalk', () => {
       mockFetchVoiceToken = originalFetchVoiceToken;
     }
   });
+
+  test("PushToTalkHook memory profiling: cache eviction, unclosed event listeners, and memory leak detection under constraint", async () => {
+    if (global.gc) global.gc();
+
+    const baselineMemory = process.memoryUsage().heapUsed;
+    const initialListenersCount = process.listeners('unhandledRejection').length + process.listeners('uncaughtException').length;
+
+    const originalFetchVoiceStatus = global.fetch;
+    const originalFetchVoiceToken = mockFetchVoiceToken;
+    let localFetchVoiceToken = async () => ({ token: "fake-token", livekit_url: "wss://fake.livekit" });
+
+    try {
+      mockFetchVoiceToken = async (tenantId) => localFetchVoiceToken();
+      global.fetch = async () => ({ ok: true, json: async () => ({ livekit_configured: true }) } as any);
+
+      for (let i = 0; i < 100; i++) {
+        let h;
+        const root = document.createElement("div");
+        document.body.appendChild(root);
+
+        await act(async () => {
+          h = renderHook(() => usePushToTalk({ tenantId: `mem-test-${i}` }), { container: root });
+        });
+
+        act(() => {
+          h.result.current.toggleVoiceMode();
+          h.result.current.toggleVoiceMode();
+        });
+
+        await act(async () => {
+          await h.result.current.startPTT();
+        });
+        await act(async () => {
+          await h.result.current.stopPTT();
+        });
+
+        h.unmount();
+        document.body.removeChild(root);
+      }
+
+    } finally {
+      global.fetch = originalFetchVoiceStatus;
+      mockFetchVoiceToken = originalFetchVoiceToken;
+    }
+
+    if (global.gc) global.gc();
+
+    const finalMemory = process.memoryUsage().heapUsed;
+    const finalListenersCount = process.listeners('unhandledRejection').length + process.listeners('uncaughtException').length;
+
+    const memoryDiffMB = (finalMemory - baselineMemory) / 1024 / 1024;
+
+    assert.ok(memoryDiffMB < 100, `Memory leak detected: growth of ${memoryDiffMB.toFixed(2)}MB exceeds 100MB limit`);
+    assert.strictEqual(finalListenersCount, initialListenersCount, "Unclosed global event listeners detected after PTT operations");
+  });
 });
