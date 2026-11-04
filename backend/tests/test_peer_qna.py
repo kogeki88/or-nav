@@ -491,3 +491,82 @@ def test_self_healing_reconnection_idempotent_sync():
     res_get_3 = client.get(f"/api/peer-questions?tenant_id={tenant}")
     matches = [q for q in res_get_3.json() if q["idempotencyKey"] == q_idempotency]
     assert len(matches) == 1
+
+import tracemalloc
+import gc
+
+def test_memory_leak_on_high_volume_requests():
+    """Verify memory growth is constrained during a burst of queries (memory leak detection)."""
+    tracemalloc.start()
+
+    gc.collect()
+    snapshot1 = tracemalloc.take_snapshot()
+
+    tenant = "sacred_heart::or"
+    for _ in range(500):
+        client.post("/api/peer-questions", json={
+            "tenant_id": tenant,
+            "question_text": "Is this leaking memory?",
+            "idempotency_key": f"mem-{uuid.uuid4().hex}"
+        })
+        client.get(f"/api/peer-questions?tenant_id={tenant}")
+
+    gc.collect()
+    snapshot2 = tracemalloc.take_snapshot()
+
+    tracemalloc.stop()
+
+    stats = snapshot2.compare_to(snapshot1, 'lineno')
+    total_diff_b = sum(stat.size_diff for stat in stats)
+
+    total_diff_mb = total_diff_b / (1024 * 1024)
+    assert total_diff_mb < 50.0, f"Memory leak detected! Growth: {total_diff_mb:.2f} MB"
+
+def test_peer_qna_cache_eviction_limits():
+    """Verify memory constraints enforce eviction limits for peer questions."""
+    tenant = "county_general::or"
+    import app.peer_qna
+
+    original_max = app.peer_qna.MAX_PEER_QUESTIONS
+    app.peer_qna.MAX_PEER_QUESTIONS = 5
+
+    try:
+        # Create 10 questions to exceed the max limit of 5
+        for i in range(10):
+            client.post("/api/peer-questions", json={
+                "tenant_id": tenant,
+                "question_text": f"Question {i}",
+                "idempotency_key": f"evict-{uuid.uuid4().hex}"
+            })
+
+        res = client.get(f"/api/peer-questions?tenant_id={tenant}")
+        questions = res.json()
+
+        # Only check the questions belonging *exactly* to this tenant to avoid seed overlap or partial matching
+        exact_tenant_questions = [q for q in questions if q["tenantId"] == tenant]
+
+        # Max limit is enforced per-tenant, so there should be exactly 5 questions for this exact tenant
+        assert len(exact_tenant_questions) == 5
+    finally:
+        app.peer_qna.MAX_PEER_QUESTIONS = original_max
+
+def test_unclosed_resources_and_fds():
+    """Verify that no file descriptors or sockets are leaked during a burst of requests."""
+    import psutil
+    import os
+    process = psutil.Process(os.getpid())
+
+    # Get initial FD count
+    initial_fds = process.num_fds() if hasattr(process, 'num_fds') else process.num_handles()
+
+    tenant = "sacred_heart::or"
+    for _ in range(100):
+        client.post("/api/peer-questions", json={
+            "tenant_id": tenant,
+            "question_text": "Is this leaking FDs?",
+            "idempotency_key": f"fds-{uuid.uuid4().hex}"
+        })
+
+    final_fds = process.num_fds() if hasattr(process, 'num_fds') else process.num_handles()
+    # Allow small tolerance for test runner operations
+    assert final_fds <= initial_fds + 5, f"FD leak detected: {initial_fds} -> {final_fds}"
