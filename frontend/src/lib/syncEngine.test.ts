@@ -909,4 +909,64 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       }
     }
   });
+
+  test("Memory Profiling & Resource Eviction Hardening for SyncEngineOutbox under memory constraints", async () => {
+    // Attempt to invoke GC if exposed
+    if (global.gc) {
+      global.gc();
+    }
+
+    const initialMemory = process.memoryUsage().heapUsed;
+    const initialListeners = process.listeners('uncaughtException').length;
+
+    const originalFetch = global.fetch;
+    global.fetch = undefined as any;
+
+    try {
+      setNetworkOnline(false);
+      const burstSize = 500;
+
+      const hooks = [];
+      for (let i = 0; i < burstSize; i++) {
+        hooks.push(renderHook(() => useSyncEngine(`tenant-mem-${i}`, false)));
+      }
+
+      const promises = [];
+      for (let i = 0; i < burstSize; i++) {
+        promises.push((async () => {
+          await new Promise(r => setTimeout(r, Math.random() * 2));
+          return hooks[i].result.current.triggerSync();
+        })());
+      }
+
+      await act(async () => {
+        await Promise.all(promises);
+      });
+
+      for (let i = 0; i < burstSize; i++) {
+        hooks[i].unmount();
+      }
+
+      // Allow event loop to clear up
+      await new Promise(r => setTimeout(r, 10));
+
+      if (global.gc) {
+        global.gc();
+      }
+
+      const finalMemory = process.memoryUsage().heapUsed;
+      const finalListeners = process.listeners('uncaughtException').length;
+
+      const memoryGrowth = finalMemory - initialMemory;
+
+      // We expect memory growth to be bounded (generous limit of 150MB due to memory memory limits rules)
+      assert.ok(memoryGrowth < 150 * 1024 * 1024, `Memory leak detected: memory grew by ${(memoryGrowth / 1024 / 1024).toFixed(2)} MB`);
+
+      // Ensure no unclosed listeners leaked
+      assert.strictEqual(finalListeners, initialListeners, "Unclosed event listeners leak detected");
+
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
 });
