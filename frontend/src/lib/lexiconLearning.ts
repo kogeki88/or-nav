@@ -260,6 +260,14 @@ function safeSetItem(key: string, val: string): void {
     }
   }
   memStorage.set(key, val);
+  if (memStorage.size > 1000) {
+    const keys = memStorage.keys();
+    let excess = memStorage.size - 1000;
+    while (excess > 0) {
+      memStorage.delete(keys.next().value);
+      excess--;
+    }
+  }
 }
 
 export function loadFacilityLexicon(facilityId: string): LearnedAliasEntry[] {
