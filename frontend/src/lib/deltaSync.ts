@@ -17,7 +17,22 @@ export function diffRecords<T extends Record<string, unknown>>(base: T, modified
   const allKeys = new Set([...baseKeys, ...modKeys]);
 
   for (const key of allKeys) {
+    // Hardened Security: Prevent prototype pollution, strip auth tokens, and drop known PHI fields from ever syncing via deltas
     if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      continue;
+    }
+
+    // Zero-trust token boundary & HIPAA PHI Redaction
+    const lowerKey = key.toLowerCase();
+    if (
+      lowerKey.includes('token') ||
+      lowerKey.includes('jwt') ||
+      lowerKey.includes('password') ||
+      lowerKey.includes('secret') ||
+      lowerKey.includes('ssn') ||
+      lowerKey.includes('patientname') ||
+      lowerKey.includes('medicalrecordnumber')
+    ) {
       continue;
     }
 
