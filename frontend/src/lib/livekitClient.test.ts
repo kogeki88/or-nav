@@ -326,3 +326,119 @@ describe("Fault Injection, Network Partition & Self-Healing", () => {
     visualizer.dispose();
   });
 });
+
+
+
+
+
+describe("Memory Profiling & Resource Eviction Hardening", () => {
+  let originalRequestAnimationFrame: typeof global.requestAnimationFrame;
+  let originalCancelAnimationFrame: typeof global.cancelAnimationFrame;
+  let requestAnimationFrameSpy: ReturnType<typeof mock.fn>;
+  let cancelAnimationFrameSpy: ReturnType<typeof mock.fn>;
+
+  beforeEach(() => {
+    originalRequestAnimationFrame = global.requestAnimationFrame;
+    originalCancelAnimationFrame = global.cancelAnimationFrame;
+
+    requestAnimationFrameSpy = mock.fn((cb: FrameRequestCallback) => 123);
+    cancelAnimationFrameSpy = mock.fn((id: number) => { return; });
+
+    global.requestAnimationFrame = requestAnimationFrameSpy as unknown as typeof global.requestAnimationFrame;
+    global.cancelAnimationFrame = cancelAnimationFrameSpy as unknown as typeof global.cancelAnimationFrame;
+  });
+
+  afterEach(() => {
+    mock.restoreAll();
+    global.requestAnimationFrame = originalRequestAnimationFrame;
+    global.cancelAnimationFrame = originalCancelAnimationFrame;
+  });
+
+  it("should prevent memory leaks and unclosed event listeners under high-volume load, while enforcing offline invariants and multi-tenant isolation", async () => {
+    if (global.gc) global.gc();
+    const initialMemory = process.memoryUsage().heapUsed;
+
+    const originalFetch = global.fetch;
+    let fetchCalled = false;
+    global.fetch = () => {
+      fetchCalled = true;
+      return Promise.reject(new Error("Network offline"));
+    };
+
+    const originalAddEventListener = window.addEventListener;
+    const originalRemoveEventListener = window.removeEventListener;
+
+    let addedListeners = 0;
+    let removedListeners = 0;
+
+    window.addEventListener = function(...args) {
+      addedListeners++;
+      return originalAddEventListener.apply(this, args);
+    };
+    window.removeEventListener = function(...args) {
+      removedListeners++;
+      return originalRemoveEventListener.apply(this, args);
+    };
+
+    try {
+      const iterations = 5000;
+      const mockTrack1 = new MockAudioTrack();
+      const mockTrack2 = new MockAudioTrack();
+
+      const MAX_ACTIVE = 10;
+      const activeVisualizers: LiveKitAudioVisualizer[] = [];
+
+      for (let i = 0; i < iterations; i++) {
+        const canvas = document.createElement('canvas');
+        canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+        const visualizer = new LiveKitAudioVisualizer(canvas);
+
+        const tenantId = i % 2 === 0 ? "facility_a::dept_1" : "facility_b::dept_2";
+        visualizer.setTenantId(tenantId);
+
+        visualizer.start(i % 2 === 0 ? mockTrack1 as unknown as import("livekit-client").LocalAudioTrack : mockTrack2 as unknown as import("livekit-client").LocalAudioTrack);
+
+        assert.strictEqual(visualizer.getTenantId(), tenantId, "Multi-tenant isolation violated: tenantId mismatch");
+
+        // Simulate event trigger to ensure callbacks run without leaking
+        const mutedListeners = (i % 2 === 0 ? mockTrack1 : mockTrack2).getListeners('muted');
+        if (mutedListeners.length > 0) {
+            mutedListeners[0]();
+        }
+
+        // Cache eviction / Constrained memory logic
+        activeVisualizers.push(visualizer);
+        if (activeVisualizers.length > MAX_ACTIVE) {
+           const oldest = activeVisualizers.shift();
+           if (oldest) {
+               oldest.dispose();
+               assert.strictEqual(oldest.getTenantId(), null, "Disposed visualizer should have null tenantId");
+           }
+        }
+      }
+
+      // Dispose remaining
+      for (const v of activeVisualizers) {
+          v.dispose();
+      }
+
+      assert.strictEqual(fetchCalled, false, "Offline invariant violated: fetch should not be called");
+      assert.strictEqual(mockTrack1.getListeners('muted').length, 0, "MockAudioTrack1 listeners should be cleaned up");
+      assert.strictEqual(mockTrack1.getListeners('unmuted').length, 0, "MockAudioTrack1 listeners should be cleaned up");
+      assert.strictEqual(mockTrack2.getListeners('muted').length, 0, "MockAudioTrack2 listeners should be cleaned up");
+      assert.strictEqual(mockTrack2.getListeners('unmuted').length, 0, "MockAudioTrack2 listeners should be cleaned up");
+      assert.strictEqual(addedListeners, removedListeners, "All added window event listeners should be removed");
+
+      if (global.gc) global.gc();
+      const finalMemory = process.memoryUsage().heapUsed;
+      const diffMB = (finalMemory - initialMemory) / 1024 / 1024;
+
+      assert.ok(diffMB < 150, `Memory growth exceeded allowed threshold: ${diffMB.toFixed(2)} MB`);
+
+    } finally {
+      global.fetch = originalFetch;
+      window.addEventListener = originalAddEventListener;
+      window.removeEventListener = originalRemoveEventListener;
+    }
+  });
+});
