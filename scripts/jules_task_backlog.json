@@ -3844,8 +3844,10 @@
     "id": "backlog-386",
     "title": "Testing: Strict Security Invariants & HIPAA PHI Boundary Verification for ClinicalGraph",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for ClinicalGraph\n\n**File:** `frontend/src/lib/clinicalGraph.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/lib/clinicalGraph.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for ClinicalGraph\n\n**File:** `frontend/src/lib/clinicalGraph.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/lib/clinicalGraph.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11591230922301894563",
+    "dispatchedAt": "2026-11-04T21:32:41.961Z"
   },
   {
     "id": "backlog-387",
@@ -3861,10 +3863,11 @@
     "id": "backlog-388",
     "title": "Code Health: Strict Security Invariants & HIPAA PHI Boundary Verification for Departments",
     "category": "Code Health",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Code Health Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for Departments\n\n**File:** `frontend/src/lib/departments.test.ts`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/lib/departments.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "17239986033925278837",
-    "dispatchedAt": "2026-11-04T20:44:04.984Z"
+    "dispatchedAt": "2026-11-04T20:44:04.984Z",
+    "completedAt": "2026-11-04T21:32:15.241Z"
   },
   {
     "id": "backlog-389",
@@ -3948,5 +3951,12 @@
     "prompt": "# 🚀 Sentinel Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for QRPairModal\n\n**File:** `frontend/src/components/QRPairModal.test.tsx`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/components/QRPairModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "9429376561842656931",
     "dispatchedAt": "2026-11-04T21:29:38.450Z"
+  },
+  {
+    "id": "backlog-399",
+    "title": "Testing: Strict Security Invariants & HIPAA PHI Boundary Verification for QuestionsDrawer",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for QuestionsDrawer\n\n**File:** `frontend/src/components/QuestionsDrawer.test.tsx`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/components/QuestionsDrawer.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]
