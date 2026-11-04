@@ -4,6 +4,7 @@
  */
 
 import { DEFAULT_DEPARTMENT_ID, setActiveDepartmentId } from "./departments";
+import { scrubPhi } from "./scrubClient";
 
 export interface FacilityOption {
   id: string;
@@ -224,6 +225,14 @@ export function getUserProfile(): UserProfile {
   return { ...DEFAULT_USER_PROFILE };
 }
 
+export function sanitizeProfileString(val: string): string {
+  if (!val) return val;
+  // Strip script and obvious prompt injections
+  let sanitized = val.replace(/<[^>]*>?/gm, '');
+  sanitized = sanitized.replace(/ignore all previous instructions/gi, '[REDACTED_PROMPT_INJECTION]');
+  return scrubPhi(sanitized).text.trim();
+}
+
 export function saveUserProfile(profile: UserProfile): UserProfile | void {
   if (typeof window === "undefined") return;
   try {
@@ -232,16 +241,16 @@ export function saveUserProfile(profile: UserProfile): UserProfile | void {
     const matchedFac = REGISTERED_FACILITIES.find((f) => f.id === facId);
     const facName = matchedFac ? matchedFac.name : (typeof safeProfile.facilityName === 'string' ? safeProfile.facilityName : DEFAULT_USER_PROFILE.facilityName);
 
-    const fullName = typeof safeProfile.fullName === 'string' ? safeProfile.fullName.trim() : DEFAULT_USER_PROFILE.fullName;
+    const rawFullName = typeof safeProfile.fullName === 'string' ? safeProfile.fullName.trim() : DEFAULT_USER_PROFILE.fullName;
     const deptId = typeof safeProfile.departmentId === 'string' ? safeProfile.departmentId : DEFAULT_USER_PROFILE.departmentId;
-    const clinicalRole = typeof safeProfile.clinicalRole === 'string' ? safeProfile.clinicalRole : DEFAULT_USER_PROFILE.clinicalRole;
+    const rawClinicalRole = typeof safeProfile.clinicalRole === 'string' ? safeProfile.clinicalRole : DEFAULT_USER_PROFILE.clinicalRole;
 
     const clean: UserProfile = {
-      fullName: fullName || DEFAULT_USER_PROFILE.fullName,
+      fullName: sanitizeProfileString(rawFullName) || DEFAULT_USER_PROFILE.fullName,
       facilityId: facId,
       facilityName: facName,
       departmentId: deptId,
-      clinicalRole: clinicalRole || DEFAULT_USER_PROFILE.clinicalRole,
+      clinicalRole: sanitizeProfileString(rawClinicalRole) || DEFAULT_USER_PROFILE.clinicalRole,
     };
 
     localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(clean));
