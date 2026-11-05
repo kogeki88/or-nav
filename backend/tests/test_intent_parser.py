@@ -1,6 +1,7 @@
 import pytest
 import socket
 import httpx
+import copy
 from app.intent_parser import (
     ClinicalIntent,
     parse_clinical_intent,
@@ -53,11 +54,12 @@ def test_intent_parser_clinical_state_snapshot():
     # Using existing API endpoints and data schemas (parse_clinical_intent returns ParsedIntent)
     q = "where is the 3-0 vicryl"
     r1 = parse_clinical_intent(q)
+    frozen_r1 = copy.deepcopy(r1)
     r2 = parse_clinical_intent(q)
-    assert r1.intent == r2.intent == ClinicalIntent.FIND_INVENTORY
-    assert r1.entities == r2.entities
-    assert r1.confidence == r2.confidence
-    assert r1.raw_query == r2.raw_query
+    assert frozen_r1.intent == r2.intent == ClinicalIntent.FIND_INVENTORY
+    assert frozen_r1.entities == r2.entities
+    assert frozen_r1.confidence == r2.confidence
+    assert frozen_r1.raw_query == r2.raw_query
 
 def test_intent_parser_preference_card_conflict_resolution():
     # Test preference card conflict resolution
@@ -198,7 +200,7 @@ def test_intent_parser_concurrent_burst():
     queries = []
     for i in range(200): # Total 1200 executions
         for q in base_queries:
-            queries.append((q[0], q[1], q[2], i))
+            queries.append((f"{q[0]}_or_burst_{i}", q[1], q[2], i))
 
     start_time = time.time()
 
