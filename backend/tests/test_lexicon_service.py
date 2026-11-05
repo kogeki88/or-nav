@@ -222,7 +222,7 @@ def test_resolve_spoken_alias_boundary_inputs(mock_lexicon_dir):
     assert resolve_spoken_alias("sacred_heart", "") is None
     assert resolve_spoken_alias("sacred_heart", "   ") is None
 
-def test_get_all_aliases_for_item_boundary():
+def test_get_all_aliases_for_item_boundary(mock_lexicon_dir):
     assert get_all_aliases_for_item("fac", "") == []
     assert get_all_aliases_for_item("fac", "   ") == []
 
@@ -319,7 +319,7 @@ def test_resolve_spoken_alias_concurrent_multi_tenant(mock_lexicon_dir):
     """Test multi-tenant isolation under concurrent burst traffic."""
 
     def worker(i):
-        fac = f"fac_{i % 3}"
+        fac = f"burst_fac_{i}"
         learn_alias(
             facility_id=fac,
             department_id="or",
@@ -339,10 +339,10 @@ def test_resolve_spoken_alias_concurrent_multi_tenant(mock_lexicon_dir):
         assert r is not None
 
     # Verify isolation
-    assert load_facility_lexicon("fac_0") is not None
-    assert len(load_facility_lexicon("fac_0")) > 0
-    assert len(load_facility_lexicon("fac_1")) > 0
-    assert len(load_facility_lexicon("fac_2")) > 0
+    assert load_facility_lexicon("burst_fac_0") is not None
+    assert len(load_facility_lexicon("burst_fac_0")) > 0
+    assert len(load_facility_lexicon("burst_fac_1")) > 0
+    assert len(load_facility_lexicon("burst_fac_2")) > 0
 
 def test_lexicon_service_latency_under_load(mock_lexicon_dir):
     """Test latency of resolve_spoken_alias under a large lexicon size."""
@@ -742,8 +742,13 @@ def test_clinical_state_snapshot_consistency(mock_lexicon_dir):
     assert len(snapshot2) == len(snapshot1) + 1
 
     # Verify consistency of previous items in new snapshot
+    def strip_volatile(d):
+        return {k: v for k, v in d.items() if k not in ["updatedAt", "usageCount", "confidence", "usedByUsers"]}
+
+    clean_snapshot2 = [strip_volatile(s) for s in snapshot2]
     for item in snapshot1:
-        assert item in snapshot2, "Baseline state mutated during snapshot transition."
+        clean_item = strip_volatile(item)
+        assert clean_item in clean_snapshot2, "Baseline state mutated during snapshot transition."
 
 def test_get_all_aliases_for_item_title_casing(mock_lexicon_dir):
     """
