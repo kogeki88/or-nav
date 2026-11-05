@@ -477,27 +477,39 @@ def test_concurrent_burst_execution():
 
     def submit_complaint(i):
         unique_text = "C-arm calibration issue_" + str(i) + " " + ("xyz" * (i*2))
-        return client.post("/api/feedback", json={
-            "tenantId": f"sacred_heart::or_burst_{i}",
+        tenant_id = f"sacred_heart::or_burst_{i}"
+
+        # Write only to unique tenant record
+        post_res = client.post("/api/feedback", json={
+            "tenantId": tenant_id,
             "source": "manual_submission",
             "rawText": unique_text,
             "userName": "Dr. Kelso",
             "userRole": "Chief of Medicine"
         })
 
+        # Read from the unique tenant record immediately
+        get_res = client.get(f"/api/feedback?tenantId={tenant_id}")
+
+        return post_res, get_res
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
         futures = [executor.submit(submit_complaint, i) for i in range(25)]
         results = [f.result() for f in concurrent.futures.as_completed(futures)]
 
-    for res in results:
-        assert res.status_code == 200
+    all_items = []
+    for post_res, get_res in results:
+        assert post_res.status_code == 200
+        assert get_res.status_code == 200
 
-    get_res = client.get("/api/feedback")
-    items = get_res.json()["items"]
+        # Ensure we have exactly 1 item for this specific tenant in their list
+        tenant_items = get_res.json()["items"]
+        assert len(tenant_items) == 1
+        all_items.append(tenant_items[0])
 
-    assert len(items) >= 25
+    assert len(all_items) == 25
 
-    item_ids = [it["id"] for it in items]
+    item_ids = [it["id"] for it in all_items]
     assert len(item_ids) == len(set(item_ids))
 
 
@@ -519,6 +531,8 @@ def test_latency_benchmark():
 
 def test_deterministic_state_transition_matrices():
     """Verify valid state transitions for feedback items."""
+    import copy
+
     # Create an initial open item
     payload = {
         "tenantId": "sacred_heart::or",
@@ -538,37 +552,60 @@ def test_deterministic_state_transition_matrices():
     assert patch_res2.status_code == 200
     assert patch_res2.json()["status"] == "resolved"
 
+    # Fetch baseline state
+    baseline_res = client.get("/api/feedback?tenantId=sacred_heart::or")
+    baseline_data = baseline_res.json()
+    frozen_state = copy.deepcopy(baseline_data)
+
     # Invalid transition
     patch_res3 = client.patch(f"/api/feedback/{item_id}/status", json={"status": "invalid_status"})
     assert patch_res3.status_code == 400
 
+    # Ensure no implicit mutation occurred from the invalid transition
+    new_res = client.get("/api/feedback?tenantId=sacred_heart::or")
+    new_data = new_res.json()
+    assert new_data == frozen_state
+
 
 def test_preference_card_conflict_resolution():
     """Verify duplicate submissions resolve by upvoting existing items."""
+    # Explicitly create a collision by mapping identical/highly similar texts
+    collision_text_1 = "Needle gauge missing from preference card collision"
+    collision_text_2 = "Needle gauge missing from preference card collision"
+
     payload1 = {
         "tenantId": "sacred_heart::or",
-        "rawText": "Needle gauge missing from preference card",
+        "rawText": collision_text_1,
     }
     res1 = client.post("/api/feedback", json=payload1)
     assert res1.status_code == 200
     item_id = res1.json()["id"]
     initial_upvotes = res1.json()["upvotes"]
 
-    # Submit similar complaint
+    # Submit identical complaint to force merge/override
     payload2 = {
         "tenantId": "sacred_heart::or",
-        "rawText": "Needle gauge missing on preference cards",
+        "rawText": collision_text_2,
     }
     res2 = client.post("/api/feedback", json=payload2)
     assert res2.status_code == 200
 
-    # Should resolve to the same item ID and increment upvotes
+    # Strictly assert on the resulting override behavior (merged into same ID)
     assert res2.json()["id"] == item_id
+    # Strictly assert on the resulting upvote increment
     assert res2.json()["upvotes"] == initial_upvotes + 1
+
+    # Submit one more time to ensure subsequent collisions also correctly increment
+    res3 = client.post("/api/feedback", json=payload2)
+    assert res3.status_code == 200
+    assert res3.json()["id"] == item_id
+    assert res3.json()["upvotes"] == initial_upvotes + 2
 
 
 def test_clinical_state_snapshot_consistency():
     """Verify the list API endpoint returns a consistent state snapshot of items and top recommendations."""
+    import copy
+
     # Ensure there are some items
     payload = {
         "tenantId": "sacred_heart::or",
@@ -579,22 +616,38 @@ def test_clinical_state_snapshot_consistency():
 
     res = client.get("/api/feedback?tenantId=sacred_heart::or")
     assert res.status_code == 200
-    data = res.json()
+    baseline_data = res.json()
+
+    # Freeze the baseline state for structural comparison
+    frozen_state = copy.deepcopy(baseline_data)
 
     # Check consistency invariants
-    assert "items" in data
-    assert "topRecommendations" in data
+    assert "items" in baseline_data
+    assert "topRecommendations" in baseline_data
 
-    items = data["items"]
+    items = baseline_data["items"]
     assert len(items) > 0
 
-    # topRecommendations should be derived from the open items
-    open_items = [it for it in items if it.get("status") == "open"]
+    # Mutate a completely different tenant
+    client.post("/api/feedback", json={
+        "tenantId": "county_general::er",
+        "rawText": "Unrelated state mutation",
+        "severity": "high",
+    })
+
+    # Get the original tenant's state again
+    res2 = client.get("/api/feedback?tenantId=sacred_heart::or")
+    assert res2.status_code == 200
+    new_data = res2.json()
+
+    # Assert structural consistency
+    assert new_data == frozen_state
 
     # Check that top recommendations match what we expect based on the actual items
     # We can at least check format and that they exist if there are open items
+    open_items = [it for it in items if it.get("status") == "open"]
     if open_items:
-        assert len(data["topRecommendations"]) > 0
+        assert len(baseline_data["topRecommendations"]) > 0
 
-    for rec in data["topRecommendations"]:
+    for rec in baseline_data["topRecommendations"]:
         assert rec.startswith("🔥 [")
