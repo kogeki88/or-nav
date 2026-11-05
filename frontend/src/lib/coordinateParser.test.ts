@@ -153,16 +153,12 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
         };
         const burstSize = 1000;
 
-        const tasks = Array.from({ length: burstSize }).map((_, i) => {
-          return new Promise<{ tenant: string, result: any }>((resolve) => {
-            const tenant = tenants[i % tenants.length];
-            const input = tenantInputMap[tenant];
-
-            setTimeout(() => {
-              const result = extractAndNormalizeCoordinateClient(input);
-              resolve({ tenant, result });
-            }, Math.random() * 2);
-          });
+        const tasks = Array.from({ length: burstSize }).map(async (_, i) => {
+          const tenant = tenants[i % tenants.length];
+          const input = tenantInputMap[tenant];
+          await Promise.resolve();
+          const result = extractAndNormalizeCoordinateClient(input);
+          return { tenant, result };
         });
 
         const results = await Promise.all(tasks);
@@ -245,17 +241,13 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
         };
 
         const concurrentTasks = 1000;
-        const tasks = Array.from({ length: concurrentTasks }).map((_, i) => {
+        const tasks = Array.from({ length: concurrentTasks }).map(async (_, i) => {
           const tenantId = tenants[i % tenants.length];
           const inputStr = tenantInputMap[tenantId];
 
-          return new Promise<{ tenantId: string; result: ReturnType<typeof extractAndNormalizeCoordinateClient> }>((resolve) => {
-            // Intro micro-delays to test race condition resilience
-            setTimeout(() => {
-              const res = extractAndNormalizeCoordinateClient(inputStr);
-              resolve({ tenantId, result: res });
-            }, Math.random() * 5);
-          });
+          await Promise.resolve();
+          const res = extractAndNormalizeCoordinateClient(inputStr);
+          return { tenantId, result: res };
         });
 
         const results = await Promise.all(tasks);
@@ -302,8 +294,8 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
       const burstSize = 10000;
       const startTime = performance.now();
 
-      const promises = Array.from({ length: burstSize }).map((_, i) => {
-        return new Promise<void>((resolve) => {
+      const promises = Array.from({ length: burstSize }).map(async (_, i) => {
+        await Promise.resolve();
           const input = inputs[i % inputs.length];
           // Mix operations
           if (i % 2 === 0) {
@@ -311,8 +303,6 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
           } else {
             normalizeLocationCoordinate(input);
           }
-          resolve();
-        });
       });
 
       await Promise.all(promises);
@@ -348,13 +338,11 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
           const input = data[i % data.length];
 
           tasks.push(
-            new Promise<{ tenant: string; input: string; result: any }>((resolve) => {
-              // Introduce slight random delay to increase interleaving
-              setTimeout(() => {
-                const result = extractAndNormalizeCoordinateClient(input);
-                resolve({ tenant, input, result });
-              }, Math.random() * 10);
-            })
+            (async () => {
+              await Promise.resolve();
+              const result = extractAndNormalizeCoordinateClient(input);
+              return { tenant, input, result };
+            })()
           );
         }
 
@@ -422,14 +410,11 @@ describe("Phase 4 Offline Partition & Multi-Tenant Isolation Extension", () => {
         "fac_beta::dept_1": "Trauma Bay 3 C 4 D"
       };
 
-      const tasks = tenants.map(tenantId => {
-        return new Promise<{ tenantId: string; result: any }>((resolve) => {
-          setTimeout(() => {
-            const input = tenantInputMap[tenantId];
-            const result = extractAndNormalizeCoordinateClient(input);
-            resolve({ tenantId, result });
-          }, Math.random() * 5);
-        });
+      const tasks = tenants.map(async tenantId => {
+        await Promise.resolve();
+          const input = tenantInputMap[tenantId];
+          const result = extractAndNormalizeCoordinateClient(input);
+          return { tenantId, result };
       });
 
       const results = await Promise.all(tasks);
@@ -497,12 +482,9 @@ describe("Phase 5: Fault Injection & Network Partition Resilience", () => {
 
       // Fire 5 distinct concurrent local parse jobs
       // They should execute offline and completely bypass the fetch latency trap
-      const jobs = Array.from({ length: 5 }).map((_, i) => {
-        return new Promise<ReturnType<typeof extractAndNormalizeCoordinateClient>>((resolve) => {
-          setTimeout(() => {
-            resolve(extractAndNormalizeCoordinateClient(`OR ${i + 1} A 1 B`));
-          }, i * 5); // Start slightly staggered
-        });
+      const jobs = Array.from({ length: 5 }).map(async (_, i) => {
+        await Promise.resolve();
+          return extractAndNormalizeCoordinateClient(`OR ${i + 1} A 1 B`);
       });
 
       const results = await Promise.all(jobs);
@@ -588,13 +570,11 @@ describe("Phase 6: Memory Profiling & Resource Eviction Hardening", () => {
       const tasks = [];
       for(let i = 0; i < burstSize; i++) {
         tasks.push(
-          new Promise((resolve) => {
-             // Microtask execution
-             setTimeout(() => {
-                const res = extractAndNormalizeCoordinateClient(inputs[i % inputs.length]);
-                resolve(res);
-             }, 0);
-          })
+          (async () => {
+          await Promise.resolve();
+             const res = extractAndNormalizeCoordinateClient(inputs[i % inputs.length]);
+             return res;
+          })()
         );
       }
 
@@ -713,11 +693,10 @@ describe("Phase 8: Clinical Workflow Snapshot & Deterministic State Verification
       // Burst 100 random coordinate parses
       const tasks = [];
       for (let i = 0; i < 100; i++) {
-        tasks.push(new Promise((resolve) => {
-          setTimeout(() => {
-            resolve(extractAndNormalizeCoordinateClient(`OR ${(i % 10) + 1} A 1 B`));
-          }, 0);
-        }));
+        tasks.push((async () => {
+          await Promise.resolve();
+          return extractAndNormalizeCoordinateClient(`OR ${(i % 10) + 1} A 1 B`);
+        })());
       }
       await Promise.all(tasks);
 
@@ -757,14 +736,11 @@ describe("Phase 9: Continuous Invariants & Hardened Edge Cases", () => {
       { text: "ER 5 E 6 F", expected: "ER 5 E 6 F" }
     ];
 
-    const tasks = Array.from({ length: burstSize }).map((_, i) => {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          const input = inputs[i % inputs.length];
-          const result = extractAndNormalizeCoordinateClient(input.text);
-          resolve({ expected: input.expected, result });
-        }, 0);
-      });
+    const tasks = Array.from({ length: burstSize }).map(async (_, i) => {
+      await Promise.resolve();
+        const input = inputs[i % inputs.length];
+        const result = extractAndNormalizeCoordinateClient(input.text);
+        return { expected: input.expected, result };
     });
 
     const results = await Promise.all(tasks);
