@@ -542,3 +542,62 @@ test("deltaSyncPayload security invariants", async (t) => {
     assert.strictEqual(decompressed[0].refresh, "abc123xyz");
   });
 });
+
+test("deltaSyncPayload state consistency", async (t) => {
+  await t.test("deterministic state transition matrices", () => {
+    const states = [
+      { id: "s1", status: "idle", tenant_id: "tenantA" },
+      { id: "s1", status: "in_progress", tenant_id: "tenantA" },
+      { id: "s1", status: "completed", tenant_id: "tenantA" }
+    ];
+
+    const compressed = compressPayload(states);
+    const decompressed = decompressPayload(compressed);
+
+    assert.deepStrictEqual(decompressed, states, "State transition matrix should be perfectly deterministic through serialization");
+  });
+
+  await t.test("preference card conflict resolution", () => {
+    // Explicitly create a collision: identical alias mapped to two different items
+    const aliasCollisions = [
+      { alias: "sharp_thing", item_id: "scalpel_1", tenant_id: "tenant_X", priority: 1, timestamp: 100 },
+      { alias: "sharp_thing", item_id: "scissors_1", tenant_id: "tenant_X", priority: 2, timestamp: 200 }
+    ];
+
+    // In compress/decompress, we ensure data integrity is maintained so conflict resolution can occur.
+    // However, if we were testing a merge function, we would assert the override.
+    // Here we assert that both conflicting records are preserved accurately across the offline-first sync payload boundary.
+    const compressed = compressPayload(aliasCollisions);
+    const decompressed = decompressPayload(compressed) as any[];
+
+    assert.strictEqual(decompressed.length, 2);
+    assert.strictEqual(decompressed[0].alias, "sharp_thing");
+    assert.strictEqual(decompressed[1].alias, "sharp_thing");
+    assert.notStrictEqual(decompressed[0].item_id, decompressed[1].item_id, "Collision must be preserved for backend merge");
+    assert.strictEqual(decompressed[0].tenant_id, "tenant_X");
+    assert.strictEqual(decompressed[1].tenant_id, "tenant_X");
+  });
+
+  await t.test("clinical state snapshot consistency", () => {
+    const baselineState = {
+      patient_id: "p1",
+      clinical_status: "pre_op",
+      tenant_id: "tenant_Y",
+      procedure: "appendectomy"
+    };
+
+    // Freeze the baseline state for structural comparison
+    const frozenBaseline = JSON.parse(JSON.stringify(baselineState));
+
+    const mutations = [ baselineState, { ...baselineState, clinical_status: "post_op" } ];
+    const compressed = compressPayload(mutations);
+    const decompressed = decompressPayload(compressed) as any[];
+
+    // Assert snapshot consistency
+    assert.deepStrictEqual(decompressed[0], frozenBaseline, "Clinical state snapshot consistency must perfectly match frozen baseline");
+
+    // Offline-first multi-tenant invariants
+    assert.strictEqual(decompressed[0].tenant_id, "tenant_Y");
+    assert.strictEqual(decompressed[1].tenant_id, "tenant_Y");
+  });
+});
