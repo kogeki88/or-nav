@@ -87,5 +87,17 @@
     ],
     "confidence": "facility_consensus",
     "updatedAt": "2026-10-28T08:50:00Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793911180_7",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "the bakey pickups",
+    "displayPreferredName": "The Bakey Pickups",
+    "canonicalItemName": "DeBakey Vascular Tissue Forceps 12in",
+    "usageCount": 4,
+    "usedByUsers": [],
+    "confidence": "facility_consensus",
+    "updatedAt": "2026-11-05T20:50:01Z"
   }
 ]
