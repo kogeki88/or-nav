@@ -902,6 +902,78 @@ describe("ResourceManagerChecksum", () => {
     mock.restoreAll();
   });
 
+
+  test("ResourceManagerChecksum deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency", async () => {
+    const tenantId = "fac_state::or";
+    const normTenant = "fac_state::or";
+
+    await offlineDb?.inventoryItems.put({
+      id: "fac_state::or::scalpel",
+      tenant_id: normTenant,
+      item: "Scalpel",
+      room: "Main OR",
+      cabinet: "A",
+      shelf: "1",
+      container: "A",
+      full_code: "Main OR A 1 A",
+      phonetic_code: "Main OR A 1 A",
+      surgeon_notes: "",
+      category: "",
+      normalized_name: "scalpel",
+      status: "user_added",
+      isCustomEdited: true,
+      deleted: false
+    });
+
+    await offlineDb?.preferenceCards.put({
+      id: "fac_state::or::card_custom",
+      tenant_id: normTenant,
+      surgeon: "Dr. Deterministic",
+      procedure: "State Sync",
+      specialty: "General",
+      isCustomEdited: true,
+      deleted: false,
+      instruments: ["Scalpel"]
+    });
+
+    const { exportTenantResourcesJson, importTenantResourcesJson } = await import("./offlineDb.js");
+    const snapshotJson = await exportTenantResourcesJson(tenantId);
+    assert.ok(snapshotJson.includes("Dr. Deterministic"));
+    assert.ok(snapshotJson.includes("Scalpel"));
+
+    await offlineDb?.inventoryItems.clear();
+    await offlineDb?.preferenceCards.clear();
+
+    await offlineDb?.preferenceCards.put({
+      id: "fac_state::or::card_custom",
+      tenant_id: normTenant,
+      surgeon: "Dr. Conflict",
+      procedure: "Conflict Proc",
+      specialty: "Conflict Spec",
+      isCustomEdited: true,
+      deleted: false
+    });
+
+    const importResult = await importTenantResourcesJson(tenantId, snapshotJson);
+    assert.strictEqual(importResult.success, true);
+    assert.ok(importResult.importedItems > 0);
+    assert.ok(importResult.importedCards > 0);
+
+    const finalCards = await offlineDb?.preferenceCards.where("tenant_id").equals(normTenant).toArray();
+    assert.ok(finalCards);
+    const restoredCard = finalCards.find(c => c.id === "fac_state::or::card_custom");
+    assert.ok(restoredCard);
+    assert.strictEqual(restoredCard.surgeon, "Dr. Deterministic");
+    assert.deepStrictEqual(restoredCard.instruments, ["Scalpel"]);
+
+    const finalItems = await offlineDb?.inventoryItems.where("tenant_id").equals(normTenant).toArray();
+    assert.ok(finalItems);
+    const restoredItem = finalItems.find(i => i.item === "Scalpel");
+    assert.ok(restoredItem);
+    assert.strictEqual(restoredItem.room, "Main OR");
+  });
+
+
   test("ResourceManagerChecksum cache eviction under constrained runtime memory and memory leak detection", async () => {
     // Collect memory usage before the test
     if (global.gc) global.gc();
