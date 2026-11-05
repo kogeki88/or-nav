@@ -4174,10 +4174,11 @@
     "id": "backlog-418",
     "title": "Testing: Clinical Workflow Snapshot & Deterministic State Verifications for VoiceWorker",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "10572455686440851540",
-    "dispatchedAt": "2026-11-05T17:06:55.071Z"
+    "dispatchedAt": "2026-11-05T17:06:55.071Z",
+    "completedAt": "2026-11-05T18:07:11.433Z"
   },
   {
     "id": "backlog-419",
@@ -4400,5 +4401,12 @@
     "category": "Testing",
     "status": "pending",
     "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for FeedbackModal\n\n**File:** `frontend/src/components/FeedbackModal.test.tsx`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/components/FeedbackModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-445",
+    "title": "Sentinel: Clinical Workflow Snapshot & Deterministic State Verifications for QRPairModal",
+    "category": "Security",
+    "status": "pending",
+    "prompt": "# 🚀 Sentinel Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for QRPairModal\n\n**File:** `frontend/src/components/QRPairModal.test.tsx`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/components/QRPairModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]
