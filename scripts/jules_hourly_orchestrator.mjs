@@ -406,8 +406,9 @@ async function auditAndUnblockSessions(apiKey) {
       continue;
     }
 
-    // Condition C: Check for stalled IN_PROGRESS session (inactive > 8 hours)
-    if (s.state === 'IN_PROGRESS' && ageHours > 8) {
+    // Condition C: Check for stalled IN_PROGRESS session (inactive > 8 hours or lifetime > 8 hours)
+    const creationAgeHours = s.createTime ? (nowMs - new Date(s.createTime).getTime()) / (1000 * 60 * 60) : ageHours;
+    if (s.state === 'IN_PROGRESS' && (ageHours > 8 || creationAgeHours > 8)) {
       log(`[Session ${s.id}] STALLED IN_PROGRESS (Inactive for ${ageHours.toFixed(1)}h: '${title}'). Reclaiming slot...`);
       try {
         await julesFetch(`https://jules.googleapis.com/v1alpha/sessions/${s.id}`, apiKey, { method: 'DELETE' });
