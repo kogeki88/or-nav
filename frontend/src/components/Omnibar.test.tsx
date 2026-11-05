@@ -987,3 +987,51 @@ test('Memory Profiling & Resource Eviction Hardening', async () => {
       EventTarget.prototype.removeEventListener = originalRemoveEventListener;
   }
 });
+
+
+test('clinical state snapshot consistency & deterministic state transition matrix', async () => {
+  const tenantA = 'tenant_A';
+  const root = document.createElement('div');
+  root.setAttribute('data-tenant', tenantA);
+  document.body.appendChild(root);
+
+  const tempFetch = global.fetch;
+  global.fetch = undefined as any;
+
+  try {
+    const onSendMessage = mock.fn();
+    const { unmount, rerender } = render(<Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />, { container: root });
+
+    const input = screen.getByTestId('omnibar-input') as HTMLInputElement;
+    const submitBtn = screen.getByTestId('omnibar-submit-btn');
+
+    // State 1: Typing text
+    fireEvent.change(input, { target: { value: 'Surgeon preference card update: Dr. Smith needs 2.0 prolene' } });
+    assert.strictEqual(input.value, 'Surgeon preference card update: Dr. Smith needs 2.0 prolene');
+
+    // Take snapshot of the current text value for structural comparison using Deepcopy/JSON serialization
+    const stateSnapshot = JSON.parse(JSON.stringify({ value: input.value }));
+    assert.deepStrictEqual(stateSnapshot, { value: 'Surgeon preference card update: Dr. Smith needs 2.0 prolene' });
+
+    // Submit the form
+    fireEvent.click(submitBtn);
+
+    // State 2: Input cleared after submission (deterministic transition)
+    assert.strictEqual(input.value, '');
+    assert.strictEqual(onSendMessage.mock.calls.length, 1);
+    assert.strictEqual(onSendMessage.mock.calls[0].arguments[0], 'Surgeon preference card update: Dr. Smith needs 2.0 prolene');
+
+    // Simulate preference card conflict resolution: two rapid updates, verifying they don't break the UI
+    fireEvent.change(input, { target: { value: 'Override: Dr. Smith needs 3.0 prolene instead' } });
+    fireEvent.click(submitBtn);
+
+    assert.strictEqual(input.value, '');
+    assert.strictEqual(onSendMessage.mock.calls.length, 2);
+    assert.strictEqual(onSendMessage.mock.calls[1].arguments[0], 'Override: Dr. Smith needs 3.0 prolene instead');
+
+    unmount();
+  } finally {
+    global.fetch = tempFetch;
+    if (document.body.contains(root)) document.body.removeChild(root);
+  }
+});
