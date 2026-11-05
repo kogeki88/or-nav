@@ -254,17 +254,28 @@ def test_load_facility_lexicon_malformed_json(tmp_path):
 
 import time
 import concurrent.futures
+import httpx
 
 @pytest.fixture(autouse=True)
 def enforce_offline_first(monkeypatch):
     """Enforce offline-first invariants by poisoning httpx methods and socket."""
     def _block_network(*args, **kwargs):
-        raise RuntimeError("Network call blocked by offline-first invariant enforcement.")
+        raise httpx.NetworkError("Network call blocked by offline-first invariant enforcement.", request=httpx.Request("GET", "http://mock"))
 
     monkeypatch.setattr("httpx.get", _block_network)
     monkeypatch.setattr("httpx.post", _block_network)
     monkeypatch.setattr("httpx.request", _block_network)
-    monkeypatch.setattr("socket.socket", _block_network)
+
+    original_socket = socket.socket
+    # Use getattr to safely check for AF_UNIX for cross-platform compatibility
+    af_unix = getattr(socket, "AF_UNIX", None)
+
+    def _mock_socket(family=-1, type=-1, proto=-1, fileno=None):
+        if af_unix is not None and family == af_unix:
+            return original_socket(family, type, proto, fileno)
+        raise RuntimeError("Network call blocked by offline-first invariant enforcement.")
+
+    monkeypatch.setattr("socket.socket", _mock_socket)
 
 def test_learn_alias_concurrency_race_condition(mock_lexicon_dir):
     """Test race conditions when learning aliases concurrently."""
@@ -731,15 +742,33 @@ def test_clinical_state_snapshot_consistency(mock_lexicon_dir):
     assert len(snapshot2) == len(snapshot1) + 1
 
     # Verify consistency of previous items in new snapshot
-    found_x = False
-    found_y = False
-    for item in snapshot2:
-        # Note: the lexicon stores lowercase for spokenTerm in memory as returned from load_facility_lexicon
-        # But we must verify the actual exact strings returned
-        if item["spokenTerm"] == "term x" and item["canonicalItemName"] == "Item X":
-            found_x = True
-        if item["spokenTerm"] == "term y" and item["canonicalItemName"] == "Item Y":
-            found_y = True
+    for item in snapshot1:
+        assert item in snapshot2, "Baseline state mutated during snapshot transition."
 
-    assert found_x
-    assert found_y
+def test_get_all_aliases_for_item_title_casing(mock_lexicon_dir):
+    """
+    Ensure get_all_aliases_for_item strictly returns formatted title-cased strings.
+    """
+    facility = "casing_fac"
+    learn_alias(facility, "or", "messy  pickups", "Item A", "user1")
+    learn_alias(facility, "or", "ANOTHER messy term", "Item A", "user2")
+
+    aliases = get_all_aliases_for_item(facility, "Item A")
+    assert "Messy Pickups" in aliases
+    assert "ANOTHER Messy Term" in aliases
+
+def test_learn_alias_strict_multi_tenant_isolation(mock_lexicon_dir):
+    """
+    Ensure learn_alias explicitly isolates tenants.
+    """
+    facility1 = "strict_fac_1"
+    facility2 = "strict_fac_2"
+
+    learn_alias(facility1, "or", "isolated term", "Item A", "user1")
+    learn_alias(facility2, "or", "another term", "Item B", "user2")
+
+    aliases1 = get_all_aliases_for_item(facility1, "Item A")
+    aliases2 = get_all_aliases_for_item(facility2, "Item A")
+
+    assert len(aliases1) == 1
+    assert len(aliases2) == 0
