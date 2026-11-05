@@ -3984,10 +3984,11 @@
     "id": "backlog-399",
     "title": "Testing: Strict Security Invariants & HIPAA PHI Boundary Verification for QuestionsDrawer",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 7): Strict Security Invariants & HIPAA PHI Boundary Verification for QuestionsDrawer\n\n**File:** `frontend/src/components/QuestionsDrawer.test.tsx`\n**Objective:**\n1. Create or extend HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in `frontend/src/components/QuestionsDrawer.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "9584147141596137832",
-    "dispatchedAt": "2026-11-04T22:13:56.258Z"
+    "dispatchedAt": "2026-11-04T22:13:56.258Z",
+    "completedAt": "2026-11-05T00:23:07.679Z"
   },
   {
     "id": "backlog-400",
@@ -4244,5 +4245,12 @@
     "category": "Security",
     "status": "pending",
     "prompt": "# 🚀 Sentinel Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-431",
+    "title": "Testing: Clinical Workflow Snapshot & Deterministic State Verifications for VoiceRouterLiveKit",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for VoiceRouterLiveKit\n\n**File:** `backend/tests/test_voice_router.py`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `backend/tests/test_voice_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]
