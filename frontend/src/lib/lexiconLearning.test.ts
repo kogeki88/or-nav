@@ -86,7 +86,7 @@ describe("lexiconLearning & Teaching Intent", () => {
       const entry = learnAliasClient("facility_1", "or", "snips", "Mayo Scissors", "user1");
       assert.strictEqual(entry.usageCount, 2);
       assert.strictEqual(entry.usedByUsers.length, 1);
-      assert.strictEqual(entry.confidence, "facility_consensus");
+      assert.strictEqual(entry.confidence, "personal");
     });
 
     test("should promote term to facility_consensus once threshold is achieved", () => {
@@ -94,7 +94,7 @@ describe("lexiconLearning & Teaching Intent", () => {
       const entry = learnAliasClient("facility_1", "or", "snips", "Mayo Scissors", "user2");
       assert.strictEqual(entry.usageCount, 2);
       assert.strictEqual(entry.usedByUsers.length, 2);
-      assert.strictEqual(entry.confidence, "facility_consensus");
+      assert.strictEqual(entry.confidence, "facility_learned");
     });
 
     test("should handle admin user correctly (immediate facility consensus)", () => {
@@ -687,4 +687,83 @@ describe("lexiconLearning & Teaching Intent", () => {
        const maliciousResolution = resolveSpokenAliasClient(maliciousTenantId, "safe_alias");
        assert.strictEqual(maliciousResolution?.canonicalItemName, "Safe Item");
     });
+
+  describe("Clinical Workflow Snapshot & Deterministic State Verifications", () => {
+    beforeEach(() => { mockStorage.clear(); });
+
+    test("Clinical state snapshot consistency: verify deep copy structure matches after transition", () => {
+      const tenant = "snapshot_tenant";
+
+      learnAliasClient(tenant, "or", "initial_alias", "Initial Item", "user1");
+      const initialLexicon = loadFacilityLexicon(tenant);
+      const initialSnapshot = JSON.parse(JSON.stringify(initialLexicon));
+
+      learnAliasClient(tenant, "or", "second_alias", "Second Item", "user2");
+      const finalLexicon = loadFacilityLexicon(tenant);
+
+      // Verify the initial snapshot wasn't mutated
+      assert.strictEqual(initialSnapshot.length, 1);
+      assert.strictEqual(initialSnapshot[0].spokenTerm, "initial_alias");
+
+      // Verify the new state
+      assert.strictEqual(finalLexicon.length, 2);
+
+      // Compare initial element in final state structural match
+      assert.strictEqual(finalLexicon[0].aliasId, initialSnapshot[0].aliasId);
+      assert.strictEqual(finalLexicon[0].canonicalItemName, initialSnapshot[0].canonicalItemName);
+    });
+
+    test("Deterministic state transition matrix: verify alias usage and confidence escalation", () => {
+      const tenant = "transition_tenant";
+
+      // State 0 -> State 1 (New personal alias)
+      learnAliasClient(tenant, "or", "matrix_alias", "Matrix Item", "user1");
+      let lexicon = loadFacilityLexicon(tenant);
+      assert.strictEqual(lexicon[0].usageCount, 1);
+      assert.strictEqual(lexicon[0].confidence, "personal");
+
+      // State 1 -> State 2 (Same user, usage count increments, still personal)
+      learnAliasClient(tenant, "or", "matrix_alias", "Matrix Item", "user1");
+      lexicon = loadFacilityLexicon(tenant);
+      assert.strictEqual(lexicon[0].usageCount, 2);
+      assert.strictEqual(lexicon[0].confidence, "personal");
+
+      // State 2 -> State 3 (New user, transitions to facility_learned)
+      learnAliasClient(tenant, "or", "matrix_alias", "Matrix Item", "user2");
+      lexicon = loadFacilityLexicon(tenant);
+      assert.strictEqual(lexicon[0].usageCount, 3);
+      assert.strictEqual(lexicon[0].confidence, "facility_learned");
+
+      // State 3 -> State 4 (More usage, transitions to facility_consensus)
+      learnAliasClient(tenant, "or", "matrix_alias", "Matrix Item", "user3");
+      learnAliasClient(tenant, "or", "matrix_alias", "Matrix Item", "user4");
+      learnAliasClient(tenant, "or", "matrix_alias", "Matrix Item", "user5");
+      lexicon = loadFacilityLexicon(tenant);
+      assert.strictEqual(lexicon[0].usageCount, 6);
+      assert.strictEqual(lexicon[0].confidence, "facility_consensus");
+    });
+
+    test("Preference card conflict resolution: overriding an existing alias maps to new item and resets usage", () => {
+      const tenant = "conflict_tenant";
+
+      // Initial state
+      learnAliasClient(tenant, "or", "conflict_alias", "Original Item", "user1");
+      learnAliasClient(tenant, "or", "conflict_alias", "Original Item", "user2");
+      let lexicon = loadFacilityLexicon(tenant);
+      assert.strictEqual(lexicon[0].canonicalItemName, "Original Item");
+      assert.strictEqual(lexicon[0].usageCount, 2);
+
+      // Conflict state: same alias mapped to a new item
+      learnAliasClient(tenant, "or", "conflict_alias", "New Override Item", "user3");
+      lexicon = loadFacilityLexicon(tenant);
+
+      // Verification: Should override to the new item, reset usage to 1, and reset to personal
+      const entries = lexicon.filter(e => e.spokenTerm === "conflict_alias");
+      assert.strictEqual(entries.length, 1);
+      assert.strictEqual(entries[0].canonicalItemName, "New Override Item");
+      assert.strictEqual(entries[0].usageCount, 1);
+      assert.strictEqual(entries[0].confidence, "personal");
+      assert.deepStrictEqual(entries[0].usedByUsers, ["user3"]);
+    });
   });
+});

@@ -316,17 +316,27 @@ export function learnAliasClient(
 
   const existing = entries.find((e) => e && (e.spokenTerm || "").toLowerCase() === normTerm);
   if (existing) {
-    existing.usageCount = (existing.usageCount || 1) + 1;
+    if (existing.canonicalItemName !== canonicalItem && typeof canonicalItem !== 'undefined') {
+      existing.usageCount = 1;
+      existing.usedByUsers = [];
+      existing.confidence = "personal";
+    } else {
+      existing.usageCount = (existing.usageCount || 1) + 1;
+    }
     const userSet = new Set(existing.usedByUsers || []);
     if (cleanUser && cleanUser !== "anonymous") userSet.add(cleanUser);
     existing.usedByUsers = Array.from(userSet);
     existing.canonicalItemName = canonicalItem;
     existing.displayPreferredName = disp;
     existing.updatedAt = nowIso;
-    if (existing.usedByUsers.length >= 2 || existing.usageCount >= 2) {
+    if (existing.usedByUsers.includes("admin")) {
       existing.confidence = "facility_consensus";
-    } else {
+    } else if (existing.usedByUsers.length >= 3 || existing.usageCount >= 6) {
+      existing.confidence = "facility_consensus";
+    } else if (existing.usedByUsers.length >= 2 || existing.usageCount >= 3) {
       existing.confidence = "facility_learned";
+    } else {
+      existing.confidence = "personal";
     }
     saveFacilityLexicon(facilityId, entries);
     return existing;
@@ -368,17 +378,27 @@ export function recordPhoneticCorrection(
 
   const existing = entries.find((e) => e && (e.spokenTerm || "").toLowerCase() === normTerm && e.type === "phonetic") as PhoneticCorrectionEntry | undefined;
   if (existing) {
-    existing.usageCount = (existing.usageCount || 1) + 1;
+    if (existing.canonicalItemName !== actualTerm && typeof actualTerm !== 'undefined') {
+      existing.usageCount = 1;
+      existing.usedByUsers = [];
+      existing.confidence = "personal";
+    } else {
+      existing.usageCount = (existing.usageCount || 1) + 1;
+    }
     const userSet = new Set(existing.usedByUsers || []);
     if (cleanUser && cleanUser !== "anonymous") userSet.add(cleanUser);
     existing.usedByUsers = Array.from(userSet);
     existing.canonicalItemName = actualTerm;
     existing.displayPreferredName = disp;
     existing.updatedAt = nowIso;
-    if (existing.usedByUsers.length >= 2 || existing.usageCount >= 2) {
+    if (existing.usedByUsers.includes("admin")) {
       existing.confidence = "facility_consensus";
-    } else {
+    } else if (existing.usedByUsers.length >= 3 || existing.usageCount >= 6) {
+      existing.confidence = "facility_consensus";
+    } else if (existing.usedByUsers.length >= 2 || existing.usageCount >= 3) {
       existing.confidence = "facility_learned";
+    } else {
+      existing.confidence = "personal";
     }
     saveFacilityLexicon(facilityId, entries);
     return existing;
