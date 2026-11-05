@@ -64,9 +64,18 @@ const FeedbackModalMod = proxyquire('./FeedbackModal', {
 
 const FeedbackModal = FeedbackModalMod.FeedbackModal;
 
+
 beforeEach(() => {
-    // reset mocks if needed
+    if (typeof global.localStorage === 'undefined') {
+        global.localStorage = {
+            getItem: mock.fn(() => null),
+            setItem: mock.fn(),
+            removeItem: mock.fn(),
+            clear: mock.fn(),
+        };
+    }
 });
+
 
 afterEach(() => {
   cleanup();
@@ -287,11 +296,8 @@ test('multi-tenant isolation invariant: fetchFeedbackItems called with correct t
     });
 
     const IsolatedFeedbackModal = IsolatedFeedbackModalMod.FeedbackModal;
-    render(<IsolatedFeedbackModal isOpen={true} onClose={onCloseMock} userProfile={dummyProfile} />);
 
-    await waitFor(() => {
-        assert.ok(screen.getByTestId('tab-recommendations-hub'));
-    });
+    render(<IsolatedFeedbackModal isOpen={true} onClose={onCloseMock} userProfile={{ ...dummyProfile, facilityId: 'facility-A', departmentId: 'dept-X' }} />);
 
     const triageTab = screen.getByTestId('tab-recommendations-hub');
     fireEvent.click(triageTab);
@@ -302,7 +308,7 @@ test('multi-tenant isolation invariant: fetchFeedbackItems called with correct t
 
         let found = false;
         for (const call of calls) {
-            if (call.arguments[0] && call.arguments[0].tenantId === 'facility-1::dept-1') {
+            if (call.arguments[0] && call.arguments[0].tenantId === 'facility-A::dept-X') {
                 found = true;
                 break;
             }
@@ -322,10 +328,30 @@ test('offline-first invariant: handles fetch rejection gracefully and displays o
       configurable: true
     });
 
-    render(<FeedbackModal isOpen={true} onClose={onCloseMock} userProfile={dummyProfile} />);
+    const OfflineFeedbackModalMod = proxyquire('./FeedbackModal', {
+        '@/lib/gamification': {
+            awardClinicalXP: mock.fn()
+        },
+        '@/lib/auth': {
+            isAdminUser: mock.fn(() => true), // Mock as admin
+            getCurrentSession: mock.fn(() => null)
+        },
+        '@/lib/feedbackEngine': {
+            submitManualFeedback: mock.fn(),
+            fetchFeedbackItems: mock.fn(async () => { throw new Error('Network offline') }),
+            upvoteFeedback: mock.fn(),
+            updateFeedbackStatus: mock.fn(),
+            FEEDBACK_EVENT_NAME: 'feedback_updated'
+        }
+    });
+
+    const OfflineFeedbackModal = OfflineFeedbackModalMod.FeedbackModal;
+    render(<OfflineFeedbackModal isOpen={true} onClose={onCloseMock} userProfile={dummyProfile} />);
 
     window.dispatchEvent(new Event('offline'));
 
+    const triageTab = screen.getByTestId('tab-give-feedback');
+    if (triageTab) fireEvent.click(triageTab);
     const textarea = screen.getByTestId('feedback-input-text');
     fireEvent.change(textarea, { target: { value: 'Test offline first behavior' } });
 
@@ -517,9 +543,12 @@ test('concurrent burst execution: handles double clicks and prevents multiple su
     const submitBtn = screen.getByTestId('btn-submit-feedback');
 
     // Fire click multiple times concurrently
-    fireEvent.click(submitBtn);
-    fireEvent.click(submitBtn);
-    fireEvent.click(submitBtn);
+    // Simulate true interleaving in JS concurrency test using Promise.all
+    await Promise.all([
+        (async () => { await Promise.resolve(); fireEvent.click(submitBtn); })(),
+        (async () => { await Promise.resolve(); fireEvent.click(submitBtn); })(),
+        (async () => { await Promise.resolve(); fireEvent.click(submitBtn); })()
+    ]);
 
     // Wait for the submission process to complete
     await waitFor(() => {
@@ -622,9 +651,12 @@ test('multi-tenant boundary enforcement (facility_id::dept_id) and offline mutat
     const submitBtn = screen.getByTestId('btn-submit-feedback');
 
     // Fire multiple rapid clicks to simulate idempotency replay issue
-    fireEvent.click(submitBtn);
-    fireEvent.click(submitBtn);
-    fireEvent.click(submitBtn);
+    // Simulate true interleaving in JS concurrency test using Promise.all
+    await Promise.all([
+        (async () => { await Promise.resolve(); fireEvent.click(submitBtn); })(),
+        (async () => { await Promise.resolve(); fireEvent.click(submitBtn); })(),
+        (async () => { await Promise.resolve(); fireEvent.click(submitBtn); })()
+    ]);
 
     await waitFor(() => {
         assert.ok(screen.getByTestId('feedback-success-banner'));
