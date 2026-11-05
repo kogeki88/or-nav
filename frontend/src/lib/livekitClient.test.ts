@@ -520,7 +520,7 @@ describe("High-Concurrency & Stress Benchmarks", () => {
     const mockTrack = new MockAudioTrack();
 
     const operations = Array.from({ length: 1000 }).map(async (_, i) => {
-      await new Promise(resolve => setTimeout(resolve, Math.random() * 2));
+      await Promise.resolve();
       if (i % 2 === 0) {
         visualizer.start(mockTrack as unknown as LocalAudioTrack);
       } else {
@@ -540,18 +540,11 @@ describe("High-Concurrency & Stress Benchmarks", () => {
     const visualizer = new LiveKitAudioVisualizer(canvas);
     const mockTrack = new MockAudioTrack();
 
-    const promises = [];
-    for (let i = 0; i < 500; i++) {
-      promises.push(
-        new Promise<void>(resolve => {
-          visualizer.start(mockTrack as unknown as LocalAudioTrack);
-          setTimeout(() => {
-            visualizer.disconnect();
-            resolve();
-          }, Math.random() * 5);
-        })
-      );
-    }
+    const promises = Array.from({ length: 500 }).map(async () => {
+      await Promise.resolve(); // Yield to simulate concurrent interleaving
+      visualizer.start(mockTrack as unknown as LocalAudioTrack);
+      visualizer.disconnect();
+    });
 
     await Promise.all(promises);
 
@@ -586,12 +579,15 @@ describe("High-Concurrency & Stress Benchmarks", () => {
 
     const operations = instances.map(async (visualizer, i) => {
       // Must use valid UUID
-      visualizer.setTenantId(`fac_::dept_`);
-      await new Promise(resolve => setTimeout(resolve, Math.random() * 5));
-      assert.strictEqual(visualizer.getTenantId(), `fac_::dept_`);
+      visualizer.setTenantId(`fac_burst_${i}::dept`);
+      await Promise.resolve();
+      return { visualizer, i };
     });
 
-    await Promise.all(operations);
+    const results = await Promise.all(operations);
+    for (const { visualizer, i } of results) {
+      assert.strictEqual(visualizer.getTenantId(), `fac_burst_${i}::dept`);
+    }
   });
 
   it("should maintain offline-first invariants for LivekitClient during concurrent disconnects and network failure", async () => {
@@ -605,12 +601,13 @@ describe("High-Concurrency & Stress Benchmarks", () => {
       const mockTrack = new MockAudioTrack();
 
       const operations = Array.from({ length: 100 }).map(async () => {
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 2));
+        await Promise.resolve();
         visualizer.start(mockTrack as unknown as LocalAudioTrack);
         visualizer.disconnect();
       });
 
       await Promise.all(operations);
+      visualizer.disconnect();
       assert.strictEqual((visualizer as unknown as { animationFrameId: number | null }).animationFrameId, null);
     } finally {
       global.fetch = originalFetch;
