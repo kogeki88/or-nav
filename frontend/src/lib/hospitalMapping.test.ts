@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert";
-import { getFacilityIdFromTenant } from "./lexiconLearning";
+import { getFacilityIdFromTenant, learnAliasClient, loadFacilityLexicon, resolveSpokenAliasClient } from "./lexiconLearning";
 
 test("getFacilityIdFromTenant normalizes facility ID resolution", async (t) => {
     await t.test("handles double colon separator", () => {
@@ -506,6 +506,62 @@ test("Strict Security Invariants & HIPAA PHI Boundary Verification", async (t) =
             });
         });
 
+    } finally {
+        global.fetch = originalFetch;
+    }
+});
+
+test("Deterministic State Transition Matrices & Clinical Workflow Snapshots", async (t) => {
+    // Poison global.fetch to strictly ensure the offline-first invariant
+    const originalFetch = global.fetch;
+    global.fetch = () => {
+        throw new Error("Network call detected in offline-first function!");
+    };
+
+    try {
+        await t.test("Clinical State Snapshot Consistency & Multi-tenant Isolation", () => {
+            const tenant1 = "state_hospital::or";
+            const tenant2 = "city_clinic::icu";
+
+            const fac1 = getFacilityIdFromTenant(tenant1).facilityId;
+            const fac2 = getFacilityIdFromTenant(tenant2).facilityId;
+
+            // Seed state transition in tenant 1
+            const alias1 = learnAliasClient(fac1, "or", "clamp", "hemostat_clamp");
+
+            // Verify clinical state snapshot in tenant 1
+            const snapshot1 = loadFacilityLexicon(fac1);
+            assert.ok(snapshot1.some(e => e.spokenTerm === "clamp" && e.canonicalItemName === "hemostat_clamp"));
+
+            // Verify deterministic state resolution in tenant 1
+            const resolved = resolveSpokenAliasClient(fac1, "clamp");
+            assert.ok(resolved !== null);
+            assert.strictEqual(resolved.canonicalItemName, "hemostat_clamp");
+
+            // Enforce multi-tenant isolation: verify tenant 2's snapshot is isolated
+            const snapshot2 = loadFacilityLexicon(fac2);
+            assert.ok(!snapshot2.some(e => e.spokenTerm === "clamp"));
+
+            const resolved2 = resolveSpokenAliasClient(fac2, "clamp");
+            assert.ok(resolved2 === null);
+        });
+
+        await t.test("Preference Card Conflict Resolution", () => {
+            const tenant = "general_hospital::cvor";
+            const fac = getFacilityIdFromTenant(tenant).facilityId;
+
+            // Initial preference state
+            learnAliasClient(fac, "cvor", "suture", "silk_suture_3_0");
+
+            // Conflict resolution: override with new consensus
+            learnAliasClient(fac, "cvor", "suture", "vicryl_suture_2_0");
+
+            // Verify the transition matrix correctly resolved the conflict
+            const resolved = resolveSpokenAliasClient(fac, "suture");
+            assert.ok(resolved !== null);
+            assert.strictEqual(resolved.canonicalItemName, "vicryl_suture_2_0");
+            assert.strictEqual(resolved.usageCount, 2);
+        });
     } finally {
         global.fetch = originalFetch;
     }
