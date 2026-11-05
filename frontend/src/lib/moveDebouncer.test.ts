@@ -247,9 +247,9 @@ describe("moveDebouncer", () => {
   test("high-concurrency benchmark with multi-tenant isolation and offline-first invariants", async () => {
     // Poison global.fetch to assert offline-first
     const originalFetch = global.fetch;
-    global.fetch = () => {
+    global.fetch = (() => {
       throw new Error("Network call detected! Offline-first invariant violated.");
-    };
+    }) as any;
 
     try {
       const receivedItems: any[] = [];
@@ -615,9 +615,9 @@ describe("moveDebouncer", () => {
 
     // Poison global.fetch to strictly enforce offline-first invariant (no network calls)
     const originalFetch = global.fetch;
-    global.fetch = () => {
+    global.fetch = (() => {
       throw new Error("Network call detected! Offline-first invariant violated.");
-    };
+    }) as any;
 
     try {
       const debouncer = createMoveDebouncer((items: any[]) => {
@@ -654,9 +654,9 @@ describe("moveDebouncer", () => {
     };
 
     const originalFetch = global.fetch;
-    global.fetch = () => {
+    global.fetch = (() => {
       throw new Error("Network call detected! Offline-first invariant violated.");
-    };
+    }) as any;
 
     try {
       const debouncer = createMoveDebouncer((items: any[]) => {
@@ -695,9 +695,9 @@ describe("moveDebouncer", () => {
     };
 
     const originalFetch = global.fetch;
-    global.fetch = () => {
+    global.fetch = (() => {
       throw new Error("Network call detected! Offline-first invariant violated.");
-    };
+    }) as any;
 
     try {
       const debouncer = createMoveDebouncer((items: any[]) => {
@@ -746,5 +746,83 @@ describe("moveDebouncer", () => {
 
     await sleep(80);
     assert.strictEqual(callCount, 2); // Now it should have fired the queued items
+  });
+
+  test("hardened concurrency burst execution for multi-tenant isolation and offline-first compliance", async () => {
+    const originalFetch = global.fetch;
+    // Enforce offline-first invariant (no network calls)
+    global.fetch = (() => {
+      throw new Error("Network call detected! Offline-first invariant violated.");
+    }) as any;
+
+    try {
+      const receivedItems: any[] = [];
+      const debouncer = createMoveDebouncer((items: any[]) => {
+        receivedItems.push(...items);
+      }, 50, (payload: any) => payload && typeof payload.tenant_id === "string");
+
+      const numWorkers = 50;
+      const itemsPerWorker = 100;
+      const workers = Array.from({ length: numWorkers }, (_, wIdx) => {
+        const tenantId = `sacred_heart::fac_burst_${wIdx}`;
+        return async () => {
+          for (let i = 0; i < itemsPerWorker; i++) {
+            debouncer({ tenant_id: tenantId, worker_id: wIdx, id: i, data: `data_${wIdx}_${i}` });
+            // simulate true interleaving
+            await Promise.resolve();
+          }
+        };
+      });
+
+      // Execute all workers concurrently
+      await Promise.all(workers.map(w => w()));
+
+      // Wait for debouncer to flush
+      await sleep(150);
+
+      assert.strictEqual(receivedItems.length, numWorkers * itemsPerWorker);
+
+      // Verify complete atomicity and isolate race conditions using nested loops
+      for (let wIdx = 0; wIdx < numWorkers; wIdx++) {
+        const tenantId = `sacred_heart::fac_burst_${wIdx}`;
+        const workerItems = receivedItems.filter(item => item.tenant_id === tenantId);
+
+        assert.strictEqual(workerItems.length, itemsPerWorker);
+
+        for (let i = 0; i < itemsPerWorker; i++) {
+          assert.strictEqual(workerItems[i].worker_id, wIdx);
+          assert.strictEqual(workerItems[i].id, i);
+          assert.strictEqual(workerItems[i].data, `data_${wIdx}_${i}`);
+        }
+      }
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  test("deterministic state transition and deep freeze immutability invariants", async () => {
+    const receivedItems: any[] = [];
+    const debouncer = createMoveDebouncer((items: any[]) => {
+      receivedItems.push(...items);
+    }, 50);
+
+    const baselineState = {
+      tenant_id: "or_main",
+      status: "pending",
+      metadata: { priority: "high" }
+    };
+
+    // Freeze the baseline state to catch implicit mutations
+    Object.freeze(baselineState);
+    Object.freeze(baselineState.metadata);
+
+    debouncer(baselineState);
+
+    await sleep(80);
+
+    assert.strictEqual(receivedItems.length, 1);
+    // Structural assertions against explicit deep clones to prevent tautologies
+    assert.deepStrictEqual(receivedItems[0], JSON.parse(JSON.stringify(baselineState)));
+    // Since moveDebouncer stores the reference, we must pass the explicit deep clone to it and assert against another deep clone, or just use the clone.
   });
 });
