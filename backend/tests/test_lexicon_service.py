@@ -650,3 +650,96 @@ def test_zero_trust_token_exchange_and_prompt_injection(mock_lexicon_dir):
     injection_text = "Here we call the drop database a test."
     intent = detect_teaching_intent(injection_text)
     assert intent == ("drop database", "test")
+
+
+
+
+
+
+
+# ---------------------------------------------------------------------------
+# Phase 8: Clinical Workflow Snapshot & Deterministic State Verifications
+# ---------------------------------------------------------------------------
+
+def test_deterministic_state_transition_matrix(mock_lexicon_dir):
+    """
+    Test deterministic state transitions in lexicon learning.
+    """
+    facility = "state_fac"
+    learn_alias(facility, "or", "term A", "Item 1", "user1")
+    learn_alias(facility, "or", "term B", "Item 1", "user2")
+
+    aliases = get_all_aliases_for_item(facility, "Item 1")
+    assert "Term A" in aliases
+    assert "Term B" in aliases
+
+    # Resolving should be deterministic
+    res1 = resolve_spoken_alias(facility, "term A")
+    assert res1["canonicalItemName"] == "Item 1"
+
+    # Conflict resolution - learn same term for different item (which might update or create new depending on logic)
+    # Let's test the teaching intent
+    intent = detect_teaching_intent("Alias term C to Item 2")
+    assert intent == ("term C", "Item 2")
+    if intent:
+        learn_alias(facility, "or", intent[0], intent[1], "user3")
+
+    res2 = resolve_spoken_alias(facility, "term c")
+    assert res2["canonicalItemName"] == "Item 2"
+
+
+def test_preference_card_conflict_resolution(mock_lexicon_dir):
+    """
+    Verify preference card conflict resolution by testing
+    aliases that could map to conflicting preference cards.
+    """
+    facility = "pref_fac"
+
+    # Learn that "smith tray" maps to Dr Smith's generic tray
+    learn_alias(facility, "or", "smith tray", "Dr Smith Generic Tray", "user1")
+
+    # Another user tries to map "smith tray" to Dr Smith's Neuro Tray
+    learn_alias(facility, "or", "smith tray", "Dr Smith Neuro Tray", "user2")
+
+    # The lexicon learning module doesn't inherently resolve conflicts directly
+    # but relies on confidence. Here the latest learn or usage by a different user
+    # updates the existing alias if they match the same term, changing the canonical name.
+    res = resolve_spoken_alias(facility, "smith tray")
+    assert res["canonicalItemName"] == "Dr Smith Neuro Tray"
+    assert "user1" in res["usedByUsers"]
+    assert "user2" in res["usedByUsers"]
+
+
+def test_clinical_state_snapshot_consistency(mock_lexicon_dir):
+    """
+    Verify clinical state snapshot consistency.
+    """
+    facility = "snap_fac"
+    learn_alias(facility, "or", "term X", "Item X", "user1")
+    learn_alias(facility, "or", "term Y", "Item Y", "user2")
+
+    # Snapshot is effectively the loaded lexicon (make a deep copy of the dicts)
+    import copy
+    snapshot1 = copy.deepcopy(load_facility_lexicon(facility))
+    assert len(snapshot1) >= 2
+
+    # Modify state
+    learn_alias(facility, "or", "term Z", "Item Z", "user3")
+
+    # Snapshot 2
+    snapshot2 = copy.deepcopy(load_facility_lexicon(facility))
+    assert len(snapshot2) == len(snapshot1) + 1
+
+    # Verify consistency of previous items in new snapshot
+    found_x = False
+    found_y = False
+    for item in snapshot2:
+        # Note: the lexicon stores lowercase for spokenTerm in memory as returned from load_facility_lexicon
+        # But we must verify the actual exact strings returned
+        if item["spokenTerm"] == "term x" and item["canonicalItemName"] == "Item X":
+            found_x = True
+        if item["spokenTerm"] == "term y" and item["canonicalItemName"] == "Item Y":
+            found_y = True
+
+    assert found_x
+    assert found_y
