@@ -14,7 +14,8 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-import uuid # Imported to prevent race conditions during concurrent save operations
+import uuid
+import filelock # Imported to prevent race conditions during concurrent save operations
 from fastapi import APIRouter, HTTPException, Request
 from app.limiter import limiter
 from pydantic import BaseModel, Field
@@ -23,6 +24,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 USERS_FILE = PROJECT_ROOT / "hospitals" / "users.json"
+_users_lock = filelock.FileLock(str(USERS_FILE) + ".lock")
 
 
 def hash_password(password: str) -> str:
@@ -143,21 +145,22 @@ async def register(request: Request, req: RegisterRequest):
 
     full_name = (req.fullName or req.full_name or email.split("@")[0].title()).strip()
 
-    users = load_users()
-    if any(u["email"].lower() == email for u in users):
-        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+    with _users_lock:
+        users = load_users()
+        if any(u["email"].lower() == email for u in users):
+            raise HTTPException(status_code=400, detail="An account with this email already exists.")
 
-    new_user = {
-        "userId": f"usr-{uuid.uuid4().hex[:8]}",
-        "email": email,
-        "fullName": full_name,
-        "passwordHash": hash_password(password),
-        "onboardingCompleted": False,
-        "profile": None,
-        "createdAt": datetime.now(timezone.utc).isoformat(),
-    }
-    users.append(new_user)
-    save_users(users)
+        new_user = {
+            "userId": f"usr-{uuid.uuid4().hex[:8]}",
+            "email": email,
+            "fullName": full_name,
+            "passwordHash": hash_password(password),
+            "onboardingCompleted": False,
+            "profile": None,
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+        }
+        users.append(new_user)
+        save_users(users)
 
     token = f"token-{uuid.uuid4().hex}"
     return {
@@ -172,7 +175,8 @@ async def register(request: Request, req: RegisterRequest):
 async def login(request: Request, req: LoginRequest):
     """Authenticate user with email and password."""
     email = req.email.strip().lower()
-    users = load_users()
+    with _users_lock:
+        users = load_users()
     user = next((u for u in users if u["email"].lower() == email), None)
 
     if not user:
@@ -199,13 +203,14 @@ async def reset_password(request: Request, req: ResetPasswordRequest):
     if len(new_pw) < 4:
         raise HTTPException(status_code=400, detail="New password must be at least 4 characters.")
 
-    users = load_users()
-    user = next((u for u in users if u["email"].lower() == email), None)
-    if not user:
-        raise HTTPException(status_code=404, detail="No account registered with this email.")
+    with _users_lock:
+        users = load_users()
+        user = next((u for u in users if u["email"].lower() == email), None)
+        if not user:
+            raise HTTPException(status_code=404, detail="No account registered with this email.")
 
-    user["passwordHash"] = hash_password(new_pw)
-    save_users(users)
+        user["passwordHash"] = hash_password(new_pw)
+        save_users(users)
 
     return {
         "success": True,
@@ -216,41 +221,42 @@ async def reset_password(request: Request, req: ResetPasswordRequest):
 @router.put("/profile")
 async def update_profile(req: UpdateProfileRequest):
     """Save user clinical assignment and mark onboardingCompleted: True."""
-    users = load_users()
-    user = None
+    with _users_lock:
+        users = load_users()
+        user = None
 
-    u_id = req.userId or req.user_id
-    u_email = (req.email or "").strip().lower()
+        u_id = req.userId or req.user_id
+        u_email = (req.email or "").strip().lower()
 
-    if u_id:
-        user = next((u for u in users if u["userId"] == u_id), None)
-    if not user and u_email:
-        user = next((u for u in users if u["email"].lower() == u_email), None)
+        if u_id:
+            user = next((u for u in users if u["userId"] == u_id), None)
+        if not user and u_email:
+            user = next((u for u in users if u["email"].lower() == u_email), None)
 
-    if not user:
-        # Fallback to the first non-demo user or demo user
-        user = users[0]
+        if not user:
+            # Fallback to the first non-demo user or demo user
+            user = users[0]
 
-    full_name = req.fullName or req.full_name or (req.profile.fullName if hasattr(
-        req.profile, "fullName") else None) or user.get("fullName", "")
-    facility_id = req.facilityId or req.facility_id or (
-        req.profile.facilityId if req.profile else None) or "sacred_heart"
-    facility_name = req.facilityName or req.facility_name or (
-        req.profile.facilityName if req.profile else None) or "Sacred Heart Hospital"
-    dept_id = req.departmentId or req.department_id or (req.profile.departmentId if req.profile else None) or "or_main"
-    clinical_role = req.clinicalRole or req.clinical_role or (
-        req.profile.clinicalRole if req.profile else None) or "Circulating RN"
+        full_name = req.fullName or req.full_name or (req.profile.fullName if hasattr(
+            req.profile, "fullName") else None) or user.get("fullName", "")
+        facility_id = req.facilityId or req.facility_id or (
+            req.profile.facilityId if req.profile else None) or "sacred_heart"
+        facility_name = req.facilityName or req.facility_name or (
+            req.profile.facilityName if req.profile else None) or "Sacred Heart Hospital"
+        dept_id = req.departmentId or req.department_id or (req.profile.departmentId if req.profile else None) or "or_main"
+        clinical_role = req.clinicalRole or req.clinical_role or (
+            req.profile.clinicalRole if req.profile else None) or "Circulating RN"
 
-    user["profile"] = {
-        "fullName": full_name,
-        "facilityId": facility_id,
-        "facilityName": facility_name,
-        "departmentId": dept_id,
-        "clinicalRole": clinical_role,
-    }
-    user["fullName"] = full_name
-    user["onboardingCompleted"] = True
-    save_users(users)
+        user["profile"] = {
+            "fullName": full_name,
+            "facilityId": facility_id,
+            "facilityName": facility_name,
+            "departmentId": dept_id,
+            "clinicalRole": clinical_role,
+        }
+        user["fullName"] = full_name
+        user["onboardingCompleted"] = True
+        save_users(users)
 
     return {
         "user": sanitize_user(user),
