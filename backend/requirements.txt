@@ -13,3 +13,4 @@ livekit-plugins-google>=1.0.0
 livekit-api>=1.0.0
 slowapi>=0.1.10
 psutil
+metaphone
