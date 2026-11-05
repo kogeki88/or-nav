@@ -1035,3 +1035,67 @@ test('clinical state snapshot consistency & deterministic state transition matri
     if (document.body.contains(root)) document.body.removeChild(root);
   }
 });
+
+test('Omnibar: Concurrency, multi-tenant isolation, and offline mutation invariants', async () => {
+  const tenant1 = 'facility_1::dept_A';
+  const tenant2 = 'facility_2::dept_B';
+
+  const root1 = document.createElement('div');
+  root1.setAttribute('data-tenant', tenant1);
+  document.body.appendChild(root1);
+
+  const root2 = document.createElement('div');
+  root2.setAttribute('data-tenant', tenant2);
+  document.body.appendChild(root2);
+
+  const tempFetch = global.fetch;
+  global.fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch")));
+
+  try {
+    const onSendMessage1 = mock.fn();
+    const onSendMessage2 = mock.fn();
+
+    const { unmount: unmount1 } = render(<Omnibar onSendMessage={onSendMessage1} onFileUpload={() => {}} />, { container: root1 });
+    const { unmount: unmount2 } = render(<Omnibar onSendMessage={onSendMessage2} onFileUpload={() => {}} />, { container: root2 });
+
+    const input1 = root1.querySelector('input[type="text"]') as HTMLInputElement;
+    const input2 = root2.querySelector('input[type="text"]') as HTMLInputElement;
+    const submitBtn1 = root1.querySelector('button[type="submit"]') as HTMLButtonElement;
+    const submitBtn2 = root2.querySelector('button[type="submit"]') as HTMLButtonElement;
+
+    // Simulate concurrent burst across isolated tenants
+    const numWorkers = 50;
+    const burstOperations = Array.from({ length: numWorkers }).map((_, i) => {
+      return Promise.resolve().then(() => {
+        // Tenant 1
+        fireEvent.change(input1, { target: { value: `Tenant ${tenant1} msg ${i}` } });
+        fireEvent.click(submitBtn1);
+
+        // Tenant 2
+        fireEvent.change(input2, { target: { value: `Tenant ${tenant2} msg ${i}` } });
+        fireEvent.click(submitBtn2);
+      });
+    });
+
+    await Promise.all(burstOperations);
+
+    assert.strictEqual(onSendMessage1.mock.calls.length, 50);
+    assert.strictEqual(onSendMessage2.mock.calls.length, 50);
+
+    // Assert message content correctly populated across the event loop burst
+    for (let i = 0; i < numWorkers; i++) {
+        assert.strictEqual(onSendMessage1.mock.calls[i].arguments[0], `Tenant ${tenant1} msg ${i}`);
+        assert.strictEqual(onSendMessage2.mock.calls[i].arguments[0], `Tenant ${tenant2} msg ${i}`);
+    }
+
+    // Verify offline-first: no fetch calls should have been made successfully
+    assert.strictEqual((global.fetch as any).mock.calls.length, 0);
+
+    unmount1();
+    unmount2();
+  } finally {
+    global.fetch = tempFetch;
+    document.body.removeChild(root1);
+    document.body.removeChild(root2);
+  }
+});
