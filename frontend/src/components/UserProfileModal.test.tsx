@@ -587,3 +587,82 @@ test('UserProfileModal handles offline QuotaExceededError gracefully during mult
   (global as any).fetch = origFetch;
   mock.restoreAll();
 });
+
+test('UserProfileModal enforces clinical state snapshot consistency, preference card conflict resolution, and deterministic state transition matrices', async (t) => {
+  cleanup();
+
+  const onSaveProfileMock = mock.fn();
+  const mockOnClose = mock.fn();
+
+  // Test deterministic state transition matrices
+  const { rerender } = render(
+    <UserProfileModal
+      isOpen={true}
+      onClose={mockOnClose}
+      currentProfile={{
+        ...DEFAULT_USER_PROFILE,
+        facilityId: 'tenant_state',
+        departmentId: 'or_main',
+      }}
+      onSaveProfile={onSaveProfileMock}
+    />
+  );
+
+  const roleSelect = screen.getByTestId('select-role') as HTMLSelectElement;
+
+  // Verify initial state
+  assert.strictEqual(roleSelect.value, 'Circulating RN');
+
+  // Perform deterministic state transition
+  fireEvent.change(roleSelect, { target: { value: 'Scrub Tech' } });
+  assert.strictEqual(roleSelect.value, 'Scrub Tech');
+
+  // Trigger Preference Card Conflict Resolution
+  // Simulate another process merging state (e.g. upvoting/merging a preference card collision)
+  // by rerendering with conflicting props.
+  rerender(
+    <UserProfileModal
+      isOpen={true}
+      onClose={mockOnClose}
+      currentProfile={{
+        ...DEFAULT_USER_PROFILE,
+        facilityId: 'tenant_state',
+        departmentId: 'or_main',
+        clinicalRole: 'CRNA', // Conflict! The component should resolve this (use the prop if we consider it upstream truth).
+        // Wait, UserProfileModal uses state `formData` initialized from `currentProfile`.
+        // If currentProfile changes while modal is open, useEffect updates formData.
+      }}
+      onSaveProfile={onSaveProfileMock}
+    />
+  );
+
+  // According to useEffect in UserProfileModal:
+  // useEffect(() => { setFormData(currentProfile); ... }, [currentProfile, isOpen]);
+  // The state transition matrix should deterministically resolve this conflict by accepting the new currentProfile.
+  assert.strictEqual(roleSelect.value, 'CRNA');
+
+  // Verify Clinical State Snapshot Consistency
+  // To ensure the state snapshot remains perfectly consistent, properly accounting for nested objects,
+  // we will submit the form and assert deep structural equality on the payload.
+
+  const saveBtn = screen.getAllByTestId('button-save-profile')[0];
+  fireEvent.click(saveBtn);
+
+  await waitFor(() => {
+    assert.strictEqual(onSaveProfileMock.mock.calls.length, 1);
+  });
+
+  const finalSnapshot = onSaveProfileMock.mock.calls[0].arguments[0];
+
+  // Deep structural comparison using JSON.stringify for snapshot consistency
+  const expectedSnapshot = {
+    ...DEFAULT_USER_PROFILE,
+    facilityId: 'tenant_state',
+    departmentId: 'or_main',
+    clinicalRole: 'CRNA'
+  };
+
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(finalSnapshot)), JSON.parse(JSON.stringify(expectedSnapshot)), "Clinical state snapshot consistency failed");
+
+  mock.restoreAll();
+});
