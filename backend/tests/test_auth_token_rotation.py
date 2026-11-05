@@ -581,3 +581,52 @@ class TestAuthTokenRotation:
         assert token1 != token2
         assert token1.startswith("token-")
         assert token2.startswith("token-")
+
+    def test_auth_token_rotation_fault_injection_and_recovery(self, clean_auth_state, monkeypatch):
+        """Test fault injection, network partition degradation, intermittent latency, and self-healing reconnection."""
+        import pathlib
+        import time
+        import app.auth
+
+        original_load = app.auth.load_users
+        state = {"count": 0}
+
+        def mock_load():
+            state["count"] += 1
+            # Intermittent latency on 2nd read
+            if state["count"] == 2:
+                time.sleep(0.1)
+            # Network partition degradation on 3rd read
+            if state["count"] == 3:
+                raise OSError("Simulated network partition degradation")
+            return original_load()
+
+        monkeypatch.setattr(app.auth, "load_users", mock_load)
+
+        # 1. Normal register (count=1)
+        res1 = client.post("/api/auth/register", json={"email": "fault1@test.com", "password": "password"})
+        assert res1.status_code == 200
+        token1 = res1.json()["token"]
+        assert token1.startswith("token-")
+
+        # 2. Intermittent latency (count=2)
+        start_time = time.time()
+        res2 = client.post("/api/auth/login", json={"email": "fault1@test.com", "password": "password"})
+        assert time.time() - start_time >= 0.1
+        assert res2.status_code == 200
+        token2 = res2.json()["token"]
+        assert token2.startswith("token-")
+        assert token1 != token2  # Verify token rotation
+
+        # 3. Network partition degradation (count=3)
+        try:
+            client.post("/api/auth/login", json={"email": "fault1@test.com", "password": "password"})
+        except OSError:
+            pass # Expected failure due to underlying IO/network error bubbling up
+
+        # 4. Self-healing reconnection (count=4)
+        res4 = client.post("/api/auth/login", json={"email": "fault1@test.com", "password": "password"})
+        assert res4.status_code == 200
+        token4 = res4.json()["token"]
+        assert token4.startswith("token-")
+        assert token4 != token2  # Verify token rotation continues after recovery
