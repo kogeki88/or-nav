@@ -292,11 +292,15 @@ describe('OTA Validator', () => {
     it('handles concurrent burst execution and prevents race conditions across tenants', async () => {
       const concurrency = 1000;
       const tasks = Array.from({ length: concurrency }).map(async (_, i) => {
+        // Yield execution for true interleaving
+        await Promise.resolve();
+
         // Unique tenant manifest payload
         const tenantManifest = {
           ...validManifest,
           version: `v0.${62 + i}`,
           build_number: 19 + i,
+          'facility_id::dept_id': `fac_burst_${i}::dept_burst_${i}`
         };
         const result = validateOTAManifest(tenantManifest, currentVersion, currentBuild);
         return { i, result, tenantManifest };
@@ -309,6 +313,7 @@ describe('OTA Validator', () => {
         assert.strictEqual(result.valid, true, `Validation failed for tenant ${i}`);
         assert.strictEqual(tenantManifest.version, `v0.${62 + i}`);
         assert.strictEqual(tenantManifest.build_number, 19 + i);
+        assert.strictEqual((tenantManifest as any)['facility_id::dept_id'], `fac_burst_${i}::dept_burst_${i}`);
       });
     });
 
@@ -388,6 +393,9 @@ describe('OTA Validator', () => {
         ...validManifest,
         changelog: 'Added features for patient John Doe MRN: 123456789. Patient John Doe had issues.',
       };
+
+      // Deep freeze the baseline object to verify true immutability resilience
+      Object.freeze(sensitiveManifest);
 
       const result = validateOTAManifest(sensitiveManifest, currentVersion, currentBuild);
 
@@ -492,13 +500,15 @@ describe('OTA Validator', () => {
       global.fetch = mock.fn(() => Promise.reject(new Error('Network offline'))) as unknown as typeof fetch;
       try {
         const baselineSnapshot = { ...validManifest, changelog: 'Clinical state baseline' };
-        // Freeze baseline state for structural comparison
-        const frozenState = JSON.parse(JSON.stringify(baselineSnapshot));
+        // Freeze baseline state to verify true immutability resilience (throws on shallow mutation)
+        Object.freeze(baselineSnapshot);
+        // Create a deep copy for structural comparison
+        const expectedState = JSON.parse(JSON.stringify(baselineSnapshot));
 
         const result = validateOTAManifest(baselineSnapshot, 'v0.1', 1);
 
         assert.strictEqual(result.valid, true, 'Validation maintains offline-first invariants');
-        assert.deepStrictEqual(baselineSnapshot, frozenState, 'Clinical state snapshot consistency maintained: original snapshot not mutated');
+        assert.deepStrictEqual(baselineSnapshot, expectedState, 'Clinical state snapshot consistency maintained: original snapshot not mutated');
       } finally {
         global.fetch = originalFetch; // carefully restoring fetch
       }
