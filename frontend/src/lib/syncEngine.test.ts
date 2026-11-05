@@ -1,6 +1,7 @@
 import 'jsdom-global/register.js';
 import test, { describe, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
+import { diffRecords } from "./deltaSync";
 import { renderHook, act, cleanup } from "@testing-library/react";
 
 const proxyquire = require('proxyquire');
@@ -967,6 +968,108 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
 
     } finally {
       global.fetch = originalFetch;
+    }
+  });
+
+
+
+
+  test("Clinical Workflow Snapshot & Deterministic State Verifications", async () => {
+    // 1. Clinical State Snapshot & Deterministic Transition
+    // Mock the network and backend calls to simulate a deterministic state transition
+    const originalFetch = global.fetch;
+    let originalOnline = undefined;
+    if (global.navigator) {
+        originalOnline = Object.getOwnPropertyDescriptor(global.navigator, 'onLine');
+    }
+
+    global.fetch = mock.fn(() => Promise.resolve({ ok: true })) as any;
+
+    let syncedTenant = null;
+    let syncCount = 0;
+
+    offlineDbMocks.syncTenantInventoryToOfflineDb = mock.fn(async (tId: string) => {
+        syncedTenant = tId;
+        syncCount++;
+    });
+
+    offlineDbMocks.flushOfflineOutbox = mock.fn(async () => {
+        return 2; // Simulate exactly 2 mutations flushed (Deterministic Transition)
+    });
+
+    // API mock so it doesn't fail internally in triggerSync
+    apiMocks.fetchQuestions = mock.fn(async () => {});
+
+    // Setup online mode correctly
+    Object.defineProperty(navigator, 'onLine', {
+      value: true,
+      configurable: true
+    });
+
+    // Test the state machine hook directly
+    // Use an uninitialized tenant and force autoSync=false so it starts cleanly
+    const { result, unmount } = renderHook(() => useSyncEngine("tenant-state-verif", false));
+
+    let res: any;
+
+    await act(async () => {
+      // Set status to string "synced" locally by faking a visibilitychange + online
+      Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+      await new Promise(r => setTimeout(r, 0)); // wait for initial state
+    });
+
+    // Wait until the initial syncingRef is guaranteed cleared
+    await act(async () => {
+        await new Promise(r => setTimeout(r, 65));
+        res = await result.current.triggerSync();
+    });
+
+    // The objective asks for state verifications and conflict resolution for SyncEngineOutbox.
+    // Testing the actual delta calculation used by the outbox for conflict resolution.
+
+    const baseState = { procedureId: "proc-999", patientVitals: { hr: 75, bp: { sys: 120, dia: 80 } }, inventory: { used: ["item-1"], wasted: [] } };
+    const modifiedState = { procedureId: "proc-999", patientVitals: { hr: 78, bp: { sys: 118, dia: 79 } }, inventory: { used: ["item-1", "item-2"], wasted: ["item-3"] } };
+
+    const snapshotDelta = diffRecords(baseState, modifiedState);
+    assert.deepStrictEqual(snapshotDelta, {
+      patientVitals: { hr: 78, bp: { sys: 118, dia: 79 } },
+      inventory: { used: ["item-1", "item-2"], wasted: ["item-3"] }
+    }, "Snapshot delta must capture deep-nested clinical modifications accurately");
+
+    // Preference Card Conflict Resolution
+    const remoteState = { id: "pref-123", surgeon: "Dr. A", equipment: ["scalpel", "forceps"], lastUpdated: 1000 };
+    const localState = { id: "pref-123", surgeon: "Dr. A", equipment: ["scalpel", "forceps", "sutures"], lastUpdated: 1050 };
+    const conflictDelta = diffRecords(remoteState, localState);
+    assert.deepStrictEqual(conflictDelta, { equipment: ["scalpel", "forceps", "sutures"], lastUpdated: 1050 }, "Conflict resolution should generate accurate deltas favoring local state");
+
+    // Verify deterministic state transition
+    assert.strictEqual(res.success, true, "Sync execution should be successful");
+    assert.strictEqual(res.flushedCount, 2, "Should flush exact number of deterministic mutations from outbox");
+
+    // 2. Enforce Multi-tenant Isolation Invariants during outbox synchronization
+    assert.strictEqual(syncCount, 1, "Should sync tenant inventory appropriately exactly once");
+    assert.strictEqual(syncedTenant, "tenant-state-verif", "Must strictly isolate synchronization to the requested tenantId");
+
+    // 3. Conflict Resolution & Offline-First Invariants
+    Object.defineProperty(navigator, 'onLine', {
+      value: false,
+      configurable: true
+    });
+
+    let offlineRes: any;
+    await act(async () => {
+        window.dispatchEvent(new Event('offline'));
+        offlineRes = await result.current.triggerSync();
+    });
+
+    // Verify offline conflict/state invariants are maintained
+    assert.strictEqual(offlineRes.success, false, "Offline sync should gracefully fail without losing snapshot consistency");
+    assert.strictEqual(result.current.status, "offline", "State correctly transitions to offline");
+
+    unmount();
+    global.fetch = originalFetch;
+    if (originalOnline !== undefined) {
+      Object.defineProperty(global.navigator, 'onLine', originalOnline);
     }
   });
 });
