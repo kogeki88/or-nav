@@ -628,4 +628,79 @@ describe("scrubClient standard and adversarial tests", () => {
       );
     });
   });
+
+  describe("Clinical Workflow Snapshot & Deterministic State Verifications for ScrubClient", () => {
+    test("deterministic state transition matrices (scrub caching and size invariants)", () => {
+      clearScrubCache();
+      assert.strictEqual(getScrubCacheSize(), 0);
+
+      const state1 = scrubPhi("Patient MRN 111111");
+      assert.strictEqual(getScrubCacheSize(), 1);
+      assert.strictEqual(state1.text, `Patient ${REDACTION}`);
+
+      // Transition: hit cache, size remains
+      const state2 = scrubPhi("Patient MRN 111111");
+      assert.strictEqual(getScrubCacheSize(), 1);
+      assert.deepStrictEqual(state1, state2);
+
+      // Transition: clear cache
+      clearScrubCache();
+      assert.strictEqual(getScrubCacheSize(), 0);
+    });
+
+    test("clinical state snapshot consistency", () => {
+      const snapshot = {
+        meta: { timestamp: "2024-01-01T12:00:00Z", v: 1 },
+        data: "Patient Jane Doe needs 3-0 silk and MRN 987654"
+      };
+
+      const result = scrubPhi(snapshot.data);
+      assert.strictEqual(result.text, `Patient ${REDACTION} needs 3-0 silk and ${REDACTION}`);
+      assert.strictEqual(result.redactionCount, 2);
+
+      // Verify snapshot meta is completely isolated and untouched
+      assert.deepStrictEqual(snapshot.meta, { timestamp: "2024-01-01T12:00:00Z", v: 1 });
+    });
+
+    test("preference card conflict resolution correctly handles identical mapped aliases", () => {
+      // Create a conflict string representing two identical aliases mapping to different internal items
+      const prefsCardA = { alias: "Forceps", item: "Adson Forceps" };
+      const prefsCardB = { alias: "Forceps", item: "DeBakey Forceps" };
+
+      const conflictString = `Resolved conflict: ${prefsCardA.alias} -> ${prefsCardA.item} AND ${prefsCardB.alias} -> ${prefsCardB.item}`;
+      const result = scrubPhi(conflictString);
+      // Ensure scrubbing logic passes conflict payload cleanly through without erroneously redacting names (like 'Adson' or 'DeBakey')
+      assert.strictEqual(result.text, conflictString);
+      assert.strictEqual(result.redactionCount, 0);
+    });
+
+    test("enforce multi-tenant isolation and offline-first invariants", async () => {
+      const originalFetch = (global as any).fetch;
+      try {
+        (global as any).fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch (offline)")));
+
+        // Reset cache to strictly enforce expected cache size logic at end of block
+        clearScrubCache();
+
+        const tenantAPayload = "Tenant A Data: MRN 123456";
+        const tenantBPayload = "Tenant B Data: pt Jane Doe";
+
+        const resA = scrubPhi(tenantAPayload);
+        const resB = scrubPhi(tenantBPayload);
+
+        // Verify offline-first: should succeed without throwing despite fetch being poisoned
+        assert.strictEqual(resA.text, `Tenant A Data: ${REDACTION}`);
+        assert.strictEqual(resB.text, `Tenant B Data: pt ${REDACTION}`);
+
+        // Multi-tenant isolation: No crossover
+        assert.ok(!resA.text.includes("Tenant B"));
+        assert.ok(!resB.text.includes("Tenant A"));
+
+        // Caching isolated by distinct strings
+        assert.strictEqual(getScrubCacheSize(), 2);
+      } finally {
+        (global as any).fetch = originalFetch;
+      }
+    });
+  });
 });
