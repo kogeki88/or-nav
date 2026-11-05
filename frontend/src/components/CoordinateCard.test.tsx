@@ -202,7 +202,10 @@ test('boundary inputs and schema enforcement for fuzzing inputs', () => {
     ];
 
     for (const d of fuzzyInputs) {
+        Object.freeze(d);
+        const originalD = JSON.parse(JSON.stringify(d));
         render(<CoordinateCard card={d} />);
+        assert.deepStrictEqual(d, originalD);
         cleanup();
     }
 });
@@ -220,9 +223,10 @@ test('high-concurrency and latency benchmarks (stress testing)', async () => {
     global.fetch = (async () => { throw new Error('Network offline'); }) as any;
 
     try {
-        await Promise.all(
+        const results = await Promise.all(
             Array.from({ length: iterations }).map(async (_, idx) => {
-                const { queryAllByText, unmount } = render(<CoordinateCard card={cardData} facilityId={`tenant_stress_${idx}`} />);
+                await Promise.resolve();
+                const { queryAllByText, unmount } = render(<CoordinateCard card={cardData} facilityId={`sacred_heart::or_burst_${idx}`} />);
 
                 const addBtns = screen.getAllByTestId('add-local-alias-btn');
                 fireEvent.click(addBtns[addBtns.length - 1]);
@@ -241,8 +245,12 @@ test('high-concurrency and latency benchmarks (stress testing)', async () => {
                 });
 
                 unmount();
+                return { idx, success: true };
             })
         );
+        for (let i = 0; i < iterations; i++) {
+            assert.ok(results[i].success, `Worker ${i} failed`);
+        }
     } finally {
         global.fetch = originalFetch;
     }
@@ -605,9 +613,10 @@ test('Clinical Workflow Snapshot & Deterministic State Verifications for Coordin
     }
 
     const originalFetch = global.fetch;
-    const fetchCalls: any[] = [];
+    const fetchCalls = new Map<string, any>();
+    let callIndex = 0;
     global.fetch = mock.fn(async (url: any, options: any) => {
-        fetchCalls.push({ url, options });
+        fetchCalls.set(`call_${callIndex++}`, { url, options });
         return Promise.resolve({ ok: true, json: async () => ({}) } as any);
     }) as any;
 
@@ -666,6 +675,12 @@ test('Clinical Workflow Snapshot & Deterministic State Verifications for Coordin
         // Ensure no leakage to other tenants
         const lexOther = loadFacilityLexicon('tenant_other');
         assert.ok(lexOther.length === 0, 'Multi-tenant isolation failed');
+
+        assert.ok(fetchCalls.size === 2, 'Should have exactly 2 deterministic fetch calls');
+        const call1 = fetchCalls.get('call_0');
+        const call2 = fetchCalls.get('call_1');
+        assert.ok(JSON.parse(call1.options.body).spoken_term === 'Primary Scalpel');
+        assert.ok(JSON.parse(call2.options.body).spoken_term === 'Secondary Scalpel');
 
         unmount();
     } finally {
