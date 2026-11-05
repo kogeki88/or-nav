@@ -595,7 +595,7 @@ test('Deterministic state transitions & clinical snapshot consistency: verifies 
 
   // Wait for the modal to initialize and handle the offline fallback
   await waitFor(() => {
-    assert.ok(screen.getByText('Mobile URL (Local Network Only)'));
+    assert.ok(screen.getByText('Local LAN URL'));
   });
 
   // Verify that the QR code generated uses the expected fallback URL (e.g. localhost:3000)
@@ -604,7 +604,7 @@ test('Deterministic state transitions & clinical snapshot consistency: verifies 
 
   // Verify structural snapshot equivalence (clinical state snapshot) using basic DOM assertions
   // The structure expected: the fallback network text is displayed and not the HTTPS network text.
-  assert.ok(!screen.queryByText('HTTPS Tunnel (External)'));
+  assert.ok(!screen.queryByText('HTTPS Secure Context active — full Walkie-Talkie Push-to-Talk & PWA install supported.'));
 
   unmount();
   fetchNetworkInfoMock.mock.resetCalls();
@@ -632,7 +632,7 @@ test('Preference card conflict resolution: simulated overriding preference prope
   });
 
   // Now, simulate user preference toggling to local LAN URL
-  const lanBtn = screen.getByText('📱 Local Network');
+  const lanBtn = screen.getByText('📶 Local LAN IP');
   fireEvent.click(lanBtn);
 
   await waitFor(() => {
