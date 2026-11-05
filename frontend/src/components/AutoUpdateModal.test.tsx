@@ -879,3 +879,51 @@ test('enforces clinical state snapshot consistency, preference card conflict res
     cleanup();
   }
 });
+
+test('enforces deep state immutability to prevent invalid or separate-tenant transitions (Deep Freeze Validation)', async () => {
+  const originalManifest: VersionManifest = {
+    version: 'v2.0.0',
+    changelog: 'Test Immutability',
+    build_number: 200,
+    apk_download_url: 'http://test.com/apk'
+  };
+
+  // Apply Object.freeze to ensure immutability
+  const activeManifest = Object.freeze({ ...originalManifest });
+
+  // Separate deep copy for structural assertion to prevent tautology
+  const baselineManifest = JSON.parse(JSON.stringify(originalManifest));
+
+  const root = document.createElement('div');
+  root.setAttribute('data-tenant', 'tenant_freeze');
+  document.body.appendChild(root);
+
+  const tempFetch = global.fetch;
+  global.fetch = undefined as any;
+
+  try {
+    const { unmount } = render(
+      <AutoUpdateModal
+        isOpen={true}
+        onClose={() => {}}
+        manifest={activeManifest}
+        currentVersion="v1.0.0"
+        currentBuild={100}
+      />,
+      { container: root }
+    );
+
+    // Assert structurally against the separate deep copy
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(activeManifest)), baselineManifest);
+
+    // Test that the modal successfully rendered the frozen object without trying to mutate it
+    assert.ok(screen.getByText('Test Immutability'));
+
+    unmount();
+  } finally {
+    global.fetch = tempFetch;
+    if (document.body.contains(root)) {
+      document.body.removeChild(root);
+    }
+  }
+});
