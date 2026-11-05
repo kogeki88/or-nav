@@ -37,7 +37,8 @@ describe("Dexie Benchmarks", () => {
     const db = new BenchmarkDB();
     const items = [];
     for (let i = 0; i < 500; i++) {
-      items.push({
+      await Promise.resolve();
+            items.push({
         id: `tenant_1::item_${i}`,
         tenant_id: "tenant_1",
         item: `Item ${i}`,
@@ -71,7 +72,8 @@ describe("Dexie Benchmarks", () => {
 
     // Add items for tenant_A
     for (let i = 0; i < 100; i++) {
-      items.push({
+      await Promise.resolve();
+            items.push({
         id: `tenant_A::item_${i}`,
         tenant_id: "tenant_A",
         item: `Item A ${i}`,
@@ -81,7 +83,8 @@ describe("Dexie Benchmarks", () => {
 
     // Add items for tenant_B
     for (let i = 0; i < 50; i++) {
-      items.push({
+      await Promise.resolve();
+            items.push({
         id: `tenant_B::item_${i}`,
         tenant_id: "tenant_B",
         item: `Item B ${i}`,
@@ -195,6 +198,7 @@ describe("Dexie Benchmarks", () => {
           const items = [];
           for (let i = 0; i < ITEMS_PER_WORKER; i++) {
             // explicitly generate unique identifiable payload variables (like sequential IDs)
+            await Promise.resolve();
             items.push({
               id: `${tenant}::worker${workerId}::item_${i}`,
               tenant_id: tenant,
@@ -213,11 +217,12 @@ describe("Dexie Benchmarks", () => {
 
           // Verify that parsed outputs do not contain leaked data from adjacent requests
           const myWorkerItems = readBack.filter(item => item.worker_seq === workerId);
-          myWorkerItems.forEach(res => {
+          for (let i = 0; i < myWorkerItems.length; i++) {
+            const res = myWorkerItems[i];
             assert.ok(res.id.includes(`worker${workerId}`), "Found wrong worker ID");
             assert.ok(!res.id.includes(`worker${workerId + 1}`), "Leaked data from adjacent requests: output contains res.id + 1 data");
             assert.ok(!res.id.includes(`worker${workerId - 1}`), "Leaked data from adjacent requests: output contains res.id - 1 data");
-          });
+          }
 
           // Update concurrently
           const toUpdate = myWorkerItems.slice(0, 10).map(item => ({ ...item, status: "updated" }));
@@ -230,7 +235,7 @@ describe("Dexie Benchmarks", () => {
 
         const t0 = performance.now();
         const workers = Array.from({ length: NUM_WORKERS }).map((_, i) => {
-          const tenantId = `tenant_${i % 5}`; // mix of 5 tenants
+          const tenantId = `sacred_heart::or_burst_${i}`;
           return runWorker(i, tenantId);
         });
 
@@ -243,13 +248,13 @@ describe("Dexie Benchmarks", () => {
         assert.ok(burstDuration < 2500, `Concurrent burst took ${burstDuration}ms, which is >= 2500ms`);
 
         // Verify consistency and multi-tenant isolation invariants post-burst
-        for (let t = 0; t < 5; t++) {
-            const tenantStr = `tenant_${t}`;
+        for (let t = 0; t < NUM_WORKERS; t++) {
+            const tenantStr = `sacred_heart::or_burst_${t}`;
             const tenantItems = await db.inventoryItems.where("tenant_id").equals(tenantStr).toArray();
             assert.ok(tenantItems.length > 0, `${tenantStr} should have items`);
             assert.ok(tenantItems.every(i => i.tenant_id === tenantStr), `No leakage into ${tenantStr}`);
 
-            const otherTenantStr = `tenant_${(t + 1) % 5}`;
+            const otherTenantStr = `sacred_heart::or_burst_${(t + 1) % NUM_WORKERS}`;
             assert.ok(tenantItems.every(i => i.tenant_id !== otherTenantStr), "Leaked data from other tenant");
         }
     } finally {
@@ -333,54 +338,54 @@ describe("Dexie Benchmarks", () => {
     const tenantB = "tenant_B::surgery";
 
     // 1. Initial State Snapshot
-    const initialState = [
-      {
+    const initialState = Object.freeze([
+      Object.freeze({
         id: "card_1",
         tenant_id: tenantA,
         surgeon: "Dr. Smith",
         procedure: "Appendectomy",
-        instruments: ["Scalpel"],
+        instruments: Object.freeze(["Scalpel"]),
         updatedAt: 1000,
         deleted: false
-      },
-      {
+      }),
+      Object.freeze({
         id: "card_2",
         tenant_id: tenantA,
         surgeon: "Dr. Jones",
         procedure: "Cholecystectomy",
-        instruments: ["Trocar"],
+        instruments: Object.freeze(["Trocar"]),
         updatedAt: 1000,
         deleted: false
-      },
-      {
+      }),
+      Object.freeze({
         id: "card_3",
         tenant_id: tenantB,
         surgeon: "Dr. Smith",
         procedure: "Appendectomy",
-        instruments: ["Scalpel", "Forceps"],
+        instruments: Object.freeze(["Scalpel", "Forceps"]),
         updatedAt: 1000,
         deleted: false
-      }
-    ];
+      })
+    ]);
 
-    await db.preferenceCards.bulkPut(initialState);
+    await db.preferenceCards.bulkPut(JSON.parse(JSON.stringify(initialState)));
 
     // 2. State Transition Matrix (Actions applied deterministically)
     const transitions = [
       // Action 1: Local offline update to card_1 (adds instrument)
-      { type: "UPDATE", payload: { id: "card_1", tenant_id: tenantA, instruments: ["Scalpel", "Scissors"], updatedAt: 2000 } },
+      { type: "UPDATE", payload: { id: "card_1", tenant_id: tenantA, surgeon: "Dr. Smith", procedure: "Appendectomy", instruments: ["Scalpel", "Scissors"], updatedAt: 2000 } },
 
       // Action 2: Conflicting server sync for card_1 (older timestamp, should be rejected / resolved in favor of local if we implement LWW, or let's simulate LWW)
-      { type: "SYNC", payload: { id: "card_1", tenant_id: tenantA, instruments: ["Scalpel", "Retractor"], updatedAt: 1500 } },
+      { type: "SYNC", payload: { id: "card_1", tenant_id: tenantA, surgeon: "Dr. Smith", procedure: "Appendectomy", instruments: ["Scalpel", "Retractor"], updatedAt: 1500 } },
 
       // Action 3: Newer server sync for card_2 (newer timestamp, should overwrite)
-      { type: "SYNC", payload: { id: "card_2", tenant_id: tenantA, instruments: ["Trocar", "Camera"], updatedAt: 3000 } },
+      { type: "SYNC", payload: { id: "card_2", tenant_id: tenantA, surgeon: "Dr. Jones", procedure: "Cholecystectomy", instruments: ["Trocar", "Camera"], updatedAt: 3000 } },
 
       // Action 4: Tombstone deletion of card_3 (Tenant B)
-      { type: "DELETE", payload: { id: "card_3", tenant_id: tenantB, updatedAt: 2500 } },
+      { type: "DELETE", payload: { id: "card_3", tenant_id: tenantB, surgeon: "Dr. Smith", procedure: "Appendectomy", updatedAt: 2500 } },
 
       // Action 5: Cross-tenant unauthorized mutation attempt (Tenant B tries to modify Tenant A's card)
-      { type: "UPDATE", payload: { id: "card_2", tenant_id: tenantB, instruments: ["Malicious"], updatedAt: 9999 } }
+      { type: "UPDATE", payload: { id: "card_2", tenant_id: tenantB, surgeon: "Dr. Jones", procedure: "Cholecystectomy", instruments: ["Malicious"], updatedAt: 9999 } }
     ];
 
     for (const action of transitions) {
@@ -416,14 +421,33 @@ describe("Dexie Benchmarks", () => {
     // Verify Tenant A Snapshot
     assert.strictEqual(finalCardsA.length, 2, "Tenant A should have 2 cards");
 
+    const normalize = (card: any) => {
+      const { updatedAt, ...rest } = card;
+      return rest;
+    };
+
     const card1 = finalCardsA.find(c => c.id === "card_1");
     assert.ok(card1, "card_1 should exist");
-    assert.deepStrictEqual(card1?.instruments, ["Scalpel", "Scissors"], "Conflict resolution should favor the latest timestamp");
+    assert.deepStrictEqual(normalize(card1), {
+      id: "card_1",
+      tenant_id: tenantA,
+      surgeon: "Dr. Smith",
+      procedure: "Appendectomy",
+      instruments: ["Scalpel", "Scissors"],
+      deleted: false
+    }, "Conflict resolution should favor the latest timestamp structural match");
     assert.strictEqual(card1?.updatedAt, 2000, "updatedAt should match the winning transaction");
 
     const card2 = finalCardsA.find(c => c.id === "card_2");
     assert.ok(card2, "card_2 should exist");
-    assert.deepStrictEqual(card2?.instruments, ["Trocar", "Camera"], "Newer server sync should apply, malicious update should be rejected");
+    assert.deepStrictEqual(normalize(card2), {
+      id: "card_2",
+      tenant_id: tenantA,
+      surgeon: "Dr. Jones",
+      procedure: "Cholecystectomy",
+      instruments: ["Trocar", "Camera"],
+      deleted: false
+    }, "Newer server sync should apply, malicious update should be rejected structural match");
     assert.strictEqual(card2?.updatedAt, 3000);
     assert.strictEqual(card2?.tenant_id, tenantA, "Multi-tenant isolation must be preserved");
 
@@ -431,7 +455,14 @@ describe("Dexie Benchmarks", () => {
     assert.strictEqual(finalCardsB.length, 1, "Tenant B should have 1 card in the database (tombstoned)");
     const card3 = finalCardsB.find(c => c.id === "card_3");
     assert.ok(card3, "card_3 should exist as tombstone");
-    assert.strictEqual(card3?.deleted, true, "card_3 should be marked as deleted (tombstoned)");
+    assert.deepStrictEqual(normalize(card3), {
+      id: "card_3",
+      tenant_id: tenantB,
+      surgeon: "Dr. Smith",
+      procedure: "Appendectomy",
+      instruments: ["Scalpel", "Forceps"],
+      deleted: true
+    }, "card_3 should be marked as deleted (tombstoned) structural match");
     assert.strictEqual(card3?.updatedAt, 2500);
 
     await db.preferenceCards.clear();
