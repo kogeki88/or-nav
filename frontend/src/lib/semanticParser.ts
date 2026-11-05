@@ -351,7 +351,7 @@ export function parseClinicalIntent(query: string, clinicalRole?: string): Parse
 
   // 3. Unified Clinical Query Planner (Layer 2) for Preference Cards, Surgeon Facets & Relational Joins
   try {
-    const clinicalPlan = planClinicalQuery(cleaned);
+    const clinicalPlan = planClinicalQuery(cleaned, undefined, clinicalRole);
     if (
       clinicalPlan.intent === "PREFERENCE_CARD_LOOKUP" ||
       clinicalPlan.intent === "PREFERENCE_INVENTORY_JOIN"
