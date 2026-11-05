@@ -449,6 +449,95 @@ test("diffRecords", async (t) => {
     }
   });
 
+
+  await t.test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t) => {
+    await t.test("Deterministic State Transition Matrix", () => {
+      // Simulate multiple sequential deltas transitioning the clinical state
+      const state0 = { id: "workflow-1", status: "pending", location: "pre-op", assigned: null };
+      const delta1 = { status: "in-progress", location: "or-1" };
+      const delta2 = { assigned: "Dr. Smith", priority: "high" };
+
+      const state1 = { ...state0, ...delta1 };
+      const state2 = { ...state1, ...delta2 };
+
+      // Verify diffRecords correctly calculates the difference between start and end states
+      const fullDelta = diffRecords(state0, state2);
+
+      assert.deepStrictEqual(fullDelta, {
+        status: "in-progress",
+        location: "or-1",
+        assigned: "Dr. Smith",
+        priority: "high"
+      }, "Should accurately represent deterministic state transitions");
+    });
+
+    await t.test("Preference Card Conflict Resolution", () => {
+      const remoteState = {
+        id: "pref-123",
+        surgeon: "Dr. A",
+        equipment: ["scalpel", "forceps"],
+        lastUpdated: 1000
+      };
+
+      // Local state is newer, but remote has changes too.
+      // deltaSync should accurately capture local changes against the assumed remote base.
+      const localState = {
+        id: "pref-123",
+        surgeon: "Dr. A",
+        equipment: ["scalpel", "forceps", "sutures"],
+        lastUpdated: 1050
+      };
+
+      const delta = diffRecords(remoteState, localState);
+
+      assert.deepStrictEqual(delta, {
+        equipment: ["scalpel", "forceps", "sutures"],
+        lastUpdated: 1050
+      }, "Should accurately represent preference card updates");
+    });
+
+    await t.test("Clinical State Snapshot Consistency", () => {
+      // Very deep nested object typical in a complex clinical state
+      const baseState = {
+        procedureId: "proc-999",
+        patientVitals: {
+          hr: 75,
+          bp: { sys: 120, dia: 80 }
+        },
+        inventory: {
+          used: ["item-1"],
+          wasted: []
+        }
+      };
+
+      const modifiedState = {
+        procedureId: "proc-999",
+        patientVitals: {
+          hr: 78,
+          bp: { sys: 118, dia: 79 }
+        },
+        inventory: {
+          used: ["item-1", "item-2"],
+          wasted: ["item-3"]
+        }
+      };
+
+      const delta = diffRecords(baseState, modifiedState);
+
+      // Verification of accurate deep copy diffs
+      assert.deepStrictEqual(delta, {
+        patientVitals: {
+          hr: 78,
+          bp: { sys: 118, dia: 79 }
+        },
+        inventory: {
+          used: ["item-1", "item-2"],
+          wasted: ["item-3"]
+        }
+      }, "Should maintain clinical state snapshot consistency across nested modifications");
+    });
+  });
+
   await t.test("Strict Security Invariants & HIPAA PHI Boundary Verification", async (t) => {
     await t.test("HIPAA PII/PHI redaction verification", () => {
       const base = { id: 1, data: "old", patientName: "John Doe", ssn: "123-45-6789" };
