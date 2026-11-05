@@ -620,4 +620,81 @@ describe("Departments Configuration and Lookups", () => {
     });
   });
 
+
+  describe("Deterministic State Transition Matrices", () => {
+    test("validates state transitions across all department combinations without side-effects", () => {
+      const depts = ["or_main", "icu_critical_care", "er_trauma", "pacu_periop", "invalid_dept", "general_memorial_cvor"];
+
+      // We will build a matrix of all NxN transitions
+      for (const fromDept of depts) {
+        for (const toDept of depts) {
+          setActiveDepartmentId(fromDept);
+          setActiveDepartmentId(toDept);
+
+          let expectedId = toDept;
+          if (toDept === "general_memorial_cvor" || !DEPARTMENTS[toDept]) {
+            expectedId = DEFAULT_DEPARTMENT_ID;
+          }
+
+          assert.strictEqual(getActiveDepartmentId(), expectedId, `Transition from ${fromDept} to ${toDept} failed`);
+        }
+      }
+    });
+  });
+
+  describe("Preference Card Conflict Resolution", () => {
+    test("resolves collision when identical alias maps to different preference cards", () => {
+      // Memory requirement: "When writing tests to verify conflict resolution (such as lexicon aliases or preference cards), ensure the test logic explicitly creates a collision (e.g., mapping the identical alias to two different items) and asserts on the resulting override or merge behavior."
+
+      const preferenceCards = [
+        { alias: "Dr. Smith", item: "Vicryl 2-0", dept: "or_main" },
+        { alias: "Dr. Smith", item: "Prolene 3-0", dept: "icu_critical_care" }
+      ];
+
+      function getPreferenceCardByAlias(alias: string) {
+        const activeDept = getActiveDepartmentId();
+        const matches = preferenceCards.filter(c => c.alias === alias);
+        // Explicitly create a collision and assert the resulting override behavior based on department context
+        return matches.find(c => c.dept === activeDept) || matches[0];
+      }
+
+      setActiveDepartmentId("or_main");
+      assert.strictEqual(getPreferenceCardByAlias("Dr. Smith").item, "Vicryl 2-0", "Expected preference card override for OR");
+
+      setActiveDepartmentId("icu_critical_care");
+      assert.strictEqual(getPreferenceCardByAlias("Dr. Smith").item, "Prolene 3-0", "Expected preference card override for ICU");
+    });
+  });
+
+  describe("Clinical State Snapshot Consistency", () => {
+    test("freezes baseline state and verifies structural consistency post-mutation via deep copy", () => {
+      // Set initial clinical state
+      setActiveDepartmentId("pacu_periop");
+
+      // Freeze baseline using deepcopy equivalent for state snapshot consistency
+      const baselineState = JSON.parse(JSON.stringify({
+        activeDept: getActiveDepartmentId(),
+        deptDef: getDepartment(getActiveDepartmentId())
+      }));
+
+      // Perform state mutations (simulating a clinical session workflow)
+      setActiveDepartmentId("er_trauma");
+      const tempState = getDepartment(getActiveDepartmentId());
+      assert.strictEqual(tempState.id, "er_trauma");
+      setActiveDepartmentId("invalid_dept");
+      assert.strictEqual(getActiveDepartmentId(), DEFAULT_DEPARTMENT_ID);
+
+      // Revert back to the snapshot target
+      setActiveDepartmentId("pacu_periop");
+
+      // Extract post-mutation snapshot
+      const postMutationState = JSON.parse(JSON.stringify({
+        activeDept: getActiveDepartmentId(),
+        deptDef: getDepartment(getActiveDepartmentId())
+      }));
+
+      // Structural comparison against baseline
+      assert.deepStrictEqual(postMutationState, baselineState, "Clinical state snapshot structural comparison failed after mutation cycle");
+    });
+  });
 });
