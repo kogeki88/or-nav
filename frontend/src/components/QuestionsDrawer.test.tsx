@@ -659,4 +659,56 @@ describe("QuestionsDrawer", () => {
     unmount();
   });
 
+
+  it("should securely parse explicit PHI strings and prompt injection boundaries safely", async () => {
+    // We want to test that the front-end string parsing / extraction securely
+    // maintains string boundaries and does not crash or execute untrusted inputs.
+    // Memory rule says: Pass explicitly scrubbed data (like [REDACTED_PHI]) and malicious strings
+    // to ensure they safely round-trip without corruption.
+    const fetchCalls: any[] = [];
+    global.fetch = mock.fn(async (url: any, options: any) => {
+      fetchCalls.push({ url, options });
+      return { ok: true, json: async () => ({}) };
+    }) as any;
+
+    const { unmount } = render(
+      <QuestionsDrawer
+        isOpen={true}
+        onClose={() => {}}
+        tenantId="tenant-SECURE"
+        questions={mockQuestions}
+        onRefreshQuestions={onRefreshQuestions}
+      />
+    );
+
+    const input = screen.getByPlaceholderText("e.g. Where are backup 5-0 Prolene sutures kept?") as HTMLInputElement;
+    const askButton = screen.getByText("Ask") as HTMLButtonElement;
+
+    const testPayload = "Patient [REDACTED_PHI] needs a new bed. <script>alert('XSS')</script> DROP TABLE questions;--";
+
+    // Type with paste to avoid character-by-character parsing issues with brackets
+    await userEvent.clear(input);
+
+    // Instead of using userEvent.type, we just manually update value and dispatch change
+    input.value = testPayload;
+    const tracker = (input as any)._valueTracker;
+    if (tracker) tracker.setValue("");
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+
+    await userEvent.click(askButton);
+
+    unmount();
+
+    assert.strictEqual(fetchCalls.length, 1);
+    const bodyA = JSON.parse(fetchCalls[0].options.body);
+
+    assert.strictEqual(bodyA.tenant_id, "tenant-SECURE");
+
+    const qText = bodyA.question_text || "";
+    // Note: the input value safely round-trips to the fetch payload without being manipulated or evaluated.
+    assert.strictEqual(qText.includes("[REDACTED_PHI]"), true);
+    assert.strictEqual(qText.includes("<script>"), true);
+  });
+
 });
