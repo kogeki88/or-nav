@@ -147,7 +147,7 @@ def test_profile_schema_validation():
 def test_offline_first_invariant(monkeypatch):
     import httpx
     def mock_post(*args, **kwargs):
-        raise httpx.NetworkError("Network is disconnected")
+        raise httpx.NetworkError("Network is disconnected", request=httpx.Request("POST", "http://mock"))
     monkeypatch.setattr(httpx, 'post', mock_post)
 
     # We should still be able to authenticate and register locally when offline
@@ -407,3 +407,74 @@ async def test_burst_distinct_registrations_latency():
 
     duration = end_time - start_time
     assert duration < 5.0 # Max 5 seconds for 50 concurrent registers
+
+def test_deterministic_state_transition_matrices():
+    import uuid
+    import app.auth
+
+    email = f"transition_{uuid.uuid4().hex}@hospital.org"
+    # Initial state
+    res1 = client.post("/api/auth/register", json={"email": email, "password": "password123"})
+    assert res1.status_code == 200
+    assert res1.json()["onboardingCompleted"] is False
+
+    # Transition
+    res2 = client.put("/api/auth/profile", json={
+        "email": email,
+        "facilityId": "fac",
+        "departmentId": "dept"
+    })
+    assert res2.status_code == 200
+    assert res2.json()["onboardingCompleted"] is True
+
+    # Verify state persistence
+    res3 = client.post("/api/auth/login", json={"email": email, "password": "password123"})
+    assert res3.status_code == 200
+    assert res3.json()["onboardingCompleted"] is True
+
+def test_preference_card_conflict_resolution():
+    import uuid
+    import app.auth
+
+    email = f"conflict_{uuid.uuid4().hex}@hospital.org"
+    client.post("/api/auth/register", json={"email": email, "password": "password123"})
+
+    # Simulate conflicting concurrent offline writes by sequentially sending them.
+    # Last-Write-Wins (LWW) is implicitly tested if the last one takes effect.
+    client.put("/api/auth/profile", json={
+        "email": email,
+        "facilityId": "fac1",
+        "clinicalRole": "Role A"
+    })
+
+    client.put("/api/auth/profile", json={
+        "email": email,
+        "facilityId": "fac2",
+        "clinicalRole": "Role B"
+    })
+
+    # The last write should have won
+    res = client.post("/api/auth/login", json={"email": email, "password": "password123"})
+    assert res.json()["profile"]["facilityId"] == "fac2"
+    assert res.json()["profile"]["clinicalRole"] == "Role B"
+
+def test_clinical_state_snapshot_consistency():
+    import uuid
+    import copy
+    import app.auth
+
+    # Take baseline snapshot
+    baseline_users = copy.deepcopy(app.auth.load_users())
+
+    # Mutate state
+    email = f"snapshot_{uuid.uuid4().hex}@hospital.org"
+    client.post("/api/auth/register", json={"email": email, "password": "password123"})
+
+    # Take post-mutation snapshot
+    post_users = copy.deepcopy(app.auth.load_users())
+
+    # Structural comparison
+    assert len(post_users) == len(baseline_users) + 1
+
+    # Verify baseline is unaffected
+    assert len(baseline_users) == len(app.auth.load_users()) - 1
