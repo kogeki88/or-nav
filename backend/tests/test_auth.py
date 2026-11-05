@@ -393,20 +393,43 @@ async def test_concurrent_registrations_race_condition():
 async def test_burst_distinct_registrations_latency():
     # Test system's ability to handle bursts of unique registrations
     num_requests = 50
-    async with AsyncClient(transport=ASGITransport(app=main_app), base_url="http://testserver") as ac:
-        start_time = time.time()
-        tasks = [
-            ac.post("/api/auth/register", json={"email": f"burst{i}@hospital.org", "password": "password123"})
-            for i in range(num_requests)
-        ]
-        results = await asyncio.gather(*tasks)
-        end_time = time.time()
+    start_time = time.time()
 
-    for r in results:
-        assert r.status_code == 200
+    async def register_and_update(i):
+        # isolate simulated workers into unique namespaces
+        # Give each worker its own client to simulate isolated sessions
+        async with AsyncClient(transport=ASGITransport(app=main_app), base_url="http://testserver") as client:
+            email = f"burst{i}@hospital.org"
+            tenant_id = f"sacred_heart::or_burst_{i}"
+
+            res_reg = await client.post("/api/auth/register", json={"email": email, "password": "password123"})
+
+            # Explicitly yield execution to the event loop
+            await asyncio.sleep(0) # or Promise.resolve equivalent in python: asyncio.sleep(0)
+
+            # Profile endpoint takes userId or email from request body. No headers needed according to app.auth code
+            res_upd = await client.put("/api/auth/profile", json={
+                "email": email,
+                "facilityId": tenant_id,
+                "departmentId": f"{tenant_id}::dept",
+                "clinicalRole": f"Worker {i}"
+            })
+            return res_reg, res_upd, tenant_id
+
+    tasks = [register_and_update(i) for i in range(num_requests)]
+    results = await asyncio.gather(*tasks)
+    end_time = time.time()
+
+    # Iterate through the entire result array to verify complete atomicity and isolate race conditions
+    for i in range(num_requests):
+        res_reg, res_upd, expected_tenant = results[i]
+        assert res_reg.status_code == 200, f"Worker {i} registration failed"
+        assert res_upd.status_code == 200, f"Worker {i} profile update failed"
+        assert res_upd.json()["profile"]["facilityId"] == expected_tenant, f"Worker {i} namespace leaked"
 
     duration = end_time - start_time
     assert duration < 5.0 # Max 5 seconds for 50 concurrent registers
+
 
 def test_deterministic_state_transition_matrices():
     import uuid
