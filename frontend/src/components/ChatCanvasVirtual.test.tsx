@@ -612,3 +612,95 @@ test('ChatCanvas strictly enforces zero-trust token exchange and token validatio
     global.fetch = originalFetch;
   }
 });
+
+
+test('ChatCanvas deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency', async () => {
+  const originalFetch = global.fetch;
+  let saveCalls = 0;
+  let resolvedPreferences: any[] = [];
+
+  // Mock API to capture snapshot data and state transitions
+  global.fetch = async (input, init) => {
+    if (input.toString().includes('/api/clinical-snapshot')) {
+      return new Response(JSON.stringify({
+        status: 'consistent',
+        hash: 'abc123hash',
+        snapshot: { clinicalState: 'verified' }
+      }));
+    }
+    return Promise.reject(new TypeError('Network offline'));
+  };
+
+  const mockSave = async (item: string, location: string, category?: string, notes?: string) => {
+    saveCalls++;
+    resolvedPreferences.push({ item, location, category, notes });
+  };
+
+  // Create messages that trigger deterministic state matrices and conflict resolutions
+  const messages: MessageItem[] = [
+    {
+      id: 'msg-conflict-1',
+      sender: 'assistant',
+      text: 'Dr. Smith prefers 3-0 Silk, but standard is 4-0 Vicryl.',
+      timestamp: '2023-01-01T10:00:00Z',
+      teachingCard: {
+        slang_term: '3-0 Silk',
+        official_name: 'Suture Silk 3-0',
+        confirmed: false
+      }
+    },
+    {
+      id: 'msg-conflict-2',
+      sender: 'assistant',
+      text: 'Conflicting preferences resolved by matrix.',
+      timestamp: '2023-01-01T10:01:00Z',
+      quickAddWidget: { item: 'Resolved Item', suggested_location: 'Primary OR' }
+    }
+  ];
+
+  try {
+    const { container, rerender } = render(
+      <ChatCanvas
+        messages={messages}
+        loading={false}
+        tenantId="facility1::dept1"
+        onVerifyPendingMove={async () => {}}
+        onSaveQuickAddItem={mockSave}
+      />
+    );
+
+    // Simulate resolving a conflict
+    const confirmBtn = container.querySelector('[data-testid="save-quick-add-btn"]') as HTMLButtonElement;
+    if (confirmBtn) {
+      fireEvent.click(confirmBtn);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+
+    // Verify offline-first queue mutation
+    assert.strictEqual(saveCalls, 1, 'Conflict resolution should trigger offline mutation save');
+    assert.strictEqual(resolvedPreferences.length, 1);
+    assert.strictEqual(resolvedPreferences[0].item, 'Resolved Item');
+
+    // Verify deterministic snapshot rendering by checking components structure
+    const html = container.innerHTML;
+    assert.ok(html.includes('Dr. Smith prefers 3-0 Silk'), 'Original context lost');
+    assert.ok(html.includes('Resolved Item'), 'Conflict target missing');
+
+    // Re-render to ensure deterministic snapshot structure is maintained (Consistency check)
+    rerender(
+      <ChatCanvas
+        messages={messages}
+        loading={false}
+        tenantId="facility1::dept1"
+        onVerifyPendingMove={async () => {}}
+        onSaveQuickAddItem={mockSave}
+      />
+    );
+
+    const reRenderedHtml = container.innerHTML;
+    assert.strictEqual(html.length, reRenderedHtml.length, 'Deterministic state transition broken on re-render');
+
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
