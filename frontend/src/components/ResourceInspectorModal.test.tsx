@@ -252,8 +252,18 @@ describe('ResourceInspectorModal', () => {
     const originalFetch = global.fetch;
     global.fetch = vi.fn(() => Promise.reject(new TypeError('Failed to fetch')));
 
+    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
+    });
+
     await act(async () => {
-      render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />);
+      fireEvent.click(screen.getByTestId('tab-protocols-management'));
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('btn-resync-seed-catalog'));
     });
 
     expect(screen.getByText(/Installed Resources Explorer & Studio/i)).toBeTruthy();
@@ -496,9 +506,12 @@ describe('ResourceInspectorModal', () => {
     const surgeonInput = screen.getByTestId('input-edit-card-surgeon');
     const procedureInput = screen.getByTestId('input-edit-card-procedure');
 
+    const glovesInput = screen.getByPlaceholderText('e.g. Size 7.5 Biogel Under / 7.5 Over');
+
     await act(async () => {
         fireEvent.change(surgeonInput, { target: { value: 'Dr. Smith' } });
         fireEvent.change(procedureInput, { target: { value: 'Appendectomy' } });
+        fireEvent.change(glovesInput, { target: { value: 'Size 8 Gloves' } });
     });
 
     const saveBtn = screen.getByTestId('btn-save-preference-card');
@@ -509,6 +522,7 @@ describe('ResourceInspectorModal', () => {
     expect(saveOfflinePreferenceCard).toHaveBeenCalled();
     expect(cards.length).toBe(1);
     expect(cards[0].surgeon).toBe('Dr. Smith');
+    expect(cards[0].gloves).toBe('Size 8 Gloves');
   });
 
   it('verifies clinical state snapshot consistency across offline-first multi-tenant export', async () => {
@@ -524,6 +538,7 @@ describe('ResourceInspectorModal', () => {
       lexiconAliases: [],
       guideline: ''
     };
+    Object.freeze(snapshotPayload);
 
     let exportedData = null;
     vi.mocked(exportTenantResourcesJson).mockImplementation(async (tenantId) => {
@@ -546,8 +561,14 @@ describe('ResourceInspectorModal', () => {
     expect(exportTenantResourcesJson).toHaveBeenCalledWith('tenant-multi::iso');
 
     const parsed = JSON.parse(exportedData);
-    expect(parsed.tenantId).toEqual(snapshotPayload.tenantId);
-    expect(parsed.preferenceCards).toEqual(snapshotPayload.preferenceCards);
+    const cloneParsed = JSON.parse(JSON.stringify(parsed));
+    const cloneExpected = JSON.parse(JSON.stringify(snapshotPayload));
+
+    // Normalize volatile metadata
+    delete cloneParsed.exportedAt;
+    delete cloneExpected.exportedAt;
+
+    expect(cloneParsed).toEqual(cloneExpected);
   });
 
 });
