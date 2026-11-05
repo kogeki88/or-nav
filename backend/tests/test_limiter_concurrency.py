@@ -464,6 +464,71 @@ class TestLimiterConcurrencyThrottling:
         row2, _ = inv_service_2._find_matching_row("prolene suture")
         assert row2 is None, "Tenant 2 state leaked into Tenant 1!"
 
+
+
+
+
+
+    def test_preference_card_conflict_resolution_and_snapshot_consistency(self, mock_tenant_dir):
+        """
+        Verify deterministic state transition matrices, preference card conflict resolution,
+        and clinical state snapshot consistency across offline mutation replays.
+        """
+        client = TestClient(fastapi_app)
+        limiter.reset()
+
+        from app.services.inventory_search import get_inventory_service
+        inv_service = get_inventory_service("sacred_heart::or")
+
+        # Initial state setup
+        inv_service.add_inventory_item("prolene suture", "R1 C1 S1 C1")
+
+        # Initial snapshot
+        initial_snapshot = inv_service.get_sync_payload()
+        assert len(initial_snapshot) > 0
+        assert any(item["item"].lower() == "prolene suture" for item in initial_snapshot)
+
+        # 1. State Transition Matrix: Move to a new location
+        inv_service.report_move("prolene suture", "R1 C2 S2 C2")
+
+        payload_1 = {
+            "item": "prolene suture",
+            "expected_location": "R1 C2 S2 C2",
+            "timestamp": "2023-10-27T10:00:00Z",
+            "tenant_id": "sacred_heart::or",
+        }
+
+        # Replay the same mutation to check idempotency and snapshot consistency
+        responses = []
+        for _ in range(10):
+            responses.append(client.post("/api/inventory/verify-move", json=payload_1))
+
+        assert all(r.status_code == 200 for r in responses)
+
+        matched_row, _ = inv_service._find_matching_row("prolene suture")
+        assert matched_row is not None
+        assert matched_row["verify_count"] == 1
+
+        # Take a state snapshot (simulated by checking the deterministic output)
+        snapshot = inv_service.get_sync_payload()
+        assert any(item["item"].lower() == "prolene suture" and item["verify_count"] == 1 for item in snapshot)
+
+        # 2. Preference Card Conflict Resolution: Resolve conflicting updates deterministically based on timestamp
+        payload_conflict = {
+            "item": "prolene suture",
+            "expected_location": "R1 C3 S3 C3",
+            "timestamp": "2023-10-27T09:00:00Z",  # Older timestamp
+            "tenant_id": "sacred_heart::or",
+        }
+        response = client.post("/api/inventory/verify-move", json=payload_conflict)
+        assert response.status_code == 200
+
+
+        # The older timestamp should NOT overwrite the newer location (LWW - Last Write Wins)
+        matched_row, _ = inv_service._find_matching_row("prolene suture")
+        assert matched_row is not None
+        assert matched_row["pending_location"] == "R1 C2 S2 C2"  # LWW prevented the old timestamp from updating
+
     def test_network_partition_self_healing(self, mock_tenant_dir, monkeypatch):
         """
         Test fault injection, network partition degradation, intermittent latency,
