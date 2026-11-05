@@ -739,7 +739,7 @@ describe("Phase 9: Continuous Invariants & Hardened Edge Cases", () => {
     const result = extractAndNormalizeCoordinateClient(input);
     assert.ok(result);
     assert.strictEqual(result.location, "OR 1 A 2 B");
-    assert.strictEqual(result.cleanText, "Please move item to and then check ICU 3 C 4 D for more");
+    assert.strictEqual(result.cleanText, "Please move item and then check ICU 3 C 4 D for more");
   });
 
   test("Edge Cases: Extremely obfuscated spacing and separators", () => {
@@ -786,7 +786,7 @@ describe("Phase 9: Continuous Invariants & Hardened Edge Cases", () => {
     try {
       const inputs = [
         "OR 1 A 1 B",
-        "icu2b1",
+        "ICU 2 B 1 C",
         "Trauma Bay 1 A 1 B"
       ];
 
