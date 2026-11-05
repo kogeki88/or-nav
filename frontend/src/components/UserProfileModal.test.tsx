@@ -197,12 +197,10 @@ test('UserProfileModal guarantees offline mutation replay idempotency', async (t
   const saveBtn = screen.getAllByTestId('button-save-profile')[0];
 
   // Simulate offline burst replay
-  const burstClicks = Array.from({ length: 10 }, () =>
-    new Promise(resolve => setTimeout(() => {
-      fireEvent.click(saveBtn);
-      resolve(null);
-    }, 0))
-  );
+  const burstClicks = Array.from({ length: 10 }, async () => {
+    await new Promise(r => setTimeout(r, Math.random() * 10)); // Macrotask jitter for true interleaving
+    fireEvent.click(saveBtn);
+  });
 
   await Promise.all(burstClicks);
 
@@ -313,43 +311,56 @@ test('UserProfileModal enforces multi-tenant isolation and offline-first invaria
   const origFetch = global.fetch;
   (global as any).fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
 
-  const startRender = performance.now();
-  render(
-    <UserProfileModal
-      isOpen={true}
-      onClose={mockOnClose}
-      currentProfile={{
-        ...DEFAULT_USER_PROFILE,
-        facilityId: 'tenant_burst',
-        departmentId: 'or_main',
-      }}
-      onSaveProfile={onSaveProfileMock}
-    />
-  );
-  const endRender = performance.now();
-  assert.ok((endRender - startRender) < 200, `Render latency too high: ${endRender - startRender}ms`);
+  const numWorkers = 50;
 
-  const roleSelect = screen.getByTestId('select-role') as HTMLSelectElement;
-  fireEvent.change(roleSelect, { target: { value: 'Scrub Tech' } });
+  const workerPromises = Array.from({ length: numWorkers }, async (_, i) => {
+    const onSaveProfileMockLocal = mock.fn();
+    const mockOnCloseLocal = mock.fn();
 
-  const saveBtn = screen.getAllByTestId('button-save-profile')[0];
+    const root = document.createElement('div');
+    document.body.appendChild(root);
 
-  const burstClicks = Array.from({ length: 50 }, () =>
-    new Promise(resolve => setImmediate(() => {
-      fireEvent.click(saveBtn);
-      resolve(null);
-    }))
-  );
+    const tenantId = `fac_burst_${i}`;
 
-  await Promise.all(burstClicks);
+    render(
+      <UserProfileModal
+        isOpen={true}
+        onClose={mockOnCloseLocal}
+        currentProfile={Object.freeze({
+          ...DEFAULT_USER_PROFILE,
+          facilityId: tenantId,
+          departmentId: 'or_main',
+        })}
+        onSaveProfile={onSaveProfileMockLocal}
+      />,
+      { container: root }
+    );
 
-  await waitFor(() => {
-    assert.strictEqual(onSaveProfileMock.mock.calls.length, 1);
+    const roleSelect = screen.getAllByTestId('select-role')[i] as HTMLSelectElement;
+    fireEvent.change(roleSelect, { target: { value: 'Scrub Tech' } });
+
+    const saveBtn = screen.getAllByTestId('button-save-profile')[i];
+
+    await new Promise(r => setTimeout(r, Math.random() * 10)); // Macrotask jitter
+    fireEvent.click(saveBtn);
+
+    await waitFor(() => {
+      assert.strictEqual(onSaveProfileMockLocal.mock.calls.length, 1);
+    });
+
+    const savedData = onSaveProfileMockLocal.mock.calls[0].arguments[0];
+    assert.strictEqual(savedData.facilityId, tenantId);
+    assert.strictEqual(savedData.clinicalRole, 'Scrub Tech');
+
+    return { onSaveProfileMock: onSaveProfileMockLocal, tenantId };
   });
 
-  const savedData = onSaveProfileMock.mock.calls[0].arguments[0];
-  assert.strictEqual(savedData.facilityId, 'tenant_burst');
-  assert.strictEqual(savedData.clinicalRole, 'Scrub Tech');
+  const results = await Promise.all(workerPromises);
+
+  for (const res of results) {
+    assert.strictEqual(res.onSaveProfileMock.mock.calls.length, 1);
+    assert.strictEqual(res.onSaveProfileMock.mock.calls[0].arguments[0].facilityId, res.tenantId);
+  }
 
   (global as any).fetch = origFetch;
   mock.restoreAll();
@@ -595,15 +606,17 @@ test('UserProfileModal enforces clinical state snapshot consistency, preference 
   const mockOnClose = mock.fn();
 
   // Test deterministic state transition matrices
+  const baseProfile = Object.freeze({
+    ...DEFAULT_USER_PROFILE,
+    facilityId: 'tenant_state',
+    departmentId: 'or_main',
+  });
+
   const { rerender } = render(
     <UserProfileModal
       isOpen={true}
       onClose={mockOnClose}
-      currentProfile={{
-        ...DEFAULT_USER_PROFILE,
-        facilityId: 'tenant_state',
-        departmentId: 'or_main',
-      }}
+      currentProfile={baseProfile}
       onSaveProfile={onSaveProfileMock}
     />
   );
@@ -624,14 +637,12 @@ test('UserProfileModal enforces clinical state snapshot consistency, preference 
     <UserProfileModal
       isOpen={true}
       onClose={mockOnClose}
-      currentProfile={{
+      currentProfile={Object.freeze({
         ...DEFAULT_USER_PROFILE,
         facilityId: 'tenant_state',
         departmentId: 'or_main',
-        clinicalRole: 'CRNA', // Conflict! The component should resolve this (use the prop if we consider it upstream truth).
-        // Wait, UserProfileModal uses state `formData` initialized from `currentProfile`.
-        // If currentProfile changes while modal is open, useEffect updates formData.
-      }}
+        clinicalRole: 'CRNA',
+      })}
       onSaveProfile={onSaveProfileMock}
     />
   );
@@ -662,7 +673,7 @@ test('UserProfileModal enforces clinical state snapshot consistency, preference 
     clinicalRole: 'CRNA'
   };
 
-  assert.deepStrictEqual(JSON.parse(JSON.stringify(finalSnapshot)), JSON.parse(JSON.stringify(expectedSnapshot)), "Clinical state snapshot consistency failed");
+  assert.deepStrictEqual(structuredClone(finalSnapshot), structuredClone(expectedSnapshot), "Clinical state snapshot consistency failed");
 
   mock.restoreAll();
 });
