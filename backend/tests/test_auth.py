@@ -1,3 +1,6 @@
+import asyncio
+import time
+from httpx import AsyncClient, ASGITransport
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app as main_app
@@ -369,3 +372,38 @@ def test_zero_trust_token_exchange(monkeypatch):
     token = res.json().get("token")
     assert token is not None
     assert token.startswith("token-")
+
+
+@pytest.mark.asyncio
+async def test_concurrent_registrations_race_condition():
+    # Attempt to register the same user concurrently multiple times
+    num_requests = 10
+    async with AsyncClient(transport=ASGITransport(app=main_app), base_url="http://testserver") as ac:
+        tasks = [
+            ac.post("/api/auth/register", json={"email": "race@hospital.org", "password": "password123"})
+            for _ in range(num_requests)
+        ]
+        results = await asyncio.gather(*tasks)
+
+    # Only one should succeed due to race condition resistance
+    successes = [r for r in results if r.status_code == 200]
+    assert len(successes) == 1
+
+@pytest.mark.asyncio
+async def test_burst_distinct_registrations_latency():
+    # Test system's ability to handle bursts of unique registrations
+    num_requests = 50
+    async with AsyncClient(transport=ASGITransport(app=main_app), base_url="http://testserver") as ac:
+        start_time = time.time()
+        tasks = [
+            ac.post("/api/auth/register", json={"email": f"burst{i}@hospital.org", "password": "password123"})
+            for i in range(num_requests)
+        ]
+        results = await asyncio.gather(*tasks)
+        end_time = time.time()
+
+    for r in results:
+        assert r.status_code == 200
+
+    duration = end_time - start_time
+    assert duration < 5.0 # Max 5 seconds for 50 concurrent registers
