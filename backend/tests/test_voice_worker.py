@@ -718,3 +718,153 @@ async def test_voice_worker_phi_redaction_boundary():
     assert "Jane Doe" not in spoken
     assert "9876543" not in spoken
 
+
+
+@pytest.mark.asyncio
+async def test_deterministic_state_transition_matrix(monkeypatch, tmp_path):
+    """Test deterministic state transition matrices for VoiceWorker."""
+    import socket
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+        return original_socket(*args, **kwargs)
+
+    def raise_offline_error(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+    monkeypatch.setattr("socket.socket", mock_socket)
+    monkeypatch.setattr("httpx.get", raise_offline_error)
+    monkeypatch.setattr("httpx.post", raise_offline_error)
+    monkeypatch.setattr("httpx.request", raise_offline_error)
+
+    tenant_id = "general_memorial_cvor"
+
+    def mock_get_tenant(tid: str):
+        class MockTenant:
+            def __init__(self, t):
+                self.tenant_id = t
+                self.inventory_path = tmp_path / f"inv_{t}.csv"
+                if True:
+                    self.inventory_path.write_text("item,category,room,cabinet,shelf,container,human_alias,aliases,surgeon_notes,pending_location,verify_count,verification_score,status,last_verified_at\nrapid infuser,Equipment,ER,A,1,A,ER A1,rapid,,,,,\n3-0 silk,Suture,OR 1,B,2,C,OR 1 B2,3-0 silk,dr smith prefers 4-0,,,,,\n")
+        return MockTenant(tid)
+
+    monkeypatch.setattr("app.config.get_tenant", mock_get_tenant)
+    reset_inventory_services()
+
+    # State 1: Initial state
+    res1 = await lookup_item_location("rapid infuser", tenant_id)
+    assert "ER" in res1
+    assert "Cabinet A" in res1
+
+    # State 2: Move item
+    res2 = await report_item_move("rapid infuser", "OR 12", tenant_id)
+    assert "Relocation logged" in res2
+
+    # State 3: Verify transition
+    res3 = await lookup_item_location("rapid infuser", tenant_id)
+    assert "OR 12" in res3
+
+    # Revert to State 1
+    res4 = await report_item_move("rapid infuser", "Cabinet A, Shelf 1", tenant_id)
+    assert "Relocation logged" in res4
+
+    # State 4: Verify back to State 1
+    res5 = await lookup_item_location("rapid infuser", tenant_id)
+    assert "Cabinet A" in res5
+
+@pytest.mark.asyncio
+async def test_preference_card_conflict_resolution(monkeypatch, tmp_path):
+    """Test preference card conflict resolution for VoiceWorker."""
+    import socket
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+        return original_socket(*args, **kwargs)
+
+    def raise_offline_error(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+    monkeypatch.setattr("socket.socket", mock_socket)
+    monkeypatch.setattr("httpx.get", raise_offline_error)
+    monkeypatch.setattr("httpx.post", raise_offline_error)
+    monkeypatch.setattr("httpx.request", raise_offline_error)
+
+    tenant_id = "general_memorial_cvor"
+
+    def mock_get_tenant(tid: str):
+        class MockTenant:
+            def __init__(self, t):
+                self.tenant_id = t
+                self.inventory_path = tmp_path / f"inv_pref_{t}.csv"
+                if True:
+                    self.inventory_path.write_text("item,category,room,cabinet,shelf,container,human_alias,aliases,surgeon_notes,pending_location,verify_count,verification_score,status,last_verified_at\n3-0 silk,Suture,OR 1,B,2,C,OR 1 B2,3-0 silk,dr smith prefers 4-0,,,,,\n4-0 silk,Suture,OR 1,B,3,C,OR 1 B3,4-0 silk,,,,,,\n")
+        return MockTenant(tid)
+
+    monkeypatch.setattr("app.config.get_tenant", mock_get_tenant)
+    reset_inventory_services()
+
+    # Look up an item with conflicts/preferences
+    res1 = await lookup_item_location("dr smith 3-0 silk", tenant_id)
+    assert type(res1) == str
+    assert "3-0 silk" in res1.lower()
+    assert "4-0" in res1.lower() or "dr smith" in res1.lower()
+
+@pytest.mark.asyncio
+async def test_clinical_state_snapshot_consistency(monkeypatch, tmp_path):
+    """Test clinical state snapshot consistency for VoiceWorker."""
+    import socket
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+        return original_socket(*args, **kwargs)
+
+    def raise_offline_error(*args, **kwargs):
+        raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+    monkeypatch.setattr("socket.socket", mock_socket)
+    monkeypatch.setattr("httpx.get", raise_offline_error)
+    monkeypatch.setattr("httpx.post", raise_offline_error)
+    monkeypatch.setattr("httpx.request", raise_offline_error)
+
+    tenant_id = "general_memorial_cvor"
+
+    def mock_get_tenant(tid: str):
+        class MockTenant:
+            def __init__(self, t):
+                self.tenant_id = t
+                self.inventory_path = tmp_path / f"inv_snap_{t}.csv"
+                # Always write fresh
+                self.inventory_path.write_text("item,category,room,cabinet,shelf,container,human_alias,aliases,surgeon_notes,pending_location,verify_count,verification_score,status,last_verified_at\nrapid infuser,Equipment,ER,A,1,A,ER A1,rapid,,,,,\n")
+        return MockTenant(tid)
+
+    monkeypatch.setattr("app.config.get_tenant", mock_get_tenant)
+    reset_inventory_services()
+
+    inv_service = get_inventory_service(tenant_id)
+    # Perform a deep copy of the payload to simulate snapshot immutability
+    import copy
+    snapshot_before = copy.deepcopy(inv_service.get_sync_payload())
+
+    # Do some operations
+    await report_item_move("rapid infuser", "OR 15", tenant_id)
+
+    # State snapshot after
+    snapshot_after = copy.deepcopy(inv_service.get_sync_payload())
+
+    assert len(snapshot_before) == len(snapshot_after)
+
+    # Check one item changed
+    infuser_before = next((i for i in snapshot_before if i["item"].lower() == "rapid infuser"), None)
+    infuser_after = next((i for i in snapshot_after if i["item"].lower() == "rapid infuser"), None)
+
+    assert infuser_before is not None
+    assert infuser_after is not None
+
+    assert infuser_before.get("pending_location", "") == ""
+    assert infuser_after.get("pending_location", "") == "OR 15"
