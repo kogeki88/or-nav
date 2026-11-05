@@ -355,6 +355,57 @@ def test_inventory_search_offline_first_invariant(monkeypatch):
     assert match_adson is not None
     assert "Adson" in match_adson["item"]
 
+
+def test_inventory_service_deterministic_state_transitions_and_snapshots():
+    inv_service = get_inventory_service(TEST_TENANT)
+
+    # Empty state first
+    inv_service._rows = []
+
+    # 1. Deterministic State Transition: Add Item
+    inv_service.add_inventory_item("Test Eponym 1x2", "A2")
+    payload_after_add = inv_service.get_sync_payload()
+
+    assert len(payload_after_add) == 1
+    assert payload_after_add[0]["item"] == "Test Eponym 1X2"
+
+    # 2. Snapshot Consistency
+    snapshot_1 = inv_service.get_sync_payload()
+    assert snapshot_1 == payload_after_add
+
+    # 3. Deterministic State Transition: Move Item
+    inv_service.report_move("Test Eponym", "B3")
+    payload_after_move = inv_service.get_sync_payload()
+
+    assert len(payload_after_move) == 1
+    assert payload_after_move[0].get("pending_location", "") == "B3"
+    assert snapshot_1 != payload_after_move
+
+    # 4. Deterministic State Transition: Flag Wrong
+    inv_service.flag_wrong("Test Eponym")
+    payload_after_flag = inv_service.get_sync_payload()
+
+    assert len(payload_after_flag) == 1
+    assert payload_after_flag[0].get("status", "") == "needs_reverification"
+
+def test_preference_card_conflict_resolution():
+    from app.services.surgical_ontology import is_eponym_conflict
+
+    # Simulated preference card item vs inventory item
+    # 1. Exact Eponym Match (Resolution: Valid)
+    assert is_eponym_conflict("debakey forceps", "DeBakey Vascular Tissue Forceps 12in") is False
+
+    # 2. Preference Card Eponym vs Different Eponym (Resolution: Conflict)
+    assert is_eponym_conflict("adson pickups", "DeBakey Forceps 12in") is True
+
+    # 3. Preference Card Generic vs Eponym (Resolution: Valid/No Conflict, generic matches specific)
+    # Actually if preference card is generic 'forceps', and inventory is 'DeBakey Forceps', this is valid
+    assert is_eponym_conflict("forceps", "DeBakey Forceps") is False
+
+    # 4. Preference Card Non-Generic Modifier Mismatch
+    assert is_eponym_conflict("titanium debakey forceps", "DeBakey Forceps") is False
+
+
 def test_inventory_search_multi_tenant_isolation():
     inv_or = get_inventory_service(TEST_TENANT)
 
