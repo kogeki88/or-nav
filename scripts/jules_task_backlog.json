@@ -4074,10 +4074,11 @@
     "id": "backlog-408",
     "title": "Testing: Clinical Workflow Snapshot & Deterministic State Verifications for HospitalMapping",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for HospitalMapping\n\n**File:** `frontend/src/lib/hospitalMapping.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/hospitalMapping.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "5040930212513612976",
-    "dispatchedAt": "2026-11-05T17:06:46.571Z"
+    "dispatchedAt": "2026-11-05T17:06:46.571Z",
+    "completedAt": "2026-11-05T17:23:11.619Z"
   },
   {
     "id": "backlog-409",
@@ -4300,5 +4301,12 @@
     "category": "Testing",
     "status": "pending",
     "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for ClinicalGraph\n\n**File:** `frontend/src/lib/clinicalGraph.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/clinicalGraph.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-434",
+    "title": "Bolt: Clinical Workflow Snapshot & Deterministic State Verifications for DeltaSyncPayload",
+    "category": "Performance",
+    "status": "pending",
+    "prompt": "# 🚀 Bolt Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for DeltaSyncPayload\n\n**File:** `frontend/src/lib/deltaSyncPayload.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/deltaSyncPayload.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]
