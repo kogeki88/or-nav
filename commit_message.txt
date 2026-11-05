@@ -1,0 +1,7 @@
+fix(frontend): hardened moveDebouncer invariants and fixed race conditions
+
+- Implemented an `isExecuting` flag to prevent a new flush from overlapping
+  with an ongoing asynchronous execution.
+- Added a new test `verifies isExecuting invariant prevents race conditions`
+  to verify that concurrent-like items queue up appropriately and prevent
+  double-executions if an execution is already underway.
