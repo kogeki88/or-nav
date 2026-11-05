@@ -230,6 +230,7 @@ def test_fuzzing_create_question():
 
 import concurrent.futures
 import time
+import copy
 
 def test_peer_qna_high_concurrency_burst():
     """Concurrent burst execution, race condition resistance, and latency benchmarks."""
@@ -398,6 +399,7 @@ def test_extended_multi_tenant_boundary_enforcement_and_offline_replay():
 
 from unittest.mock import patch
 import time
+import copy
 
 def test_network_partition_unhandled_storage_failure():
     """Simulate a network partition / storage failure that results in a 500 error."""
@@ -654,3 +656,140 @@ def test_hipaa_phi_boundary_prompt_injection_and_zero_trust(monkeypatch):
     # Query county_general, the spoofed question should NOT be there
     cg_res = client.get("/api/peer-questions?tenant_id=county_general::or")
     assert not any("What is your status?" in q["questionText"] for q in cg_res.json())
+
+def test_clinical_state_snapshot_consistency():
+    """Verify state snapshot consistency by freezing baseline with copy.deepcopy()."""
+    tenant = "sacred_heart::or"
+
+    # 1. Create Question
+    q_payload = {
+        "tenant_id": tenant,
+        "question_text": "Is there a conflict?",
+        "idempotency_key": f"snap-{uuid.uuid4().hex}"
+    }
+    q_res = client.post("/api/peer-questions", json=q_payload)
+    assert q_res.status_code == 200
+    q_id = q_res.json()["id"]
+
+    # 2. Add Answer
+    a_payload = {
+        "answer_text": "Yes, conflict resolved.",
+        "answered_by": "Dr. Snapshot"
+    }
+    a_res = client.post(f"/api/peer-questions/{q_id}/answers", json=a_payload)
+    assert a_res.status_code == 200
+    a_id = a_res.json()["answers"][0]["answerId"]
+
+    # 3. Freeze baseline state
+    baseline_res = client.get(f"/api/peer-questions?tenant_id={tenant}")
+    assert baseline_res.status_code == 200
+    baseline_state = baseline_res.json()
+    frozen_baseline = copy.deepcopy(baseline_state)
+
+    # 4. Perform a state mutation (Verify Answer)
+    v_payload = {"verified_by": "Nurse Deepcopy"}
+    v_res = client.post(f"/api/peer-questions/{q_id}/answers/{a_id}/verify", json=v_payload)
+    assert v_res.status_code == 200
+
+    # 5. Fetch post-mutation state
+    post_res = client.get(f"/api/peer-questions?tenant_id={tenant}")
+    assert post_res.status_code == 200
+    post_state = post_res.json()
+
+    # 6. Verify structural consistency using the frozen baseline
+    # Find the specific question we mutated
+    baseline_q = next((q for q in frozen_baseline if q["id"] == q_id), None)
+    post_q = next((q for q in post_state if q["id"] == q_id), None)
+
+    assert baseline_q is not None
+    assert post_q is not None
+
+    # Assert unmodified fields remained identical
+    assert baseline_q["id"] == post_q["id"]
+    assert baseline_q["tenantId"] == post_q["tenantId"]
+    assert baseline_q["questionText"] == post_q["questionText"]
+    assert baseline_q["askedBy"] == post_q["askedBy"]
+    assert baseline_q["status"] == "unverified"
+
+    # Assert the specific mutation occurred
+    baseline_a = baseline_q["answers"][0]
+    post_a = post_q["answers"][0]
+
+    assert "Nurse Deepcopy" not in baseline_a["verifiedBy"]
+    assert "Nurse Deepcopy" in post_a["verifiedBy"]
+
+    # Other questions in the tenant list should be completely identical
+    baseline_others = [q for q in frozen_baseline if q["id"] != q_id]
+    post_others = [q for q in post_state if q["id"] != q_id]
+    assert baseline_others == post_others
+
+def test_deterministic_state_transitions_and_conflict_resolution():
+    """Verify conflict resolution (duplicate verifications) and deterministic state transitions (unverified -> verified)."""
+    tenant = "sacred_heart::or"
+
+    # 1. Create Question
+    q_payload = {
+        "tenant_id": tenant,
+        "question_text": "What is the conflict resolution protocol?",
+        "idempotency_key": f"det-{uuid.uuid4().hex}"
+    }
+    q_res = client.post("/api/peer-questions", json=q_payload)
+    assert q_res.status_code == 200
+    q_id = q_res.json()["id"]
+
+    # 2. Add Answer
+    a_payload = {
+        "answer_text": "Duplicate verifiers are ignored.",
+        "answered_by": "Dr. Determinist"
+    }
+    a_res = client.post(f"/api/peer-questions/{q_id}/answers", json=a_payload)
+    assert a_res.status_code == 200
+    a_id = a_res.json()["answers"][0]["answerId"]
+
+    # Verify initial state
+    res_initial = client.get(f"/api/peer-questions?tenant_id={tenant}")
+    q_initial = next((q for q in res_initial.json() if q["id"] == q_id))
+    assert q_initial["status"] == "unverified"
+    assert q_initial["verificationsCount"] == 0
+
+    # 3. Add First Verification
+    v_res_1 = client.post(
+        f"/api/peer-questions/{q_id}/answers/{a_id}/verify",
+        json={"verified_by": "Nurse Alpha"}
+    )
+    assert v_res_1.status_code == 200
+
+    # Verify state transition matrix (0 -> 1)
+    res_1 = client.get(f"/api/peer-questions?tenant_id={tenant}")
+    q_1 = next((q for q in res_1.json() if q["id"] == q_id))
+    assert q_1["status"] == "unverified"  # Not yet verified
+    assert q_1["verificationsCount"] == 1
+    assert not q_1["answers"][0]["isVerifiedConsensus"]
+
+    # 4. Add Duplicate Verification from the same user (Conflict Resolution Simulation)
+    v_res_dup = client.post(
+        f"/api/peer-questions/{q_id}/answers/{a_id}/verify",
+        json={"verified_by": "Nurse Alpha"}
+    )
+    assert v_res_dup.status_code == 200
+
+    # Verify state did not change (duplicate ignored)
+    res_dup = client.get(f"/api/peer-questions?tenant_id={tenant}")
+    q_dup = next((q for q in res_dup.json() if q["id"] == q_id))
+    assert q_dup["status"] == "unverified"
+    assert q_dup["verificationsCount"] == 1
+    assert len(q_dup["answers"][0]["verifiedBy"]) == 1
+
+    # 5. Add Second Verification from a different user
+    v_res_2 = client.post(
+        f"/api/peer-questions/{q_id}/answers/{a_id}/verify",
+        json={"verified_by": "Dr. Beta"}
+    )
+    assert v_res_2.status_code == 200
+
+    # Verify state transition matrix (1 -> 2, unverified -> verified)
+    res_2 = client.get(f"/api/peer-questions?tenant_id={tenant}")
+    q_2 = next((q for q in res_2.json() if q["id"] == q_id))
+    assert q_2["status"] == "verified"
+    assert q_2["verificationsCount"] == 2
+    assert q_2["answers"][0]["isVerifiedConsensus"]
