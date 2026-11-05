@@ -730,3 +730,73 @@ describe("Phase 8: Clinical Workflow Snapshot & Deterministic State Verification
     }
   });
 });
+
+
+describe("Phase 9: Continuous Invariants & Hardened Edge Cases", () => {
+  test("Edge Cases: Multiple coordinates in one string", () => {
+    // Tests that extractAndNormalizeCoordinateClient properly extracts the first coordinate and leaves the rest in cleanText
+    const input = "Please move item to OR 1 A 2 B and then check ICU 3 C 4 D for more";
+    const result = extractAndNormalizeCoordinateClient(input);
+    assert.ok(result);
+    assert.strictEqual(result.location, "OR 1 A 2 B");
+    assert.strictEqual(result.cleanText, "Please move item to and then check ICU 3 C 4 D for more");
+  });
+
+  test("Edge Cases: Extremely obfuscated spacing and separators", () => {
+    const obfuscated = "Trauma Bay\t\n\r 1 \t\t A\n 2 \r B";
+    const result = extractAndNormalizeCoordinateClient(obfuscated);
+    assert.ok(result);
+    assert.strictEqual(result.location, "Trauma Bay 1 A 2 B");
+  });
+
+  test("Race Conditions & Multi-Tenant Isolation with Extreme Concurrency", async () => {
+    const burstSize = 10000;
+    const inputs = [
+      { text: "OR 1 A 1 B", expected: "OR 1 A 1 B" },
+      { text: "ICU 2 C 3 D", expected: "ICU 2 C 3 D" },
+      { text: "ER 5 E 6 F", expected: "ER 5 E 6 F" }
+    ];
+
+    const tasks = Array.from({ length: burstSize }).map((_, i) => {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const input = inputs[i % inputs.length];
+          const result = extractAndNormalizeCoordinateClient(input.text);
+          resolve({ expected: input.expected, result });
+        }, 0);
+      });
+    });
+
+    const results = await Promise.all(tasks);
+
+    results.forEach((res) => {
+      assert.ok(res.result);
+      assert.strictEqual(res.result.location, res.expected, "State bled across tenants during high concurrency burst");
+    });
+  });
+
+  test("Offline-first Compliance: Ensure no network calls are ever made", () => {
+    const originalFetch = global.fetch;
+    const originalXHR = global.XMLHttpRequest;
+
+    // Explicitly intercept and throw to rigorously assert offline-first compliance
+    global.fetch = () => { throw new Error("Offline Invariant Violated: fetch called"); };
+    (global as any).XMLHttpRequest = function() { throw new Error("Offline Invariant Violated: XMLHttpRequest instantiated"); };
+
+    try {
+      const inputs = [
+        "OR 1 A 1 B",
+        "icu2b1",
+        "Trauma Bay 1 A 1 B"
+      ];
+
+      inputs.forEach(input => {
+        const result = extractAndNormalizeCoordinateClient(input);
+        assert.ok(result);
+      });
+    } finally {
+      global.fetch = originalFetch;
+      global.XMLHttpRequest = originalXHR;
+    }
+  });
+});
