@@ -4233,8 +4233,10 @@
     "id": "backlog-425",
     "title": "Performance: Clinical Workflow Snapshot & Deterministic State Verifications for SyncEngineOutbox",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Performance Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for SyncEngineOutbox\n\n**File:** `frontend/src/lib/syncEngine.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/syncEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Performance Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for SyncEngineOutbox\n\n**File:** `frontend/src/lib/syncEngine.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/syncEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "15499592205971690742",
+    "dispatchedAt": "2026-11-05T17:55:32.948Z"
   },
   {
     "id": "backlog-426",
@@ -4313,8 +4315,10 @@
     "id": "backlog-434",
     "title": "Bolt: Clinical Workflow Snapshot & Deterministic State Verifications for DeltaSyncPayload",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for DeltaSyncPayload\n\n**File:** `frontend/src/lib/deltaSyncPayload.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/deltaSyncPayload.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for DeltaSyncPayload\n\n**File:** `frontend/src/lib/deltaSyncPayload.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/deltaSyncPayload.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "13494204784021240632",
+    "dispatchedAt": "2026-11-05T17:55:35.422Z"
   },
   {
     "id": "backlog-435",
@@ -4341,8 +4345,10 @@
     "id": "backlog-438",
     "title": "Bolt: Clinical Workflow Snapshot & Deterministic State Verifications for LexiconLearning",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for LexiconLearning\n\n**File:** `frontend/src/lib/lexiconLearning.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/lexiconLearning.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for LexiconLearning\n\n**File:** `frontend/src/lib/lexiconLearning.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/lexiconLearning.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "4451442973719851863",
+    "dispatchedAt": "2026-11-05T17:55:36.911Z"
   },
   {
     "id": "backlog-439",
@@ -4373,8 +4379,10 @@
     "id": "backlog-442",
     "title": "Bolt: Clinical Workflow Snapshot & Deterministic State Verifications for ChatCanvasVirtual",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for ChatCanvasVirtual\n\n**File:** `frontend/src/components/ChatCanvasVirtual.test.tsx`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/components/ChatCanvasVirtual.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for ChatCanvasVirtual\n\n**File:** `frontend/src/components/ChatCanvasVirtual.test.tsx`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/components/ChatCanvasVirtual.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "17976774225799658640",
+    "dispatchedAt": "2026-11-05T17:55:40.290Z"
   },
   {
     "id": "backlog-443",
