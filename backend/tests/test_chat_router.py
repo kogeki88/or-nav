@@ -351,9 +351,8 @@ class TestChatRouterMultiTenant:
         client = TestClient(app)
 
         def mock_post(*args, **kwargs):
-            class DummyRequest:
-                pass
-            raise httpx.NetworkError("Offline mode: Network is unreachable", request=DummyRequest())
+            req = httpx.Request("POST", args[0] if args else kwargs.get("url", "http://mock"))
+            raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
 
         monkeypatch.setattr(httpx, "post", mock_post)
         monkeypatch.setattr(httpx, "get", mock_post)
@@ -377,6 +376,8 @@ class TestChatRouterMultiTenant:
         data3 = resp3.json()
 
         for data in [data1, data2, data3]:
+            if "last_verified_at" in data:
+                del data["last_verified_at"]
             if "latency_ms" in data:
                 del data["latency_ms"]
 
@@ -524,6 +525,8 @@ class TestChatRouterMultiTenant:
         data3 = resp3.json()
 
         for data in [data1, data2, data3]:
+            if "last_verified_at" in data:
+                del data["last_verified_at"]
             if "latency_ms" in data:
                 del data["latency_ms"]
 
@@ -532,8 +535,8 @@ class TestChatRouterMultiTenant:
     def test_offline_mutation_replay_idempotency_add_item(self, monkeypatch):
         import httpx
         def mock_post(*args, **kwargs):
-            class DummyRequest: pass
-            raise httpx.NetworkError("Offline mode: Network is unreachable", request=DummyRequest())
+            req = httpx.Request("POST", args[0] if args else kwargs.get("url", "http://mock"))
+            raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
         monkeypatch.setattr(httpx, "post", mock_post)
         monkeypatch.setattr(httpx, "get", mock_post)
         monkeypatch.setattr(httpx, "request", mock_post)
@@ -562,6 +565,8 @@ class TestChatRouterMultiTenant:
         data3 = resp3.json()
 
         for data in [data1, data2, data3]:
+            if "last_verified_at" in data:
+                del data["last_verified_at"]
             if "latency_ms" in data:
                 del data["latency_ms"]
 
@@ -584,19 +589,19 @@ class TestChatRouterMultiTenant:
         def mock_post(*args, **kwargs):
             if network_state["status"] == "offline":
                 # Create a real httpx request to avoid dummy request issues
-                req = httpx.Request("POST", args[0] if args else kwargs.get("url", ""))
+                req = httpx.Request("POST", args[0] if args else kwargs.get("url", "http://mock"))
                 raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
             return orig_post(*args, **kwargs)
 
         def mock_get(*args, **kwargs):
             if network_state["status"] == "offline":
-                req = httpx.Request("GET", args[0] if args else kwargs.get("url", ""))
+                req = httpx.Request("GET", args[0] if args else kwargs.get("url", "http://mock"))
                 raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
             return orig_get(*args, **kwargs)
 
         def mock_request(*args, **kwargs):
             if network_state["status"] == "offline":
-                req = httpx.Request(args[0] if args else kwargs.get("method", "GET"), args[1] if len(args) > 1 else kwargs.get("url", ""))
+                req = httpx.Request(args[0] if args else kwargs.get("method", "GET"), args[1] if len(args) > 1 else kwargs.get("url", "http://mock"))
                 raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
             return orig_request(*args, **kwargs)
 
@@ -643,19 +648,19 @@ class TestChatRouterMultiTenant:
 
         def mock_post(*args, **kwargs):
             if network_state["status"] == "offline":
-                req = httpx.Request("POST", args[0] if args else kwargs.get("url", ""))
+                req = httpx.Request("POST", args[0] if args else kwargs.get("url", "http://mock"))
                 raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
             return orig_post(*args, **kwargs)
 
         def mock_get(*args, **kwargs):
             if network_state["status"] == "offline":
-                req = httpx.Request("GET", args[0] if args else kwargs.get("url", ""))
+                req = httpx.Request("GET", args[0] if args else kwargs.get("url", "http://mock"))
                 raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
             return orig_get(*args, **kwargs)
 
         def mock_request(*args, **kwargs):
             if network_state["status"] == "offline":
-                req = httpx.Request(args[0] if args else kwargs.get("method", "GET"), args[1] if len(args) > 1 else kwargs.get("url", ""))
+                req = httpx.Request(args[0] if args else kwargs.get("method", "GET"), args[1] if len(args) > 1 else kwargs.get("url", "http://mock"))
                 raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
             return orig_request(*args, **kwargs)
 
@@ -746,7 +751,7 @@ class TestChatRouterMultiTenant:
 
         # Enforce offline first
         def mock_post(*args, **kwargs):
-            req = httpx.Request("POST", args[0] if args else kwargs.get("url", ""))
+            req = httpx.Request("POST", args[0] if args else kwargs.get("url", "http://mock"))
             raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
         monkeypatch.setattr(httpx, "post", mock_post)
         monkeypatch.setattr(httpx, "get", mock_post)
@@ -782,7 +787,7 @@ class TestChatRouterMultiTenant:
 
         # Enforce offline first
         def mock_post(*args, **kwargs):
-            req = httpx.Request("POST", args[0] if args else kwargs.get("url", ""))
+            req = httpx.Request("POST", args[0] if args else kwargs.get("url", "http://mock"))
             raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
         monkeypatch.setattr(httpx, "post", mock_post)
         monkeypatch.setattr(httpx, "get", mock_post)
@@ -809,7 +814,7 @@ class TestChatRouterMultiTenant:
 
         # Enforce offline first
         def mock_post(*args, **kwargs):
-            req = httpx.Request("POST", args[0] if args else kwargs.get("url", ""))
+            req = httpx.Request("POST", args[0] if args else kwargs.get("url", "http://mock"))
             raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
         monkeypatch.setattr(httpx, "post", mock_post)
         monkeypatch.setattr(httpx, "get", mock_post)
@@ -830,7 +835,7 @@ class TestChatRouterMultiTenant:
 
         # Enforce offline first
         def mock_post(*args, **kwargs):
-            req = httpx.Request("POST", args[0] if args else kwargs.get("url", ""))
+            req = httpx.Request("POST", args[0] if args else kwargs.get("url", "http://mock"))
             raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
         monkeypatch.setattr(httpx, "post", mock_post)
         monkeypatch.setattr(httpx, "get", mock_post)
@@ -955,7 +960,7 @@ class TestChatRouterMultiTenant:
         # We enforce offline mode. Using a valid httpx.Request object for DummyRequest
         import httpx
         def mock_post(*args, **kwargs):
-            url = args[0] if args else kwargs.get("url", "")
+            url = args[0] if args else kwargs.get("url", "http://mock")
             req = httpx.Request("POST", url)
             raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
 

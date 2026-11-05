@@ -84,6 +84,8 @@ def test_get_tenant_isolation_and_paths(tmp_path, monkeypatch):
 
 
 def test_get_tenant_hierarchical_paths(tmp_path, monkeypatch):
+    with app.config._cache_lock:
+        app.config._tenant_cache.clear()
     """Test hierarchical tenant path resolution and offline invariants."""
     hospitals_mock = tmp_path / "hospitals"
     hospitals_mock.mkdir()
