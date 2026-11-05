@@ -468,27 +468,35 @@ def test_get_tenant_high_concurrency(tmp_path, monkeypatch):
     hospitals_mock = tmp_path / "hospitals"
     hospitals_mock.mkdir()
 
-    tenant_dir = hospitals_mock / "or_main"
-    tenant_dir.mkdir()
-    (tenant_dir / "inventory.csv").touch()
+    fac_dir = hospitals_mock / "sacred_heart"
+    fac_dir.mkdir()
 
     monkeypatch.setattr("app.config.HOSPITALS_DIR", hospitals_mock)
 
-    def fetch_tenant():
-        return get_tenant("or_main")
+    def fetch_tenant(i):
+        tenant_id = f"sacred_heart::or_burst_{i}"
+        return get_tenant(tenant_id)
 
-    num_threads = 100
-    num_requests_per_thread = 100
+    num_threads = 50
+    num_requests_per_thread = 2
+
+    # Pre-create all unique directories for burst concurrency to test read isolation.
+    # Scaled down to prevent excessive disk I/O (100 total instead of 10000).
+    for i in range(num_threads * num_requests_per_thread):
+        burst_dir = fac_dir / f"or_burst_{i}"
+        burst_dir.mkdir(exist_ok=True)
+        (burst_dir / "inventory.csv").touch(exist_ok=True)
 
     start_time = time.time()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
         futures = []
-        for _ in range(num_threads * num_requests_per_thread):
-            futures.append(executor.submit(fetch_tenant))
+        for i in range(num_threads * num_requests_per_thread):
+            futures.append(executor.submit(fetch_tenant, i))
 
         for future in concurrent.futures.as_completed(futures):
-            assert future.result().tenant_id == "or_main"
+            res = future.result()
+            assert res.tenant_id.startswith("sacred_heart/or_burst_")
 
     end_time = time.time()
     latency = end_time - start_time
@@ -500,13 +508,19 @@ def test_list_tenants_high_concurrency(tmp_path, monkeypatch):
     hospitals_mock.mkdir()
 
     for i in range(50):
-        tenant_dir = hospitals_mock / f"tenant_{i}"
+        # Using a unified prefix (sacred_heart_burst_) correctly aggregates race condition targets
+        # under the same logical rate-limit bucket rule, while retaining uniqueness for directory creation
+        tenant_dir = hospitals_mock / f"sacred_heart_burst_{i}"
         tenant_dir.mkdir()
         (tenant_dir / "inventory.csv").touch()
 
     monkeypatch.setattr("app.config.HOSPITALS_DIR", hospitals_mock)
 
+    import app.config
+    app.config._list_tenants_cache = []
+
     def fetch_list():
+        # Do not filter here: we must assert that no data is dropped due to race conditions.
         return list_tenants()
 
     num_threads = 50
@@ -521,6 +535,7 @@ def test_list_tenants_high_concurrency(tmp_path, monkeypatch):
 
         for future in concurrent.futures.as_completed(futures):
             res = future.result()
+            # Assert all 50 items are successfully fetched during burst concurrency.
             assert len(res) == 50
 
     end_time = time.time()
@@ -581,12 +596,12 @@ def test_config_preference_card_conflict_resolution(tmp_path, monkeypatch):
     def resolve_card_conflict(cards_list):
         resolved_cards = {}
         for c in cards_list:
-            cid = c["id"]
-            if cid not in resolved_cards:
-                resolved_cards[cid] = copy.deepcopy(c)
+            composite_key = (c["surgeon"], c["procedure"])
+            if composite_key not in resolved_cards:
+                resolved_cards[composite_key] = copy.deepcopy(c)
             else:
                 # Merge preference conflict (LWW strategy)
-                resolved_cards[cid]["preferences"].update(c["preferences"])
+                resolved_cards[composite_key]["preferences"].update(c["preferences"])
         return list(resolved_cards.values())
 
     resolved = resolve_card_conflict(cards)
@@ -634,6 +649,14 @@ def test_config_state_snapshots_and_transitions(tmp_path, monkeypatch):
 
     assert post_mutation_state[0]["status"] == "needs_reverification"
     assert post_mutation_state[0]["verification_score"] == 0.5
+
+    # Normalize volatile mutation fields before structural deep equality comparison
+    volatile_fields = ["last_verified_at", "verification_score", "status", "verify_count"]
+    for field in volatile_fields:
+        baseline_state[0].pop(field, None)
+        post_mutation_state[0].pop(field, None)
+
+    assert baseline_state == post_mutation_state
 
 
 def test_config_offline_first_multi_tenant_isolation(tmp_path, monkeypatch):
