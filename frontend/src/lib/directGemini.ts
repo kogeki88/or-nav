@@ -89,7 +89,7 @@ export async function directTranscribeAudio(
     },
   };
 
-  if (typeof fetch === 'undefined') {
+  if (typeof fetch === 'undefined' || (typeof window !== 'undefined' && window.navigator && window.navigator.onLine === false)) {
     throw new Error("Network offline");
   }
 
@@ -220,7 +220,7 @@ ${baselineText}`;
     },
   };
 
-  if (typeof fetch === 'undefined') {
+  if (typeof fetch === 'undefined' || (typeof window !== 'undefined' && window.navigator && window.navigator.onLine === false)) {
     throw new Error("Network offline");
   }
 
