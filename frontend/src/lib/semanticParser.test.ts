@@ -650,3 +650,97 @@ test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t)
     }
   });
 });
+
+
+test("Continuous Invariants & Stress Hardening", async (t) => {
+  await t.test("Deep Freeze Validation (Immutability resilience)", () => {
+    // Ensure parseClinicalIntent handles perfectly frozen strings and avoids implicit mutation
+    const query = Object.freeze("move the bovie to OR 1");
+    const tenant = Object.freeze("facility_1::dept_A");
+    const role = Object.freeze("circulator");
+
+    // Should not throw TypeError: Cannot assign to read only property
+    const res = parseClinicalIntent(query as any, role as any);
+    assert.strictEqual(res.intent, ClinicalIntent.MUTATE_INVENTORY);
+    assert.ok(res.entities.item?.includes("bovie"));
+  });
+
+  await t.test("Continuous Event Loop Mutation Matrix", async () => {
+    // A rapid sequence spanning the entire event loop simulating sustained traffic
+    const sequence = [
+      "add 4-0 vicryl",
+      "where is the raytec",
+      "what is the malignant hyperthermia protocol",
+      "Dr. Smith preference card tray setup for lap chole",
+      "has anyone seen the 3-0 silk",
+      "we call the mixter clamp gemini"
+    ];
+
+    const expectedIntents = [
+      ClinicalIntent.MUTATE_INVENTORY,
+      ClinicalIntent.FIND_INVENTORY,
+      ClinicalIntent.GENERAL_QUERY,
+      ClinicalIntent.VIEW_PREFERENCE_CARD,
+      ClinicalIntent.PEER_BROADCAST,
+      ClinicalIntent.TEACH_ALIAS
+    ];
+
+    let results: ParsedIntent[] = [];
+    for(let i=0; i<3; i++) {
+        const loopRes = await Promise.all(sequence.map(async (q) => {
+            await new Promise(resolve => setImmediate(resolve));
+            return parseClinicalIntent(q);
+        }));
+        results = results.concat(loopRes);
+    }
+
+    // Validate the matrix
+    const intents = results.map(r => r.intent);
+    assert.deepStrictEqual(intents.slice(0, 6), expectedIntents);
+    assert.deepStrictEqual(intents.slice(6, 12), expectedIntents);
+    assert.deepStrictEqual(intents.slice(12, 18), expectedIntents);
+  });
+
+  await t.test("Offline-First Extreme Fetch and WebSocket Blackhole", () => {
+    const originalFetch = global.fetch;
+    const originalXHR = (global as any).XMLHttpRequest;
+    const originalWS = (global as any).WebSocket;
+
+    global.fetch = () => { throw new Error("NETWORK_DOWN_FETCH"); };
+    (global as any).XMLHttpRequest = function() { throw new Error("NETWORK_DOWN_XHR"); };
+    (global as any).WebSocket = function() { throw new Error("NETWORK_DOWN_WS"); };
+
+    try {
+      const q1 = parseClinicalIntent("where is the 2-0 vicryl");
+      assert.strictEqual(q1.intent, ClinicalIntent.FIND_INVENTORY);
+      assert.strictEqual(q1.entities.item, "2-0 vicryl");
+
+      const q2 = parseClinicalIntent("please move the 3-0 silk to OR 1 C 2 F");
+      assert.strictEqual(q2.intent, ClinicalIntent.MUTATE_INVENTORY);
+      assert.strictEqual(q2.entities.location, "OR 1 C 2 F");
+
+    } finally {
+      global.fetch = originalFetch;
+      (global as any).XMLHttpRequest = originalXHR;
+      (global as any).WebSocket = originalWS;
+    }
+  });
+
+  await t.test("Malicious Payload Regex ReDoS Boundary (Extreme Spacing)", () => {
+    const start = performance.now();
+
+    // 10,000+ whitespace characters between coordinate components
+    const extremeSpace = " ".repeat(15000);
+    const attackStr = "please move the bovie to OR" + extremeSpace + "21" + extremeSpace + "C" + extremeSpace + "1" + extremeSpace + "F";
+
+    const res = parseClinicalIntent(attackStr);
+    const end = performance.now();
+
+    // Should gracefully process or condense, and strictly execute in < 150ms
+    const latency = end - start;
+    assert.ok(latency < 150, `Extreme space ReDoS mitigation failed, took ${latency}ms`);
+    assert.strictEqual(res.intent, ClinicalIntent.MUTATE_INVENTORY);
+
+    // Location parsing may fail on extreme bounds, but we just verify it doesn't crash or timeout
+  });
+});
