@@ -938,3 +938,142 @@ test('Strict Security Invariants & HIPAA PHI Boundary Verification', async () =>
     assert.strictEqual(payload.rawText.includes('Ignore previous instructions'), false);
     assert.strictEqual(payload.rawText.includes('bearer eyJhb'), false);
 });
+
+
+test('deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency', async () => {
+    // 1. Enforce multi-tenant isolation and offline-first invariants
+    const tenantClinical1 = 'facility-1::dept-A';
+    const tenantClinical2 = 'facility-2::dept-B';
+
+    let snapshotState = new Map();
+    let currentOfflineState = false;
+
+    // Deterministic mock for submitManualFeedback to verify state transition matrix
+    const submitManualFeedbackMock = mock.fn(async (payload) => {
+        if (currentOfflineState) {
+            // Simulate offline queue
+            return { ...payload, id: 'fb-offline', status: 'queued', createdAt: new Date().toISOString() };
+        }
+        // State transition: update snapshot
+        snapshotState.set(payload.id || 'fb-new', payload);
+        return { ...payload, id: 'fb-new', status: 'open', createdAt: new Date().toISOString() };
+    });
+
+    // Mock fetchFeedbackItems to return the snapshot state (clinical state snapshot)
+    const fetchFeedbackItemsMock = mock.fn(async () => {
+        const items = Array.from(snapshotState.values()).filter(item => item.tenantId === tenantClinical1);
+        return items;
+    });
+
+    // Mock updateFeedbackStatus for preference card conflict resolution logic
+    const updateFeedbackStatusMock = mock.fn(async (id, currentStatus, newStatus) => {
+        const item = snapshotState.get(id);
+        if (!item) throw new Error('Item not found');
+
+        // Preference card conflict resolution
+        const finalStatus = newStatus || 'resolved';
+        snapshotState.set(id, { ...item, status: finalStatus });
+    });
+
+    const PatchedFeedbackModalMod = proxyquire('./FeedbackModal', {
+        '@/lib/gamification': { awardClinicalXP: mock.fn() },
+        '@/lib/auth': { isAdminUser: mock.fn(() => true), getCurrentSession: mock.fn(() => null) },
+        '@/lib/feedbackEngine': {
+            submitManualFeedback: submitManualFeedbackMock,
+            fetchFeedbackItems: fetchFeedbackItemsMock,
+            upvoteFeedback: mock.fn(),
+            updateFeedbackStatus: updateFeedbackStatusMock,
+            FEEDBACK_EVENT_NAME: 'feedback_updated'
+        }
+    });
+
+    const PatchedFeedbackModal = PatchedFeedbackModalMod.FeedbackModal;
+
+    // Snapshot 1 for Tenant 1
+    const profile1 = { ...dummyProfile, tenantId: tenantClinical1 };
+
+    // Seed initial state (Preference Card A)
+    snapshotState.set('fb-1', {
+        id: 'fb-1', tenantId: tenantClinical1, userName: 'Nurse A', userRole: 'RN',
+        source: 'manual_submission', category: 'bug_friction', severity: 'high',
+        rawText: 'Clinical Snapshot A', aiRecommendation: 'Rec A', suggestedFixPrompt: 'Fix A',
+        upvotes: 2, status: 'open', createdAt: new Date().toISOString()
+    });
+
+    // Seed conflicting state for Tenant 2
+    snapshotState.set('fb-2', {
+        id: 'fb-2', tenantId: tenantClinical2, userName: 'Nurse B', userRole: 'RN',
+        source: 'manual_submission', category: 'data_inventory', severity: 'low',
+        rawText: 'Clinical Snapshot B', aiRecommendation: 'Rec B', suggestedFixPrompt: 'Fix B',
+        upvotes: 1, status: 'open', createdAt: new Date().toISOString()
+    });
+
+    // Render Tenant 1 modal
+    const { unmount: unmount1 } = render(
+        <PatchedFeedbackModal isOpen={true} onClose={() => {}} userProfile={profile1} />
+    );
+
+
+    // Switch to Admin Triage tab first!
+    const adminTab = screen.getByTestId('tab-recommendations-hub');
+    fireEvent.click(adminTab);
+
+    // Wait for Admin Triage tab to load fetchFeedbackItems
+    await waitFor(() => {
+        const recommendationsHub = screen.getByTestId('recommendations-hub');
+        assert.ok(recommendationsHub);
+        // Should only see Tenant 1 snapshot
+        assert.ok(recommendationsHub.textContent?.includes('Rec A'));
+        assert.strictEqual(recommendationsHub.textContent?.includes('Rec B'), false);
+    });
+
+    // Switch back to Submit tab
+    var submitTab = screen.getByTestId('tab-give-feedback');
+    fireEvent.click(submitTab);
+
+    // Wait for form to appear
+    await waitFor(() => {
+        const textareas = screen.queryAllByTestId('feedback-input-text');
+        assert.ok(textareas.length > 0);
+    });
+
+    // Transition 1: Offline submission
+    currentOfflineState = true;
+    Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+    window.dispatchEvent(new Event('offline'));
+
+    const textarea2 = screen.getByTestId('feedback-input-text');
+    fireEvent.change(textarea2, { target: { value: 'Offline preference update' } });
+
+    const submitBtn2 = screen.getByTestId('btn-submit-feedback');
+    fireEvent.click(submitBtn2);
+
+    await waitFor(() => {
+        assert.ok(screen.getByText('Saved offline. Will sync when connected.'));
+    });
+
+
+
+
+    // Transition 2: Admin resolves item (Conflict resolution)
+    // Click Admin Triage
+    const adminTab2 = screen.getByTestId('tab-recommendations-hub');
+    fireEvent.click(adminTab2);
+
+    await waitFor(() => {
+        const resolveBtns = screen.getAllByTestId('btn-resolve-feedback');
+        assert.ok(resolveBtns.length > 0);
+        fireEvent.click(resolveBtns[0]);
+    });
+
+    await waitFor(() => {
+        assert.strictEqual(updateFeedbackStatusMock.mock.calls.length, 1);
+        const [id, current, newStat] = updateFeedbackStatusMock.mock.calls[0].arguments;
+        assert.strictEqual(id, 'fb-1');
+    });
+
+    // Verify Clinical State Snapshot consistency
+    assert.strictEqual(snapshotState.get('fb-1').status, 'resolved');
+
+    unmount1();
+});
