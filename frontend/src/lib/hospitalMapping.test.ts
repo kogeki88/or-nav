@@ -554,6 +554,9 @@ test("Deterministic State Transition Matrices & Clinical Workflow Snapshots", as
             learnAliasClient(fac, "cvor", "suture", "silk_suture_3_0");
 
             // Conflict resolution: override with new consensus
+            // We call it twice with the SAME canonical item to explicitly increment the usage count to 2.
+            // If we just called it once, usageCount would reset to 1 because the canonicalItemName changed.
+            learnAliasClient(fac, "cvor", "suture", "vicryl_suture_2_0");
             learnAliasClient(fac, "cvor", "suture", "vicryl_suture_2_0");
 
             // Verify the transition matrix correctly resolved the conflict
@@ -562,6 +565,106 @@ test("Deterministic State Transition Matrices & Clinical Workflow Snapshots", as
             assert.strictEqual(resolved.canonicalItemName, "vicryl_suture_2_0");
             assert.strictEqual(resolved.usageCount, 2);
         });
+    } finally {
+        global.fetch = originalFetch;
+    }
+});
+
+test("Concurrent burst execution against synchronous storage", async (t) => {
+    const originalFetch = global.fetch;
+    global.fetch = () => { throw new Error("Network call detected"); };
+
+    try {
+        const tenant = "burst_hospital::er";
+        const fac = getFacilityIdFromTenant(tenant).facilityId;
+
+        // Ensure starting state
+        let lexicon = loadFacilityLexicon(fac);
+
+        const iterations = 100;
+
+        const promises = [];
+        for (let i = 0; i < iterations; i++) {
+            promises.push(
+                Promise.resolve().then(() => {
+                    return learnAliasClient(fac, "er", "scalpel", "blade_10", "user_" + i);
+                })
+            );
+        }
+
+        await Promise.all(promises);
+
+        const resolved = resolveSpokenAliasClient(fac, "scalpel");
+        assert.ok(resolved !== null);
+        assert.strictEqual(resolved.canonicalItemName, "blade_10");
+
+        // Ensure mathematically exact result.
+        assert.strictEqual(resolved.usageCount, iterations);
+
+    } finally {
+        global.fetch = originalFetch;
+    }
+});
+
+test("Deep Freeze validation for snapshot consistency", async (t) => {
+    const originalFetch = global.fetch;
+    global.fetch = () => { throw new Error("Network call detected"); };
+
+    try {
+        const tenant = "freeze_hospital::icu";
+        const fac = getFacilityIdFromTenant(tenant).facilityId;
+
+        // Freeze the ACTUAL array returned by loadFacilityLexicon to ensure internal logic doesn't mutate it by reference
+        learnAliasClient(fac, "icu", "monitor", "vitals_monitor");
+        const internalLexicon = loadFacilityLexicon(fac);
+
+        // Freeze the array and its contents
+        Object.freeze(internalLexicon);
+        internalLexicon.forEach(entry => Object.freeze(entry));
+
+        // Attempt a transition. If learnAliasClient mutates the array by reference, it will throw a TypeError in strict mode.
+        // If it correctly uses a copy or replaces the array, it will succeed.
+        try {
+            learnAliasClient(fac, "icu", "monitor", "vitals_monitor", "user_2");
+        } catch (error) {
+            if (error instanceof TypeError && error.message.includes("read only property")) {
+                assert.fail("Deep Freeze Validation failed: Function mutated the baseline object reference directly instead of replacing state deterministically.");
+            }
+            throw error;
+        }
+
+        const updatedLexicon = loadFacilityLexicon(fac);
+
+        // Ensure baseline was not mutated
+        assert.strictEqual(internalLexicon[0].usageCount, 1);
+
+        // Ensure updated lexicon reflects changes
+        const updatedEntry = updatedLexicon.find(e => e.spokenTerm === "monitor");
+        assert.strictEqual(updatedEntry.usageCount, 2);
+    } finally {
+        global.fetch = originalFetch;
+    }
+});
+
+test("Multi-tenant isolation and offline-first compliance validation", async (t) => {
+    const originalFetch = global.fetch;
+    global.fetch = () => { throw new Error("Network call detected"); };
+
+    try {
+        const tenantA = "tenant_a::or";
+        const tenantB = "tenant_b::or";
+
+        const facA = getFacilityIdFromTenant(tenantA).facilityId;
+        const facB = getFacilityIdFromTenant(tenantB).facilityId;
+
+        learnAliasClient(facA, "or", "retractor", "weitlaner_retractor");
+
+        const lexiconA = loadFacilityLexicon(facA);
+        const lexiconB = loadFacilityLexicon(facB);
+
+        assert.ok(lexiconA.some(e => e.spokenTerm === "retractor"));
+        assert.ok(!lexiconB.some(e => e.spokenTerm === "retractor"), "Multi-tenant isolation failed");
+
     } finally {
         global.fetch = originalFetch;
     }
