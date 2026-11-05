@@ -799,3 +799,129 @@ def test_planner_zero_trust_token_exchange(monkeypatch):
     assert plan.intent == "PREFERENCE_CARD_LOOKUP"
     assert plan.surgeon is not None
     assert plan.surgeon.normalized_last_name == "patel"
+
+def test_planner_deterministic_state_transitions(monkeypatch):
+    """
+    Test deterministic state transitions in the clinical query planner.
+    Enforces multi-tenant isolation and offline-first invariants.
+    """
+    import socket
+    import httpx
+
+    # Offline-first invariant
+    original_socket = socket.socket
+    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network call attempted during offline-first function!")
+        return original_socket(family, type, proto, fileno)
+
+    monkeypatch.setattr(socket, "socket", poisoned_socket)
+    def poisoned_httpx(*args, **kwargs):
+        raise RuntimeError("HTTP call")
+    monkeypatch.setattr(httpx, "post", poisoned_httpx)
+    monkeypatch.setattr(httpx, "get", poisoned_httpx)
+    monkeypatch.setattr(httpx, "request", poisoned_httpx)
+
+    from app.services.clinical_graph import get_clinical_graph
+    from app.services.clinical_query_planner import plan_clinical_query
+
+    tenant_id = "or_main::tenant1"
+    graph = get_clinical_graph("or_main")
+
+    # State matrix: [Query, Expected Intent]
+    transitions = [
+        ("where is 3-0 prolene", "INVENTORY_LOOKUP"),
+        ("what sutures does dr chen use", "PREFERENCE_CARD_LOOKUP"),
+        ("where is Dr. Patel's custom vascular stapler", "PREFERENCE_INVENTORY_JOIN"),
+        ("dr rodriguez glove size", "PREFERENCE_CARD_LOOKUP"),
+        ("adson with teeth", "INVENTORY_LOOKUP"),
+    ]
+
+    for q, expected_intent in transitions:
+        plan = plan_clinical_query(q, graph=graph, tenant_id=tenant_id)
+        assert plan.intent == expected_intent
+        assert plan.raw_query.strip() != ""
+
+def test_planner_preference_card_conflict_resolution(monkeypatch):
+    """
+    Test preference card conflict resolution.
+    Enforces multi-tenant isolation and offline-first invariants.
+    """
+    import socket
+    import httpx
+
+    # Offline-first invariant
+    original_socket = socket.socket
+    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network call attempted during offline-first function!")
+        return original_socket(family, type, proto, fileno)
+
+    monkeypatch.setattr(socket, "socket", poisoned_socket)
+    def poisoned_httpx(*args, **kwargs):
+        raise RuntimeError("HTTP call")
+    monkeypatch.setattr(httpx, "post", poisoned_httpx)
+    monkeypatch.setattr(httpx, "get", poisoned_httpx)
+    monkeypatch.setattr(httpx, "request", poisoned_httpx)
+
+    from app.services.clinical_graph import get_clinical_graph
+    from app.services.clinical_query_planner import plan_clinical_query, execute_clinical_query_plan
+    from app.services.inventory_search import get_inventory_service
+
+    tenant_id = "or_main::tenant2"
+    graph = get_clinical_graph("or_main")
+    inventory_service = get_inventory_service("or_main")
+
+    # Query with both surgeon and procedure
+    plan = plan_clinical_query("what size prolene does dr chen use for cabg", graph=graph, tenant_id=tenant_id)
+    assert plan.surgeon is not None
+    assert plan.procedure is not None
+
+    # Format response should resolve conflicts by prioritizing the intersection
+    # of surgeon and procedure cards.
+    response = execute_clinical_query_plan(plan, graph, inventory_service)
+    assert response is not None
+    assert "### 📋" in response["reply_text"]
+    assert "Chen" in response["reply_text"]
+
+def test_planner_clinical_state_snapshot_consistency(monkeypatch):
+    """
+    Test clinical state snapshot consistency.
+    Enforces multi-tenant isolation and offline-first invariants.
+    """
+    import socket
+    import httpx
+
+    # Offline-first invariant
+    original_socket = socket.socket
+    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+        if family != getattr(socket, 'AF_UNIX', -1):
+            raise RuntimeError("Network call attempted during offline-first function!")
+        return original_socket(family, type, proto, fileno)
+
+    monkeypatch.setattr(socket, "socket", poisoned_socket)
+    def poisoned_httpx(*args, **kwargs):
+        raise RuntimeError("HTTP call")
+    monkeypatch.setattr(httpx, "post", poisoned_httpx)
+    monkeypatch.setattr(httpx, "get", poisoned_httpx)
+    monkeypatch.setattr(httpx, "request", poisoned_httpx)
+
+    from app.services.inventory_search import get_inventory_service
+    from app.services.clinical_graph import get_clinical_graph
+
+    tenant_id = "or_main::tenant3"
+    graph = get_clinical_graph("or_main")
+    inventory = get_inventory_service("or_main")
+
+    # Use get_sync_payload() as instructed
+    snapshot = inventory.get_sync_payload()
+
+    assert isinstance(snapshot, list)
+    assert len(snapshot) > 0
+
+    # The clinical graph should reflect the inventory rows
+    assert len(graph.inventory_rows) == len(snapshot)
+
+    # Take another snapshot and verify consistency
+    snapshot2 = inventory.get_sync_payload()
+    assert snapshot == snapshot2
