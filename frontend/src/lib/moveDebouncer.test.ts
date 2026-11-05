@@ -10,6 +10,41 @@ export function createMoveDebouncer<T>(
   let timeoutId: NodeJS.Timeout | null = null;
   let batchedItems: T[] = [];
   const safeDelay = Math.max(0, delay);
+  let isExecuting = false;
+
+  const flush = () => {
+    if (batchedItems.length === 0) {
+        timeoutId = null;
+        isExecuting = false;
+        return;
+    }
+    const itemsToProcess = [...batchedItems];
+    batchedItems = [];
+    timeoutId = null;
+    isExecuting = true;
+    try {
+        const result = callback(itemsToProcess);
+        if (result instanceof Promise) {
+            result.finally(() => {
+                isExecuting = false;
+                if (batchedItems.length > 0 && !timeoutId) {
+                   timeoutId = setTimeout(flush, safeDelay);
+                }
+            });
+        } else {
+            isExecuting = false;
+            if (batchedItems.length > 0 && !timeoutId) {
+               timeoutId = setTimeout(flush, safeDelay);
+            }
+        }
+    } catch (e) {
+        isExecuting = false;
+        if (batchedItems.length > 0 && !timeoutId) {
+            timeoutId = setTimeout(flush, safeDelay);
+        }
+        throw e;
+    }
+  };
 
   return (item: T) => {
     if (validator && !validator(item)) {
@@ -22,12 +57,12 @@ export function createMoveDebouncer<T>(
       clearTimeout(timeoutId);
     }
 
-    timeoutId = setTimeout(() => {
-      const itemsToProcess = [...batchedItems];
-      batchedItems = []; // clear first to ensure no memory leak if callback throws
-      timeoutId = null;
-      callback(itemsToProcess); // Let exception bubble up to consumer
-    }, safeDelay);
+    if (!isExecuting) {
+        timeoutId = setTimeout(flush, safeDelay);
+    } else {
+        // If executing, we don't start a new timeout, flush handles it
+        // but we need to ensure that after execution, a new timeout is started if needed
+    }
   };
 }
 
@@ -693,5 +728,23 @@ describe("moveDebouncer", () => {
     } finally {
       global.fetch = originalFetch;
     }
+  });
+  test("verifies isExecuting invariant prevents race conditions", async () => {
+    let callCount = 0;
+    const debouncer = createMoveDebouncer(async (items: any[]) => {
+      callCount++;
+      await sleep(50); // Simulate slow processing
+    }, 10);
+
+    debouncer({id: 1});
+    await sleep(20);
+    debouncer({id: 2}); // This should queue, not fire immediately
+    debouncer({id: 3});
+    await sleep(20);
+
+    assert.strictEqual(callCount, 1);
+
+    await sleep(80);
+    assert.strictEqual(callCount, 2); // Now it should have fired the queued items
   });
 });
