@@ -4299,8 +4299,10 @@
     "id": "backlog-431",
     "title": "Testing: Clinical Workflow Snapshot & Deterministic State Verifications for VoiceRouterLiveKit",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for VoiceRouterLiveKit\n\n**File:** `backend/tests/test_voice_router.py`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `backend/tests/test_voice_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for VoiceRouterLiveKit\n\n**File:** `backend/tests/test_voice_router.py`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `backend/tests/test_voice_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "5400086219906308649",
+    "dispatchedAt": "2026-11-05T18:30:29.103Z"
   },
   {
     "id": "backlog-432",
@@ -4316,8 +4318,10 @@
     "id": "backlog-433",
     "title": "Testing: Clinical Workflow Snapshot & Deterministic State Verifications for ClinicalGraph",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for ClinicalGraph\n\n**File:** `frontend/src/lib/clinicalGraph.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/clinicalGraph.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for ClinicalGraph\n\n**File:** `frontend/src/lib/clinicalGraph.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/clinicalGraph.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "18197680730195619407",
+    "dispatchedAt": "2026-11-05T18:30:30.550Z"
   },
   {
     "id": "backlog-434",
@@ -4342,8 +4346,10 @@
     "id": "backlog-436",
     "title": "Testing: Clinical Workflow Snapshot & Deterministic State Verifications for FeedbackEngine",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for FeedbackEngine\n\n**File:** `frontend/src/lib/feedbackEngine.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/feedbackEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for FeedbackEngine\n\n**File:** `frontend/src/lib/feedbackEngine.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/feedbackEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "14484783720347742110",
+    "dispatchedAt": "2026-11-05T18:30:31.970Z"
   },
   {
     "id": "backlog-437",
@@ -4448,7 +4454,9 @@
     "id": "backlog-449",
     "title": "Sentinel: Clinical Workflow Snapshot & Deterministic State Verifications for AuthBackend",
     "category": "Security",
-    "status": "pending",
-    "prompt": "# 🚀 Sentinel Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for AuthBackend\n\n**File:** `backend/tests/test_auth.py`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `backend/tests/test_auth.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for AuthBackend\n\n**File:** `backend/tests/test_auth.py`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `backend/tests/test_auth.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11860764857136723292",
+    "dispatchedAt": "2026-11-05T18:30:27.537Z"
   }
 ]
