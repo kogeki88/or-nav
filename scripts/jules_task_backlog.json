@@ -4232,10 +4232,11 @@
     "id": "backlog-424",
     "title": "Testing: Clinical Workflow Snapshot & Deterministic State Verifications for PeerQnAPanel",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for PeerQnAPanel\n\n**File:** `frontend/src/components/PeerQnAPanel.test.tsx`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/components/PeerQnAPanel.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "5213451564351742253",
-    "dispatchedAt": "2026-11-05T18:20:14.802Z"
+    "dispatchedAt": "2026-11-05T18:20:14.802Z",
+    "completedAt": "2026-11-05T18:54:44.050Z"
   },
   {
     "id": "backlog-425",
@@ -4490,5 +4491,14 @@
     "category": "Testing",
     "status": "pending",
     "prompt": "# 🚀 Testing Task (Hardening Round 1): Continuous Invariants for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-453",
+    "title": "Bolt: Continuous Invariant & Stress Hardening Round 1 for SemanticParser",
+    "category": "Performance",
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Hardening Round 1): Continuous Invariants for SemanticParser\n\n**File:** `frontend/src/lib/semanticParser.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/lib/semanticParser.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11133921492594385359",
+    "dispatchedAt": "2026-11-05T18:54:47.396Z"
   }
 ]
