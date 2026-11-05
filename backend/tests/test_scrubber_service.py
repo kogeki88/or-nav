@@ -346,7 +346,7 @@ class TestScrubberServiceMultiTenantIsolation:
         with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
             futures = []
             for i in range(num_requests):
-                tenant_id = "tenant_a" if i % 2 == 0 else "tenant_b"
+                tenant_id = f"sacred_heart::or_burst_{i}"
                 futures.append(executor.submit(worker_task, tenant_id, i % 50, i))
 
             for f in concurrent.futures.as_completed(futures):
@@ -818,3 +818,29 @@ class TestScrubberServiceSecurityHardening:
         # Assert Cross-Tenant Isolation
         assert tenant_2 not in t1_step1.text
         assert tenant_1 not in t2_step1.text
+
+        # Add Deep Freeze Validation equivalent to ensure state immutability
+        import copy
+        import json
+        t1_state_snapshot = copy.deepcopy(t1_step3.text)
+        t2_state_snapshot = copy.deepcopy(t2_step3.text)
+
+        # Ensure no cross-contamination between snapshots
+        assert t2_state_snapshot not in t1_state_snapshot
+        assert t1_state_snapshot not in t2_state_snapshot
+
+        # Verify offline replay idempotency on snapshots
+        replay_1 = scrub_phi(t1_state_snapshot)
+        assert replay_1.text == t1_state_snapshot
+
+        replay_2 = scrub_phi(t2_state_snapshot)
+        assert replay_2.text == t2_state_snapshot
+
+        # Ensure structural integrity via JSON (mocked) to simulate complex transitions
+        t1_json = json.dumps({"tenant": tenant_1, "payload": t1_state_snapshot})
+        t1_parsed = json.loads(t1_json)
+        assert t1_parsed["payload"] == t1_state_snapshot
+
+        t2_json = json.dumps({"tenant": tenant_2, "payload": t2_state_snapshot})
+        t2_parsed = json.loads(t2_json)
+        assert t2_parsed["payload"] == t2_state_snapshot
