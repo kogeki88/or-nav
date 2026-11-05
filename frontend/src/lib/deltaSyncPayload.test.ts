@@ -62,8 +62,8 @@ test("deltaSyncPayload edge cases and invariants", async (t) => {
 
   await t.test("multi-tenant isolation", () => {
     const mutations = [
-      { id: 1, tenant_id: "tenantA", data: "x" },
-      { id: 2, tenant_id: "tenantB", data: "y" }
+      { id: 1, tenant_id: "tenantA", dataA: "x" },
+      { id: 2, tenant_id: "tenantB", dataB: "y" }
     ];
     const compressed = compressPayload(mutations);
     const restored = decompressPayload<Record<string, unknown>>(compressed);
@@ -71,11 +71,13 @@ test("deltaSyncPayload edge cases and invariants", async (t) => {
     // Verify tenantA data did not leak into tenantB data
     const tenantAMuts = restored.filter(m => m.tenant_id === "tenantA");
     assert.strictEqual(tenantAMuts.length, 1);
-    assert.strictEqual(tenantAMuts[0].data, "x");
+    assert.strictEqual(tenantAMuts[0].dataA, "x");
+    assert.ok(!Object.keys(tenantAMuts[0]).includes("dataB"), "tenantB data must not leak into tenantA");
 
     const tenantBMuts = restored.filter(m => m.tenant_id === "tenantB");
     assert.strictEqual(tenantBMuts.length, 1);
-    assert.strictEqual(tenantBMuts[0].data, "y");
+    assert.strictEqual(tenantBMuts[0].dataB, "y");
+    assert.ok(!Object.keys(tenantBMuts[0]).includes("dataA"), "tenantA data must not leak into tenantB");
   });
 
   await t.test("multi-tenant boundary enforcement (facility_id::dept_id)", () => {
@@ -218,11 +220,15 @@ test("deltaSyncPayload concurrency, race conditions, and performance benchmarks"
       Array.from({ length: numWorkers }, (_, i) => workerTask(i))
     );
 
-    for (let i = 0; i < numWorkers; i++) {
-      const decompressed = results[i] as any[];
+    for (let workerIdx = 0; workerIdx < numWorkers; workerIdx++) {
+      const decompressed = results[workerIdx] as any[];
       assert.strictEqual(decompressed.length, 100);
-      assert.strictEqual(decompressed[0].workerId, i);
-      assert.strictEqual(decompressed[0].tenant_id, `tenant_${i}`);
+      for (let itemIdx = 0; itemIdx < 100; itemIdx++) {
+        assert.strictEqual(decompressed[itemIdx].workerId, workerIdx);
+        assert.strictEqual(decompressed[itemIdx].tenant_id, `tenant_${workerIdx}`);
+        assert.strictEqual(decompressed[itemIdx].id, itemIdx);
+        assert.strictEqual(decompressed[itemIdx].val, `worker-${workerIdx}-item-${itemIdx}`);
+      }
     }
   });
 
@@ -586,7 +592,8 @@ test("deltaSyncPayload state consistency", async (t) => {
       procedure: "appendectomy"
     };
 
-    // Freeze the baseline state for structural comparison
+    // Freeze the baseline state for structural comparison and immutability checking
+    Object.freeze(baselineState);
     const frozenBaseline = JSON.parse(JSON.stringify(baselineState));
 
     const mutations = [ baselineState, { ...baselineState, clinical_status: "post_op" } ];
