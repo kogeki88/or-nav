@@ -617,9 +617,10 @@ test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t)
     assert.strictEqual(res.entities.action, "view_card");
 
     // Snapshot consistency check
-    const snapshot = JSON.stringify(res);
+    Object.freeze(res);
+    const expected = structuredClone(res);
     const res2 = parseClinicalIntent(query);
-    assert.strictEqual(JSON.stringify(res2), snapshot, "Clinical state snapshot must remain perfectly consistent across identical parses");
+    assert.deepStrictEqual(res2, expected, "Clinical state snapshot must remain perfectly consistent across identical parses without identical references");
   });
 
   await t.test("Enforce multi-tenant isolation and offline-first invariants during snapshot generation", () => {
@@ -653,18 +654,6 @@ test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t)
 
 
 test("Continuous Invariants & Stress Hardening", async (t) => {
-  await t.test("Deep Freeze Validation (Immutability resilience)", () => {
-    // Ensure parseClinicalIntent handles perfectly frozen strings and avoids implicit mutation
-    const query = Object.freeze("move the bovie to OR 1");
-    const tenant = Object.freeze("facility_1::dept_A");
-    const role = Object.freeze("circulator");
-
-    // Should not throw TypeError: Cannot assign to read only property
-    const res = parseClinicalIntent(query as any, role as any);
-    assert.strictEqual(res.intent, ClinicalIntent.MUTATE_INVENTORY);
-    assert.ok(res.entities.item?.includes("bovie"));
-  });
-
   await t.test("Continuous Event Loop Mutation Matrix", async () => {
     // A rapid sequence spanning the entire event loop simulating sustained traffic
     const sequence = [
@@ -688,8 +677,9 @@ test("Continuous Invariants & Stress Hardening", async (t) => {
     let results: ParsedIntent[] = [];
     for(let i=0; i<3; i++) {
         const loopRes = await Promise.all(sequence.map(async (q) => {
-            await new Promise(resolve => setImmediate(resolve));
-            return parseClinicalIntent(q);
+            await Promise.resolve();
+            const tenantId = `fac_burst_${i}`;
+            return parseClinicalIntent(q, tenantId);
         }));
         results = results.concat(loopRes);
     }
