@@ -4142,10 +4142,11 @@
     "id": "backlog-415",
     "title": "Testing: Clinical Workflow Snapshot & Deterministic State Verifications for IntentParser",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "14790674256834206957",
-    "dispatchedAt": "2026-11-05T17:06:51.972Z"
+    "dispatchedAt": "2026-11-05T17:06:51.972Z",
+    "completedAt": "2026-11-05T17:30:25.444Z"
   },
   {
     "id": "backlog-416",
@@ -4316,5 +4317,12 @@
     "category": "Code Health",
     "status": "pending",
     "prompt": "# 🚀 Code Health Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for Departments\n\n**File:** `frontend/src/lib/departments.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/departments.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-436",
+    "title": "Testing: Clinical Workflow Snapshot & Deterministic State Verifications for FeedbackEngine",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for FeedbackEngine\n\n**File:** `frontend/src/lib/feedbackEngine.test.ts`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/lib/feedbackEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
   }
 ]
