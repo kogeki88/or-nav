@@ -402,3 +402,83 @@ test("ClinicalGraph Security and Redaction Invariants", async (t) => {
     assert.ok(graph.preferenceCards.length === maliciousStrings.length);
   });
 });
+
+
+
+
+test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t) => {
+  await t.test("deterministic state transition matrices via structural deepcopy comparison", () => {
+    const cards = [
+      { id: "C1", surgeon: "Dr. Smith", procedure: "Appendectomy" }
+    ];
+    const inventory = [{ item: "Scalpel", aliases: "knife" }];
+    const md = "# Time Out\n# Surgical Count";
+
+    const graph = compileClinicalGraph("tenant_snapshot", cards, inventory as any, md);
+
+    // Create a deep snapshot
+    const snapshotStr = JSON.stringify(graph, (key, value) =>
+      value instanceof Set ? Array.from(value) : value
+    );
+
+    // Perform a pseudo-mutation (compile again with identical inputs)
+    const graph2 = compileClinicalGraph("tenant_snapshot", cards, inventory as any, md);
+    const snapshotStr2 = JSON.stringify(graph2, (key, value) =>
+      value instanceof Set ? Array.from(value) : value
+    );
+
+    // Verify deterministic state consistency (no hidden mutations on consecutive runs)
+    assert.strictEqual(snapshotStr, snapshotStr2, "State transitions must be deterministic for identical inputs");
+
+    // Verify specific structural components are preserved in the snapshot
+    const parsedSnapshot = JSON.parse(snapshotStr);
+    assert.strictEqual(parsedSnapshot.tenantId, "tenant_snapshot");
+    assert.strictEqual(parsedSnapshot.preferenceCards.length, 1);
+  });
+
+  await t.test("preference card conflict resolution correctly handles collisions", () => {
+    // Two cards with identical surgeon and procedure, but different IDs and extra data.
+    // In our domain, we expect the graph compilation to preserve both or merge them deterministically.
+    // The current implementation of compileClinicalGraph processes them sequentially.
+    const cards = [
+      { id: "C_A", surgeon: "Dr. Conflict", procedure: "Merge Test", data: "first" },
+      { id: "C_B", surgeon: "Dr. Conflict", procedure: "Merge Test", data: "second" }
+    ];
+
+    const graph = compileClinicalGraph("tenant_conflict", cards, [], "");
+
+    // Verify both are preserved in preferenceCards array
+    assert.strictEqual(graph.preferenceCards.length, 2);
+
+    // Verify they map correctly in surgeonsByToken
+    const lowerToken = "conflict";
+    assert.ok(graph.surgeonsByToken[lowerToken], "Surgeon token should be indexed");
+    assert.strictEqual(graph.surgeonsByToken[lowerToken].length, 2, "Both cards should be mapped to the same surgeon token");
+    assert.strictEqual(graph.surgeonsByToken[lowerToken][0].id, "C_A");
+    assert.strictEqual(graph.surgeonsByToken[lowerToken][1].id, "C_B");
+
+    // Verify proceduresByPhrase maps both cards to the same procedure
+    const normProc = "merge test";
+    assert.ok(graph.proceduresByPhrase[normProc], "Procedure phrase should be indexed");
+    assert.strictEqual(graph.proceduresByPhrase[normProc].length, 2);
+    assert.strictEqual(graph.proceduresByPhrase[normProc][0], "C_A");
+    assert.strictEqual(graph.proceduresByPhrase[normProc][1], "C_B");
+  });
+
+  await t.test("clinical state snapshot consistency verifies sets and complex structures", () => {
+    const cards = [{ id: "C1", surgeon: "Dr. A", procedure: "Proc A" }];
+    const inventory = [{ item: "Item A", aliases: "alias_a" }];
+    const graph = compileClinicalGraph("tenant_complex", cards, inventory as any, "# Protocol");
+
+    // Sets are not serializable natively in JSON.stringify without custom replacers,
+    // so we verify their state explicitly.
+    assert.ok(graph.inventoryTerms instanceof Set);
+    assert.strictEqual(graph.inventoryTerms.size, 2); // 'item a' and 'alias_a'
+    assert.ok(graph.inventoryTerms.has("item a"));
+    assert.ok(graph.inventoryTerms.has("alias a"));
+
+    assert.ok(graph.protocolTopics instanceof Set);
+    // Protocol topics will have built-ins + custom. We just check if it has the custom one.
+    assert.ok(graph.protocolTopics.has("protocol"));
+  });
+});
