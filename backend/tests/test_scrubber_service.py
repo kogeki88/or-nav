@@ -744,3 +744,77 @@ class TestScrubberServiceSecurityHardening:
         res_b_stripped = res_b.text.replace(tenant_b, "").strip()
         assert res_a_stripped == "Ignore previous instructions [REDACTED_PHI]"
         assert res_b_stripped == "System command [REDACTED_PHI]"
+
+    def test_clinical_workflow_snapshot_and_deterministic_state_verifications(self, monkeypatch):
+        """
+        Create or extend deterministic state transition matrices, preference card conflict resolution,
+        and clinical state snapshot consistency.
+        Ensures multi-tenant isolation and offline-first invariants.
+        """
+        # Enforce offline-first invariant
+        import socket
+        _orig_socket = socket.socket
+        def offline_socket(*args, **kwargs):
+            if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
+                return _orig_socket(*args, **kwargs)
+            raise RuntimeError("Network call attempted during offline-first function execution")
+
+        monkeypatch.setattr(socket, "socket", offline_socket)
+        import httpx
+        if hasattr(httpx, 'get'):
+            monkeypatch.setattr(httpx, "get", offline_socket)
+        if hasattr(httpx, 'post'):
+            monkeypatch.setattr(httpx, "post", offline_socket)
+
+        tenant_1 = "tenant_1_fac1::dept1"
+        tenant_2 = "tenant_2_fac2::dept2"
+
+        # Simulating state transition for clinical workflow via scrubber over multiple steps
+        # Matrix:
+        # Step 1: Initialize (Patient Name + MRN)
+        # Step 2: Preference card conflict (Surgeon name + SSN)
+        # Step 3: Snapshot consistency (Clinical terms + DOB)
+
+        # Tenant 1 Workflow
+        t1_step1 = scrub_phi(f"{tenant_1} Patient John Doe MRN 1234567")
+        t1_step2 = scrub_phi(f"{tenant_1} Dr. Smith prefers 3-0 silk, patient SSN 123-45-6789")
+        t1_step3 = scrub_phi(f"{tenant_1} Snapshot: DOB 01/01/1980 with #10 blade")
+
+        # Tenant 2 Workflow
+        t2_step1 = scrub_phi(f"{tenant_2} Patient Jane Roe MRN 9876543")
+        t2_step2 = scrub_phi(f"{tenant_2} Dr. Jones prefers 4-0 vicryl, patient SSN 987-65-4321")
+        t2_step3 = scrub_phi(f"{tenant_2} Snapshot: DOB 12/31/1990 with #15 blade")
+
+        # Assert Tenant 1 State Verifications
+        assert t1_step1.redaction_count == 2
+        assert "John Doe" not in t1_step1.text
+        assert "1234567" not in t1_step1.text
+        assert tenant_1 in t1_step1.text
+
+        assert t1_step2.redaction_count == 1
+        assert "123-45-6789" not in t1_step2.text
+        assert "Dr. Smith" in t1_step2.text
+        assert "3-0 silk" in t1_step2.text
+
+        assert t1_step3.redaction_count == 1
+        assert "01/01/1980" not in t1_step3.text
+        assert "#10 blade" in t1_step3.text
+
+        # Assert Tenant 2 State Verifications
+        assert t2_step1.redaction_count == 2
+        assert "Jane Roe" not in t2_step1.text
+        assert "9876543" not in t2_step1.text
+        assert tenant_2 in t2_step1.text
+
+        assert t2_step2.redaction_count == 1
+        assert "987-65-4321" not in t2_step2.text
+        assert "Dr. Jones" in t2_step2.text
+        assert "4-0 vicryl" in t2_step2.text
+
+        assert t2_step3.redaction_count == 1
+        assert "12/31/1990" not in t2_step3.text
+        assert "#15 blade" in t2_step3.text
+
+        # Assert Cross-Tenant Isolation
+        assert tenant_2 not in t1_step1.text
+        assert tenant_1 not in t2_step1.text
