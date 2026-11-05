@@ -48,6 +48,37 @@ def test_tenant_boundary_offline_invariants():
     assert res2.entities.location.lower() == "rack 4 shelf a"
     assert res2.entities.action == "add"
 
+def test_intent_parser_clinical_state_snapshot():
+    # Test clinical state snapshot consistency across repeated invocations (Deterministic state transition matrix)
+    # Using existing API endpoints and data schemas (parse_clinical_intent returns ParsedIntent)
+    q = "where is the 3-0 vicryl"
+    r1 = parse_clinical_intent(q)
+    r2 = parse_clinical_intent(q)
+    assert r1.intent == r2.intent == ClinicalIntent.FIND_INVENTORY
+    assert r1.entities == r2.entities
+    assert r1.confidence == r2.confidence
+    assert r1.raw_query == r2.raw_query
+
+def test_intent_parser_preference_card_conflict_resolution():
+    # Test preference card conflict resolution
+    res1 = parse_clinical_intent("Dr. Smith lap chole")
+    assert res1.intent == ClinicalIntent.VIEW_PREFERENCE_CARD
+    assert res1.entities.surgeon == "Dr. Smith"
+
+    # "lap chole" should map to procedure
+    assert res1.entities.procedure.lower() == "lap chole"
+
+    # Test fallback regex vs planner logic for conflict resolution
+    res2 = parse_clinical_intent("where is Dr. Patel's custom vascular stapler")
+    assert res2.intent == ClinicalIntent.FIND_INVENTORY
+    assert "patel" in res2.entities.surgeon.lower()
+    assert res2.entities.item == "custom vascular stapler"
+
+    res3 = parse_clinical_intent("Dr. Smith total knee")
+    assert res3.intent == ClinicalIntent.VIEW_PREFERENCE_CARD
+    assert "smith" in res3.entities.surgeon.lower()
+    assert "knee" in str(res3.entities).lower()
+
 def test_intent_parser_fuzzing():
     queries = [
         "",
