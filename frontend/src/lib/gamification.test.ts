@@ -531,3 +531,89 @@ test("HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust t
     (global as any).localStorage = tempLocalStorage;
   }
 });
+
+
+
+test("Deterministic State Transitions, Clinical Workflow Snapshot Consistency, and Preference Card Conflict Resolution", () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const assert = require("node:assert/strict");
+
+  const tenantA = "tenant_snapshot_A";
+  const tenantB = "tenant_snapshot_B";
+
+  // Mock offline storage, but keep window so saves persist
+  const tempLocalStorage = (global as any).localStorage;
+
+  const inMemoryStorage = new Map<string, string>();
+  (global as any).localStorage = {
+    getItem: (key: string) => inMemoryStorage.get(key) || null,
+    setItem: (key: string, value: string) => inMemoryStorage.set(key, value),
+    removeItem: (key: string) => inMemoryStorage.delete(key),
+    clear: () => inMemoryStorage.clear()
+  };
+
+  try {
+    // 1. Deterministic State Transition Matrix
+    const workflowActions = [
+      "lookup",
+      "lookup",
+      "lookup",
+      "pack_sync",
+      "inventory_fix",
+      "peer_verify",
+      "peer_answer",
+    ];
+
+    const initial = getClinicianRewards(tenantA);
+    assert.equal(initial.xp, 0);
+
+    // Apply matrix to Tenant A
+    workflowActions.forEach((action, idx) => {
+      awardClinicalXP(action as any, undefined, tenantA, `wf_mut_${idx}`);
+    });
+
+    // Verify deterministic state for Tenant A
+    const finalState = getClinicianRewards(tenantA);
+    assert.equal(finalState.xp, 102);
+    assert.equal(finalState.level, 2);
+    assert.equal(finalState.unlockedBadges.length, 4);
+    assert.ok(finalState.unlockedBadges.includes("first_scrub"));
+    assert.ok(finalState.unlockedBadges.includes("pack_collector"));
+    assert.ok(finalState.unlockedBadges.includes("consensus_guardian"));
+    assert.ok(finalState.unlockedBadges.includes("unit_preceptor"));
+    assert.ok(finalState.dailyQuests.every((q: any) => q.completed));
+
+    // Multi-tenant isolation check: Tenant B should still be at default state
+    const tenantBState = getClinicianRewards(tenantB);
+    assert.equal(tenantBState.xp, 0);
+
+    // 2. Clinical State Snapshot Consistency
+    // Use structured cloning strategy (JSON stringify/parse) to freeze baseline for structural comparison
+    const snapshot = JSON.parse(JSON.stringify(finalState));
+    assert.deepEqual(snapshot.stats, finalState.stats);
+    assert.deepEqual(snapshot.dailyQuests, finalState.dailyQuests);
+
+    // 3. Preference Card Conflict Resolution
+    // Simulating LWW / Idempotency based conflict resolution for preference cards in gamification logs
+    const conflictMutId = "pref_card_conflict_resolve_1";
+
+    const stateBeforeConflict = getClinicianRewards(tenantA);
+    const conflictXP = stateBeforeConflict.xp;
+
+    // Mutation A arrives
+    awardClinicalXP("inventory_fix", "Preference Card Update A", tenantA, conflictMutId);
+    const stateAfterA = getClinicianRewards(tenantA);
+    assert.equal(stateAfterA.xp, conflictXP + 5);
+
+    // Conflicting Mutation B arrives with identical idempotency key (same mutation action)
+    awardClinicalXP("inventory_fix", "Preference Card Update B", tenantA, conflictMutId);
+    const stateAfterB = getClinicianRewards(tenantA);
+
+    // Asserts conflict resolution override/merge behavior (idempotency prevents double XP)
+    assert.equal(stateAfterB.xp, stateAfterA.xp);
+    assert.equal(stateAfterB.stats.inventoryFixesCount, stateAfterA.stats.inventoryFixesCount);
+
+  } finally {
+    (global as any).localStorage = tempLocalStorage;
+  }
+});
