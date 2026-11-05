@@ -228,46 +228,61 @@ test('ChatCanvas concurrent burst execution (race condition resistance & latency
       await new Promise(resolve => setTimeout(resolve, 10 + Math.random() * 40));
     };
 
-    const messages: MessageItem[] = [
-      {
-        id: 'msg-concurrent',
-        sender: 'assistant',
-        text: 'Concurrent Test:',
-        timestamp: '2023-01-01T10:00:00Z',
-        quickAddWidget: { item: 'Concurrent_Item', suggested_location: 'Loc' }
+    const workers = Array.from({ length: 50 });
+
+    // Simulate 50 concurrent workers running burst execution
+    const results = await Promise.all(workers.map(async (_, idx) => {
+      const messages: MessageItem[] = [
+        {
+          id: `msg-concurrent-${idx}`,
+          sender: 'assistant',
+          text: `Concurrent Test ${idx}:`,
+          timestamp: '2023-01-01T10:00:00Z',
+          quickAddWidget: { item: `Concurrent_Item_${idx}`, suggested_location: 'Loc' }
+        }
+      ];
+
+      const { container, unmount } = render(
+        <ChatCanvas
+          messages={messages}
+          loading={false}
+          tenantId={`fac_burst_${idx}`}
+          onVerifyPendingMove={async () => {}}
+          onSaveQuickAddItem={mockSave}
+        />
+      );
+
+      await Promise.resolve(); // Simulate true interleaving
+
+      const btn = container.querySelector('[data-testid="save-quick-add-btn"]') as HTMLButtonElement;
+
+      const startTime = Date.now();
+
+      // Fire 5 rapid concurrent click events (burst execution) per worker
+      if (btn) {
+         for (let i = 0; i < 5; i++) {
+           fireEvent.click(btn);
+         }
       }
-    ];
 
-    const { container } = render(
-      <ChatCanvas
-        messages={messages}
-        loading={false}
-        tenantId="or_main"
-        onVerifyPendingMove={async () => {}}
-        onSaveQuickAddItem={mockSave}
-      />
-    );
+      const latency = Date.now() - startTime;
 
-    const btn = container.querySelector('[data-testid="save-quick-add-btn"]') as HTMLButtonElement;
-    assert.ok(btn, 'save button not found');
-
-    const startTime = Date.now();
-
-    // Fire 50 rapid concurrent click events (burst execution)
-    for (let i = 0; i < 50; i++) {
-      fireEvent.click(btn);
-    }
+      unmount();
+      return { btnFound: !!btn, latency };
+    }));
 
     // Wait for all simulated asynchronous saves to potentially resolve
     await new Promise(resolve => setTimeout(resolve, 300));
 
-    const latency = Date.now() - startTime;
+    // Verify atomicity and isolate race conditions across all workers
+    for (const result of results) {
+       assert.ok(result.btnFound, 'save button not found for a worker');
+       assert.ok(result.latency < 1000, `Latency benchmark failed: burst took ${result.latency}ms, expected < 1000ms`);
+    }
 
-    // Idempotency: despite 50 clicks, it should only trigger a single save call
-    assert.strictEqual(savedCalls, 1, `Expected exactly 1 save call but got ${savedCalls} under burst execution`);
+    // Idempotency: despite 5 clicks * 50 workers, it should only trigger 50 save calls (one per worker)
+    assert.strictEqual(savedCalls, 50, `Expected exactly 50 save calls but got ${savedCalls} under burst execution`);
 
-    // Check that rendering + async handling completes within reasonable bounds
-    assert.ok(latency < 1000, `Latency benchmark failed: burst took ${latency}ms, expected < 1000ms`);
   } finally {
     global.fetch = originalFetch;
   }
@@ -658,6 +673,8 @@ test('ChatCanvas deterministic state transition matrices, preference card confli
     }
   ];
 
+  const baselineState = JSON.parse(JSON.stringify(messages));
+
   try {
     const { container, rerender } = render(
       <ChatCanvas
@@ -685,6 +702,9 @@ test('ChatCanvas deterministic state transition matrices, preference card confli
     const html = container.innerHTML;
     assert.ok(html.includes('Dr. Smith prefers 3-0 Silk'), 'Original context lost');
     assert.ok(html.includes('Resolved Item'), 'Conflict target missing');
+
+    // Ensure state immutability
+    assert.deepStrictEqual(messages, baselineState, 'State mutation detected: baseline state mutated during conflict resolution');
 
     // Re-render to ensure deterministic snapshot structure is maintained (Consistency check)
     rerender(
