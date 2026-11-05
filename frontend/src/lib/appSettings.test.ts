@@ -315,22 +315,16 @@ describe('appSettings', () => {
   test('concurrent burst execution and race condition resistance', async () => {
     localStorage.clear();
     const iterations = 1000;
-    const promises = [];
-
-    for (let i = 0; i < iterations; i++) {
-      promises.push(
-        new Promise<void>((resolve) => {
-          setTimeout(() => {
-            const current = getAppSettings();
-            saveAppSettings({
-              fontScaling: current.fontScaling + 0.01,
-              darkMode: i % 2 === 0,
-            });
-            resolve();
-          }, Math.random() * 10);
-        })
-      );
-    }
+    const promises = Array.from({ length: iterations }).map(async (_, i) => {
+      // Simulate real concurrency using random latency
+      await new Promise(res => setTimeout(res, Math.random() * 10));
+      const current = getAppSettings();
+      saveAppSettings({
+        fontScaling: current.fontScaling + 0.01,
+        darkMode: i % 2 === 0,
+        tenantId: `sacred_heart::or_burst_${i}`, // Try to pollute
+      } as any);
+    });
 
     const start = performance.now();
     await Promise.all(promises);
@@ -354,6 +348,11 @@ describe('appSettings', () => {
 
     assert.strictEqual(typeof finalSettings.darkMode, 'boolean');
     assert.strictEqual(finalSettings.autoUpdateEnabled, DEFAULT_APP_SETTINGS.autoUpdateEnabled);
+
+    // Assert tenant isolation
+    assert.strictEqual((finalSettings as any).tenantId, undefined);
+    const rawStorage = localStorage.getItem(APP_SETTINGS_STORAGE_KEY) || "";
+    assert.ok(!rawStorage.includes('sacred_heart::or_burst_'));
   });
 
   test('latency benchmark for rapid consecutive reads and writes', () => {
@@ -561,23 +560,17 @@ describe('appSettings', () => {
 
     try {
       const iterations = 500;
-      const promises = [];
-
-      for (let i = 0; i < iterations; i++) {
-        promises.push(
-          new Promise<void>((resolve) => {
-            setTimeout(() => {
-              const current = getAppSettings();
-              // Multiple concurrent idempotent saves during "offline" partition
-              saveAppSettings({
-                fontScaling: current.fontScaling + 0.001,
-                darkMode: true,
-              });
-              resolve();
-            }, Math.random() * 50); // Intermittent latency spread
-          })
-        );
-      }
+      const promises = Array.from({ length: iterations }).map(async (_, i) => {
+        // Intermittent latency spread
+        await new Promise(res => setTimeout(res, Math.random() * 50));
+        const current = getAppSettings();
+        // Multiple concurrent idempotent saves during "offline" partition
+        saveAppSettings({
+          fontScaling: current.fontScaling + 0.001,
+          darkMode: true,
+          tenantId: `sacred_heart::or_burst_${i}`,
+        } as any);
+      });
 
       const start = performance.now();
       await Promise.all(promises);
@@ -588,6 +581,9 @@ describe('appSettings', () => {
       const finalSettings = getAppSettings();
       assert.strictEqual(finalSettings.darkMode, true);
       assert.ok(finalSettings.fontScaling > 1.0);
+      assert.strictEqual((finalSettings as any).tenantId, undefined);
+      const rawStorage = localStorage.getItem(APP_SETTINGS_STORAGE_KEY) || "";
+      assert.ok(!rawStorage.includes('sacred_heart::or_burst_'));
     } finally {
       (global as any).fetch = originalFetch;
       (global as { localStorage?: unknown }).localStorage = originalLocalStorage;
@@ -829,7 +825,13 @@ describe('appSettings', () => {
 
       await Promise.all(promises);
 
-      const snapshot = getAppSettings();
+      const activeState = getAppSettings();
+      // To strictly adhere to the invariant, freeze before validating properties
+      Object.freeze(activeState);
+      const snapshot = JSON.parse(JSON.stringify(activeState));
+
+      // Assert structural deep copy matches frozen state
+      assert.deepStrictEqual(snapshot, activeState);
 
       // The final state depends on the mock localStorage's synchronicity,
       // but we can guarantee the snapshot contains valid typed values and isn't corrupted.
