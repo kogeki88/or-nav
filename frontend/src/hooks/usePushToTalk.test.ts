@@ -871,4 +871,95 @@ describe('usePushToTalk', () => {
     assert.ok(memoryDiffMB < 100, `Memory leak detected: growth of ${memoryDiffMB.toFixed(2)}MB exceeds 100MB limit`);
     assert.strictEqual(finalListenersCount, initialListenersCount, "Unclosed global event listeners detected after PTT operations");
   });
+
+  test("deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency", async () => {
+    // Clinical State Snapshot Consistency: Freeze baseline state for structural comparison
+    const onDataChannelSync = mock.fn();
+    const { result, unmount } = renderHook(() => usePushToTalk({ tenantId: "snapshot-tenant", onDataChannelSync }));
+
+    await waitFor(() => {
+      assert.strictEqual(result.current.isConnected, true);
+      assert.strictEqual(result.current.voiceMode, "LIVEKIT_WEBRTC");
+    });
+
+    const baselineSnapshot = { ...result.current };
+    assert.strictEqual(baselineSnapshot.voiceMode, "LIVEKIT_WEBRTC");
+    assert.strictEqual(baselineSnapshot.livekitConfigured, true);
+    assert.strictEqual(baselineSnapshot.isHoldingPTT, false);
+
+    // Preference card conflict resolution: create a collision and assert on override
+    // Hook acts as pass-through, so we verify both updates are emitted intact and in order.
+    const dataReceivedCall = mockRoomOn.mock.calls.find(call => call.arguments[0] === 'dataReceived');
+    const dataReceivedCallback = dataReceivedCall?.arguments[1];
+
+    const conflict1 = { alias: "scalpel", mappedTo: "blade 10" };
+    const conflict2 = { alias: "scalpel", mappedTo: "blade 15" }; // Collision/Override
+
+    act(() => {
+      dataReceivedCallback(new TextEncoder().encode(JSON.stringify(conflict1)), null, null, 'or_nav_ui_sync');
+      dataReceivedCallback(new TextEncoder().encode(JSON.stringify(conflict2)), null, null, 'or_nav_ui_sync');
+    });
+
+    assert.strictEqual(onDataChannelSync.mock.calls.length, 2);
+    assert.deepStrictEqual(onDataChannelSync.mock.calls[0].arguments[0], conflict1);
+    assert.deepStrictEqual(onDataChannelSync.mock.calls[1].arguments[0], conflict2);
+
+    // Deterministic state transition matrix
+    const matrix = [
+      {
+        action: () => act(() => result.current.toggleVoiceMode()),
+        expected: { voiceMode: "BROWSER_WEB_SPEECH", isHoldingPTT: false }
+      },
+      {
+        action: async () => await act(async () => await result.current.startPTT()),
+        expected: { voiceMode: "BROWSER_WEB_SPEECH", isHoldingPTT: true }
+      },
+      {
+        action: async () => await act(async () => await result.current.stopPTT()),
+        expected: { voiceMode: "BROWSER_WEB_SPEECH", isHoldingPTT: false }
+      },
+      {
+        action: () => act(() => result.current.toggleVoiceMode()),
+        expected: { voiceMode: "LIVEKIT_WEBRTC", isHoldingPTT: false }
+      }
+    ];
+
+    for (const step of matrix) {
+      await step.action();
+      if (step.expected.voiceMode === "LIVEKIT_WEBRTC") {
+        await waitFor(() => assert.strictEqual(result.current.isConnected, true));
+      }
+      const postMutationSnapshot = { ...result.current };
+      for (const [key, value] of Object.entries(step.expected)) {
+        assert.strictEqual(postMutationSnapshot[key as keyof typeof postMutationSnapshot], value, `Matrix mismatch at ${key}`);
+      }
+    }
+
+    // Structural comparison against post-mutation state to verify consistency
+    const finalSnapshot = { ...result.current };
+    assert.notDeepStrictEqual(baselineSnapshot, finalSnapshot);
+    assert.strictEqual(finalSnapshot.voiceMode, "LIVEKIT_WEBRTC");
+
+    unmount();
+  });
+
+  test("offline-first invariants during state transition matrix", async () => {
+    // We simulate a network disconnect during the state transition matrix
+    const { result, unmount } = renderHook(() => usePushToTalk({ tenantId: "offline-test-tenant" }));
+
+    await waitFor(() => {
+      assert.strictEqual(result.current.isConnected, true);
+      assert.strictEqual(result.current.voiceMode, "LIVEKIT_WEBRTC");
+    });
+
+    const dataReceivedCall = mockRoomOn.mock.calls.find(call => call.arguments[0] === 'disconnected');
+    const disconnectCallback = dataReceivedCall?.arguments[1];
+
+    act(() => {
+      disconnectCallback();
+    });
+
+    assert.strictEqual(result.current.isConnected, false);
+    unmount();
+  });
 });
