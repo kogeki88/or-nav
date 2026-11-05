@@ -254,18 +254,22 @@ describe("Departments Configuration and Lookups", () => {
 
       const promises = Array.from({ length: NUM_OPERATIONS }, async (_, i) => {
         const id = ids[i % ids.length];
-        setActiveDepartmentId(id);
-        const activeId = getActiveDepartmentId();
-        const dept = getDepartment(activeId);
+        const tenantId = `fac_burst_${i}::${id}`;
 
-        assert.ok(DEPARTMENTS[activeId] !== undefined);
-        assert.ok(dept !== undefined);
+        await Promise.resolve();
+
+        setActiveDepartmentId(tenantId);
+        const activeId = getActiveDepartmentId();
+
+        let expectedId = tenantId;
+        if (id === "invalid_id") {
+          expectedId = DEFAULT_DEPARTMENT_ID;
+        }
+
+        assert.strictEqual(activeId, expectedId);
       });
 
       await Promise.all(promises);
-
-      const finalId = getActiveDepartmentId();
-      assert.ok(DEPARTMENTS[finalId] !== undefined);
     });
 
     test("latency benchmark under heavy load", () => {
@@ -560,6 +564,9 @@ describe("Departments Configuration and Lookups", () => {
         const maliciousPayload = "icu_critical_care::patient_john_doe_ssn_123456789";
 
         setActiveDepartmentId(maliciousPayload);
+
+        const rawString = mockStorage.get(LOCAL_STORAGE_DEPT_KEY);
+        assert.ok(rawString !== maliciousPayload, "Unauthorized PHI data was written to storage");
 
         assert.strictEqual(getActiveDepartmentId(), DEFAULT_DEPARTMENT_ID);
 
