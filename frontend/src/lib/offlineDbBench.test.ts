@@ -220,11 +220,11 @@ describe("Dexie Benchmarks", () => {
           });
 
           // Update concurrently
-          const toUpdate = readBack.slice(0, 10).map(item => ({ ...item, status: "updated" }));
+          const toUpdate = myWorkerItems.slice(0, 10).map(item => ({ ...item, status: "updated" }));
           await db.inventoryItems.bulkPut(toUpdate);
 
           // Delete concurrently
-          const toDelete = readBack.slice(10, 20).map(item => item.id);
+          const toDelete = myWorkerItems.slice(10, 20).map(item => item.id);
           await db.inventoryItems.bulkDelete(toDelete as string[]);
         };
 
@@ -436,8 +436,6 @@ describe("Dexie Benchmarks", () => {
 
     await db.preferenceCards.clear();
   });
-
-});
 
   test("fault injection, network partition degradation, intermittent latency, and self-healing reconnection", async () => {
     const originalFetch = global.fetch;
@@ -654,3 +652,4 @@ describe("Dexie Benchmarks", () => {
     const leftoverItems = await db.inventoryItems.where("tenant_id").equals("tenant_mem::dept").toArray();
     assert.strictEqual(leftoverItems.length, 0, "Cache eviction failed, items remained in DB");
   });
+});
