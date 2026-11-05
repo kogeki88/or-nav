@@ -468,47 +468,59 @@ describe("scrubClient standard and adversarial tests", () => {
 
   describe("High-Concurrency & Stress Benchmarks", () => {
     test("concurrent burst execution and race condition resistance", async () => {
-      const iterations = 5000;
-      const inputs = [
-        "Patient MRN 123456 needs surgery",
-        "Where is the 3-0 silk?",
-        "Call me at 555-123-4567",
-        null,
-        "Tenant A pt Jane Doe DOB 01/15/1980",
-        undefined,
-        "We need a #10 blade",
-      ];
+      const numWorkers = 50;
+      const iterationsPerWorker = 100;
 
       const originalFetch = (global as any).fetch;
       try {
         // Enforce offline-first invariant during stress test
         (global as any).fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch")));
 
-        const promises = Array.from({ length: iterations }, (_, i) => {
-          const input = inputs[i % inputs.length];
-          return new Promise<void>((resolve) => {
-            // Slight randomized delay to force interleaving
-            setTimeout(() => {
-              const res = scrubPhi(input as any);
-              if (input === "Patient MRN 123456 needs surgery") {
-                assert.strictEqual(res.text, `Patient ${REDACTION} needs surgery`);
-              } else if (input === "Where is the 3-0 silk?") {
-                assert.strictEqual(res.text, input);
-              } else if (input === "Call me at 555-123-4567") {
-                assert.strictEqual(res.text, `Call me at ${REDACTION}`);
-              } else if (input === null || input === undefined) {
-                assert.strictEqual(res.text, "");
-              } else if (input === "Tenant A pt Jane Doe DOB 01/15/1980") {
-                assert.strictEqual(res.text, `Tenant A pt ${REDACTION} ${REDACTION}`);
-              } else if (input === "We need a #10 blade") {
-                assert.strictEqual(res.text, input);
-              }
-              resolve();
-            }, Math.random() * 10);
-          });
+        const workerPromises = Array.from({ length: numWorkers }, async (_, workerIdx) => {
+          const tenantId = `fac_burst_${workerIdx}`;
+          const results = [];
+
+          for (let i = 0; i < iterationsPerWorker; i++) {
+            await Promise.resolve(); // Explicitly yield to event loop for true concurrency
+
+            const inputs = [
+              `${tenantId} Patient MRN 123456 needs surgery`,
+              `${tenantId} Where is the 3-0 silk?`,
+              `${tenantId} Call me at 555-123-4567`,
+              null,
+              `${tenantId} pt Jane Doe DOB 01/15/1980`,
+              undefined,
+              `${tenantId} We need a #10 blade`,
+            ];
+
+            const input = inputs[i % inputs.length];
+            const res = scrubPhi(input as any);
+            results.push({ input, res, tenantId });
+          }
+          return results;
         });
 
-        await Promise.all(promises);
+        const allResults = await Promise.all(workerPromises);
+
+        for (let w = 0; w < allResults.length; w++) {
+          const workerResults = allResults[w];
+          for (let i = 0; i < workerResults.length; i++) {
+            const { input, res, tenantId } = workerResults[i];
+            if (input === `${tenantId} Patient MRN 123456 needs surgery`) {
+              assert.strictEqual(res.text, `${tenantId} Patient ${REDACTION} needs surgery`);
+            } else if (input === `${tenantId} Where is the 3-0 silk?`) {
+              assert.strictEqual(res.text, input);
+            } else if (input === `${tenantId} Call me at 555-123-4567`) {
+              assert.strictEqual(res.text, `${tenantId} Call me at ${REDACTION}`);
+            } else if (input === null || input === undefined) {
+              assert.strictEqual(res.text, "");
+            } else if (input === `${tenantId} pt Jane Doe DOB 01/15/1980`) {
+              assert.strictEqual(res.text, `${tenantId} pt ${REDACTION} ${REDACTION}`);
+            } else if (input === `${tenantId} We need a #10 blade`) {
+              assert.strictEqual(res.text, input);
+            }
+          }
+        }
       } finally {
         (global as any).fetch = originalFetch;
       }
@@ -648,18 +660,21 @@ describe("scrubClient standard and adversarial tests", () => {
       assert.strictEqual(getScrubCacheSize(), 0);
     });
 
+
     test("clinical state snapshot consistency", () => {
       const snapshot = {
         meta: { timestamp: "2024-01-01T12:00:00Z", v: 1 },
         data: "Patient Jane Doe needs 3-0 silk and MRN 987654"
       };
 
+      const baselineSnapshot = JSON.parse(JSON.stringify(snapshot));
+
       const result = scrubPhi(snapshot.data);
       assert.strictEqual(result.text, `Patient ${REDACTION} needs 3-0 silk and ${REDACTION}`);
       assert.strictEqual(result.redactionCount, 2);
 
       // Verify snapshot meta is completely isolated and untouched
-      assert.deepStrictEqual(snapshot.meta, { timestamp: "2024-01-01T12:00:00Z", v: 1 });
+      assert.deepStrictEqual(snapshot, baselineSnapshot);
     });
 
     test("preference card conflict resolution correctly handles identical mapped aliases", () => {
@@ -682,19 +697,22 @@ describe("scrubClient standard and adversarial tests", () => {
         // Reset cache to strictly enforce expected cache size logic at end of block
         clearScrubCache();
 
-        const tenantAPayload = "Tenant A Data: MRN 123456";
-        const tenantBPayload = "Tenant B Data: pt Jane Doe";
+        const tenantAPayload = JSON.stringify({ dataA: "Tenant A Data: MRN 123456" });
+        const tenantBPayload = JSON.stringify({ dataB: "Tenant B Data: pt Jane Doe" });
 
         const resA = scrubPhi(tenantAPayload);
         const resB = scrubPhi(tenantBPayload);
 
         // Verify offline-first: should succeed without throwing despite fetch being poisoned
-        assert.strictEqual(resA.text, `Tenant A Data: ${REDACTION}`);
-        assert.strictEqual(resB.text, `Tenant B Data: pt ${REDACTION}`);
+        const parsedA = JSON.parse(resA.text);
+        const parsedB = JSON.parse(resB.text);
 
-        // Multi-tenant isolation: No crossover
-        assert.ok(!resA.text.includes("Tenant B"));
-        assert.ok(!resB.text.includes("Tenant A"));
+        assert.strictEqual(parsedA.dataA, `Tenant A Data: ${REDACTION}`);
+        assert.strictEqual(parsedB.dataB, `Tenant B Data: pt ${REDACTION}`);
+
+        // Multi-tenant isolation: No crossover. Explicitly verify strict property absence
+        assert.ok(!Object.keys(parsedA).includes('dataB'));
+        assert.ok(!Object.keys(parsedB).includes('dataA'));
 
         // Caching isolated by distinct strings
         assert.strictEqual(getScrubCacheSize(), 2);
