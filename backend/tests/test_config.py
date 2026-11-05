@@ -1,3 +1,5 @@
+import concurrent.futures
+import time
 import pytest
 import time
 from pathlib import Path
@@ -457,3 +459,68 @@ def test_validate_tenant_id_security_invariants():
         assert payload not in str(excinfo.value), f"Payload leaked: {payload}"
         # Check if the redacted token is in the error
         assert "[REDACTED_PHI]" in str(excinfo.value)
+
+
+def test_get_tenant_high_concurrency(tmp_path, monkeypatch):
+    """Test get_tenant under high concurrency."""
+    hospitals_mock = tmp_path / "hospitals"
+    hospitals_mock.mkdir()
+
+    tenant_dir = hospitals_mock / "or_main"
+    tenant_dir.mkdir()
+    (tenant_dir / "inventory.csv").touch()
+
+    monkeypatch.setattr("app.config.HOSPITALS_DIR", hospitals_mock)
+
+    def fetch_tenant():
+        return get_tenant("or_main")
+
+    num_threads = 100
+    num_requests_per_thread = 100
+
+    start_time = time.time()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = []
+        for _ in range(num_threads * num_requests_per_thread):
+            futures.append(executor.submit(fetch_tenant))
+
+        for future in concurrent.futures.as_completed(futures):
+            assert future.result().tenant_id == "or_main"
+
+    end_time = time.time()
+    latency = end_time - start_time
+    assert latency < 30.0
+
+def test_list_tenants_high_concurrency(tmp_path, monkeypatch):
+    """Test list_tenants under high concurrency and race conditions."""
+    hospitals_mock = tmp_path / "hospitals"
+    hospitals_mock.mkdir()
+
+    for i in range(50):
+        tenant_dir = hospitals_mock / f"tenant_{i}"
+        tenant_dir.mkdir()
+        (tenant_dir / "inventory.csv").touch()
+
+    monkeypatch.setattr("app.config.HOSPITALS_DIR", hospitals_mock)
+
+    def fetch_list():
+        return list_tenants()
+
+    num_threads = 50
+    num_requests_per_thread = 50
+
+    start_time = time.time()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
+        futures = []
+        for _ in range(num_threads * num_requests_per_thread):
+            futures.append(executor.submit(fetch_list))
+
+        for future in concurrent.futures.as_completed(futures):
+            res = future.result()
+            assert len(res) == 50
+
+    end_time = time.time()
+    latency = end_time - start_time
+    assert latency < 30.0
