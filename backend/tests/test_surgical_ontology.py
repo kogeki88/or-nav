@@ -787,7 +787,7 @@ def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
     def worker(payload, idx):
         # 2. Assert multi-tenant isolation and correct returns under load
         # Add multi-tenant isolation payload formatting
-        unique_tenant_id = f"facility_{idx}::dept_{idx}"
+        unique_tenant_id = f"sacred_heart::or_burst_{idx}"
         tenant_payload = f"{unique_tenant_id} {payload}"
 
         res_lingo = normalize_or_lingo(tenant_payload)
@@ -865,21 +865,21 @@ def test_surgical_ontology_network_partition_and_self_healing(monkeypatch):
 
     def mock_httpx_post(*args, **kwargs):
         if network_state["status"] == "offline":
-            raise httpx.ConnectTimeout("Mock network partition: httpx post timed out")
+            raise httpx.ConnectTimeout("Mock network partition: httpx post timed out", request=httpx.Request("POST", "http://mock"))
         elif network_state["status"] == "latency":
             time.sleep(0.05)
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
 
     def mock_httpx_get(*args, **kwargs):
         if network_state["status"] == "offline":
-            raise httpx.ConnectTimeout("Mock network partition: httpx get timed out")
+            raise httpx.ConnectTimeout("Mock network partition: httpx get timed out", request=httpx.Request("POST", "http://mock"))
         elif network_state["status"] == "latency":
             time.sleep(0.05)
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
 
     def mock_httpx_request(*args, **kwargs):
         if network_state["status"] == "offline":
-            raise httpx.ConnectTimeout("Mock network partition: httpx request timed out")
+            raise httpx.ConnectTimeout("Mock network partition: httpx request timed out", request=httpx.Request("POST", "http://mock"))
         elif network_state["status"] == "latency":
             time.sleep(0.05)
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
