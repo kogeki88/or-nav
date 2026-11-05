@@ -564,10 +564,12 @@ describe('Supplementary tests', () => {
         const start = performance.now();
         await Promise.all(
             hooks.map(async (hook, i) => {
+                await Promise.resolve(); // Simulate true interleaving
                 act(() => {
                     hook.result.current.saveProfile({
                         ...DEFAULT_USER_PROFILE,
-                        fullName: `Burst User ${i}`
+                        fullName: `Burst User ${i}`,
+                        facilityId: `fac_burst_${i}`
                     });
                 });
             })
@@ -577,6 +579,7 @@ describe('Supplementary tests', () => {
 
         const savedData = JSON.parse(localStorageMock[USER_PROFILE_STORAGE_KEY]);
         assert.ok(savedData.fullName.startsWith('Burst User'));
+        assert.ok(savedData.facilityId.startsWith('fac_burst_'));
     });
 
     it('should supplement multi-tenant boundary enforcement (facility_id::dept_id)', () => {
@@ -694,6 +697,7 @@ describe('Supplementary tests', () => {
 
             // Take a deep snapshot of the initial state
             const initialSnapshot = JSON.parse(JSON.stringify(result.current.profile));
+            Object.freeze(result.current.profile); // Freeze the true reference
 
             act(() => {
                 result.current.saveProfile({
@@ -711,6 +715,7 @@ describe('Supplementary tests', () => {
 
             // Snapshot serialization to verify consistency
             const midSnapshot = JSON.parse(JSON.stringify(result.current.profile));
+            Object.freeze(result.current.profile); // Freeze the true reference again
 
             // Test preference card conflict resolution
             // We simulate that a conflict resolution policy defaults to the last-write-wins (LWW) or custom merge
