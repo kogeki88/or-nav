@@ -865,3 +865,57 @@ class TestVoiceRouter:
         from app.voice.worker import lookup_item_location
         with pytest.raises(ValueError, match="Tenant directory not found"):
             await lookup_item_location("rapid infuser", tenant_id="unauthorized_tenant")
+
+    def test_transcribe_concurrent_burst_offline_multi_tenant(self, client, monkeypatch):
+        import httpx
+        import socket
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        def mock_raise(*args, **kwargs):
+            raise RuntimeError("Offline invariant violated: External network call attempted.")
+
+        original_socket = socket.socket
+        def mock_socket(*args, **kwargs):
+            family = args[0] if args else kwargs.get("family", socket.AF_INET)
+            import os
+            if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
+                raise RuntimeError("Offline invariant violated: External network call attempted.")
+            return original_socket(*args, **kwargs)
+
+        monkeypatch.setattr(socket, "socket", mock_socket)
+        monkeypatch.setattr(httpx, "get", mock_raise)
+        monkeypatch.setattr(httpx, "post", mock_raise)
+        monkeypatch.setattr(httpx, "request", mock_raise)
+
+        def make_request(i):
+            audio = b"0" * 500
+            tenant_id = f"tenant_{i}"
+            payload = f"give me the bovie for patient John Smith in {tenant_id}"
+
+            start_time = time.time()
+            resp = client.post(
+                "/api/voice/transcribe",
+                files={"file": (f"test_{i}.wav", audio, "audio/wav")},
+                data={"transcript_hint": payload, "tenant_id": tenant_id}
+            )
+            end_time = time.time()
+            latency = end_time - start_time
+            return tenant_id, resp, latency
+
+        results = []
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            futures = [executor.submit(make_request, i) for i in range(50)]
+            for f in futures:
+                results.append(f.result())
+
+        latencies = []
+        for expected_tenant, resp, latency in results:
+            assert resp.status_code == 200
+            data = resp.json()
+            assert expected_tenant in data["transcript"]
+            assert expected_tenant in data["safe_transcript"]
+            latencies.append(latency)
+
+        avg_latency = sum(latencies) / len(latencies)
+        assert avg_latency < 0.5
