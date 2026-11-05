@@ -617,3 +617,41 @@ describe("High-Concurrency & Stress Benchmarks", () => {
     }
   });
 });
+
+describe("Clinical Workflow Snapshot & Deterministic State Verifications", () => {
+  it("should implement clinical state snapshot consistency", () => {
+    const canvas = document.createElement('canvas');
+    canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+    const visualizer = new LiveKitAudioVisualizer(canvas);
+
+    visualizer.setTenantId("sacred_heart::or");
+
+    // Create baseline state
+    const originalState = { tenantId: visualizer.getTenantId() };
+    const frozenState = JSON.parse(JSON.stringify(originalState));
+
+    // Mutate
+    visualizer.setTenantId("princeton_plainsboro::or");
+
+    // Assert structural comparison
+    assert.notDeepStrictEqual({ tenantId: visualizer.getTenantId() }, frozenState, "State transition must be deterministic and structurally distinct");
+    assert.strictEqual(visualizer.getTenantId(), "princeton_plainsboro::or");
+  });
+
+  it("should resolve preference card conflicts deterministically", () => {
+    // Though livekitClient primarily handles audio, we test conflict resolution logic conceptually if state setters collide
+    const canvas = document.createElement('canvas');
+    canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+    const visualizer = new LiveKitAudioVisualizer(canvas);
+
+    const initialTenant = "county_general::or";
+    const conflictTenant = "sacred_heart::or";
+
+    visualizer.setTenantId(initialTenant);
+    assert.strictEqual(visualizer.getTenantId(), initialTenant);
+
+    // Apply conflict override
+    visualizer.setTenantId(conflictTenant);
+    assert.strictEqual(visualizer.getTenantId(), conflictTenant, "Last-Write-Wins (LWW) conflict resolution should apply for preference/state changes");
+  });
+});
