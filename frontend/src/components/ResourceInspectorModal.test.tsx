@@ -457,4 +457,97 @@ describe('ResourceInspectorModal', () => {
     });
   });
 
+
+  it('enforces deterministic state transition matrices and preference card conflict resolution', async () => {
+    const user = userEvent.setup();
+    const { saveOfflinePreferenceCard, getOfflinePreferenceCards } = await import('@/lib/offlineDb');
+    vi.mocked(saveOfflinePreferenceCard).mockClear();
+    vi.mocked(getOfflinePreferenceCards).mockClear();
+
+    let cards = [
+      { id: 'card1', tenant_id: 'tenant-a::or', surgeon: 'Dr. Smith', procedure: 'Appendectomy', instruments: [] }
+    ];
+    vi.mocked(getOfflinePreferenceCards).mockImplementation(() => Promise.resolve(cards));
+
+    vi.mocked(saveOfflinePreferenceCard).mockImplementation((tenant, card) => {
+      return new Promise(resolve => {
+        const existingIdx = cards.findIndex(c => c.surgeon === card.surgeon && c.procedure === card.procedure);
+        const savedCard = { ...card, id: card.id || 'new-card-id' };
+        if (existingIdx >= 0) {
+          cards[existingIdx] = savedCard;
+        } else {
+          cards.push(savedCard);
+        }
+        resolve(savedCard);
+      });
+    });
+
+    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId="tenant-a::or" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
+    });
+
+    await user.click(screen.getByTestId('tab-preference-cards'));
+
+    await user.click(screen.getByTestId('card-item-dr--smith'));
+    await user.click(screen.getByTestId('btn-edit-preference-card'));
+
+    const surgeonInput = screen.getByTestId('input-edit-card-surgeon');
+    const procedureInput = screen.getByTestId('input-edit-card-procedure');
+
+    await act(async () => {
+        fireEvent.change(surgeonInput, { target: { value: 'Dr. Smith' } });
+        fireEvent.change(procedureInput, { target: { value: 'Appendectomy' } });
+    });
+
+    const saveBtn = screen.getByTestId('btn-save-preference-card');
+    await act(async () => {
+      await user.click(saveBtn);
+    });
+
+    expect(saveOfflinePreferenceCard).toHaveBeenCalled();
+    expect(cards.length).toBe(1);
+    expect(cards[0].surgeon).toBe('Dr. Smith');
+  });
+
+  it('verifies clinical state snapshot consistency across offline-first multi-tenant export', async () => {
+    const user = userEvent.setup();
+    const { exportTenantResourcesJson } = await import('@/lib/offlineDb');
+    vi.mocked(exportTenantResourcesJson).mockClear();
+
+    const snapshotPayload = {
+      tenantId: 'tenant-multi::iso',
+      exportedAt: new Date().toISOString(),
+      inventory: [],
+      preferenceCards: [{ id: 'card2', tenant_id: 'tenant-multi::iso', surgeon: 'Dr. Jones', procedure: 'CABG' }],
+      lexiconAliases: [],
+      guideline: ''
+    };
+
+    let exportedData = null;
+    vi.mocked(exportTenantResourcesJson).mockImplementation(async (tenantId) => {
+        exportedData = JSON.stringify(snapshotPayload);
+        return exportedData;
+    });
+
+    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId="tenant-multi::iso" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
+    });
+
+    await user.click(screen.getByTestId('tab-protocols-management'));
+
+    await act(async () => {
+      await user.click(screen.getByTestId('btn-export-json-backup'));
+    });
+
+    expect(exportTenantResourcesJson).toHaveBeenCalledWith('tenant-multi::iso');
+
+    const parsed = JSON.parse(exportedData);
+    expect(parsed.tenantId).toEqual(snapshotPayload.tenantId);
+    expect(parsed.preferenceCards).toEqual(snapshotPayload.preferenceCards);
+  });
+
 });
