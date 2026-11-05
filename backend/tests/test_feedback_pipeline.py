@@ -516,3 +516,85 @@ def test_latency_benchmark():
 
     duration = (time.time() - start_time) * 1000  # ms
     assert duration < 5000, f"Latency benchmark failed: took {duration}ms, expected < 5000ms"
+
+def test_deterministic_state_transition_matrices():
+    """Verify valid state transitions for feedback items."""
+    # Create an initial open item
+    payload = {
+        "tenantId": "sacred_heart::or",
+        "rawText": "State transition test item",
+    }
+    create_res = client.post("/api/feedback", json=payload)
+    assert create_res.status_code == 200
+    item_id = create_res.json()["id"]
+
+    # Transition to planned
+    patch_res1 = client.patch(f"/api/feedback/{item_id}/status", json={"status": "planned"})
+    assert patch_res1.status_code == 200
+    assert patch_res1.json()["status"] == "planned"
+
+    # Transition to resolved
+    patch_res2 = client.patch(f"/api/feedback/{item_id}/status", json={"status": "resolved"})
+    assert patch_res2.status_code == 200
+    assert patch_res2.json()["status"] == "resolved"
+
+    # Invalid transition
+    patch_res3 = client.patch(f"/api/feedback/{item_id}/status", json={"status": "invalid_status"})
+    assert patch_res3.status_code == 400
+
+
+def test_preference_card_conflict_resolution():
+    """Verify duplicate submissions resolve by upvoting existing items."""
+    payload1 = {
+        "tenantId": "sacred_heart::or",
+        "rawText": "Needle gauge missing from preference card",
+    }
+    res1 = client.post("/api/feedback", json=payload1)
+    assert res1.status_code == 200
+    item_id = res1.json()["id"]
+    initial_upvotes = res1.json()["upvotes"]
+
+    # Submit similar complaint
+    payload2 = {
+        "tenantId": "sacred_heart::or",
+        "rawText": "Needle gauge missing on preference cards",
+    }
+    res2 = client.post("/api/feedback", json=payload2)
+    assert res2.status_code == 200
+
+    # Should resolve to the same item ID and increment upvotes
+    assert res2.json()["id"] == item_id
+    assert res2.json()["upvotes"] == initial_upvotes + 1
+
+
+def test_clinical_state_snapshot_consistency():
+    """Verify the list API endpoint returns a consistent state snapshot of items and top recommendations."""
+    # Ensure there are some items
+    payload = {
+        "tenantId": "sacred_heart::or",
+        "rawText": "Consistent state snapshot test item",
+        "severity": "high",
+    }
+    client.post("/api/feedback", json=payload)
+
+    res = client.get("/api/feedback?tenantId=sacred_heart::or")
+    assert res.status_code == 200
+    data = res.json()
+
+    # Check consistency invariants
+    assert "items" in data
+    assert "topRecommendations" in data
+
+    items = data["items"]
+    assert len(items) > 0
+
+    # topRecommendations should be derived from the open items
+    open_items = [it for it in items if it.get("status") == "open"]
+
+    # Check that top recommendations match what we expect based on the actual items
+    # We can at least check format and that they exist if there are open items
+    if open_items:
+        assert len(data["topRecommendations"]) > 0
+
+    for rec in data["topRecommendations"]:
+        assert rec.startswith("🔥 [")

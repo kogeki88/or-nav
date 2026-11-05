@@ -18,6 +18,7 @@ import re
 from typing import List, Optional, Union
 from app.scrubber import scrub_phi
 import uuid
+import threading
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
@@ -25,6 +26,8 @@ router = APIRouter(prefix="/api/feedback", tags=["feedback"])
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 FEEDBACK_FILE = PROJECT_ROOT / "hospitals" / "feedback.json"
+
+feedback_lock = threading.Lock()
 
 
 # --- Data Models ---
@@ -230,10 +233,15 @@ def _get_default_seed() -> List[dict]:
 
 # --- Storage Functions ---
 
+
 def load_feedback_items() -> List[dict]:
+    with feedback_lock:
+        return _load_feedback_items_locked()
+
+def _load_feedback_items_locked() -> List[dict]:
     if not FEEDBACK_FILE.exists():
         initial = _get_default_seed()
-        save_feedback_items(initial)
+        _save_feedback_items_locked(initial)
         return initial
     try:
         data = json.loads(FEEDBACK_FILE.read_text(encoding="utf-8"))
@@ -242,14 +250,17 @@ def load_feedback_items() -> List[dict]:
     except Exception as e:
         print(f"Error reading feedback file: {e}")
     initial = _get_default_seed()
-    save_feedback_items(initial)
+    _save_feedback_items_locked(initial)
     return initial
 
 
 def save_feedback_items(items: List[dict]) -> None:
+    with feedback_lock:
+        _save_feedback_items_locked(items)
+
+def _save_feedback_items_locked(items: List[dict]) -> None:
     FEEDBACK_FILE.parent.mkdir(parents=True, exist_ok=True)
     FEEDBACK_FILE.write_text(json.dumps(items, indent=2, ensure_ascii=False), encoding="utf-8")
-
 
 def is_similar(t1: str, t2: str) -> bool:
     """Check if two texts share key complaint vocabulary."""
@@ -326,6 +337,7 @@ async def list_feedback(
     return FeedbackListResponse(items=items, topRecommendations=top_recs)
 
 
+
 @router.post("", response_model=FeedbackItem)
 async def create_or_intercept_feedback(req: CreateFeedbackRequest):
     """
@@ -336,82 +348,85 @@ async def create_or_intercept_feedback(req: CreateFeedbackRequest):
     if not raw:
         raise HTTPException(status_code=400, detail="rawText must not be empty.")
 
-    items = load_feedback_items()
+    with feedback_lock:
+        items = _load_feedback_items_locked()
 
-    # 1. Similarity check for auto-upvote merging on open items
-    # Also enforce multi-tenant isolation here to avoid upvoting another tenant's similar item
-    for item in items:
-        is_same_tenant = item.get("tenantId") == req.tenantId if req.tenantId else item.get("tenantId") == "sacred_heart::or"
-        if is_same_tenant and item.get("status") in ["open", "planned"] and is_similar(item.get("rawText", ""), raw):
-            item["upvotes"] = item.get("upvotes", 1) + 1
-            save_feedback_items(items)
-            return item
+        # 1. Similarity check for auto-upvote merging on open items
+        # Also enforce multi-tenant isolation here to avoid upvoting another tenant's similar item
+        for item in items:
+            is_same_tenant = item.get("tenantId") == req.tenantId if req.tenantId else item.get("tenantId") == "sacred_heart::or"
+            if is_same_tenant and item.get("status") in ["open", "planned"] and is_similar(item.get("rawText", ""), raw):
+                item["upvotes"] = item.get("upvotes", 1) + 1
+                _save_feedback_items_locked(items)
+                return item
 
-    # 2. Determine category & severity
-    category = req.category
-    severity = req.severity
-    if not category or not severity:
-        auto_cat, auto_sev = classify_text(raw)
-        category = category or auto_cat
-        severity = severity or auto_sev
+        # 2. Determine category & severity
+        category = req.category
+        severity = req.severity
+        if not category or not severity:
+            auto_cat, auto_sev = classify_text(raw)
+            category = category or auto_cat
+            severity = severity or auto_sev
 
-    # 3. Synthesize recommendations
-    ai_rec = req.aiRecommendation
-    fix_prompt = req.suggestedFixPrompt
-    if not ai_rec or not fix_prompt:
-        synth_rec, synth_prompt = synthesize_recommendations(raw, category, severity)
-        ai_rec = ai_rec or synth_rec
-        fix_prompt = fix_prompt or synth_prompt
+        # 3. Synthesize recommendations
+        ai_rec = req.aiRecommendation
+        fix_prompt = req.suggestedFixPrompt
+        if not ai_rec or not fix_prompt:
+            synth_rec, synth_prompt = synthesize_recommendations(raw, category, severity)
+            ai_rec = ai_rec or synth_rec
+            fix_prompt = fix_prompt or synth_prompt
 
-    new_item = {
-        "id": f"fb-{uuid.uuid4().hex[:8]}",
-        "tenantId": req.tenantId or "sacred_heart::or",
-        "userName": req.userName or "Staff Clinician",
-        "userRole": req.userRole or "Circulating RN",
-        "source": req.source or "manual_submission",
-        "category": category,
-        "severity": severity,
-        "rawText": raw,
-        "aiRecommendation": ai_rec,
-        "suggestedFixPrompt": fix_prompt,
-        "upvotes": 1,
-        "status": "open",
-        "createdAt": datetime.now(timezone.utc).isoformat(),
-    }
+        new_item = {
+            "id": f"fb-{uuid.uuid4().hex[:8]}",
+            "tenantId": req.tenantId or "sacred_heart::or",
+            "userName": req.userName or "Staff Clinician",
+            "userRole": req.userRole or "Circulating RN",
+            "source": req.source or "manual_submission",
+            "category": category,
+            "severity": severity,
+            "rawText": raw,
+            "aiRecommendation": ai_rec,
+            "suggestedFixPrompt": fix_prompt,
+            "upvotes": 1,
+            "status": "open",
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+        }
 
-    items.insert(0, new_item)
-    save_feedback_items(items)
-    return new_item
+        items.insert(0, new_item)
+        _save_feedback_items_locked(items)
+        return new_item
 
 
 @router.patch("/{feedback_id}", response_model=FeedbackItem)
 async def patch_feedback(feedback_id: str, req: PatchFeedbackRequest):
     """Update status or increment upvote on a feedback item."""
-    items = load_feedback_items()
-    for item in items:
-        if item.get("id") == feedback_id:
-            if req.upvote:
-                item["upvotes"] = item.get("upvotes", 1) + 1
-            if req.status:
-                valid_statuses = ["open", "planned", "resolved"]
-                if req.status not in valid_statuses:
-                    raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {valid_statuses}")
-                item["status"] = req.status
-            save_feedback_items(items)
-            return item
-    raise HTTPException(status_code=404, detail="Feedback item not found.")
+    with feedback_lock:
+        items = _load_feedback_items_locked()
+        for item in items:
+            if item.get("id") == feedback_id:
+                if req.upvote:
+                    item["upvotes"] = item.get("upvotes", 1) + 1
+                if req.status:
+                    valid_statuses = ["open", "planned", "resolved"]
+                    if req.status not in valid_statuses:
+                        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {valid_statuses}")
+                    item["status"] = req.status
+                _save_feedback_items_locked(items)
+                return item
+        raise HTTPException(status_code=404, detail="Feedback item not found.")
 
 
 @router.post("/{feedback_id}/upvote", response_model=FeedbackItem)
 async def upvote_feedback(feedback_id: str):
     """Upvote an existing feedback item."""
-    items = load_feedback_items()
-    for item in items:
-        if item.get("id") == feedback_id:
-            item["upvotes"] = item.get("upvotes", 1) + 1
-            save_feedback_items(items)
-            return item
-    raise HTTPException(status_code=404, detail="Feedback item not found.")
+    with feedback_lock:
+        items = _load_feedback_items_locked()
+        for item in items:
+            if item.get("id") == feedback_id:
+                item["upvotes"] = item.get("upvotes", 1) + 1
+                _save_feedback_items_locked(items)
+                return item
+        raise HTTPException(status_code=404, detail="Feedback item not found.")
 
 
 @router.patch("/{feedback_id}/status", response_model=FeedbackItem)
@@ -421,21 +436,23 @@ async def update_feedback_status(feedback_id: str, req: UpdateStatusRequest):
     if req.status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of {valid_statuses}")
 
-    items = load_feedback_items()
-    for item in items:
-        if item.get("id") == feedback_id:
-            item["status"] = req.status
-            save_feedback_items(items)
-            return item
-    raise HTTPException(status_code=404, detail="Feedback item not found.")
+    with feedback_lock:
+        items = _load_feedback_items_locked()
+        for item in items:
+            if item.get("id") == feedback_id:
+                item["status"] = req.status
+                _save_feedback_items_locked(items)
+                return item
+        raise HTTPException(status_code=404, detail="Feedback item not found.")
 
 
 @router.delete("/{feedback_id}")
 async def delete_feedback(feedback_id: str):
     """Delete a feedback item."""
-    items = load_feedback_items()
-    filtered = [it for it in items if it.get("id") != feedback_id]
-    if len(filtered) == len(items):
-        raise HTTPException(status_code=404, detail="Feedback item not found.")
-    save_feedback_items(filtered)
-    return {"deleted": True, "id": feedback_id}
+    with feedback_lock:
+        items = _load_feedback_items_locked()
+        filtered = [it for it in items if it.get("id") != feedback_id]
+        if len(filtered) == len(items):
+            raise HTTPException(status_code=404, detail="Feedback item not found.")
+        _save_feedback_items_locked(filtered)
+        return {"deleted": True, "id": feedback_id}
