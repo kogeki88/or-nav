@@ -63,6 +63,15 @@ def mock_tenant_dir(tmp_path, monkeypatch):
 
     monkeypatch.setattr("app.config.HOSPITALS_DIR", tmp_path)
 
+    # Monkeypatch lexicon path to use a safe tmp path instead of corrupting global lexicon
+    from app.services import lexicon_learning
+    def safe_get_path(facility_id: str):
+        import re
+        clean_fac = re.sub(r"[^a-zA-Z0-9_-]", "", facility_id.lower())
+        return tmp_path / clean_fac / "learned_lexicon.json"
+
+    monkeypatch.setattr(lexicon_learning, "_get_facility_lexicon_path", safe_get_path)
+
     # Needs manifest and inventory mapping
     manifest_file = tmp_path / "manifest.json"
     manifest_file.write_text("{}")
@@ -120,8 +129,6 @@ class TestLimiterConcurrencyThrottling:
                 "message": f"Where is the prolene suture? {idx}",
                 "tenant_id": "sacred_heart::or",
             }
-            import random
-            time.sleep(random.random() * 0.05)
 
             return client.post("/api/chat", json=payload)
 
