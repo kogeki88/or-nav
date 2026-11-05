@@ -76,21 +76,21 @@ def test_layer2_deterministic_routing_rules():
         ("dr rodriguez glove size", "rodriguez", "gloves"),
         ("dr chen lap chole card", "chen", "all"),
     ]:
-        plan = plan_clinical_query(q, graph=graph)
+        plan = plan_clinical_query(q, graph=graph, tenant_id="or_main")
         assert plan.intent == "PREFERENCE_CARD_LOOKUP", f"Failed intent for '{q}': {plan}"
         assert plan.surgeon is not None and plan.surgeon.normalized_last_name == expected_surg
         assert plan.card_facet == expected_facet
         assert plan.inventory_candidate_terms == []
 
     # Rule 2: Surgeon + Specific Physical Item + Explicit Locative
-    plan_loc = plan_clinical_query("where is Dr. Patel's custom vascular stapler", graph=graph)
+    plan_loc = plan_clinical_query("where is Dr. Patel's custom vascular stapler", graph=graph, tenant_id="or_main")
     assert plan_loc.intent == "PREFERENCE_INVENTORY_JOIN"
     assert plan_loc.has_explicit_locative is True
     assert plan_loc.surgeon is not None and plan_loc.surgeon.normalized_last_name == "patel"
     assert plan_loc.inventory_candidate_terms == ["custom vascular stapler"]
 
     # Rule 3: Surgeon/Procedure + Specific Item
-    plan_join = plan_clinical_query("what size prolene does dr chen use for cabg", graph=graph)
+    plan_join = plan_clinical_query("what size prolene does dr chen use for cabg", graph=graph, tenant_id="or_main")
     assert plan_join.intent == "PREFERENCE_INVENTORY_JOIN"
     assert plan_join.has_explicit_locative is False
     assert plan_join.surgeon is not None and plan_join.surgeon.normalized_last_name == "chen"
@@ -99,7 +99,7 @@ def test_layer2_deterministic_routing_rules():
 
     # Rule 4: Pure Inventory Query
     for inv_q in ["where is 3-0 prolene", "adson with teeth", "malleable retractor"]:
-        plan_inv = plan_clinical_query(inv_q, graph=graph)
+        plan_inv = plan_clinical_query(inv_q, graph=graph, tenant_id="or_main")
         assert plan_inv.intent == "INVENTORY_LOOKUP"
         assert plan_inv.surgeon is None
         assert plan_inv.procedure is None
@@ -222,14 +222,14 @@ def test_multi_tenant_isolation_in_planner():
     """Verify Layer 2 Query Planner enforces multi-tenant boundaries."""
     # or_main tenant
     graph_main = get_clinical_graph("or_main")
-    plan_main = plan_clinical_query("dr chen lap chole card", graph=graph_main)
+    plan_main = plan_clinical_query("dr chen lap chole card", graph=graph_main, tenant_id="or_main")
     assert plan_main.surgeon is not None
     assert plan_main.surgeon.normalized_last_name == "chen"
     assert plan_main.intent == "PREFERENCE_CARD_LOOKUP"
 
     # pacu_periop tenant (Dr. Chen doesn't have a lap chole card there)
     graph_pacu = get_clinical_graph("pacu_periop")
-    plan_pacu = plan_clinical_query("dr chen lap chole card", graph=graph_pacu)
+    plan_pacu = plan_clinical_query("dr chen lap chole card", graph=graph_pacu, tenant_id="pacu_periop")
 
     # Assert that different tenants return different matches for the exact same query
     # based on their local clinical graph.
@@ -266,10 +266,10 @@ def test_offline_first_invariant_no_network_calls(monkeypatch):
     graph = get_clinical_graph("or_main")
 
     # Run multiple queries
-    plan_1 = plan_clinical_query("dr patel suture preference", graph=graph)
+    plan_1 = plan_clinical_query("dr patel suture preference", graph=graph, tenant_id="or_main")
     assert plan_1.intent == "PREFERENCE_CARD_LOOKUP"
 
-    plan_2 = plan_clinical_query("where is 4-0 prolene", graph=graph)
+    plan_2 = plan_clinical_query("where is 4-0 prolene", graph=graph, tenant_id="or_main")
     assert plan_2.intent == "INVENTORY_LOOKUP"
 
 @given(st.text(alphabet=st.characters(blacklist_categories=('Cs',), blacklist_characters=['\0'])))
@@ -277,7 +277,7 @@ def test_planner_fuzzing_hypothesis(raw_text):
     """Property-based testing: the planner must never crash on any arbitrary string."""
     graph = get_clinical_graph("or_main")
     # Execute planner
-    plan = plan_clinical_query(raw_text, graph=graph)
+    plan = plan_clinical_query(raw_text, graph=graph, tenant_id="or_main")
 
     # Invariants
     assert plan.raw_query == (raw_text or "").strip()
@@ -300,7 +300,7 @@ def test_planner_malformed_payload_resilience():
     ]
     for bad_input in malformed_inputs:
         with pytest.raises(ValueError) as exc:
-            plan_clinical_query(bad_input)
+            plan_clinical_query(bad_input, tenant_id="or_main")
         assert "Expected query to be a string" in str(exc.value)
 
 def test_planner_boundary_cases():
@@ -309,18 +309,18 @@ def test_planner_boundary_cases():
 
     # Case 1: Extremely long strings (should not ReDoS or OOM)
     long_str = "A" * 100000
-    plan = plan_clinical_query(long_str, graph=graph)
+    plan = plan_clinical_query(long_str, graph=graph, tenant_id="or_main")
     assert plan.intent == "INVENTORY_LOOKUP"
 
     # Case 2: Only non-ascii characters
     non_ascii = "😀" * 100
-    plan = plan_clinical_query(non_ascii, graph=graph)
+    plan = plan_clinical_query(non_ascii, graph=graph, tenant_id="or_main")
     assert plan.intent == "INVENTORY_LOOKUP"
 
     # Case 3: Empty string after stripping
     empty_cases = ["", "   ", "\n\t  "]
     for q in empty_cases:
-        plan = plan_clinical_query(q, graph=graph)
+        plan = plan_clinical_query(q, graph=graph, tenant_id="or_main")
         assert plan.intent == "INVENTORY_LOOKUP"
         assert plan.raw_query == ""
 
@@ -348,7 +348,7 @@ def test_planner_strict_offline_isolation(monkeypatch):
     monkeypatch.setattr(httpx, "request", poisoned_httpx_request)
 
     graph = get_clinical_graph("or_main")
-    plan = plan_clinical_query("where is dr patel's 4-0 prolene", graph=graph)
+    plan = plan_clinical_query("where is dr patel's 4-0 prolene", graph=graph, tenant_id="or_main")
     assert plan.intent == "PREFERENCE_INVENTORY_JOIN"
 
 def test_planner_strict_multi_tenant_isolation():
@@ -419,9 +419,9 @@ def test_planner_concurrent_burst_execution_and_latency(monkeypatch):
         query = f"dr patel suture worker_seq_{i}"
 
         if i % 2 == 0:
-            return ("or_main", i, plan_clinical_query(query, graph=graph_main))
+            return ("or_main", i, plan_clinical_query(query, graph=graph_main, tenant_id=f"sacred_heart::or_burst_{i}"))
         else:
-            return ("pacu_periop", i, plan_clinical_query(query, graph=graph_pacu))
+            return ("pacu_periop", i, plan_clinical_query(query, graph=graph_pacu, tenant_id=f"sacred_heart::pacu_burst_{i}"))
 
     start_time = time.time()
 
@@ -456,15 +456,15 @@ def test_planner_supplementary_empty_state():
     """Supplementary test for empty string and extreme inputs to generate diff context."""
     graph = get_clinical_graph("or_main")
     # Empty string should default to INVENTORY_LOOKUP
-    plan = plan_clinical_query("", graph=graph)
+    plan = plan_clinical_query("", graph=graph, tenant_id="or_main")
     assert plan.intent == "INVENTORY_LOOKUP"
 
     # Whitespace string
-    plan_space = plan_clinical_query("   \t\n  ", graph=graph)
+    plan_space = plan_clinical_query("   \t\n  ", graph=graph, tenant_id="or_main")
     assert plan_space.intent == "INVENTORY_LOOKUP"
 
     # Special characters
-    plan_special = plan_clinical_query("!@#$%^&*()_+", graph=graph)
+    plan_special = plan_clinical_query("!@#$%^&*()_+", graph=graph, tenant_id="or_main")
     assert plan_special.intent == "INVENTORY_LOOKUP"
 
 def test_planner_supplementary_offline_and_multi_tenant(monkeypatch):
@@ -487,12 +487,12 @@ def test_planner_supplementary_offline_and_multi_tenant(monkeypatch):
     graph_main = get_clinical_graph("or_main")
     graph_pacu = get_clinical_graph("pacu_periop")
 
-    plan_main = plan_clinical_query("dr patel suture preference", graph=graph_main)
+    plan_main = plan_clinical_query("dr patel suture preference", graph=graph_main, tenant_id="or_main")
     assert plan_main.intent == "PREFERENCE_CARD_LOOKUP"
     assert plan_main.surgeon is not None
     assert plan_main.surgeon.normalized_last_name == "patel"
 
-    plan_pacu = plan_clinical_query("dr patel suture preference", graph=graph_pacu)
+    plan_pacu = plan_clinical_query("dr patel suture preference", graph=graph_pacu, tenant_id="pacu_periop")
     if plan_pacu.surgeon:
         assert not plan_pacu.surgeon.is_indexed
 
@@ -661,7 +661,7 @@ def test_planner_memory_leak_and_event_listeners(monkeypatch):
     graph = get_clinical_graph("or_main")
     for i in range(burst_size):
         query = f"dr patel suture sequence {i}"
-        plan = plan_clinical_query(query, graph=graph)
+        plan = plan_clinical_query(query, graph=graph, tenant_id="or_main")
         assert plan.surgeon is not None
         assert plan.surgeon.normalized_last_name == "patel"
 
@@ -837,10 +837,18 @@ def test_planner_deterministic_state_transitions(monkeypatch):
         ("adson with teeth", "INVENTORY_LOOKUP"),
     ]
 
+    import copy
+    graph_copy = copy.deepcopy(graph)
+
     for q, expected_intent in transitions:
         plan = plan_clinical_query(q, graph=graph, tenant_id=tenant_id)
         assert plan.intent == expected_intent
         assert plan.raw_query.strip() != ""
+
+    # Verify deterministic state transitions (immutability)
+    assert graph.surgeons_by_token == graph_copy.surgeons_by_token
+    assert graph.procedures_by_phrase == graph_copy.procedures_by_phrase
+
 
 def test_planner_preference_card_conflict_resolution(monkeypatch):
     """
