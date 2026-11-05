@@ -1,3 +1,4 @@
+import "fake-indexeddb/auto";
 import "jsdom-global/register";
 import { describe, it, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
@@ -5,7 +6,6 @@ import React from "react";
 import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import QuestionsDrawer from "./QuestionsDrawer";
-import "fake-indexeddb/auto"; // Keep IndexedDB mock just in case
 
 // We override fetch to track API calls without proxyquire
 const originalFetch = global.fetch;
@@ -725,9 +725,15 @@ describe("QuestionsDrawer", () => {
 
     // Setup initial state transition matrix base
     const testQuestionsA = [
-        { id: "qa1", question_text: "Where is 4-0 vicryl?", status: "open", asked_by_role: "RN", answers: [] },
-        { id: "qa2", question_text: "Conflict resolution Q1", status: "open", asked_by_role: "RN", answers: [] }
+        { id: "qa1", question_text: "Where is 4-0 vicryl?", status: "open", asked_by_role: "RN", answers: [], hospital_id: tenantA },
+        { id: "qa2", question_text: "Conflict resolution Q1", status: "open", asked_by_role: "RN", answers: [], hospital_id: tenantA }
     ];
+
+    // Seed offline database to prevent 'Question not found' error during offline fallback
+    const { offlineDb } = await import('../lib/offlineDb');
+    if (offlineDb) {
+      await offlineDb.unansweredQuestions.bulkPut(testQuestionsA);
+    }
 
     const testQuestionsB = [
         { id: "qb1", question_text: "Where is 3-0 silk?", status: "open", asked_by_role: "RN", answers: [] }
