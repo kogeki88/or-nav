@@ -143,7 +143,7 @@ const CoordinateCard = React.memo(function CoordinateCard({
       } else {
         const facId =
           facilityId || (departmentId ? getFacilityIdFromTenant(departmentId).facilityId : "sacred_heart");
-        learnAliasClient(facId, "or", cleanTerm, card.item);
+        learnAliasClient(facId, departmentId || "or", cleanTerm, card.item);
         fetch("/api/lexicon/learn", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

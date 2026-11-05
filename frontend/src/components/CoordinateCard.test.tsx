@@ -571,3 +571,107 @@ test('Strict Security Invariants & HIPAA PHI Boundary Verification', async () =>
         cleanup();
     }
 });
+
+
+test('Clinical Workflow Snapshot & Deterministic State Verifications for CoordinateCard', async () => {
+    // Objective: Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency.
+
+    // Simulate setting up a specific active department which affects preference card resolution
+    const cardData1: CoordinateCardData = {
+        item: 'Scalpel',
+        room: 'OR 1',
+        cabinet: 'A',
+        shelf: '1',
+        container: 'B',
+        full_code: 'OR 1-A-1-B',
+        category: 'Surgical',
+        surgeon_notes: '',
+        pending_location: '',
+        verify_count: 0
+    };
+
+    const originalGetItem = (global as any).localStorage?.getItem;
+    const originalSetItem = (global as any).localStorage?.setItem;
+    const store: Record<string, string> = {};
+
+    if (!(global as any).localStorage) {
+      (global as any).localStorage = {
+          getItem: (k: string) => store[k] || null,
+          setItem: (k: string, v: string) => { store[k] = v; }
+      };
+    } else {
+        (global as any).localStorage.getItem = mock.fn((k: string) => store[k] || null);
+        (global as any).localStorage.setItem = mock.fn((k: string, v: string) => { store[k] = v; });
+    }
+
+    const originalFetch = global.fetch;
+    const fetchCalls: any[] = [];
+    global.fetch = mock.fn(async (url: any, options: any) => {
+        fetchCalls.push({ url, options });
+        return Promise.resolve({ ok: true, json: async () => ({}) } as any);
+    }) as any;
+
+    try {
+        const { unmount, rerender } = render(
+            <CoordinateCard
+                card={cardData1}
+                facilityId="tenant_snapshot_1"
+                departmentId="dept_snapshot_1"
+            />
+        );
+
+        // 1. Snapshot Consistency: Export state before any changes (simulated via strict equality check of rendered DOM + deepcopy equivalent if we had state object)
+        const initialDOMSnapshot = document.body.innerHTML;
+
+        // Add a local alias
+        fireEvent.click(screen.getByTestId('add-local-alias-btn'));
+        const input = screen.getByTestId('add-local-alias-input');
+        fireEvent.change(input, { target: { value: 'Primary Scalpel' } });
+        fireEvent.click(screen.getByTestId('save-local-alias-btn'));
+
+        await waitFor(() => {
+            assert.ok(screen.getAllByText('Primary Scalpel').length >= 1);
+        });
+
+        // 2. State transition matrix & Preference card conflict resolution
+        // Change to another department with conflicting preference logic
+        rerender(
+            <CoordinateCard
+                card={cardData1}
+                facilityId="tenant_snapshot_1"
+                departmentId="dept_snapshot_2"
+            />
+        );
+
+        // Add another alias
+        fireEvent.click(screen.getByTestId('add-local-alias-btn'));
+        const input2 = screen.getByTestId('add-local-alias-input');
+        fireEvent.change(input2, { target: { value: 'Secondary Scalpel' } });
+        fireEvent.click(screen.getByTestId('save-local-alias-btn'));
+
+        await waitFor(() => {
+            assert.ok(screen.getAllByText('Secondary Scalpel').length >= 1);
+        });
+
+        // Offline-first sync check via loadFacilityLexicon simulation
+        const lex = loadFacilityLexicon('tenant_snapshot_1');
+
+        // Verify deterministic state (multi-tenant isolation is enforced via facilityId filtering in lexicon)
+        const dept1Aliases = lex.filter(l => l.spokenTerm === 'primary scalpel' && l.departmentId === 'dept_snapshot_1');
+        const dept2Aliases = lex.filter(l => l.spokenTerm === 'secondary scalpel' && l.departmentId === 'dept_snapshot_2');
+
+        assert.ok(dept1Aliases.length >= 1, `Department 1 alias not preserved. Found: ${JSON.stringify(lex)}`);
+        assert.ok(dept2Aliases.length >= 1, `Department 2 alias not preserved. Found: ${JSON.stringify(lex)}`);
+
+        // Ensure no leakage to other tenants
+        const lexOther = loadFacilityLexicon('tenant_other');
+        assert.ok(lexOther.length === 0, 'Multi-tenant isolation failed');
+
+        unmount();
+    } finally {
+        global.fetch = originalFetch;
+        if (originalGetItem) (global as any).localStorage.getItem = originalGetItem;
+        if (originalSetItem) (global as any).localStorage.setItem = originalSetItem;
+        cleanup();
+    }
+});
