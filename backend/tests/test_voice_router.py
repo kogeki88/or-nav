@@ -374,7 +374,7 @@ class TestVoiceRouter:
         monkeypatch.setitem(sys.modules, "livekit.api", mock_livekit)
 
         def make_request(i):
-            tenant_id = f"tenant_{i}"
+            tenant_id = "tenant_rate_limit"
             start_time = time.time()
             resp = client.post("/api/voice/token", json={"tenant_id": tenant_id, "participant_name": "user"})
             end_time = time.time()
@@ -976,7 +976,7 @@ class TestVoiceRouter:
 
         def make_request(i):
             audio = b"0" * 500
-            tenant_id = f"tenant_{i}"
+            tenant_id = f"sacred_heart::or_burst_{i}"
             payload = f"give me the bovie for patient John Smith in {tenant_id}"
 
             start_time = time.time()
