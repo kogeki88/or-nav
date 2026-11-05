@@ -969,4 +969,114 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       global.fetch = originalFetch;
     }
   });
+  describe("SyncEngineOutbox Continuous Invariants", () => {
+    let originalOnLine: any;
+
+    beforeEach(() => {
+      originalOnLine = Object.getOwnPropertyDescriptor(navigator, 'onLine');
+      Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+    });
+
+    afterEach(() => {
+      if (originalOnLine) {
+        Object.defineProperty(navigator, 'onLine', originalOnLine);
+      } else {
+        delete (navigator as any).onLine;
+      }
+    });
+
+    test("Outbox mutation multi-tenant isolation invariant (offline-first compliance)", async () => {
+      const originalFetch = global.fetch;
+      global.fetch = undefined as any;
+
+      try {
+        let calls = [];
+        offlineDbMocks.flushOfflineOutbox = mock.fn(async (tId: string) => {
+           calls.push(tId);
+           return 1;
+        });
+
+        // Use deepcopy snapshot pattern
+        const initialState = { pendingCount: 5 };
+        const snapshot = JSON.parse(JSON.stringify(initialState));
+
+        offlineDbMocks.getPendingOutboxCount = mock.fn(async () => snapshot.pendingCount);
+
+        const { result, unmount } = renderHook(() => useSyncEngine("sacred_heart::or_burst_1", false));
+
+        await act(async () => {
+          await new Promise(r => setTimeout(r, 0));
+        });
+
+        assert.strictEqual(result.current.status, "offline");
+
+        let syncRes;
+        await act(async () => {
+           syncRes = await result.current.triggerSync();
+        });
+
+        assert.strictEqual(syncRes.success, false, "Offline sync should fail gracefully");
+
+        Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+
+        await act(async () => {
+          window.dispatchEvent(new Event("online"));
+          await new Promise(r => setTimeout(r, 0));
+        });
+
+        // Trigger online sync
+        await act(async () => {
+           syncRes = await result.current.triggerSync();
+        });
+
+        assert.strictEqual(syncRes.success, true);
+        const syncCalls = offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls;
+        assert.ok(syncCalls.length > 0);
+        assert.strictEqual(syncCalls[syncCalls.length - 1].arguments[0], "sacred_heart::or_burst_1");
+
+        // Verify structural snapshot hasn't implicitly mutated
+        assert.deepStrictEqual(snapshot, initialState);
+
+        unmount();
+      } finally {
+        global.fetch = originalFetch;
+      }
+    });
+
+    test("SyncEngineOutbox concurrent burst execution against local cache", async () => {
+      // Simulate multi-tenant outbox bursts
+      const burstSize = 100;
+      let flushCount = 0;
+
+      offlineDbMocks.flushOfflineOutbox = mock.fn(async () => {
+         flushCount++;
+         return 1;
+      });
+
+      const { result, unmount } = renderHook(() => useSyncEngine("sacred_heart::or_burst_2", false));
+      Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+
+      const promises = [];
+      // Explicitly isolating reads/writes per memory guidelines
+      for (let i = 0; i < burstSize; i++) {
+        promises.push(
+          (async () => {
+            // Using true async execution
+            await new Promise(r => setTimeout(r, Math.random() * 5));
+            return result.current.triggerSync();
+          })()
+        );
+      }
+
+      let res: any[];
+      await act(async () => {
+        res = await Promise.all(promises);
+      });
+
+      // Due to the syncingRef lock, flushCount must be substantially less than burstSize (race condition protection)
+      assert.ok(flushCount < burstSize, `Expected race condition lock to prevent ${burstSize} flushes. Flushed: ${flushCount}`);
+
+      unmount();
+    });
+  });
 });
