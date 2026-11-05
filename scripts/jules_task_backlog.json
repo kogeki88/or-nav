@@ -4414,15 +4414,19 @@
     "id": "backlog-443",
     "title": "Testing: Clinical Workflow Snapshot & Deterministic State Verifications for CoordinateCard",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for CoordinateCard\n\n**File:** `frontend/src/components/CoordinateCard.test.tsx`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/components/CoordinateCard.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for CoordinateCard\n\n**File:** `frontend/src/components/CoordinateCard.test.tsx`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/components/CoordinateCard.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "5209539844971074667",
+    "dispatchedAt": "2026-11-05T18:52:54.065Z"
   },
   {
     "id": "backlog-444",
     "title": "Testing: Clinical Workflow Snapshot & Deterministic State Verifications for FeedbackModal",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for FeedbackModal\n\n**File:** `frontend/src/components/FeedbackModal.test.tsx`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/components/FeedbackModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for FeedbackModal\n\n**File:** `frontend/src/components/FeedbackModal.test.tsx`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `frontend/src/components/FeedbackModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
+    "sessionId": "6913109816321291968",
+    "dispatchedAt": "2026-11-05T18:52:55.670Z"
   },
   {
     "id": "backlog-445",
@@ -4458,10 +4462,11 @@
     "id": "backlog-449",
     "title": "Sentinel: Clinical Workflow Snapshot & Deterministic State Verifications for AuthBackend",
     "category": "Security",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Sentinel Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for AuthBackend\n\n**File:** `backend/tests/test_auth.py`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `backend/tests/test_auth.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "11860764857136723292",
-    "dispatchedAt": "2026-11-05T18:30:27.537Z"
+    "dispatchedAt": "2026-11-05T18:30:27.537Z",
+    "completedAt": "2026-11-05T18:52:50.429Z"
   },
   {
     "id": "backlog-450",
@@ -4478,5 +4483,12 @@
     "prompt": "# 🚀 Sentinel Task (Phase 8): Clinical Workflow Snapshot & Deterministic State Verifications for ConfigBackend\n\n**File:** `backend/tests/test_config.py`\n**Objective:**\n1. Create or extend deterministic state transition matrices, preference card conflict resolution, and clinical state snapshot consistency in `backend/tests/test_config.py`.\n2. Ensure zero regressions on existing test suites.\n3. Enforce multi-tenant isolation and offline-first invariants.\n4. Submit PR immediately upon verification.",
     "sessionId": "17652913170466385245",
     "dispatchedAt": "2026-11-05T18:45:23.061Z"
+  },
+  {
+    "id": "backlog-452",
+    "title": "Testing: Continuous Invariant & Stress Hardening Round 1 for DirectGemini",
+    "category": "Testing",
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Hardening Round 1): Continuous Invariants for DirectGemini\n\n**File:** `frontend/src/lib/directGemini.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/lib/directGemini.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
   }
 ]
