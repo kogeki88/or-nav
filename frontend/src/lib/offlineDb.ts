@@ -1753,7 +1753,7 @@ export async function answerQuestionOffline(
   }
 
   if (!target) {
-    target = SEED_UNANSWERED_QUESTIONS.find((q) => q.id === questionId);
+    target = getSeedQuestions(tenantId).find((q) => q.id === questionId);
   }
 
   if (!target) {
