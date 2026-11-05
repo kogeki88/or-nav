@@ -712,3 +712,86 @@ test("FeedbackEngine - Security Invariants: HIPAA PHI, Regex Boundaries, Zero-Tr
     global.fetch = originalFetch;
   }
 });
+
+
+test("FeedbackEngine - Clinical Workflow Snapshot & Deterministic State Verifications", async (t) => {
+  localStorage.clear();
+  const originalFetch = global.fetch;
+
+  try {
+    await t.test("Deterministic state transition matrices", async () => {
+      global.fetch = () => Promise.reject(new Error("Network offline"));
+      const item = await submitManualFeedback({
+        rawText: "The retractor handle is slipping during long procedures.",
+        userProfile: { facilityId: "f1", departmentId: "d1" }
+      });
+      assert.strictEqual(item.status, "open", "Initial state must be open");
+
+      const plannedItem = await updateFeedbackStatus(item.id, "planned");
+      assert.strictEqual(plannedItem?.status, "planned", "State transitions to planned");
+
+      const resolvedItem = await updateFeedbackStatus(item.id, "resolved");
+      assert.strictEqual(resolvedItem?.status, "resolved", "State transitions to resolved");
+
+      const queue = getOfflineQueue();
+      const statusUpdates = queue.filter(q => q.type === "UPDATE_STATUS");
+      assert.strictEqual(statusUpdates.length, 2, "Both state transitions must be captured offline");
+      assert.strictEqual(statusUpdates[0].payload.status, "planned");
+      assert.strictEqual(statusUpdates[1].payload.status, "resolved");
+    });
+
+    await t.test("Clinical state snapshot consistency & Multi-tenant isolation", async () => {
+      localStorage.clear();
+
+      const itemTenantA = await submitManualFeedback({
+        rawText: "Tenant A complaint",
+        userProfile: { facilityId: "facility_A", departmentId: "dept_A" }
+      });
+      const itemTenantB = await submitManualFeedback({
+        rawText: "Tenant B complaint",
+        userProfile: { facilityId: "facility_B", departmentId: "dept_B" }
+      });
+
+      const baselineSnapshot = JSON.parse(JSON.stringify(getLocalFeedback()));
+
+      // Perform mutation on Tenant A
+      await updateFeedbackStatus(itemTenantA.id, "planned");
+
+      const postMutationSnapshot = getLocalFeedback();
+
+      // Verify Tenant B's state is perfectly preserved (snapshot consistency)
+      const baselineB = baselineSnapshot.find((i) => i.id === itemTenantB.id);
+      const postMutationB = postMutationSnapshot.find((i) => i.id === itemTenantB.id);
+      assert.deepStrictEqual(postMutationB, baselineB, "Tenant B snapshot must remain structurally unmodified");
+
+      // Verify multi-tenant isolation via fetchFeedbackItems offline filtering
+      const filteredA = await fetchFeedbackItems({ tenantId: "facility_A::dept_A" });
+      assert.strictEqual(filteredA.length, 1);
+      assert.strictEqual(filteredA[0].id, itemTenantA.id);
+    });
+
+    await t.test("Preference card conflict resolution", async () => {
+      localStorage.clear();
+
+      // Submit initial complaint
+      const item1 = await submitManualFeedback({
+        rawText: "The new scalpel blades are completely broken",
+        userProfile: { facilityId: "f1", departmentId: "d1" }
+      });
+
+      assert.strictEqual(item1.upvotes, 1);
+
+      // Submit overlapping duplicate via chat intercept (should trigger conflict resolution / auto-merge)
+      const duplicate = await interceptChatComplaint("The new scalpel blades are completely broken again", { facilityId: "f1", departmentId: "d1" });
+
+      assert.strictEqual(duplicate?.id, item1.id, "Duplicate complaint should merge into existing item id");
+
+      const currentItems = getLocalFeedback();
+      const updatedItem = currentItems.find(i => i.id === item1.id);
+      assert.strictEqual(updatedItem?.upvotes, 2, "Conflict resolution must merge duplicates via upvote increment");
+    });
+
+  } finally {
+    global.fetch = originalFetch;
+  }
+});
