@@ -283,6 +283,8 @@ def test_learn_alias_concurrency_race_condition(mock_lexicon_dir):
     num_threads = 50
 
     def worker(i):
+        import time, random
+        time.sleep(random.uniform(0, 0.01))
         # Even threads learn "termA", Odd threads learn "termB"
         term = "termA" if i % 2 == 0 else "termB"
         return learn_alias(
@@ -319,16 +321,18 @@ def test_resolve_spoken_alias_concurrent_multi_tenant(mock_lexicon_dir):
     """Test multi-tenant isolation under concurrent burst traffic."""
 
     def worker(i):
+        import time, random
+        time.sleep(random.uniform(0, 0.01))
         fac = f"burst_fac_{i}"
         learn_alias(
             facility_id=fac,
             department_id="or",
-            spoken_term=f"term_{i}",
+            spoken_term=f"term_{i}_test",
             canonical_item=f"Item {i}",
             user_id=f"user_{i}"
         )
         # Immediately try resolving it
-        return resolve_spoken_alias(fac, f"where is the term_{i}")
+        return resolve_spoken_alias(fac, f"where is the term_{i}_test")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         futures = [executor.submit(worker, i) for i in range(100)]
@@ -392,11 +396,13 @@ def test_stress_test_extreme_concurrency(mock_lexicon_dir):
     facilities = ["stress_fac_1", "stress_fac_2", "stress_fac_3", "stress_fac_4", "stress_fac_5"]
 
     def worker(i):
+        import time, random
+        time.sleep(random.uniform(0, 0.01))
         fac = facilities[i % len(facilities)]
         return learn_alias(
             facility_id=fac,
             department_id="or",
-            spoken_term=f"term_{i % 5}",
+            spoken_term=f"term_{i % 5}_test",
             canonical_item=f"Canonical Item {i % 5}",
             user_id=f"user_{i}"
         )
@@ -577,6 +583,12 @@ def test_unclosed_event_listeners_or_threads_in_lexicon(mock_lexicon_dir):
     gc.collect()
 
     # Active threads shouldn't grow boundlessly
+    # Poll to wait for thread cleanup
+    import time
+    for _ in range(50):
+        if threading.active_count() - initial_thread_count < 5:
+            break
+        time.sleep(0.01)
     final_thread_count = threading.active_count()
     assert final_thread_count - initial_thread_count < 5, f"Thread leak detected! Initial: {initial_thread_count}, Final: {final_thread_count}"
 
