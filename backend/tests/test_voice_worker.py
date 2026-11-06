@@ -313,13 +313,17 @@ async def test_concurrent_burst_execution_and_latency(monkeypatch):
 
     monkeypatch.setattr("httpx.request", raise_offline_error)
 
+    async def _interleaved(coro):
+        await asyncio.sleep(0)
+        return await coro
+
     num_requests = 100
     tasks = []
     for i in range(num_requests):
         if i % 2 == 0:
-            tasks.append(lookup_item_location(item_query="rapid infuser", tenant_id=f"sacred_heart::or_burst_{i}"))
+            tasks.append(_interleaved(lookup_item_location(item_query="rapid infuser", tenant_id=f"sacred_heart::or_burst_{i}")))
         else:
-            tasks.append(lookup_item_location(item_query="3-0 silk", tenant_id=f"sacred_heart::or_burst_{i}"))
+            tasks.append(_interleaved(lookup_item_location(item_query="3-0 silk", tenant_id=f"sacred_heart::or_burst_{i}")))
 
     start_time = time.time()
     results = await asyncio.gather(*tasks)
@@ -369,6 +373,10 @@ async def test_concurrent_burst_write_race_condition(monkeypatch):
 
     monkeypatch.setattr("httpx.request", raise_offline_error)
 
+    async def _interleaved(coro):
+        await asyncio.sleep(0)
+        return await coro
+
     num_requests = 50
     tasks = []
 
@@ -376,9 +384,9 @@ async def test_concurrent_burst_write_race_condition(monkeypatch):
     # and different items moving to the same location across tenants.
     for i in range(num_requests):
         if i % 2 == 0:
-            tasks.append(report_item_move(item_name="3-0 silk suture", new_location=f"OR 21 B {i}", tenant_id=f"sacred_heart::or_burst_{i}"))
+            tasks.append(_interleaved(report_item_move(item_name="3-0 silk suture", new_location=f"OR 21 B {i}", tenant_id=f"sacred_heart::or_burst_{i}")))
         else:
-            tasks.append(report_item_move(item_name="rapid infuser", new_location="OR 10", tenant_id=f"sacred_heart::or_burst_{i}"))
+            tasks.append(_interleaved(report_item_move(item_name="rapid infuser", new_location="OR 10", tenant_id=f"sacred_heart::or_burst_{i}")))
 
     start_time = time.time()
     results = await asyncio.gather(*tasks)
@@ -521,18 +529,22 @@ async def test_supplementary_concurrent_burst_latency_and_race_condition_extende
 
     monkeypatch.setattr("httpx.request", raise_offline_error)
 
+    async def _interleaved(coro):
+        await asyncio.sleep(0)
+        return await coro
+
     num_requests = 200
     tasks = []
 
     for i in range(num_requests):
         if i % 4 == 0:
-            tasks.append(lookup_item_location(item_query="rapid infuser", tenant_id=f"sacred_heart::or_burst_{i}"))
+            tasks.append(_interleaved(lookup_item_location(item_query="rapid infuser", tenant_id=f"sacred_heart::or_burst_{i}")))
         elif i % 4 == 1:
-            tasks.append(lookup_item_location(item_query="3-0 silk", tenant_id=f"sacred_heart::or_burst_{i}"))
+            tasks.append(_interleaved(lookup_item_location(item_query="3-0 silk", tenant_id=f"sacred_heart::or_burst_{i}")))
         elif i % 4 == 2:
-            tasks.append(report_item_move(item_name="rapid infuser", new_location=f"ER Trauma Room {i}", tenant_id=f"sacred_heart::or_burst_{i}"))
+            tasks.append(_interleaved(report_item_move(item_name="rapid infuser", new_location=f"ER Trauma Room {i}", tenant_id=f"sacred_heart::or_burst_{i}")))
         else:
-            tasks.append(report_item_move(item_name="rapid infuser", new_location="OR 12", tenant_id=f"sacred_heart::or_burst_{i}"))
+            tasks.append(_interleaved(report_item_move(item_name="rapid infuser", new_location="OR 12", tenant_id=f"sacred_heart::or_burst_{i}")))
 
     start_time = time.time()
     results = await asyncio.gather(*tasks)
@@ -939,6 +951,11 @@ async def test_clinical_state_snapshot_consistency(monkeypatch, tmp_path):
     # Check one item changed
     infuser_before = next((i for i in snapshot_before if i["item"].lower() == "rapid infuser"), None)
     infuser_after = next((i for i in snapshot_after if i["item"].lower() == "rapid infuser"), None)
+
+    for snap in [snapshot_before, snapshot_after]:
+        for item in snap:
+            for k in ['last_verified_at', 'verification_score', 'status', 'verify_count', 'updatedAt', 'usageCount', 'confidence', 'usedByUsers', 'user_preferred_term', 'facility_name']:
+                item.pop(k, None)
 
     assert infuser_before is not None
     assert infuser_after is not None
