@@ -125,9 +125,7 @@ describe("LiveKitAudioVisualizer Client Cleanup", () => {
   it("should enforce offline-first invariants by operating correctly even if global.fetch fails (simulating network disconnect)", async () => {
     const originalFetch = global.fetch;
     try {
-      global.fetch = (async () => {
-        throw new Error('Network offline');
-      }) as any;
+      global.fetch = (async (...args) => { if (args.length === 0) throw new TypeError('Missing arguments'); throw new Error('Network offline'); }) as any;
 
       const canvas = document.createElement('canvas');
       canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
@@ -219,7 +217,7 @@ describe("Fuzzing & Invariants", () => {
     const originalFetch = global.fetch;
     try {
       // @ts-ignore
-      global.fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch'))) as any;
+      global.fetch = mock.fn((...args) => { if (args.length === 0) throw new TypeError('Missing arguments'); return Promise.reject(new TypeError('Failed to fetch')); }) as any;
       const canvas = document.createElement('canvas');
       canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
       const visualizer = new LiveKitAudioVisualizer(canvas);
@@ -366,10 +364,7 @@ describe("Memory Profiling & Resource Eviction Hardening", () => {
 
     const originalFetch = global.fetch;
     let fetchCalled = false;
-    global.fetch = () => {
-      fetchCalled = true;
-      return Promise.reject(new Error("Network offline"));
-    };
+    global.fetch = (...args) => { if (args.length === 0) throw new TypeError('Missing arguments'); fetchCalled = true; return Promise.reject(new Error("Network offline")); };
 
     const originalAddEventListener = window.addEventListener;
     const originalRemoveEventListener = window.removeEventListener;
@@ -520,7 +515,7 @@ describe("High-Concurrency & Stress Benchmarks", () => {
     const mockTrack = new MockAudioTrack();
 
     const operations = Array.from({ length: 1000 }).map(async (_, i) => {
-      await new Promise(r => setTimeout(r, Math.random() * 10));
+      await new Promise(r => setTimeout(r, (i * 13) % 10));
       if (i % 2 === 0) {
         visualizer.start(mockTrack as unknown as LocalAudioTrack);
       } else {
@@ -540,8 +535,8 @@ describe("High-Concurrency & Stress Benchmarks", () => {
     const visualizer = new LiveKitAudioVisualizer(canvas);
     const mockTrack = new MockAudioTrack();
 
-    const promises = Array.from({ length: 500 }).map(async () => {
-      await new Promise(r => setTimeout(r, Math.random() * 10)); // Yield to simulate concurrent interleaving
+    const promises = Array.from({ length: 500 }).map(async (_, i) => {
+      await new Promise(r => setTimeout(r, (i * 13) % 10)); // Yield to simulate concurrent interleaving
       visualizer.start(mockTrack as unknown as LocalAudioTrack);
       visualizer.disconnect();
     });
@@ -580,7 +575,7 @@ describe("High-Concurrency & Stress Benchmarks", () => {
     const operations = instances.map(async (visualizer, i) => {
       // Must use valid UUID
       visualizer.setTenantId(`fac_burst_${i}::dept`);
-      await new Promise(r => setTimeout(r, Math.random() * 10));
+      await new Promise(r => setTimeout(r, (i * 13) % 10));
       return { visualizer, i };
     });
 
@@ -592,7 +587,7 @@ describe("High-Concurrency & Stress Benchmarks", () => {
 
   it("should maintain offline-first invariants for LivekitClient during concurrent disconnects and network failure", async () => {
     const originalFetch = global.fetch;
-    global.fetch = (async () => { throw new Error('Network offline'); }) as any;
+    global.fetch = (async (...args) => { if (args.length === 0) throw new TypeError('Missing arguments'); throw new Error('Network offline'); }) as any;
 
     try {
       const canvas = document.createElement('canvas');
@@ -600,8 +595,8 @@ describe("High-Concurrency & Stress Benchmarks", () => {
       const visualizer = new LiveKitAudioVisualizer(canvas);
       const mockTrack = new MockAudioTrack();
 
-      const operations = Array.from({ length: 100 }).map(async () => {
-        await new Promise(r => setTimeout(r, Math.random() * 10));
+      const operations = Array.from({ length: 100 }).map(async (_, i) => {
+        await new Promise(r => setTimeout(r, (i * 13) % 10));
         visualizer.start(mockTrack as unknown as LocalAudioTrack);
         visualizer.disconnect();
       });
