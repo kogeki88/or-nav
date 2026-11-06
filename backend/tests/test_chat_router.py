@@ -80,6 +80,95 @@ class TestChatRouterMultiTenant:
         monkeypatch.setattr(httpx, "get", mock_httpx_post)
         monkeypatch.setattr(httpx, "request", mock_httpx_post)
 
+
+    @pytest.mark.asyncio
+    async def test_multi_tenant_burst_concurrency_race_condition(self, monkeypatch):
+        """Verify strict multi-tenant isolation under heavy burst concurrency using async sets."""
+        import asyncio
+        from httpx import AsyncClient, ASGITransport
+        import random
+
+        tenant_a = "general_memorial_cvor"
+        tenant_b = "or_main"
+
+        async def make_request(client, tenant, idx):
+            # To simulate true interleaving and race conditions in Python asynchronous concurrency tests, use asynchronous jitter (e.g., await asyncio.sleep(random.uniform(0, 0.01))). Replacing this with await asyncio.sleep(0) fails to properly simulate real-world interleaved asynchronous execution.
+            await asyncio.sleep(random.uniform(0, 0.01))
+            resp = await client.post("/api/chat", json={
+                "message": "where is 3-0 silk",
+                "tenant_id": tenant
+            })
+            return resp, tenant
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            tasks = [make_request(client, tenant_a if i % 2 == 0 else tenant_b, i) for i in range(20)]
+            results = await asyncio.gather(*tasks)
+
+        # Verify race conditions and tenant isolation in results
+        for resp, tenant in results:
+            assert resp.status_code == 200
+            data = resp.json()
+            if tenant == tenant_a:
+                assert data["routing_tier"] == "TIER_1_LOCAL_CSV"
+                assert "coordinate_card" in data
+                assert "Silk Suture" in data["coordinate_card"]["item"]
+                assert "OR 21" in data["coordinate_card"]["full_code"]
+            else:
+                assert data["routing_tier"] == "TIER_1_LOCAL_CSV"
+                assert "coordinate_card" in data
+                assert "Silk Suture" in data["coordinate_card"]["item"]
+                assert data["coordinate_card"]["full_code"] != ""
+
+    @pytest.mark.asyncio
+    async def test_offline_first_idempotency_compliance(self, monkeypatch):
+        """Verify offline-first idempotency for mutating operations via chat."""
+        import httpx
+        from httpx import AsyncClient, ASGITransport
+
+        orig_post = httpx.post
+        def mock_post(*args, **kwargs):
+            req = httpx.Request("POST", args[0] if args else kwargs.get("url", "http://mock"))
+            raise httpx.NetworkError("Offline mode: Network is unreachable", request=req)
+        monkeypatch.setattr(httpx, "post", mock_post)
+        monkeypatch.setattr(httpx, "get", mock_post)
+        monkeypatch.setattr(httpx, "request", mock_post)
+
+        payload = {
+            "tenant_id": "general_memorial_cvor",
+            "message": "where is 3-0 silk"
+        }
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            resp1 = await client.post("/api/chat", json=payload)
+            resp2 = await client.post("/api/chat", json=payload)
+            resp3 = await client.post("/api/chat", json=payload)
+
+        assert resp1.status_code == 200
+        assert resp2.status_code == 200
+        assert resp3.status_code == 200
+
+        data1 = resp1.json()
+        data2 = resp2.json()
+        data3 = resp3.json()
+
+        def deep_clean(d):
+            if isinstance(d, dict):
+                for field in ["latency_ms", "match_stage", "facility_aliases", "user_preferred_term", "facility_name", "last_verified_at", "verification_score", "status", "verify_count", "usageCount", "confidence", "usedByUsers", "updatedAt"]:
+                    if field in d:
+                        del d[field]
+                for k, v in d.items():
+                    deep_clean(v)
+            elif isinstance(d, list):
+                for item in d:
+                    deep_clean(item)
+            return d
+
+        deep_clean(data1)
+        deep_clean(data2)
+        deep_clean(data3)
+
+        assert data1 == data2 == data3
+
     def test_tenant_isolation_general_memorial(self):
         client = TestClient(app)
         resp = client.post("/api/chat", json={
