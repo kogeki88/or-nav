@@ -371,7 +371,12 @@ def test_inventory_service_deterministic_state_transitions_and_snapshots():
 
     # 2. Snapshot Consistency
     snapshot_1 = inv_service.get_sync_payload()
-    assert snapshot_1 == payload_after_add
+
+    # Normalize volatile fields for comparison
+    def normalize_volatile(payload):
+        return [{k: v for k, v in item.items() if k not in ("last_verified_at", "updatedAt")} for item in payload]
+
+    assert normalize_volatile(snapshot_1) == normalize_volatile(payload_after_add)
 
     # 3. Deterministic State Transition: Move Item
     inv_service.report_move("Test Eponym", "B3")
@@ -425,6 +430,22 @@ def test_inventory_search_multi_tenant_isolation():
     assert id(inv_or) != id(inv_cvor)
     assert inv_or.tenant.tenant_id == TEST_TENANT.replace("::", "/")
     assert inv_cvor.tenant.tenant_id == OTHER_TENANT.replace("::", "/")
+
+    # Strictly verify data isolation - searches in one tenant must not return custom items from another
+    inv_or.add_inventory_item("Sacred Heart Unobtanium Forceps", "A1")
+    inv_cvor.add_inventory_item("Memorial General Unobtanium Forceps", "B1")
+
+    assert inv_or.search("Sacred Heart Unobtanium Forceps") is not None
+    assert inv_cvor.search("Memorial General Unobtanium Forceps") is not None
+
+    # Check that they don't leak across tenants
+    match_cvor_in_or = inv_or.search("Memorial General Unobtanium Forceps")
+    if match_cvor_in_or:
+        assert "Memorial General" not in match_cvor_in_or.get("item", "")
+
+    match_or_in_cvor = inv_cvor.search("Sacred Heart Unobtanium Forceps")
+    if match_or_in_cvor:
+        assert "Sacred Heart" not in match_or_in_cvor.get("item", "")
 
 def test_surgical_ontology_contract_invariants():
     from app.services.surgical_ontology import (
@@ -811,10 +832,11 @@ def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
 
         # Verify no cross-tenant leakage by checking a neighboring tenant ID is not present
         other_idx = (idx + 1) % CONCURRENCY
-        other_tenant_id = f"facility_{other_idx}::dept_{other_idx}"
-        assert other_tenant_id not in res_lingo, f"Leaked {other_tenant_id} in {res_lingo}"
-        assert other_tenant_id not in res_acoust, f"Leaked {other_tenant_id} in {res_acoust}"
-        assert other_tenant_id not in res_disf, f"Leaked {other_tenant_id} in {res_disf}"
+        # Use exact tenant ID formatting with a trailing space to avoid substring match tautology (sacred_heart::or_burst_1 vs sacred_heart::or_burst_10)
+        other_tenant_id = f"sacred_heart::or_burst_{other_idx}"
+        assert f"{other_tenant_id} " not in res_lingo, f"Leaked {other_tenant_id} in {res_lingo}"
+        assert f"{other_tenant_id} " not in res_acoust, f"Leaked {other_tenant_id} in {res_acoust}"
+        assert f"{other_tenant_id} " not in res_disf, f"Leaked {other_tenant_id} in {res_disf}"
 
         return True
 
