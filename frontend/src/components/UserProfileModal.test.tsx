@@ -2,7 +2,7 @@ import 'jsdom-global/register';
 import { test, mock, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import fc from 'fast-check';
 import UserProfileModal from './UserProfileModal';
@@ -336,10 +336,10 @@ test('UserProfileModal enforces multi-tenant isolation and offline-first invaria
       { container: root }
     );
 
-    const roleSelect = screen.getAllByTestId('select-role')[i] as HTMLSelectElement;
+    const roleSelect = within(root).getByTestId('select-role') as HTMLSelectElement;
     fireEvent.change(roleSelect, { target: { value: 'Scrub Tech' } });
 
-    const saveBtn = screen.getAllByTestId('button-save-profile')[i];
+    const saveBtn = within(root).getByTestId('button-save-profile');
 
     await new Promise(r => setTimeout(r, Math.random() * 10)); // Macrotask jitter
     fireEvent.click(saveBtn);
