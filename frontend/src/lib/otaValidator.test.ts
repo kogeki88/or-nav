@@ -293,7 +293,7 @@ describe('OTA Validator', () => {
       const concurrency = 1000;
       const tasks = Array.from({ length: concurrency }).map(async (_, i) => {
         // Yield execution for true interleaving
-        await Promise.resolve();
+        await new Promise(r => setTimeout(r, Math.random() * 10));
 
         // Unique tenant manifest payload
         const tenantManifest = {
@@ -309,12 +309,16 @@ describe('OTA Validator', () => {
       const results = await Promise.all(tasks);
 
       // Verify no race conditions leaked between concurrent validation calls
-      results.forEach(({ result, tenantManifest, i }) => {
-        assert.strictEqual(result.valid, true, `Validation failed for tenant ${i}`);
-        assert.strictEqual(tenantManifest.version, `v0.${62 + i}`);
-        assert.strictEqual(tenantManifest.build_number, 19 + i);
-        assert.strictEqual((tenantManifest as any)['facility_id::dept_id'], `fac_burst_${i}::dept_burst_${i}`);
-      });
+      // Since Math.random introduces true interleaving, order is not guaranteed.
+      // Asserting presence in results is sufficient.
+      for (let i = 0; i < concurrency; i++) {
+        const captured = results.find(r => r.i === i);
+        assert.ok(captured, `Missing result for task ${i}`);
+        assert.strictEqual(captured.result.valid, true, `Validation failed for tenant ${i}`);
+        assert.strictEqual(captured.tenantManifest.version, `v0.${62 + i}`);
+        assert.strictEqual(captured.tenantManifest.build_number, 19 + i);
+        assert.strictEqual((captured.tenantManifest as any)['facility_id::dept_id'], `fac_burst_${i}::dept_burst_${i}`);
+      }
     });
 
     it('validates 10000 manifests under latency constraints (stress test)', () => {
@@ -503,7 +507,7 @@ describe('OTA Validator', () => {
         // Freeze baseline state to verify true immutability resilience (throws on shallow mutation)
         Object.freeze(baselineSnapshot);
         // Create a deep copy for structural comparison
-        const expectedState = JSON.parse(JSON.stringify(baselineSnapshot));
+        const expectedState = structuredClone(baselineSnapshot);
 
         const result = validateOTAManifest(baselineSnapshot, 'v0.1', 1);
 
