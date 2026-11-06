@@ -490,7 +490,7 @@ describe('usePushToTalk', () => {
       await act(async () => {
         await result1.current.startPTT();
       });
-      const state1 = { ...result1.current };
+      const state1 = { isHoldingPTT: result1.current.isHoldingPTT, voiceMode: result1.current.voiceMode, isConnected: result1.current.isConnected, roomError: result1.current.roomError };
       assert.strictEqual(state1.isHoldingPTT, true);
 
       // Replays
@@ -512,7 +512,7 @@ describe('usePushToTalk', () => {
       await act(async () => {
         await result1.current.stopPTT();
       });
-      const stateStopped = { ...result1.current };
+      const stateStopped = { isHoldingPTT: result1.current.isHoldingPTT };
       assert.strictEqual(stateStopped.isHoldingPTT, false);
 
       for (let i = 0; i < 3; i++) {
@@ -643,9 +643,13 @@ describe('usePushToTalk', () => {
   test("supplementary test: latency benchmarks and concurrent burst execution for PTT operations", async () => {
     const hooks: any[] = [];
 
+    const roots = [];
     await act(async () => {
       for (let i = 0; i < 25; i++) {
-        hooks.push(renderHook(() => usePushToTalk({ tenantId: "benchmark-tenant-" + i })));
+        const root = document.createElement('div');
+        document.body.appendChild(root);
+        roots.push(root);
+        hooks.push(renderHook(() => usePushToTalk({ tenantId: `fac_burst_${i}` }), { container: root }));
       }
       await new Promise(r => setTimeout(r, 100));
     });
@@ -658,7 +662,8 @@ describe('usePushToTalk', () => {
 
     const start = performance.now();
     await act(async () => {
-      await Promise.all(hooks.map(async (hook) => {
+      await Promise.all(hooks.map(async (hook, i) => {
+        await new Promise(r => setTimeout(r, Math.random() * 10));
         await hook.result.current.startPTT();
       }));
     });
@@ -675,6 +680,7 @@ describe('usePushToTalk', () => {
     // Race condition resistance: toggling modes rapidly
     await act(async () => {
       await Promise.all(hooks.map(async (hook) => {
+        await new Promise(r => setTimeout(r, Math.random() * 10));
         hook.result.current.toggleVoiceMode();
         hook.result.current.toggleVoiceMode();
         hook.result.current.toggleVoiceMode();
@@ -683,6 +689,9 @@ describe('usePushToTalk', () => {
 
     for (const hook of hooks) {
       assert.strictEqual(hook.result.current.voiceMode, "BROWSER_WEB_SPEECH");
+    }
+    for (const root of roots) {
+      document.body.removeChild(root);
     }
   });
 
@@ -882,7 +891,7 @@ describe('usePushToTalk', () => {
       assert.strictEqual(result.current.voiceMode, "LIVEKIT_WEBRTC");
     });
 
-    const baselineSnapshot = { voiceMode: result.current.voiceMode, livekitConfigured: result.current.livekitConfigured, isConnected: result.current.isConnected, isHoldingPTT: result.current.isHoldingPTT, roomError: result.current.roomError };
+    const baselineSnapshot = Object.freeze({ voiceMode: result.current.voiceMode, livekitConfigured: result.current.livekitConfigured, isConnected: result.current.isConnected, isHoldingPTT: result.current.isHoldingPTT, roomError: result.current.roomError });
     assert.strictEqual(baselineSnapshot.voiceMode, "LIVEKIT_WEBRTC");
     assert.strictEqual(baselineSnapshot.livekitConfigured, true);
     assert.strictEqual(baselineSnapshot.isHoldingPTT, false);
@@ -965,9 +974,11 @@ describe('usePushToTalk', () => {
 
   test("Extended offline-first compliance: validates offline invariants during rapid reconnects", async () => {
     const originalFetchVoiceStatus = global.fetch;
+    const originalWindow = global.window;
     try {
       global.fetch = () => Promise.reject(new Error("Network offline"));
-      const { result } = renderHook(() => usePushToTalk({ tenantId: "offline-tenant-1" }));
+      const { result, rerender } = renderHook(() => usePushToTalk({ tenantId: "offline-tenant-1" }));
+      rerender(); // Trigger interaction
       await waitFor(() => {
         assert.strictEqual(result.current.voiceMode, "BROWSER_WEB_SPEECH");
       });
@@ -977,6 +988,7 @@ describe('usePushToTalk', () => {
       assert.strictEqual(result.current.isHoldingPTT, true);
     } finally {
       global.fetch = originalFetchVoiceStatus;
+      if (typeof originalWindow !== 'undefined') global.window = originalWindow;
     }
   });
 
@@ -984,9 +996,9 @@ describe('usePushToTalk', () => {
     const { result } = renderHook(() => usePushToTalk({ tenantId: "race-tenant-1" }));
     await act(async () => {
       await Promise.all([
-        result.current.startPTT(),
-        result.current.stopPTT(),
-        result.current.startPTT()
+        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); await result.current.startPTT(); })(),
+        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); await result.current.stopPTT(); })(),
+        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); await result.current.startPTT(); })()
       ]);
     });
     assert.strictEqual(typeof result.current.isHoldingPTT, "boolean");
