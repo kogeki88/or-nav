@@ -14,3 +14,7 @@
 **Vulnerability:** Command Injection / Lack of Fuzzing constraints.
 **Learning:** `VerifyMoveRequest`, `FlagWrongRequest`, and `CreateQuestionRequest` were missing strict fuzzing constraints (such as max limits), leaving the system exposed.
 **Prevention:** Fuzz test string payload fields directly on BaseModel attributes like `max_length`.
+## 2026-11-03 - Added Input Sanitization and XSS boundaries to Missing Models
+**Vulnerability:** VerifyMoveRequest, FlagWrongRequest and CreateQuestionRequest were lacking XSS boundary constraints allowing `script` tags in input.
+**Learning:** We need boundary validations (`pattern=r"^[^<]*$"`) in addition to validator logic.
+**Prevention:** Apply a unified, consistent input validation pattern across all API request models.
