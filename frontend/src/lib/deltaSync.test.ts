@@ -196,6 +196,8 @@ test("diffRecords", async (t) => {
   });
 
   await t.test("High-concurrency and Race Condition Benchmark: executes bursts and enforces invariants", async () => {
+    const originalWindow = (global as any).window;
+    const originalLocalStorage = (global as any).localStorage;
     // Mock localStorage for concurrency state atomicity test
     if (typeof global.window === 'undefined') {
       (global as any).window = {};
@@ -257,8 +259,16 @@ test("diffRecords", async (t) => {
       }
     } finally {
       global.fetch = originalFetch;
-      delete (global as any).localStorage;
-      delete (global as any).window;
+      if (originalLocalStorage !== undefined) {
+        (global as any).localStorage = originalLocalStorage;
+      } else {
+        delete (global as any).localStorage;
+      }
+      if (originalWindow !== undefined) {
+        (global as any).window = originalWindow;
+      } else {
+        delete (global as any).window;
+      }
     }
   });
 
@@ -578,6 +588,9 @@ test("diffRecords", async (t) => {
 
   await t.test("Strict Security Invariants & HIPAA PHI Boundary Verification", async (t) => {
     await t.test("HIPAA PII/PHI redaction verification", () => {
+      const originalWindow = (global as any).window;
+      const originalLocalStorage = (global as any).localStorage;
+      try {
       // Ensure global.window is defined so SSR guards don't bypass logic
       if (typeof global.window === 'undefined') {
         (global as any).window = {};
@@ -609,10 +622,19 @@ test("diffRecords", async (t) => {
       assert.strictEqual(delta.patientName, undefined, "PHI patientName must be redacted");
       assert.strictEqual(delta.ssn, undefined, "PHI ssn must be redacted");
       assert.strictEqual(delta.medicalRecordNumber, undefined, "PHI medicalRecordNumber must be redacted");
-
-      // Cleanup global mocks
-      delete (global as any).localStorage;
-      delete (global as any).window;
+      } finally {
+        // Cleanup global mocks
+        if (originalLocalStorage !== undefined) {
+          (global as any).localStorage = originalLocalStorage;
+        } else {
+          delete (global as any).localStorage;
+        }
+        if (originalWindow !== undefined) {
+          (global as any).window = originalWindow;
+        } else {
+          delete (global as any).window;
+        }
+      }
     });
 
     await t.test("Regex boundary attacks (Catastrophic Backtracking)", () => {
