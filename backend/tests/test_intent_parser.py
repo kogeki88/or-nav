@@ -107,6 +107,8 @@ def test_intent_parser_fuzzing():
 def test_intent_parser_offline_first(monkeypatch):
     orig_socket = socket.socket
     def poison(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted! Offline invariant violated.")
         if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
             return orig_socket(*args, **kwargs)
         if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
@@ -139,6 +141,8 @@ def test_intent_parser_multi_tenant_isolation(monkeypatch):
 def test_intent_parser_offline_mutation_replay_idempotency(monkeypatch):
     orig_socket = socket.socket
     def poison(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted! Offline invariant violated.")
         if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
             return orig_socket(*args, **kwargs)
         if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
@@ -178,6 +182,8 @@ def _poison_and_parse(args):
     orig_socket = socket.socket
     # Enforce offline-first invariant globally for this worker process
     def poison(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted! Offline invariant violated.")
         if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
             return orig_socket(*args, **kwargs)
         if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
@@ -224,11 +230,13 @@ def test_intent_parser_concurrent_burst():
     # Assert correctness (no race conditions and correct behavior under concurrency)
     for res, expected_intent, tenant, uid in results:
         assert res.intent == expected_intent, f"Race condition or bad parse for {expected_intent}. got {res.intent}"
-        assert f"uid_{uid}" in res.raw_query, "Leaked request data"
+        assert f"uid_{uid} " in res.raw_query + " ", "Leaked request data"
         assert f"uid_{uid+1} " not in res.raw_query + " ", "Leaked request data"
 def test_intent_parser_supplementary_isolation(monkeypatch):
     orig_socket = socket.socket
     def poison(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted! Offline invariant violated.")
         if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
             return orig_socket(*args, **kwargs)
         if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
@@ -254,6 +262,8 @@ def test_intent_parser_offline_mutation_replay_idempotency_extended(monkeypatch)
     import httpx
     orig_socket = socket.socket
     def poison(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted! Offline invariant violated.")
         if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
             return orig_socket(*args, **kwargs)
         if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
@@ -285,6 +295,13 @@ def test_intent_parser_network_partition_degraded_recovery(monkeypatch):
 
     orig_socket = socket.socket
     def poison(*args, **kwargs):
+        if not args and not kwargs:
+            if network_state["status"] == "offline":
+                raise RuntimeError("Network offline!")
+            elif network_state["status"] == "degraded":
+                raise TimeoutError("Network degraded!")
+            raise RuntimeError("Network call attempted! Offline invariant violated.")
+
         if network_state["status"] == "offline":
             raise RuntimeError("Network offline!")
         elif network_state["status"] == "degraded":
@@ -336,7 +353,7 @@ def test_intent_parser_memory_eviction_hardening(monkeypatch, tmp_path):
     monkeypatch.setattr("app.services.lexicon_learning._get_facility_lexicon_path", mock_get_facility_lexicon_path)
 
     tracemalloc.start()
-    for i in range(200):
+    for i in range(MAX_LEXICON_CACHE_SIZE + 50):
         # We need to simulate loading of lexicons for multiple facilities to trigger cache eviction
         load_facility_lexicon(f"hospital_mem_{i}")
         parse_clinical_intent(f"hospital_mem_{i}::dept_1 where is the 3-0 vicryl")
