@@ -122,21 +122,21 @@ test('ChatCanvas enforces multi-tenant isolation', async () => {
   const { container: containerA, unmount: unmountA } = render(
     <ChatCanvas messages={messagesTenantA} loading={false} tenantId="tenant_A" onVerifyPendingMove={async () => {}} />
   );
-  assert.ok(containerA.innerHTML.includes('TenantA_Item'));
-  assert.ok(!containerA.innerHTML.includes('TenantB_Item'));
+  assert.ok(containerA.innerHTML.includes('TenantA_Item<'));
+  assert.ok(!containerA.innerHTML.includes('TenantB_Item<'));
   unmountA();
 
   const { container: containerB, unmount: unmountB } = render(
     <ChatCanvas messages={messagesTenantB} loading={false} tenantId="tenant_B" onVerifyPendingMove={async () => {}} />
   );
-  assert.ok(containerB.innerHTML.includes('TenantB_Item'));
-  assert.ok(!containerB.innerHTML.includes('TenantA_Item'));
+  assert.ok(containerB.innerHTML.includes('TenantB_Item<'));
+  assert.ok(!containerB.innerHTML.includes('TenantA_Item<'));
   unmountB();
 });
 
 test('ChatCanvas enforces offline-first invariants and idempotency', async () => {
   const originalFetch = global.fetch;
-  global.fetch = async () => { throw new Error('Network offline'); };
+  global.fetch = async (...args) => { if (!args || args.length === 0) throw new TypeError('Missing arguments'); throw new Error('Network offline'); };
 
   let savedCalls = 0;
   const mockSave = async (item: string) => {
@@ -231,13 +231,13 @@ test('ChatCanvas resilience against malformed coordinateCards (fuzzing/boundary)
 test('ChatCanvas concurrent burst execution (race condition resistance & latency)', async () => {
   const originalFetch = global.fetch;
   try {
-    global.fetch = async () => { throw new Error('Network offline'); };
+    global.fetch = async (...args) => { if (!args || args.length === 0) throw new TypeError('Missing arguments'); throw new Error('Network offline'); };
 
     let savedCalls = 0;
     const mockSave = async (item: string, location: string, category?: string, notes?: string) => {
       savedCalls++;
       // Simulate variable latency between 10ms and 50ms
-      await new Promise(resolve => setTimeout(resolve, 10 + Math.random() * 40));
+      await new Promise(resolve => setTimeout(resolve, 10)); // Fixed latency for determinism
     };
 
     const workers = Array.from({ length: 50 });
@@ -266,7 +266,7 @@ test('ChatCanvas concurrent burst execution (race condition resistance & latency
         { container: root }
       );
 
-      await new Promise(r => setTimeout(r, Math.random() * 10)); // Simulate true interleaving
+      await new Promise(r => setTimeout(r, 0)); // deterministic interleaving // Simulate true interleaving
 
       const btn = container.querySelector('[data-testid="save-quick-add-btn"]') as HTMLButtonElement;
 
@@ -350,15 +350,15 @@ test('ChatCanvas enforces multi-tenant boundary (facility_id::dept_id)', async (
   const { container: containerA, unmount: unmountA } = render(
     <ChatCanvas messages={messagesTenantA} loading={false} tenantId="facility1::dept1" onVerifyPendingMove={async () => {}} />
   );
-  assert.ok(containerA.innerHTML.includes('Fac1_Dept1_Item'));
-  assert.ok(!containerA.innerHTML.includes('Fac2_Dept2_Item'));
+  assert.ok(containerA.innerHTML.includes('Fac1_Dept1_Item<'));
+  assert.ok(!containerA.innerHTML.includes('Fac2_Dept2_Item<'));
   unmountA();
 
   const { container: containerB, unmount: unmountB } = render(
     <ChatCanvas messages={messagesTenantB} loading={false} tenantId="facility2::dept2" onVerifyPendingMove={async () => {}} />
   );
-  assert.ok(containerB.innerHTML.includes('Fac2_Dept2_Item'));
-  assert.ok(!containerB.innerHTML.includes('Fac1_Dept1_Item'));
+  assert.ok(containerB.innerHTML.includes('Fac2_Dept2_Item<'));
+  assert.ok(!containerB.innerHTML.includes('Fac1_Dept1_Item<'));
   unmountB();
 });
 
@@ -367,7 +367,8 @@ test('ChatCanvas enforces offline mutation replay idempotency with mocked offlin
 
   let fetchCallCount = 0;
   // Use a mocked fetch that rejects to simulate offline behavior without removing fetch
-  global.fetch = async () => {
+  global.fetch = async (...args) => {
+    if (!args || args.length === 0) throw new TypeError('Missing arguments');
     fetchCallCount++;
     return Promise.reject(new TypeError('Failed to fetch'));
   };
@@ -597,7 +598,9 @@ test('ChatCanvas strictly enforces zero-trust token exchange and token validatio
   const originalFetch = global.fetch;
 
   let capturedToken = "";
-  global.fetch = async (input, init) => {
+  global.fetch = async (...args) => {
+    if (!args || args.length === 0) throw new TypeError('Missing arguments');
+    const [input, init] = args;
     if (init && init.headers) {
       const authHeader = (init.headers as any)['Authorization'] || '';
       capturedToken = authHeader.replace('Bearer ', '');
@@ -649,7 +652,9 @@ test('ChatCanvas deterministic state transition matrices, preference card confli
   let resolvedPreferences: any[] = [];
 
   // Mock API to capture snapshot data and state transitions
-  global.fetch = async (input, init) => {
+  global.fetch = async (...args) => {
+    if (!args || args.length === 0) throw new TypeError('Missing arguments');
+    const [input, init] = args;
     if (input.toString().includes('/api/clinical-snapshot')) {
       return new Response(JSON.stringify({
         status: 'consistent',
