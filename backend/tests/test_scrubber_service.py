@@ -149,6 +149,8 @@ class TestScrubberServiceOfflineFirst:
         """
         _orig_socket = socket.socket
         def poison(*args, **kwargs):
+            if not args and not kwargs:
+                raise RuntimeError("Network call attempted during offline-first function execution")
             if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
                 return _orig_socket(*args, **kwargs)
             raise RuntimeError("Network call attempted during offline-first function execution")
@@ -182,6 +184,8 @@ class TestScrubberServiceOfflineFirst:
         """
         _orig_socket = socket.socket
         def poison(*args, **kwargs):
+            if not args and not kwargs:
+                raise RuntimeError("Network call attempted during offline-first function execution")
             if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
                 return _orig_socket(*args, **kwargs)
             raise RuntimeError("Network call attempted during offline-first function execution")
@@ -267,6 +271,8 @@ class TestScrubberServiceMultiTenantIsolation:
         """
         _orig_socket = socket.socket
         def poison(*args, **kwargs):
+            if not args and not kwargs:
+                raise RuntimeError("Network call attempted during offline-first function execution")
             if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
                 return _orig_socket(*args, **kwargs)
             raise RuntimeError("Network call attempted during offline-first function execution")
@@ -318,6 +324,8 @@ class TestScrubberServiceMultiTenantIsolation:
         """
         _orig_socket = socket.socket
         def poison(*args, **kwargs):
+            if not args and not kwargs:
+                raise RuntimeError("Network call attempted during offline-first function execution")
             if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
                 return _orig_socket(*args, **kwargs)
             raise RuntimeError("Network call attempted during offline-first function execution")
@@ -453,6 +461,8 @@ class TestScrubberServiceFaultInjection:
         """
         _orig_socket = socket.socket
         def flaky_socket(*args, **kwargs):
+            if not args and not kwargs:
+                raise RuntimeError("Network call attempted during offline-first function execution")
             if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
                 return _orig_socket(*args, **kwargs)
             time.sleep(0.5)  # simulate hang
@@ -483,6 +493,8 @@ class TestScrubberServiceFaultInjection:
 
         _orig_socket = socket.socket
         def dynamic_socket(*args, **kwargs):
+            if not args and not kwargs:
+                raise RuntimeError("Network call attempted during offline-first function execution")
             if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
                 return _orig_socket(*args, **kwargs)
             if network_state["status"] == "offline":
@@ -524,6 +536,8 @@ class TestScrubberServiceFaultInjection:
 
         _orig_socket = socket.socket
         def dynamic_socket(*args, **kwargs):
+            if not args and not kwargs:
+                raise RuntimeError("Network call attempted during offline-first function execution")
             if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
                 return _orig_socket(*args, **kwargs)
             if network_state["status"] == "degraded":
@@ -567,6 +581,8 @@ class TestScrubberServiceMemoryAndResources:
         # Mock network to ensure offline invariant
         _orig_socket = socket.socket
         def offline_socket(*args, **kwargs):
+            if not args and not kwargs:
+                raise RuntimeError("Network call attempted during offline-first function execution")
             if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
                 return _orig_socket(*args, **kwargs)
             raise socket.error("Network unreachable - Offline First")
@@ -612,8 +628,12 @@ class TestScrubberServiceMemoryAndResources:
         with concurrent.futures.ThreadPoolExecutor(max_workers=30) as executor:
             list(executor.map(worker_task, range(5000)))
 
-        # Add a small sleep to allow thread cleanup
-        time.sleep(0.5)
+        # Add a polling loop to allow thread cleanup
+        for _ in range(50):
+            threads_after = process.num_threads()
+            if threads_after <= threads_before + 35:
+                break
+            time.sleep(0.01)
 
         fds_after = process.num_fds() if hasattr(process, 'num_fds') else process.num_handles()
         threads_after = process.num_threads()
@@ -708,6 +728,8 @@ class TestScrubberServiceSecurityHardening:
         # Enforce offline-first invariant
         _orig_socket = socket.socket
         def offline_socket(*args, **kwargs):
+            if not args and not kwargs:
+                raise RuntimeError("Network call attempted during offline-first function execution")
             if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
                 return _orig_socket(*args, **kwargs)
             raise RuntimeError("Network call attempted during offline-first function execution")
@@ -755,6 +777,8 @@ class TestScrubberServiceSecurityHardening:
         import socket
         _orig_socket = socket.socket
         def offline_socket(*args, **kwargs):
+            if not args and not kwargs:
+                raise RuntimeError("Network call attempted during offline-first function execution")
             if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
                 return _orig_socket(*args, **kwargs)
             raise RuntimeError("Network call attempted during offline-first function execution")
@@ -852,6 +876,8 @@ class TestScrubberContinuousInvariants:
         import socket
         _orig_socket = socket.socket
         def offline_socket(*args, **kwargs):
+            if not args and not kwargs:
+                raise RuntimeError("Network call attempted during offline-first function execution")
             if kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
                 return _orig_socket(*args, **kwargs)
             raise RuntimeError("Network call attempted during offline-first function execution")
@@ -897,7 +923,7 @@ class TestScrubberContinuousInvariants:
         for t_id, idx, text in results:
             assert "[REDACTED_PHI]" in text
             assert str(1000000 + idx) not in text
-            assert t_id in text
+            assert f"Tenant {t_id} " in text
             assert f"dataA_{idx} " in text
 
             # Cross-contamination check
