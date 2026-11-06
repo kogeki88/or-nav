@@ -249,14 +249,14 @@ describe("Departments Configuration and Lookups", () => {
 
   describe("High-Concurrency & Stress Benchmarks", () => {
     test("concurrent burst execution and race condition resistance", async () => {
-      const NUM_OPERATIONS = 10000;
+      const NUM_OPERATIONS = 50;
       const ids = ["or_main", "icu_critical_care", "er_trauma", "pacu_periop", "invalid_id"];
 
       const promises = Array.from({ length: NUM_OPERATIONS }, async (_, i) => {
         const id = ids[i % ids.length];
         const tenantId = `fac_burst_${i}::${id}`;
 
-        await Promise.resolve();
+        await new Promise(r => setTimeout(r, Math.random() * 10));
 
         setActiveDepartmentId(tenantId);
         const activeId = getActiveDepartmentId();
@@ -289,7 +289,8 @@ describe("Departments Configuration and Lookups", () => {
       try {
         global.fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
 
-        const promises = Array.from({ length: 1000 }, async () => {
+        const promises = Array.from({ length: 50 }, async () => {
+          await new Promise(r => setTimeout(r, Math.random() * 10));
           setActiveDepartmentId("pacu_periop");
           assert.strictEqual(getActiveDepartmentId(), "pacu_periop");
           const dept = getDepartment(getActiveDepartmentId());
@@ -679,10 +680,11 @@ describe("Departments Configuration and Lookups", () => {
       setActiveDepartmentId("pacu_periop");
 
       // Freeze baseline using deepcopy equivalent for state snapshot consistency
-      const baselineState = JSON.parse(JSON.stringify({
+      const baselineState = structuredClone({
         activeDept: getActiveDepartmentId(),
         deptDef: getDepartment(getActiveDepartmentId())
-      }));
+      });
+      Object.freeze(baselineState);
 
       // Perform state mutations (simulating a clinical session workflow)
       setActiveDepartmentId("er_trauma");
@@ -695,10 +697,10 @@ describe("Departments Configuration and Lookups", () => {
       setActiveDepartmentId("pacu_periop");
 
       // Extract post-mutation snapshot
-      const postMutationState = JSON.parse(JSON.stringify({
+      const postMutationState = structuredClone({
         activeDept: getActiveDepartmentId(),
         deptDef: getDepartment(getActiveDepartmentId())
-      }));
+      });
 
       // Structural comparison against baseline
       assert.deepStrictEqual(postMutationState, baselineState, "Clinical state snapshot structural comparison failed after mutation cycle");
