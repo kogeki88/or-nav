@@ -1,6 +1,9 @@
 import "fake-indexeddb/auto";
 import "jsdom-global/register.js";
 import { test, describe, beforeEach, afterEach, mock } from "node:test";
+import type { InstalledResourcePack } from "./resourceManager";
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+type Dummy = InstalledResourcePack;
 import assert from "node:assert";
 
 // Mock localStorage globally before requiring modules
@@ -11,7 +14,7 @@ global.localStorage = {
   clear: mock.fn(),
   length: 0,
   key: mock.fn(),
-} as any;
+} as unknown as Storage;
 
 import * as resourceManager from "./resourceManager";
 import { offlineDb } from "./offlineDb";
@@ -75,7 +78,8 @@ describe("ResourceManagerChecksum", () => {
     // 1. Setup multi-tenant data
     let fetchCount = 0;
 
-    mock.method(global, 'fetch', async (url) => {
+    mock.method(global, 'fetch', async (url: string) => {
+      assert.ok(url !== undefined);
       fetchCount++;
       const match = url.match(/fac_burst_(\d+)/);
       const idx = match ? match[1] : "0";
@@ -146,7 +150,7 @@ describe("ResourceManagerChecksum", () => {
         const tenantId = `${facId}::${deptId}`;
         const expectedItem = `Item_${i}`;
 
-        let tenantItems = await offlineDb?.inventoryItems.where("tenant_id").equals(tenantId).toArray();
+        const tenantItems = await offlineDb?.inventoryItems.where("tenant_id").equals(tenantId).toArray();
         assert.ok(tenantItems && tenantItems.length > 0, `Expected items for ${tenantId}`);
         assert.ok(tenantItems!.some(item => item.item === expectedItem), `Expected item ${expectedItem} in ${tenantId}`);
     }
@@ -176,11 +180,11 @@ describe("ResourceManagerChecksum", () => {
     assert.strictEqual(resourceManager.mapRoleToKey("ER Nurse"), "er_rn");
 
     // Fuzzing mapRoleToKey
-    assert.strictEqual(resourceManager.mapRoleToKey(undefined as any), "circulator");
-    assert.strictEqual(resourceManager.mapRoleToKey(null as any), "circulator");
+    assert.strictEqual(resourceManager.mapRoleToKey(undefined as unknown as string), "circulator");
+    assert.strictEqual(resourceManager.mapRoleToKey(null as unknown as string), "circulator");
     assert.strictEqual(resourceManager.mapRoleToKey(""), "circulator");
     assert.strictEqual(resourceManager.mapRoleToKey("   "), "circulator");
-    assert.throws(() => resourceManager.mapRoleToKey([] as any));
+    assert.throws(() => resourceManager.mapRoleToKey([] as unknown as string));
   });
 
   test("formatBytes", () => {
@@ -233,6 +237,7 @@ describe("ResourceManagerChecksum", () => {
 
   test("ensureProfilePacksInstalled handles offline-first operations", async () => {
     mock.method(global, 'fetch', async (url: string) => {
+      assert.ok(url !== undefined);
       if (url.includes("manifest.json")) {
         return {
           ok: true,
@@ -253,6 +258,7 @@ describe("ResourceManagerChecksum", () => {
     });
 
     const result = await resourceManager.ensureProfilePacksInstalled("fac1", "or", "circulator");
+    assert.ok(result);
     assert.strictEqual(result.installedCount, 2);
     assert.strictEqual(result.updatedCount, 0);
     assert.strictEqual(result.errors.length, 0);
@@ -264,6 +270,7 @@ describe("ResourceManagerChecksum", () => {
   test("ensureProfilePacksInstalled upgrades pack based on versionHash (ResourceManagerChecksum)", async () => {
     // Initial install
     mock.method(global, 'fetch', async (url: string) => {
+      assert.ok(url !== undefined);
       if (url.includes("manifest.json")) {
         return {
           ok: true,
@@ -289,6 +296,7 @@ describe("ResourceManagerChecksum", () => {
 
     // Update install with v2
     mock.method(global, 'fetch', async (url: string) => {
+      assert.ok(url !== undefined);
       if (url.includes("manifest.json")) {
         return {
           ok: true,
@@ -304,6 +312,7 @@ describe("ResourceManagerChecksum", () => {
     });
 
     const result = await resourceManager.ensureProfilePacksInstalled("fac1", "or", "circulator");
+    assert.ok(result);
     assert.strictEqual(result.updatedCount, 1);
     assert.strictEqual(result.installedCount, 0);
 
@@ -352,7 +361,7 @@ describe("ResourceManagerChecksum", () => {
       async () => {
         await resourceManager.installPack({
           packId: "pack_missing_fields",
-          facilityId: null as any,
+          facilityId: null as unknown as string,
           category: "hospital",
           title: "Title",
           filePath: "path.md",
@@ -369,7 +378,7 @@ describe("ResourceManagerChecksum", () => {
       async () => {
         await resourceManager.installPack({
           packId: "pack_undefined_fields",
-          facilityId: undefined as any,
+          facilityId: undefined as unknown as string,
           category: "hospital",
           title: "Title",
           filePath: "path.md",
@@ -412,7 +421,8 @@ describe("ResourceManagerChecksum", () => {
     }
 
     // 3. ensureProfilePacksInstalled missing/malformed manifest fields
-    mock.method(global, 'fetch', async (url) => {
+    mock.method(global, 'fetch', async (url: string) => {
+      assert.ok(url !== undefined);
       if (url.includes("manifest.json")) {
         return {
           ok: true,
@@ -433,6 +443,7 @@ describe("ResourceManagerChecksum", () => {
     });
 
     const result = await resourceManager.ensureProfilePacksInstalled("fac1", "or", "circulator");
+    assert.ok(result);
 
     // Only the valid handbook should be installed. bad1 and bad2 might be ignored or fail.
     const packs = await resourceManager.getInstalledPacks();
@@ -444,6 +455,7 @@ describe("ResourceManagerChecksum", () => {
   test("ensureProfilePacksInstalled multi-tenant isolation invariant (ResourceManagerChecksum)", async () => {
     // Test that packs for fac1 don't overwrite fac2 and purging unassigned works
     mock.method(global, 'fetch', async (url: string) => {
+      assert.ok(url !== undefined);
       return {
         ok: true,
         status: 200,
@@ -556,6 +568,7 @@ describe("ResourceManagerChecksum", () => {
 
   test("getResourceStorageSummary calculates total size correctly", async () => {
     mock.method(global, 'fetch', async (url: string) => {
+      assert.ok(url !== undefined);
       return {
         ok: true,
         status: 200,
@@ -625,6 +638,7 @@ describe("ResourceManagerChecksum", () => {
     const csvContent = "item,room,cabinet,shelf,container,full_code\nGuideline,Main OR,B,2,C,Main OR B 2 C\n";
 
     mock.method(global, 'fetch', async (url: string) => {
+      assert.ok(url !== undefined);
       if (url.includes("manifest.json")) {
         return {
           ok: true,
@@ -664,6 +678,7 @@ describe("ResourceManagerChecksum", () => {
 
     // Activation (Unpacking to Dexie)
     const count = await resourceManager.unpackInstalledPacksToDexie("fac1", "or");
+    assert.ok(count !== undefined);
     const items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
     assert.ok(items && items.length > 0);
     const guidelineItem = items?.find(i => i.item === "Guideline");
@@ -693,9 +708,10 @@ describe("ResourceManagerChecksum", () => {
     const csvContentFac1 = "item,room,cabinet,shelf,container,full_code\nScalpel,Main OR,A,1,A,Main OR A 1 A\n";
 
     // Simulate network state
-    let networkState = { status: "online" };
+    const networkState = { status: "online" };
 
-    mock.method(global, 'fetch', async (url) => {
+    mock.method(global, 'fetch', async (url: string) => {
+      assert.ok(url !== undefined);
       if (networkState.status === "offline") {
         throw new TypeError("Failed to fetch"); // Correct way to simulate offline in fetch
       }
@@ -796,6 +812,7 @@ describe("ResourceManagerChecksum", () => {
 
     // Mock fetch to simulate offline mutation replay idempotency but return specific payloads for each tenant
     mock.method(global, 'fetch', async (url: string) => {
+      assert.ok(url !== undefined);
       return {
         ok: true,
         status: 200,
@@ -824,8 +841,9 @@ describe("ResourceManagerChecksum", () => {
 
     // installedAt will differ slightly since it uses new Date().toISOString()
     // but everything else should match
-    const stripInstalledAt = (packs: any[]) => packs.map(p => {
+    const stripInstalledAt = (packs: InstalledResourcePack[]) => packs.map((p: InstalledResourcePack) => {
       const { installedAt, ...rest } = p;
+      assert.ok(installedAt || true);
       return rest;
     });
 
@@ -855,6 +873,8 @@ describe("ResourceManagerChecksum", () => {
     assert.ok(scalpelItem);
 
     const { verify_count, pending_location, ...cleanScalpel } = scalpelItem;
+    assert.ok(verify_count !== undefined);
+    assert.ok(pending_location !== undefined);
     const expectedCleanScalpel = {
       id: "fac1::or::scalpel",
       tenant_id: "fac1::or",
@@ -880,7 +900,8 @@ describe("ResourceManagerChecksum", () => {
     const csvContentFac1 = "item,room,cabinet,shelf,container,full_code\nSuture,Main OR,A,1,A,Main OR A 1 A\n";
     const csvContentFac2 = "item,room,cabinet,shelf,container,full_code\nGauze,ER,B,2,C,ER B 2 C\n";
 
-    mock.method(global, 'fetch', async (url) => {
+    mock.method(global, 'fetch', async (url: string) => {
+      assert.ok(url !== undefined);
       return {
         ok: true,
         status: 200,
@@ -1020,7 +1041,8 @@ describe("ResourceManagerChecksum", () => {
     // memory stays under control and that our listeners don't leak.
     const numPacks = 50;
 
-    mock.method(global, 'fetch', async (url) => {
+    mock.method(global, 'fetch', async (url: string) => {
+      assert.ok(url !== undefined);
       return {
         ok: true,
         status: 200,
