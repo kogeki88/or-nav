@@ -39,6 +39,8 @@ describe('ResourceInspectorModal', () => {
     const addEventListenerSpy = vi.spyOn(window, 'addEventListener');
     const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
 
+    try {
+
     const addedListeners = new Map<string, number>();
     const removedListeners = new Map<string, number>();
 
@@ -63,9 +65,10 @@ describe('ResourceInspectorModal', () => {
     }
 
     document.body.removeChild(root);
-
-    addEventListenerSpy.mockRestore();
-    removeEventListenerSpy.mockRestore();
+    } finally {
+      addEventListenerSpy.mockRestore();
+      removeEventListenerSpy.mockRestore();
+    }
   });
 
   it('handles QuotaExceededError naturally by triggering the storage constraint on offline db methods', async () => {
@@ -173,16 +176,20 @@ describe('ResourceInspectorModal', () => {
     vi.mocked(getOfflineInventory).mockClear();
 
     let unmounts: any[] = [];
+    const roots: HTMLElement[] = [];
 
     await act(async () => {
       const renderPromises = Array.from({ length: 50 }).map((_, i) => {
         return new Promise<void>((resolve) => {
-          new Promise(r => setTimeout(r, 0)).then(() => {
-            const tenantId = `tenant_${i}::or_main`;
-            const { unmount } = render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId={tenantId} />);
+          // Introduce true interleaving
+          setTimeout(() => {
+            const tenantId = `fac_burst_${i}::or_main`;
+            const root = document.createElement('div');
+            roots.push(root);
+            const { unmount } = render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId={tenantId} />, { container: root });
             unmounts.push(unmount);
             resolve();
-          });
+          }, Math.random() * 10);
         });
       });
       await Promise.all(renderPromises);
@@ -190,8 +197,9 @@ describe('ResourceInspectorModal', () => {
 
     const calls = vi.mocked(getOfflineInventory).mock.calls;
     const tenantCalls = calls.map(c => c[0]);
+    expect(tenantCalls.length).toBe(50);
     for (let i = 0; i < 50; i++) {
-      expect(tenantCalls).toContain(`tenant_${i}::or_main`);
+      expect(tenantCalls).toContain(`fac_burst_${i}::or_main`);
     }
 
     unmounts.forEach(u => u());
@@ -250,9 +258,10 @@ describe('ResourceInspectorModal', () => {
 
   it('enforces offline-first invariants by surviving network failures', async () => {
     const originalFetch = global.fetch;
-    global.fetch = vi.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+    try {
+      global.fetch = vi.fn(() => Promise.reject(new TypeError('Failed to fetch')));
 
-    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />);
+      render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />);
 
     await waitFor(() => {
       expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
@@ -267,8 +276,9 @@ describe('ResourceInspectorModal', () => {
     });
 
     expect(screen.getByText(/Installed Resources Explorer & Studio/i)).toBeTruthy();
-
-    global.fetch = originalFetch;
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 
   it('resists malformed payloads during backup import', async () => {
@@ -561,8 +571,8 @@ describe('ResourceInspectorModal', () => {
     expect(exportTenantResourcesJson).toHaveBeenCalledWith('tenant-multi::iso');
 
     const parsed = JSON.parse(exportedData);
-    const cloneParsed = JSON.parse(JSON.stringify(parsed));
-    const cloneExpected = JSON.parse(JSON.stringify(snapshotPayload));
+    const cloneParsed = structuredClone(parsed);
+    const cloneExpected = structuredClone(snapshotPayload);
 
     // Normalize volatile metadata
     delete cloneParsed.exportedAt;
