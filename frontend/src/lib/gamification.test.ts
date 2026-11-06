@@ -159,6 +159,10 @@ test("Gamification Engine", async (t) => {
 
   await t.test("enforces offline-first invariants and gracefully handles storage errors", () => {
     const tempWindow = (global as any).window;
+    const tempLocalStorage = (global as any).localStorage;
+    const originalWarn = console.warn;
+    console.warn = () => {};
+    try {
 
     // 1. window is undefined (e.g. SSR or completely offline worker without window)
     (global as any).window = undefined;
@@ -188,7 +192,11 @@ test("Gamification Engine", async (t) => {
       saveClinicianRewards(errorRewards, "error_user");
     });
 
-    (global as any).localStorage = tempLocalStorage;
+        } finally {
+      console.warn = originalWarn;
+      (global as any).window = tempWindow;
+      (global as any).localStorage = tempLocalStorage;
+    }
   });
 });
 
@@ -321,7 +329,9 @@ test("fault injection, network partition degradation, intermittent latency, and 
   const tempLocalStorage = (global as any).localStorage;
   let isOffline = true;
 
+  const originalWarn = console.warn;
   try {
+    console.warn = () => {};
     // Setup a degraded storage mock with intermittent latency and failures
     (global as any).localStorage = {
       getItem: (key: string) => {
@@ -383,6 +393,7 @@ test("fault injection, network partition degradation, intermittent latency, and 
     assert.equal(replayRes.stats.peerVerificationsCount, 2);
   } finally {
     // Restore original
+    console.warn = originalWarn;
     (global as any).localStorage = tempLocalStorage;
   }
 });
@@ -482,7 +493,9 @@ test("HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust t
     clear: () => inMemoryStorage.clear()
   };
 
+  const originalWarn = console.warn;
   try {
+    console.warn = () => {};
     // 1. HIPAA PHI / PII & Prompt Injection in Custom Labels
     maliciousPayloads.forEach((payload, idx) => {
       const user = `user_phi_label_${idx}`;
@@ -528,6 +541,7 @@ test("HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust t
     });
 
   } finally {
+    console.warn = originalWarn;
     (global as any).localStorage = tempLocalStorage;
   }
 });
