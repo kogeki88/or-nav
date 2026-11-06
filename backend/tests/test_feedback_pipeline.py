@@ -234,7 +234,7 @@ def test_offline_first_socket_invariants(monkeypatch):
     original_socket = socket.socket
 
     def mock_socket(family=-1, *args, **kwargs):
-        if family != getattr(socket, "AF_UNIX", -1):
+        if family != getattr(socket, "AF_UNIX", None):
             raise RuntimeError("Network access is strictly forbidden in offline-first mode")
         return original_socket(family, *args, **kwargs)
 
@@ -403,7 +403,7 @@ def test_resource_eviction_and_memory_profiling(monkeypatch, tmp_path):
         # Inject an item periodically to simulate load
         if i % 100 == 0:
             client.post("/api/feedback", json={
-                "tenantId": "sacred_heart::or",
+                "tenantId": f"sacred_heart::or_{(i // 100) % 5}",
                 "rawText": f"High volume test item {i}"
             })
 
@@ -475,16 +475,17 @@ def test_concurrent_burst_execution():
     """Verify race condition resistance during concurrent burst traffic."""
     import asyncio
     import httpx
+    import random
     from app.main import app
 
     async def run_burst():
         async def submit_complaint(i):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as async_client:
-                unique_text = "C-arm calibration issue_" + str(i) + " " + ("xyz" * (i*2))
+                unique_text = f"C-arm calibration issue_{i} " + ("xyz" * (i*2))
                 tenant_id = f"sacred_heart::or_burst_{i}"
 
                 # Yield to event loop to simulate true interleaving
-                await asyncio.sleep(0)
+                await asyncio.sleep(random.uniform(0, 0.01))
 
                 # Write only to unique tenant record
                 post_res = await async_client.post("/api/feedback", json={
