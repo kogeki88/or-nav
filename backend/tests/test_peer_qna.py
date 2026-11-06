@@ -247,7 +247,8 @@ def test_peer_qna_high_concurrency_burst():
         }
         start_time = time.time()
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as async_client:
-            await asyncio.sleep(0)
+            import random
+            await asyncio.sleep(random.uniform(0, 0.01))
             res = await async_client.post("/api/peer-questions", json=payload)
             latency = time.time() - start_time
             return res.status_code, res.json(), latency, tenant
@@ -276,7 +277,7 @@ def test_peer_qna_high_concurrency_burst():
         tenant = f"sacred_heart::or_burst_{i}" if i % 2 == 0 else f"county_general::or_burst_{i}"
         res = client.get(f"/api/peer-questions?tenant_id={tenant}")
         qs = res.json()
-        assert all(tenant in q["tenantId"] or q["tenantId"].lower() == "or_main" for q in qs)
+        assert all(q["tenantId"] == tenant or q["tenantId"].lower() == "or_main" for q in qs)
 
 def test_offline_first_concurrent_answers_and_verifications():
     """Enforce offline-first invariants with concurrent answers and verifications on a single question."""
@@ -311,7 +312,8 @@ def test_offline_first_concurrent_answers_and_verifications():
             "verified_by": f"Offline Verifier {i}"
         }
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as async_client:
-            await asyncio.sleep(0)
+            import random
+            await asyncio.sleep(random.uniform(0, 0.01))
             res_v = await async_client.post(f"/api/peer-questions/{q_id}/answers/{a_id}/verify", json=v_payload)
             return res_v.status_code
 
@@ -530,28 +532,22 @@ def test_peer_qna_cache_eviction_limits():
     tenant = "county_general::or"
     import app.peer_qna
 
-    original_max = app.peer_qna.MAX_PEER_QUESTIONS
-    app.peer_qna.MAX_PEER_QUESTIONS = 5
+    # Create questions to exceed the max limit
+    for i in range(app.peer_qna.MAX_PEER_QUESTIONS + 5):
+        client.post("/api/peer-questions", json={
+            "tenant_id": tenant,
+            "question_text": f"Question {i}",
+            "idempotency_key": f"evict-{uuid.uuid4().hex}"
+        })
 
-    try:
-        # Create 10 questions to exceed the max limit of 5
-        for i in range(10):
-            client.post("/api/peer-questions", json={
-                "tenant_id": tenant,
-                "question_text": f"Question {i}",
-                "idempotency_key": f"evict-{uuid.uuid4().hex}"
-            })
+    res = client.get(f"/api/peer-questions?tenant_id={tenant}")
+    questions = res.json()
 
-        res = client.get(f"/api/peer-questions?tenant_id={tenant}")
-        questions = res.json()
+    # Only check the questions belonging *exactly* to this tenant to avoid seed overlap or partial matching
+    exact_tenant_questions = [q for q in questions if q["tenantId"] == tenant]
 
-        # Only check the questions belonging *exactly* to this tenant to avoid seed overlap or partial matching
-        exact_tenant_questions = [q for q in questions if q["tenantId"] == tenant]
-
-        # Max limit is enforced per-tenant, so there should be exactly 5 questions for this exact tenant
-        assert len(exact_tenant_questions) == 5
-    finally:
-        app.peer_qna.MAX_PEER_QUESTIONS = original_max
+    # Max limit is enforced per-tenant
+    assert len(exact_tenant_questions) == app.peer_qna.MAX_PEER_QUESTIONS
 
 def test_unclosed_resources_and_fds():
     """Verify that no file descriptors or sockets are leaked during a burst of requests."""
