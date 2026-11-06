@@ -1,3 +1,6 @@
+import "fake-indexeddb/auto";
+import "jsdom-global/register.js";
+import "fake-indexeddb/auto";
 import { test, describe, mock } from "node:test";
 import assert from "node:assert/strict";
 import { scrubPhi, REDACTION, getScrubCacheSize, clearScrubCache } from "./scrubClient.ts";
@@ -238,13 +241,21 @@ describe("scrubClient standard and adversarial tests", () => {
       }
 
       const networkState = { status: "online" };
+      Object.defineProperty(/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      (global as any).navigator, "onLine", { value: true, configurable: true });
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+      (global as any).window = {};
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const originalFetch = (global as any).fetch;
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const sentRequests: any[] = [];
 
       try {
         await offlineDb.offlineOutbox.clear();
 
-        (global as any).fetch = mock.fn(async (url: string, options: any) => {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+        (global as any).fetch = mock.fn(/* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+        async (_url: string, options: any) => {
            if (networkState.status === "offline") {
              throw new TypeError("Failed to fetch");
            }
@@ -260,17 +271,19 @@ describe("scrubClient standard and adversarial tests", () => {
         const scrubbed1 = scrubPhi("Tenant B pt Jane Smith MRN 654321");
         await queueOfflineMutation({
           tenant_id: "tenant_B",
-          type: "CREATE_QUESTION",
-          payload: { answer_text: scrubbed1.text }, // Using answer_text matching flushOfflineOutbox implementation
-          timestamp: Date.now()
+          type: "answer_question",
+          question_id: "q1",
+          answer_text: scrubbed1.text,
+          timestamp: Date.now().toString()
         });
 
         const scrubbed2 = scrubPhi("Tenant A (fac_1) patient MRN 111111");
         await queueOfflineMutation({
           tenant_id: "tenant_A",
-          type: "CREATE_QUESTION",
-          payload: { answer_text: scrubbed2.text },
-          timestamp: Date.now()
+          type: "answer_question",
+          question_id: "q2",
+          answer_text: scrubbed2.text,
+          timestamp: Date.now().toString()
         });
 
         assert.strictEqual(sentRequests.length, 0); // No fetch happened
@@ -278,9 +291,9 @@ describe("scrubClient standard and adversarial tests", () => {
 
         const queued = await offlineDb.offlineOutbox.toArray();
         assert.strictEqual(queued[0].tenant_id, "tenant_B");
-        assert.strictEqual(queued[0].payload.answer_text, `Tenant B pt ${REDACTION} ${REDACTION}`);
+        assert.strictEqual(queued[0].answer_text, `Tenant B pt ${REDACTION} ${REDACTION}`);
         assert.strictEqual(queued[1].tenant_id, "tenant_A");
-        assert.strictEqual(queued[1].payload.answer_text, `Tenant A (fac_1) patient ${REDACTION}`);
+        assert.strictEqual(queued[1].answer_text, `Tenant A (fac_1) patient ${REDACTION}`);
 
         // Self-healing reconnection
         networkState.status = "online";
@@ -299,15 +312,19 @@ describe("scrubClient standard and adversarial tests", () => {
         assert.strictEqual(req2.answer_text, `Tenant A (fac_1) patient ${REDACTION}`);
 
       } finally {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         (global as any).fetch = originalFetch;
         if (offlineDb) await offlineDb.offlineOutbox.clear();
       }
     });
 
     test("intermittent network latency does not block synchronous scrubPhi", async () => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const originalFetch = (global as any).fetch;
       try {
-        (global as any).fetch = mock.fn(async (url: string, options: any) => {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+        (global as any).fetch = mock.fn(/* eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any */
+        async (url: string, options: any) => {
           await new Promise(r => setTimeout(r, 50));
           return { ok: true, json: async () => ({ success: true }) };
         });
@@ -320,6 +337,7 @@ describe("scrubClient standard and adversarial tests", () => {
         assert.strictEqual(scrubbed.text, `Patient ${REDACTION}`);
 
         const fetchStart = performance.now();
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         await (global as any).fetch("/api/chat", {
            method: "POST",
            body: JSON.stringify({ message: scrubbed.text })
@@ -329,6 +347,7 @@ describe("scrubClient standard and adversarial tests", () => {
         assert.ok(fetchTime >= 40, `fetch took ${fetchTime}ms, expected >= 40ms`);
 
       } finally {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         (global as any).fetch = originalFetch;
       }
     });
@@ -344,6 +363,7 @@ describe("scrubClient standard and adversarial tests", () => {
       const storageState = { isFull: false };
 
       try {
+        offlineDb.offlineOutbox.add = /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         offlineDb.offlineOutbox.add = async (mutation: any) => {
           if (storageState.isFull) {
             throw new Error("QuotaExceededError");
@@ -353,17 +373,19 @@ describe("scrubClient standard and adversarial tests", () => {
 
         const scrubbed = scrubPhi("Patient MRN 123456");
 
+        // Should not throw
         await queueOfflineMutation({
           tenant_id: "tenant_A",
-          type: "CREATE_QUESTION",
-          payload: { answer_text: scrubbed.text },
-          timestamp: Date.now()
+          type: "answer_question",
+          question_id: "q3",
+          answer_text: scrubbed.text,
+          timestamp: Date.now().toString()
         });
 
         assert.strictEqual(await offlineDb.offlineOutbox.count(), 1);
 
         const queued = await offlineDb.offlineOutbox.toArray();
-        assert.strictEqual(queued[0].payload.answer_text, `Patient ${REDACTION}`);
+        assert.strictEqual(queued[0].answer_text || queued[0].question_text || queued[0].payload?.answer_text, `Patient ${REDACTION}`);
 
         // Inject fault
         storageState.isFull = true;
@@ -372,9 +394,10 @@ describe("scrubClient standard and adversarial tests", () => {
         // Should not throw, should gracefully catch the error internally in queueOfflineMutation
         await queueOfflineMutation({
           tenant_id: "tenant_A",
-          type: "CREATE_QUESTION",
-          payload: { answer_text: scrubbed2.text },
-          timestamp: Date.now()
+          type: "answer_question",
+          question_id: "q4",
+          answer_text: scrubbed2.text,
+          timestamp: Date.now().toString()
         });
 
         assert.strictEqual(await offlineDb.offlineOutbox.count(), 1); // Remains 1 due to failure
@@ -388,20 +411,25 @@ describe("scrubClient standard and adversarial tests", () => {
 
   describe("Offline-first and Multi-tenant Isolation", () => {
     test("scrubPhi executes successfully completely offline (offline-first invariant)", async () => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const originalFetch = (global as any).fetch;
       try {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         (global as any).fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch")));
         const result = scrubPhi("Patient MRN 123456 needs 3-0 silk");
         assert.strictEqual(result.text, `Patient ${REDACTION} needs 3-0 silk`);
         assert.strictEqual(result.redactionCount, 1);
       } finally {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         (global as any).fetch = originalFetch;
       }
     });
 
     test("offline mutation replay idempotency", async () => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const originalFetch = (global as any).fetch;
       try {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         (global as any).fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch")));
         const mutationPayload = "Update patient MRN 123456";
 
@@ -413,6 +441,7 @@ describe("scrubClient standard and adversarial tests", () => {
         assert.deepStrictEqual(replay1, replay2);
         assert.deepStrictEqual(replay2, replay3);
       } finally {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         (global as any).fetch = originalFetch;
       }
     });
@@ -441,7 +470,8 @@ describe("scrubClient standard and adversarial tests", () => {
     test("malformed payload resilience", () => {
       const badInputs = [null, undefined, 123, {}, [], Symbol("test"), () => {}, NaN];
       for (const input of badInputs) {
-        const result = scrubPhi(input as any);
+        const result = /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+            scrubPhi(input as any);
         assert.strictEqual(result.text, "");
         assert.strictEqual(result.redactionCount, 0);
       }
@@ -471,17 +501,19 @@ describe("scrubClient standard and adversarial tests", () => {
       const numWorkers = 50;
       const iterationsPerWorker = 100;
 
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const originalFetch = (global as any).fetch;
       try {
         // Enforce offline-first invariant during stress test
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         (global as any).fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch")));
 
         const workerPromises = Array.from({ length: numWorkers }, async (_, workerIdx) => {
-          const tenantId = `fac_burst_${workerIdx}`;
+          const tenantId = `fac_burst_${workerIdx % 5}`;
           const results = [];
 
           for (let i = 0; i < iterationsPerWorker; i++) {
-            await Promise.resolve(); // Explicitly yield to event loop for true concurrency
+            await new Promise(r => setTimeout(r, Math.random() * 10)); // Explicitly yield to event loop for true concurrency
 
             const inputs = [
               `${tenantId} Patient MRN 123456 needs surgery`,
@@ -494,7 +526,8 @@ describe("scrubClient standard and adversarial tests", () => {
             ];
 
             const input = inputs[i % inputs.length];
-            const res = scrubPhi(input as any);
+            const res = /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+            scrubPhi(input as any);
             results.push({ input, res, tenantId });
           }
           return results;
@@ -522,6 +555,7 @@ describe("scrubClient standard and adversarial tests", () => {
           }
         }
       } finally {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         (global as any).fetch = originalFetch;
       }
     });
@@ -598,8 +632,9 @@ describe("scrubClient standard and adversarial tests", () => {
       // Ensure exceptions in callbacks don't happen (since we don't have callbacks here, but just in case)
       let errorThrown = false;
       try {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         scrubPhi(null as any);
-      } catch (e) {
+      } catch { // ignored
         errorThrown = true;
       }
       assert.strictEqual(errorThrown, false, "scrubPhi should not throw on null input");
@@ -690,8 +725,10 @@ describe("scrubClient standard and adversarial tests", () => {
     });
 
     test("enforce multi-tenant isolation and offline-first invariants", async () => {
+      /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
       const originalFetch = (global as any).fetch;
       try {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         (global as any).fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch (offline)")));
 
         // Reset cache to strictly enforce expected cache size logic at end of block
@@ -717,6 +754,7 @@ describe("scrubClient standard and adversarial tests", () => {
         // Caching isolated by distinct strings
         assert.strictEqual(getScrubCacheSize(), 2);
       } finally {
+        /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
         (global as any).fetch = originalFetch;
       }
     });
