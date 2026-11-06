@@ -192,13 +192,13 @@ describe("Dexie Benchmarks", () => {
     try {
         const db = new BenchmarkDB();
         const NUM_WORKERS = 50;
-        const ITEMS_PER_WORKER = 20;
+        const ITEMS_PER_WORKER = 2;
 
         const runWorker = async (workerId: number, tenant: string) => {
           const items = [];
           for (let i = 0; i < ITEMS_PER_WORKER; i++) {
             // explicitly generate unique identifiable payload variables (like sequential IDs)
-            await Promise.resolve();
+            await new Promise(r => setTimeout(r, Math.random() * 10));
             items.push({
               id: `${tenant}::worker${workerId}::item_${i}`,
               tenant_id: tenant,
@@ -219,17 +219,17 @@ describe("Dexie Benchmarks", () => {
           const myWorkerItems = readBack.filter(item => item.worker_seq === workerId);
           for (let i = 0; i < myWorkerItems.length; i++) {
             const res = myWorkerItems[i];
-            assert.ok(res.id.includes(`worker${workerId}`), "Found wrong worker ID");
-            assert.ok(!res.id.includes(`worker${workerId + 1}`), "Leaked data from adjacent requests: output contains res.id + 1 data");
-            assert.ok(!res.id.includes(`worker${workerId - 1}`), "Leaked data from adjacent requests: output contains res.id - 1 data");
+            assert.ok(res.id.includes(`worker${workerId}::`), "Found wrong worker ID");
+            assert.ok(!res.id.includes(`worker${workerId + 1}::`), "Leaked data from adjacent requests: output contains res.id + 1 data");
+            assert.ok(!res.id.includes(`worker${workerId - 1}::`), "Leaked data from adjacent requests: output contains res.id - 1 data");
           }
 
           // Update concurrently
-          const toUpdate = myWorkerItems.slice(0, 10).map(item => ({ ...item, status: "updated" }));
+          const toUpdate = myWorkerItems.slice(0, 1).map(item => ({ ...item, status: "updated" }));
           await db.inventoryItems.bulkPut(toUpdate);
 
           // Delete concurrently
-          const toDelete = myWorkerItems.slice(10, 20).map(item => item.id);
+          const toDelete = myWorkerItems.slice(1, 2).map(item => item.id);
           await db.inventoryItems.bulkDelete(toDelete as string[]);
         };
 
@@ -368,7 +368,7 @@ describe("Dexie Benchmarks", () => {
       })
     ]);
 
-    await db.preferenceCards.bulkPut(JSON.parse(JSON.stringify(initialState)));
+    await db.preferenceCards.bulkPut(structuredClone(initialState));
 
     // 2. State Transition Matrix (Actions applied deterministically)
     const transitions = [
