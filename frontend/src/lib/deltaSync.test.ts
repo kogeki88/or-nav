@@ -1,3 +1,4 @@
+import "fake-indexeddb/auto";
 import test from "node:test";
 import assert from "node:assert";
 import { diffRecords } from "./deltaSync";
@@ -292,13 +293,6 @@ test("diffRecords", async (t) => {
     }
   });
   await t.test("Fault injection and Network Partition Resilience: end-to-end delta sync with offline outbox", async () => {
-    if (typeof global.structuredClone === "undefined") {
-      global.structuredClone = (val) => JSON.parse(JSON.stringify(val));
-    }
-    const fakeIndexedDB = require("fake-indexeddb");
-    const fakeIDBKeyRange = require("fake-indexeddb/lib/FDBKeyRange");
-    global.indexedDB = fakeIndexedDB;
-    global.IDBKeyRange = fakeIDBKeyRange;
 
     // Initialize DB
     await selfHealOfflineDatabase();
@@ -488,7 +482,7 @@ test("diffRecords", async (t) => {
       // Simulate multiple sequential deltas transitioning the clinical state
       const state0 = { id: "workflow-1", status: "pending", location: "pre-op", assigned: null };
       // Deep freeze the baseline state to ensure structural comparison without mutation
-      const frozenState0 = Object.freeze(JSON.parse(JSON.stringify(state0)));
+      const frozenState0 = Object.freeze(structuredClone(state0));
 
       const delta1 = { status: "in-progress", location: "or-1" };
       const delta2 = { assigned: "Dr. Smith", priority: "high" };
@@ -552,7 +546,7 @@ test("diffRecords", async (t) => {
       };
 
       // Deep freeze the baseline state to reliably assert structural comparison
-      const frozenBaseState = Object.freeze(JSON.parse(JSON.stringify(baseState)));
+      const frozenBaseState = Object.freeze(structuredClone(baseState));
 
       const modifiedState = {
         procedureId: "proc-999",
