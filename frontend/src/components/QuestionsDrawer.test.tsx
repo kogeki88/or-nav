@@ -724,10 +724,10 @@ describe("QuestionsDrawer", () => {
     const tenantB = "clinical_snapshot_tenant_B";
 
     // Setup initial state transition matrix base
-    const testQuestionsA = [
-        { id: "qa1", question_text: "Where is 4-0 vicryl?", status: "open", asked_by_role: "RN", answers: [], hospital_id: tenantA },
-        { id: "qa2", question_text: "Conflict resolution Q1", status: "open", asked_by_role: "RN", answers: [], hospital_id: tenantA }
-    ];
+    const testQuestionsA = Object.freeze([
+        Object.freeze({ id: "qa1", question_text: "Where is 4-0 vicryl?", status: "open", asked_by_role: "RN", answers: Object.freeze([]), hospital_id: tenantA }),
+        Object.freeze({ id: "qa2", question_text: "Conflict resolution Q1", status: "open", asked_by_role: "RN", answers: Object.freeze([]), hospital_id: tenantA })
+    ]) as any;
 
     // Seed offline database to prevent 'Question not found' error during offline fallback
     const { offlineDb } = await import('../lib/offlineDb');
@@ -735,9 +735,9 @@ describe("QuestionsDrawer", () => {
       await offlineDb.unansweredQuestions.bulkPut(testQuestionsA);
     }
 
-    const testQuestionsB = [
-        { id: "qb1", question_text: "Where is 3-0 silk?", status: "open", asked_by_role: "RN", answers: [] }
-    ];
+    const testQuestionsB = Object.freeze([
+        Object.freeze({ id: "qb1", question_text: "Where is 3-0 silk?", status: "open", asked_by_role: "RN", answers: Object.freeze([]) })
+    ]) as any;
 
     const { unmount: unmountA, rerender: rerenderA } = render(
       <QuestionsDrawer
@@ -809,4 +809,72 @@ describe("QuestionsDrawer", () => {
     assert.strictEqual(remainingInputs.length, 1); // Only qa1 should have an input now
     global.fetch = originalFetch;
   });
+
+  it("should maintain strict multi-tenant data isolation under concurrent burst simulated load", async () => {
+    const fetchCalls: any[] = [];
+    global.fetch = mock.fn(async (url: any, options: any) => {
+      // Simulate network latency & interleaving
+      await new Promise(r => setTimeout(r, Math.random() * 10));
+      fetchCalls.push({ url, options });
+      return { ok: true, json: async () => ({}) };
+    }) as any;
+
+    const WORKERS = 20;
+    const workers = Array.from({ length: WORKERS }).map(async (_, idx) => {
+      const tenant = `fac_burst_${idx}`;
+      const root = document.createElement("div");
+      document.body.appendChild(root);
+
+      const { unmount } = render(
+        <QuestionsDrawer
+          isOpen={true}
+          onClose={() => {}}
+          tenantId={tenant}
+          questions={mockQuestions}
+          onRefreshQuestions={onRefreshQuestions}
+        />,
+        { container: root }
+      );
+
+      // Jitter
+      await new Promise(r => setTimeout(r, Math.random() * 10));
+
+      const input = root.querySelector("input[placeholder='e.g. Where are backup 5-0 Prolene sutures kept?']") as HTMLInputElement;
+      const askButton = Array.from(root.querySelectorAll("button")).find(b => b.textContent === "Ask") as HTMLButtonElement;
+
+      const testQuestion = `worker::${idx}:: isolated question`;
+
+      // Update form
+      await userEvent.clear(input);
+      input.value = testQuestion;
+      const tracker = (input as any)._valueTracker;
+      if (tracker) tracker.setValue("");
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+
+      // Jitter
+      await new Promise(r => setTimeout(r, Math.random() * 10));
+
+      await userEvent.click(askButton);
+
+      unmount();
+      document.body.removeChild(root);
+    });
+
+    await Promise.all(workers);
+
+    assert.strictEqual(fetchCalls.length, WORKERS, "All workers should have made a fetch call");
+
+    const bodies = fetchCalls.map(c => JSON.parse(c.options.body));
+
+    for (let i = 0; i < WORKERS; i++) {
+      const tenant = `fac_burst_${i}`;
+      const expectedText = `worker::${i}:: isolated question`;
+
+      const call = bodies.find(b => b.tenant_id === tenant);
+      assert.ok(call, `Missing fetch call for tenant ${tenant}`);
+      assert.strictEqual(call.question_text, expectedText, `Cross-tenant leakage detected for ${tenant}`);
+    }
+  });
+
 });
