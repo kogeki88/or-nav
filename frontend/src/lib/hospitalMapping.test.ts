@@ -601,6 +601,13 @@ test("Concurrent burst execution against synchronous storage", async (t) => {
         // Ensure mathematically exact result.
         assert.strictEqual(resolved.usageCount, iterations);
 
+        // Replace strict index-based assertions with an array length check combined with unordered lookups
+        // to verify all items were processed correctly without duplicating or skipping.
+        assert.strictEqual(resolved.usedByUsers.length, iterations);
+        for (let i = 0; i < iterations; i++) {
+            assert.ok(resolved.usedByUsers.includes(`user_${i}`), `Missing user_${i}`);
+        }
+
     } finally {
         global.fetch = originalFetch;
     }
@@ -668,5 +675,80 @@ test("Multi-tenant isolation and offline-first compliance validation", async (t)
 
     } finally {
         global.fetch = originalFetch;
+    }
+});
+
+test("Concurrent multi-tenant isolation burst execution", async (t) => {
+    const originalFetch = global.fetch;
+    global.fetch = () => { throw new Error("Network call detected"); };
+
+    try {
+        const iterations = 50;
+        const promises = [];
+        for (let idx = 0; idx < iterations; idx++) {
+            promises.push(
+                new Promise(r => setTimeout(r, Math.random() * 10)).then(() => {
+                    // Use uniquely generated tenant identifiers for strict namespace isolation
+                    const tenantId = `fac_burst_${idx}`;
+                    return learnAliasClient(tenantId, "or", "clamp", `clamp_type_${idx}`, `worker${idx}::`);
+                })
+            );
+        }
+
+        await Promise.all(promises);
+
+        // Verify each tenant is strictly isolated
+        for (let idx = 0; idx < iterations; idx++) {
+            const tenantId = `fac_burst_${idx}`;
+            const lexicon = loadFacilityLexicon(tenantId);
+            assert.strictEqual(lexicon.length, 1);
+
+            // Append structural delimiters in JavaScript .includes() checks to prevent false positive substring matches
+            const userString = lexicon[0].usedByUsers.join(",");
+            assert.ok(userString.includes(`worker${idx}::`), `Missing strict boundary delimiter match for worker${idx}`);
+        }
+    } finally {
+        global.fetch = originalFetch;
+    }
+});
+
+test("Offline-first compliance: explicit window and localStorage mocking", async (t) => {
+    const originalFetch = global.fetch;
+    const originalWindow = (global as any).window;
+    const originalLocalStorage = (global as any).localStorage;
+
+    global.fetch = () => { throw new Error("Network call detected"); };
+
+    // Explicitly define global.window and mock localStorage for testing offline logic
+    (global as any).window = {};
+    const mockStorage = new Map();
+    (global as any).localStorage = {
+        getItem: (key: string) => mockStorage.get(key) || null,
+        setItem: (key: string, val: string) => mockStorage.set(key, val),
+        removeItem: (key: string) => mockStorage.delete(key),
+    };
+
+    try {
+        const fac = "offline_facility";
+        learnAliasClient(fac, "or", "sponge", "lap_sponge");
+
+        const stored = mockStorage.get(`ornav_learned_lexicon_${fac}`);
+        assert.ok(stored !== null, "Did not save to localStorage");
+        assert.ok(stored.includes("lap_sponge"));
+
+        const lexicon = loadFacilityLexicon(fac);
+        assert.strictEqual(lexicon[0].canonicalItemName, "lap_sponge");
+    } finally {
+        global.fetch = originalFetch;
+        if (originalWindow === undefined) {
+            delete (global as any).window;
+        } else {
+            (global as any).window = originalWindow;
+        }
+        if (originalLocalStorage === undefined) {
+            delete (global as any).localStorage;
+        } else {
+            (global as any).localStorage = originalLocalStorage;
+        }
     }
 });
