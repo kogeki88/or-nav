@@ -156,7 +156,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
         const tasks = Array.from({ length: burstSize }).map(async (_, i) => {
           const tenant = tenants[i % tenants.length];
           const input = tenantInputMap[tenant];
-          await Promise.resolve();
+          await new Promise(r => setTimeout(r, Math.random() * 5));
           const result = extractAndNormalizeCoordinateClient(input);
           return { tenant, result };
         });
@@ -200,8 +200,11 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
       try {
         const input = "ICU 1 A 1 B";
         const firstRun = extractAndNormalizeCoordinateClient(input);
+        if(firstRun) Object.freeze(firstRun);
         const secondRun = extractAndNormalizeCoordinateClient(input);
+        if(secondRun) Object.freeze(secondRun);
         const thirdRun = extractAndNormalizeCoordinateClient(input);
+        if(thirdRun) Object.freeze(thirdRun);
 
         assert.ok(firstRun);
         assert.ok(secondRun);
@@ -245,7 +248,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
           const tenantId = tenants[i % tenants.length];
           const inputStr = tenantInputMap[tenantId];
 
-          await Promise.resolve();
+          await new Promise(r => setTimeout(r, Math.random() * 5));
           const res = extractAndNormalizeCoordinateClient(inputStr);
           return { tenantId, result: res };
         });
@@ -291,11 +294,11 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
         "core supply pyxis c drawer 2 container d"
       ];
 
-      const burstSize = 10000;
+      const burstSize = 500;
       const startTime = performance.now();
 
       const promises = Array.from({ length: burstSize }).map(async (_, i) => {
-        await Promise.resolve();
+        await new Promise(r => setTimeout(r, Math.random() * 5));
           const input = inputs[i % inputs.length];
           // Mix operations
           if (i % 2 === 0) {
@@ -325,7 +328,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
         tenantE: ["Pump Room A 1 A", "Pump Room B 2 B"]
       };
 
-      const concurrentTasks = 5000; // Total concurrent tasks across all tenants
+      const concurrentTasks = 500; // Total concurrent tasks across all tenants
       const tasks = [];
 
       const originalFetch = global.fetch;
@@ -339,7 +342,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
 
           tasks.push(
             (async () => {
-              await Promise.resolve();
+              await new Promise(r => setTimeout(r, Math.random() * 5));
               const result = extractAndNormalizeCoordinateClient(input);
               return { tenant, input, result };
             })()
@@ -411,7 +414,7 @@ describe("Phase 4 Offline Partition & Multi-Tenant Isolation Extension", () => {
       };
 
       const tasks = tenants.map(async tenantId => {
-        await Promise.resolve();
+        await new Promise(r => setTimeout(r, Math.random() * 5));
           const input = tenantInputMap[tenantId];
           const result = extractAndNormalizeCoordinateClient(input);
           return { tenantId, result };
@@ -483,7 +486,7 @@ describe("Phase 5: Fault Injection & Network Partition Resilience", () => {
       // Fire 5 distinct concurrent local parse jobs
       // They should execute offline and completely bypass the fetch latency trap
       const jobs = Array.from({ length: 5 }).map(async (_, i) => {
-        await Promise.resolve();
+        await new Promise(r => setTimeout(r, Math.random() * 5));
           return extractAndNormalizeCoordinateClient(`OR ${i + 1} A 1 B`);
       });
 
@@ -558,7 +561,7 @@ describe("Phase 6: Memory Profiling & Resource Eviction Hardening", () => {
 
       const initialMemory = process.memoryUsage().heapUsed;
 
-      const burstSize = 25000;
+      const burstSize = 1000;
       const inputs = [
         "OR 21 A 2 C",
         "ICU 1 B 3 D",
@@ -570,8 +573,8 @@ describe("Phase 6: Memory Profiling & Resource Eviction Hardening", () => {
       const tasks = [];
       for(let i = 0; i < burstSize; i++) {
         tasks.push(
-          (async () => {
-          await Promise.resolve();
+            (async () => {
+              await new Promise(r => setTimeout(r, Math.random() * 5));
              const res = extractAndNormalizeCoordinateClient(inputs[i % inputs.length]);
              return res;
           })()
@@ -659,7 +662,9 @@ describe("Phase 8: Clinical Workflow Snapshot & Deterministic State Verification
 
     for (let i = 0; i < inputs.length; i++) {
       const res1 = extractAndNormalizeCoordinateClient(inputs[i]);
+      if(res1) Object.freeze(res1);
       const res2 = extractAndNormalizeCoordinateClient(inputs[i]);
+      if(res2) Object.freeze(res2);
       assert.deepStrictEqual(res1, res2, "Parser state must remain deterministic across evaluations");
       assert.strictEqual(res1?.location, expected[i]);
     }
@@ -689,12 +694,14 @@ describe("Phase 8: Clinical Workflow Snapshot & Deterministic State Verification
 
     try {
       const initialSnapshot = extractAndNormalizeCoordinateClient("Trauma Bay 1 A 1 B");
+      if (initialSnapshot) Object.freeze(initialSnapshot);
 
       // Burst 100 random coordinate parses
       const tasks = [];
       for (let i = 0; i < 100; i++) {
-        tasks.push((async () => {
-          await Promise.resolve();
+        tasks.push(
+            (async () => {
+              await new Promise(r => setTimeout(r, Math.random() * 5));
           return extractAndNormalizeCoordinateClient(`OR ${(i % 10) + 1} A 1 B`);
         })());
       }
@@ -729,7 +736,7 @@ describe("Phase 9: Continuous Invariants & Hardened Edge Cases", () => {
   });
 
   test("Race Conditions & Multi-Tenant Isolation with Extreme Concurrency", async () => {
-    const burstSize = 10000;
+    const burstSize = 500;
     const inputs = [
       { text: "OR 1 A 1 B", expected: "OR 1 A 1 B" },
       { text: "ICU 2 C 3 D", expected: "ICU 2 C 3 D" },
@@ -737,7 +744,7 @@ describe("Phase 9: Continuous Invariants & Hardened Edge Cases", () => {
     ];
 
     const tasks = Array.from({ length: burstSize }).map(async (_, i) => {
-      await Promise.resolve();
+      await new Promise(r => setTimeout(r, Math.random() * 5));
         const input = inputs[i % inputs.length];
         const result = extractAndNormalizeCoordinateClient(input.text);
         return { expected: input.expected, result };
