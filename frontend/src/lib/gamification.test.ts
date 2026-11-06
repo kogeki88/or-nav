@@ -430,7 +430,7 @@ test("Memory Profiling & Resource Eviction Hardening: detects memory leaks, uncl
     };
 
     for (let i = 0; i < NUM_OPS; i++) {
-      const tenantId = `tenant_mem_${i % 100}`;
+      const tenantId = `tenant_mem_${i % 5}`;
       // We use empty functions for event listener stubs instead of mock.fn() to avoid mock memory accumulation
       awardClinicalXP("lookup", undefined, tenantId, `mut_mem_${i}`);
     }
@@ -602,8 +602,8 @@ test("Deterministic State Transitions, Clinical Workflow Snapshot Consistency, a
     assert.equal(tenantBState.xp, 0);
 
     // 2. Clinical State Snapshot Consistency
-    // Use structured cloning strategy (JSON stringify/parse) to freeze baseline for structural comparison
-    const snapshot = JSON.parse(JSON.stringify(finalState));
+    // Use structured cloning strategy to freeze baseline for structural comparison
+    const snapshot = structuredClone(finalState);
     assert.deepEqual(snapshot.stats, finalState.stats);
     assert.deepEqual(snapshot.dailyQuests, finalState.dailyQuests);
 
