@@ -322,8 +322,14 @@ test('enforce multi-tenant isolation invariant (stateless)', async () => {
   const render2 = render(<Omnibar onSendMessage={onSendMessage} onFileUpload={() => {}} />, { container: root2 });
 
   try {
-    const inputs = screen.getAllByTestId('omnibar-input');
-    const submitBtns = screen.getAllByTestId('omnibar-submit-btn');
+    const inputs = [
+      root1.querySelector('[data-testid="omnibar-input"]') as HTMLInputElement,
+      root2.querySelector('[data-testid="omnibar-input"]') as HTMLInputElement
+    ];
+    const submitBtns = [
+      root1.querySelector('[data-testid="omnibar-submit-btn"]') as HTMLButtonElement,
+      root2.querySelector('[data-testid="omnibar-submit-btn"]') as HTMLButtonElement
+    ];
 
     assert.strictEqual(inputs.length, 2);
 
@@ -654,8 +660,8 @@ test('high-concurrency burst execution, race conditions, latency, and multi-tena
       unmounts.push(unmount);
     }
 
-    const inputs = screen.getAllByTestId('omnibar-input');
-    const submitBtns = screen.getAllByTestId('omnibar-submit-btn');
+    const inputs = roots.map(root => root.querySelector('[data-testid="omnibar-input"]') as HTMLInputElement);
+    const submitBtns = roots.map(root => root.querySelector('[data-testid="omnibar-submit-btn"]') as HTMLButtonElement);
 
     assert.strictEqual(inputs.length, burstSize);
     assert.strictEqual(submitBtns.length, burstSize);
@@ -733,8 +739,8 @@ test('supplementary benchmark: additional high-concurrency burst execution verif
       unmounts.push(unmount);
     }
 
-    const inputs = screen.getAllByTestId('omnibar-input');
-    const submitBtns = screen.getAllByTestId('omnibar-submit-btn');
+    const inputs = roots.map(root => root.querySelector('[data-testid="omnibar-input"]') as HTMLInputElement);
+    const submitBtns = roots.map(root => root.querySelector('[data-testid="omnibar-submit-btn"]') as HTMLButtonElement);
 
     assert.strictEqual(inputs.length, burstSize);
     assert.strictEqual(submitBtns.length, burstSize);
@@ -1068,11 +1074,11 @@ test('Omnibar: Concurrency, multi-tenant isolation, and offline mutation invaria
     const burstOperations = Array.from({ length: numWorkers }).map((_, i) => {
       return new Promise(r => setTimeout(r, Math.random() * 10)).then(() => {
         // Tenant 1
-        fireEvent.change(input1, { target: { value: `Tenant ${tenant1} msg ${i}` } });
+        fireEvent.change(input1, { target: { value: `Tenant ${tenant1} msg ${i}::` } });
         fireEvent.click(submitBtn1);
 
         // Tenant 2
-        fireEvent.change(input2, { target: { value: `Tenant ${tenant2} msg ${i}` } });
+        fireEvent.change(input2, { target: { value: `Tenant ${tenant2} msg ${i}::` } });
         fireEvent.click(submitBtn2);
       });
     });
@@ -1086,8 +1092,8 @@ test('Omnibar: Concurrency, multi-tenant isolation, and offline mutation invaria
     const calls1 = onSendMessage1.mock.calls.map(c => c.arguments[0]);
     const calls2 = onSendMessage2.mock.calls.map(c => c.arguments[0]);
     for (let i = 0; i < numWorkers; i++) {
-        assert.ok(calls1.includes(`Tenant ${tenant1} msg ${i}`));
-        assert.ok(calls2.includes(`Tenant ${tenant2} msg ${i}`));
+        assert.ok(calls1.includes(`Tenant ${tenant1} msg ${i}::`));
+        assert.ok(calls2.includes(`Tenant ${tenant2} msg ${i}::`));
     }
 
     // Verify offline-first: no fetch calls should have been made successfully
