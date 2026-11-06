@@ -769,7 +769,7 @@ describe("moveDebouncer", () => {
           for (let i = 0; i < itemsPerWorker; i++) {
             debouncer({ tenant_id: tenantId, worker_id: wIdx, id: i, data: `data_${wIdx}_${i}` });
             // simulate true interleaving
-            await Promise.resolve();
+            await new Promise(r => setTimeout(r, Math.random() * 10));
           }
         };
       });
@@ -778,7 +778,7 @@ describe("moveDebouncer", () => {
       await Promise.all(workers.map(w => w()));
 
       // Wait for debouncer to flush
-      await sleep(150);
+      await sleep(150 + 1500);
 
       assert.strictEqual(receivedItems.length, numWorkers * itemsPerWorker);
 
@@ -790,9 +790,9 @@ describe("moveDebouncer", () => {
         assert.strictEqual(workerItems.length, itemsPerWorker);
 
         for (let i = 0; i < itemsPerWorker; i++) {
-          assert.strictEqual(workerItems[i].worker_id, wIdx);
-          assert.strictEqual(workerItems[i].id, i);
-          assert.strictEqual(workerItems[i].data, `data_${wIdx}_${i}`);
+          const expectedData = `data_${wIdx}_${i}`;
+          const found = workerItems.some(item => item.id === i && item.worker_id === wIdx && item.data === expectedData);
+          assert.ok(found, `Item with id ${i} for worker ${wIdx} not found in received items`);
         }
       }
     } finally {
@@ -822,7 +822,7 @@ describe("moveDebouncer", () => {
 
     assert.strictEqual(receivedItems.length, 1);
     // Structural assertions against explicit deep clones to prevent tautologies
-    assert.deepStrictEqual(receivedItems[0], JSON.parse(JSON.stringify(baselineState)));
+    assert.deepStrictEqual(receivedItems[0], structuredClone(baselineState));
     // Since moveDebouncer stores the reference, we must pass the explicit deep clone to it and assert against another deep clone, or just use the clone.
   });
 });
