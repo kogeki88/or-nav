@@ -88,7 +88,7 @@ describe('OTA Validator', () => {
         const result = validateOTAManifest(validManifest, currentVersion, currentBuild);
         assert.strictEqual(result.valid, true);
       } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
       }
     });
 
@@ -235,15 +235,16 @@ describe('OTA Validator', () => {
       // Perform a large number of validations directly to measure memory growth
       const iterations = 50000;
       for (let i = 0; i < iterations; i++) {
+        const entityId = i % (MAX_CACHE + 50);
         const tenantManifest = {
           ...validManifest,
-          version: `v0.${60 + (i % 100)}`,
-          build_number: 17 + (i % 100)
+          version: `v0.${60 + entityId}`,
+          build_number: 17 + entityId
         };
         const res = validateOTAManifest(tenantManifest, currentVersion, currentBuild);
 
         // Simulating the caller's cache constraint (LRU cache eviction)
-        dummyCache.set(i.toString(), res);
+        dummyCache.set(entityId.toString(), res);
         if (dummyCache.size > MAX_CACHE) {
            const firstKey = dummyCache.keys().next().value;
            if (firstKey !== undefined) {
@@ -293,7 +294,7 @@ describe('OTA Validator', () => {
       const concurrency = 1000;
       const tasks = Array.from({ length: concurrency }).map(async (_, i) => {
         // Yield execution for true interleaving
-        await new Promise(r => setTimeout(r, Math.random() * 10));
+        await new Promise(r => setImmediate(r));
 
         // Unique tenant manifest payload
         const tenantManifest = {
@@ -386,7 +387,7 @@ describe('OTA Validator', () => {
         assert.strictEqual(fetchAttempts, 1);
 
       } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
       }
     });
   });
@@ -503,7 +504,7 @@ describe('OTA Validator', () => {
       const originalFetch = global.fetch;
       global.fetch = mock.fn(() => Promise.reject(new Error('Network offline'))) as unknown as typeof fetch;
       try {
-        const baselineSnapshot = { ...validManifest, changelog: 'Clinical state baseline' };
+        const baselineSnapshot = structuredClone({ ...validManifest, changelog: 'Clinical state baseline' });
         // Freeze baseline state to verify true immutability resilience (throws on shallow mutation)
         Object.freeze(baselineSnapshot);
         // Create a deep copy for structural comparison
@@ -514,7 +515,7 @@ describe('OTA Validator', () => {
         assert.strictEqual(result.valid, true, 'Validation maintains offline-first invariants');
         assert.deepStrictEqual(baselineSnapshot, expectedState, 'Clinical state snapshot consistency maintained: original snapshot not mutated');
       } finally {
-        global.fetch = originalFetch; // carefully restoring fetch
+        if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
       }
     });
   });
