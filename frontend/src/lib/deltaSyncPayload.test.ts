@@ -188,7 +188,7 @@ test("deltaSyncPayload fuzzing and boundaries", async (t) => {
   await t.test("large payloads (fuzzing)", () => {
     const fuzzData = Array.from({ length: 1000 }, (_, i) => ({
       id: i,
-      val: Math.random().toString(36).substring(7),
+      val: `fuzz_${i}_${(i * 13) % 97}`,
       active: i % 2 === 0,
       nested: { a: i } // Testing complex objects too
     }));
@@ -209,9 +209,9 @@ test("deltaSyncPayload concurrency, race conditions, and performance benchmarks"
         tenant_id: `tenant_${workerId}`,
       }));
       // Simulate asynchronous timing
-      await new Promise((resolve) => setTimeout(resolve, Math.random() * 10));
+      await new Promise(r => setImmediate(r));
       const compressed = compressPayload(data);
-      await new Promise((resolve) => setTimeout(resolve, Math.random() * 10));
+      await new Promise(r => setImmediate(r));
       const decompressed = decompressPayload(compressed);
       return decompressed;
     };
@@ -284,7 +284,7 @@ test("deltaSyncPayload network resilience and fault injection", async (t) => {
       }
       if (networkState.status === "degraded") {
         await new Promise((resolve) => setTimeout(resolve, 50)); // simulate latency
-        if (Math.random() < 0.5) throw new TypeError("Failed to fetch"); // 50% packet loss
+        if (networkState.requests % 2 === 0) throw new TypeError("Failed to fetch"); // 50% packet loss
       }
 
       if (options && options.body) {
@@ -594,7 +594,7 @@ test("deltaSyncPayload state consistency", async (t) => {
 
     // Freeze the baseline state for structural comparison and immutability checking
     Object.freeze(baselineState);
-    const frozenBaseline = JSON.parse(JSON.stringify(baselineState));
+    const frozenBaseline = structuredClone(baselineState);
 
     const mutations = [ baselineState, { ...baselineState, clinical_status: "post_op" } ];
     const compressed = compressPayload(mutations);
@@ -620,7 +620,7 @@ test("deltaSyncPayload expanded hardening", async (t) => {
     ];
 
     // Simulate some active modifications and deep immutability check
-    const original = JSON.parse(JSON.stringify(mixedPayloads));
+    const original = structuredClone(mixedPayloads);
     Object.freeze(original[0]);
     Object.freeze(original[1]);
     Object.freeze(original[2]);
@@ -649,9 +649,9 @@ test("deltaSyncPayload expanded hardening", async (t) => {
     const workerTask = async (i: number) => {
       // Intentionally clone to mimic realistic state updates before passing to compress
       const localState = { ...sharedObj, id: i, payload: `val_${i}`, flags: { ...sharedObj.flags } };
-      await new Promise(r => setTimeout(r, Math.random() * 5));
+      await new Promise(r => setImmediate(r));
       const compressed = compressPayload([localState]);
-      await new Promise(r => setTimeout(r, Math.random() * 5));
+      await new Promise(r => setImmediate(r));
       const decompressed = decompressPayload(compressed) as any[];
       return decompressed[0];
     };
