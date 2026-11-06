@@ -21,7 +21,10 @@ const QRPairModalMod = proxyquire('./QRPairModal', {
 
 const QRPairModal = QRPairModalMod.QRPairModal;
 
+let originalClipboard: any;
+
 beforeEach(() => {
+  originalClipboard = global.navigator.clipboard;
   fetchNetworkInfoMock.mock.resetCalls();
   QRCodeToDataURLMock.mock.resetCalls();
 
@@ -34,6 +37,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  if (originalClipboard !== undefined) {
+    global.navigator.clipboard = originalClipboard;
+  } else {
+    delete (global.navigator as any).clipboard;
+  }
   cleanup();
 });
 
@@ -252,6 +260,7 @@ test('enforces multi-tenant isolation by ensuring network settings are not impro
   });
 
   unmount();
+  assert.strictEqual(screen.queryByRole('dialog'), null);
   QRCodeToDataURLMock.mock.resetCalls();
 
   // Tenant B: has different URL
@@ -284,6 +293,7 @@ test('handles malformed payload correctly with fast-check (boundary inputs)', as
       }, { withDeletedKeys: true }),
       async (networkInfo: any) => {
         fetchNetworkInfoMock.mock.resetCalls();
+        Object.freeze(networkInfo);
         fetchNetworkInfoMock.mock.mockImplementation(async () => networkInfo);
         const { unmount } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
 
@@ -333,7 +343,7 @@ test('concurrent burst execution: handles massive volume of concurrent network r
   let callCount = 0;
   fetchNetworkInfoMock.mock.mockImplementation(async () => {
     const idx = callCount++;
-    await new Promise(r => setTimeout(r, Math.random() * 10)); // True interleaving
+    await new Promise(r => setTimeout(r, 0)); // True interleaving
     return {
       lan_ip: `fac_burst_${idx}::dept_X_IP`,
       lan_url: `http://fac_burst_${idx}::dept_X_IP:3000`,
@@ -359,7 +369,7 @@ test('concurrent burst execution: handles massive volume of concurrent network r
       const qrImage = roots[i].querySelector('img');
       const alt = qrImage?.getAttribute('alt') || '';
       // Assert with word boundaries to prevent substring collisions
-      assert.match(alt, new RegExp(`example-${i}\\.trycloudflare\\.com`));
+      assert.strictEqual(alt, `QR code pairing to https://example-${i}.trycloudflare.com`);
     }
   }, { timeout: 5000 });
 
@@ -402,6 +412,7 @@ test('extended multi-tenant boundary & offline mutation idempotency (facility_id
   });
 
   unmountA();
+  assert.strictEqual(screen.queryByRole('dialog'), null);
   QRCodeToDataURLMock.mock.resetCalls();
 
   // Tenant B Online - Verify isolation and no leaked offline state with specific boundary ID
