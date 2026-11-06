@@ -545,9 +545,9 @@ test('concurrent burst execution: handles double clicks and prevents multiple su
     // Fire click multiple times concurrently
     // Simulate true interleaving in JS concurrency test using Promise.all
     await Promise.all([
-        (async () => { await Promise.resolve(); fireEvent.click(submitBtn); })(),
-        (async () => { await Promise.resolve(); fireEvent.click(submitBtn); })(),
-        (async () => { await Promise.resolve(); fireEvent.click(submitBtn); })()
+        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); fireEvent.click(submitBtn); })(),
+        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); fireEvent.click(submitBtn); })(),
+        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); fireEvent.click(submitBtn); })()
     ]);
 
     // Wait for the submission process to complete
@@ -653,9 +653,9 @@ test('multi-tenant boundary enforcement (facility_id::dept_id) and offline mutat
     // Fire multiple rapid clicks to simulate idempotency replay issue
     // Simulate true interleaving in JS concurrency test using Promise.all
     await Promise.all([
-        (async () => { await Promise.resolve(); fireEvent.click(submitBtn); })(),
-        (async () => { await Promise.resolve(); fireEvent.click(submitBtn); })(),
-        (async () => { await Promise.resolve(); fireEvent.click(submitBtn); })()
+        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); fireEvent.click(submitBtn); })(),
+        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); fireEvent.click(submitBtn); })(),
+        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); fireEvent.click(submitBtn); })()
     ]);
 
     await waitFor(() => {
