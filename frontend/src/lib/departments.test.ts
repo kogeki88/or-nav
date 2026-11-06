@@ -1,5 +1,6 @@
 import { describe, test, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert/strict";
+import "jsdom-global/register.js";
 import {
   DEPARTMENTS,
   getActiveDepartmentId,
@@ -10,9 +11,6 @@ import {
 } from "./departments.ts";
 
 const mockStorage = new Map<string, string>();
-(global as { window?: unknown }).window = {
-  dispatchEvent: () => true,
-};
 (global as { localStorage?: unknown }).localStorage = {
   getItem: (key: string) => mockStorage.get(key) || null,
   setItem: (key: string, value: string) => mockStorage.set(key, value),
@@ -110,7 +108,11 @@ describe("Departments Configuration and Lookups", () => {
     });
 
     afterEach(() => {
-      (global as { window?: unknown }).window = originalWindow;
+      if (originalWindow !== undefined) {
+        (global as { window?: unknown }).window = originalWindow;
+      } else {
+        delete (global as { window?: unknown }).window;
+      }
     });
 
     test("getActiveDepartmentId should return DEFAULT_DEPARTMENT_ID when window is undefined", () => {
@@ -209,7 +211,11 @@ describe("Departments Configuration and Lookups", () => {
         assert.strictEqual(dept.name, "PACU / Pre-Op");
 
       } finally {
-        global.fetch = originalFetch;
+        if (originalFetch !== undefined) {
+          global.fetch = originalFetch;
+        } else {
+          delete (global as any).fetch;
+        }
       }
     });
 
@@ -242,7 +248,11 @@ describe("Departments Configuration and Lookups", () => {
           assert.strictEqual(id, DEFAULT_DEPARTMENT_ID);
         });
       } finally {
-        (global as any).localStorage = originalLocalStorage;
+        if (originalLocalStorage !== undefined) {
+          (global as any).localStorage = originalLocalStorage;
+        } else {
+          delete (global as any).localStorage;
+        }
       }
     });
   });
@@ -299,7 +309,11 @@ describe("Departments Configuration and Lookups", () => {
 
         await Promise.all(promises);
       } finally {
-        global.fetch = originalFetch;
+        if (originalFetch !== undefined) {
+          global.fetch = originalFetch;
+        } else {
+          delete (global as any).fetch;
+        }
       }
     });
   });
@@ -446,7 +460,11 @@ describe("Departments Configuration and Lookups", () => {
 
         assert.ok(itemsStored >= 100, "Cache eviction test loop did not execute properly");
       } finally {
-        (global as any).localStorage = originalLocalStorage;
+        if (originalLocalStorage !== undefined) {
+          (global as any).localStorage = originalLocalStorage;
+        } else {
+          delete (global as any).localStorage;
+        }
       }
     });
   });
@@ -483,7 +501,11 @@ describe("Departments Configuration and Lookups", () => {
         const dept = getDepartment(getActiveDepartmentId());
         assert.strictEqual(dept.id, "pacu_periop");
       } finally {
-        global.fetch = originalFetch;
+        if (originalFetch !== undefined) {
+          global.fetch = originalFetch;
+        } else {
+          delete (global as any).fetch;
+        }
       }
     });
 
@@ -516,7 +538,11 @@ describe("Departments Configuration and Lookups", () => {
         });
 
       } finally {
-        (global as any).localStorage = originalLocalStorage;
+        if (originalLocalStorage !== undefined) {
+          (global as any).localStorage = originalLocalStorage;
+        } else {
+          delete (global as any).localStorage;
+        }
       }
     });
 
@@ -545,7 +571,11 @@ describe("Departments Configuration and Lookups", () => {
         assert.strictEqual(getActiveDepartmentId(), "icu_critical_care");
 
       } finally {
-        (global as any).localStorage = originalLocalStorage;
+        if (originalLocalStorage !== undefined) {
+          (global as any).localStorage = originalLocalStorage;
+        } else {
+          delete (global as any).localStorage;
+        }
       }
     });
 
@@ -572,7 +602,11 @@ describe("Departments Configuration and Lookups", () => {
         assert.strictEqual(getActiveDepartmentId(), DEFAULT_DEPARTMENT_ID);
 
       } finally {
-        (global as any).localStorage = originalLocalStorage;
+        if (originalLocalStorage !== undefined) {
+          (global as any).localStorage = originalLocalStorage;
+        } else {
+          delete (global as any).localStorage;
+        }
       }
     });
 
@@ -601,7 +635,11 @@ describe("Departments Configuration and Lookups", () => {
             });
         }
       } finally {
-        (global as any).localStorage = originalLocalStorage;
+        if (originalLocalStorage !== undefined) {
+          (global as any).localStorage = originalLocalStorage;
+        } else {
+          delete (global as any).localStorage;
+        }
       }
     });
 
