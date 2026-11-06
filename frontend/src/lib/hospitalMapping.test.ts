@@ -586,7 +586,7 @@ test("Concurrent burst execution against synchronous storage", async (t) => {
         const promises = [];
         for (let i = 0; i < iterations; i++) {
             promises.push(
-                Promise.resolve().then(() => {
+                new Promise(r => setTimeout(r, Math.random() * 10)).then(() => {
                     return learnAliasClient(fac, "er", "scalpel", "blade_10", "user_" + i);
                 })
             );
@@ -619,6 +619,7 @@ test("Deep Freeze validation for snapshot consistency", async (t) => {
         const internalLexicon = loadFacilityLexicon(fac);
 
         // Freeze the array and its contents
+        const internalLexiconCopy = structuredClone(internalLexicon);
         Object.freeze(internalLexicon);
         internalLexicon.forEach(entry => Object.freeze(entry));
 
@@ -636,7 +637,7 @@ test("Deep Freeze validation for snapshot consistency", async (t) => {
         const updatedLexicon = loadFacilityLexicon(fac);
 
         // Ensure baseline was not mutated
-        assert.strictEqual(internalLexicon[0].usageCount, 1);
+        assert.deepStrictEqual(internalLexicon, internalLexiconCopy);
 
         // Ensure updated lexicon reflects changes
         const updatedEntry = updatedLexicon.find(e => e.spokenTerm === "monitor");
