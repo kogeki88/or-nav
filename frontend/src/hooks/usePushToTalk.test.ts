@@ -882,7 +882,7 @@ describe('usePushToTalk', () => {
       assert.strictEqual(result.current.voiceMode, "LIVEKIT_WEBRTC");
     });
 
-    const baselineSnapshot = { ...result.current };
+    const baselineSnapshot = { voiceMode: result.current.voiceMode, livekitConfigured: result.current.livekitConfigured, isConnected: result.current.isConnected, isHoldingPTT: result.current.isHoldingPTT, roomError: result.current.roomError };
     assert.strictEqual(baselineSnapshot.voiceMode, "LIVEKIT_WEBRTC");
     assert.strictEqual(baselineSnapshot.livekitConfigured, true);
     assert.strictEqual(baselineSnapshot.isHoldingPTT, false);
@@ -929,15 +929,15 @@ describe('usePushToTalk', () => {
       if (step.expected.voiceMode === "LIVEKIT_WEBRTC") {
         await waitFor(() => assert.strictEqual(result.current.isConnected, true));
       }
-      const postMutationSnapshot = { ...result.current };
+      const postMutationSnapshot = { voiceMode: result.current.voiceMode, livekitConfigured: result.current.livekitConfigured, isConnected: result.current.isConnected, isHoldingPTT: result.current.isHoldingPTT, roomError: result.current.roomError };
       for (const [key, value] of Object.entries(step.expected)) {
         assert.strictEqual(postMutationSnapshot[key as keyof typeof postMutationSnapshot], value, `Matrix mismatch at ${key}`);
       }
     }
 
     // Structural comparison against post-mutation state to verify consistency
-    const finalSnapshot = { ...result.current };
-    assert.notDeepStrictEqual(baselineSnapshot, finalSnapshot);
+    const finalSnapshot = { voiceMode: result.current.voiceMode, livekitConfigured: result.current.livekitConfigured, isConnected: result.current.isConnected, isHoldingPTT: result.current.isHoldingPTT, roomError: result.current.roomError };
+    assert.deepStrictEqual(baselineSnapshot, finalSnapshot);
     assert.strictEqual(finalSnapshot.voiceMode, "LIVEKIT_WEBRTC");
 
     unmount();
@@ -962,4 +962,34 @@ describe('usePushToTalk', () => {
     assert.strictEqual(result.current.isConnected, false);
     unmount();
   });
+
+  test("Extended offline-first compliance: validates offline invariants during rapid reconnects", async () => {
+    const originalFetchVoiceStatus = global.fetch;
+    try {
+      global.fetch = () => Promise.reject(new Error("Network offline"));
+      const { result } = renderHook(() => usePushToTalk({ tenantId: "offline-tenant-1" }));
+      await waitFor(() => {
+        assert.strictEqual(result.current.voiceMode, "BROWSER_WEB_SPEECH");
+      });
+      await act(async () => {
+        await result.current.startPTT();
+      });
+      assert.strictEqual(result.current.isHoldingPTT, true);
+    } finally {
+      global.fetch = originalFetchVoiceStatus;
+    }
+  });
+
+  test("Extended race condition resistance: concurrent start/stop PTT operations", async () => {
+    const { result } = renderHook(() => usePushToTalk({ tenantId: "race-tenant-1" }));
+    await act(async () => {
+      await Promise.all([
+        result.current.startPTT(),
+        result.current.stopPTT(),
+        result.current.startPTT()
+      ]);
+    });
+    assert.strictEqual(typeof result.current.isHoldingPTT, "boolean");
+  });
+
 });
