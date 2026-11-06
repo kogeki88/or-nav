@@ -551,7 +551,7 @@ describe("lexiconLearning & Teaching Intent", () => {
         for (let i = 0; i < numRequests; i++) {
           const uniqueTenant = `${tenant}_${i}`;
           promises.push(
-            Promise.resolve().then(() => {
+            new Promise((resolve) => setTimeout(resolve, Math.random() * 10)).then(() => {
               learnAliasClient(uniqueTenant, "or", "burst_alias", "Burst Item", `user_${i}`);
             })
           );
@@ -609,7 +609,7 @@ describe("lexiconLearning & Teaching Intent", () => {
         try {
           const promises = Array.from({ length: 50 }, (_, i) => {
             const isolatedTenant = `${tenant}_fac_burst_${i}`;
-            return Promise.resolve().then(() => {
+            return new Promise((resolve) => setTimeout(resolve, Math.random() * 10)).then(() => {
               learnAliasClient(isolatedTenant, "or", "offline_alias", "Offline Item", `user_${i}`);
             });
           });
@@ -639,8 +639,8 @@ describe("lexiconLearning & Teaching Intent", () => {
         for (let i = 0; i < numRequests; i++) {
           const uTenantA = `tenant_A_fac_burst_${i}`;
           const uTenantB = `tenant_B_fac_burst_${i}`;
-          promises.push(Promise.resolve().then(() => learnAliasClient(uTenantA, "or", "shared_alias", "Item A", `user_${i}`)));
-          promises.push(Promise.resolve().then(() => learnAliasClient(uTenantB, "or", "shared_alias", "Item B", `user_${i}`)));
+          promises.push(new Promise((resolve) => setTimeout(resolve, Math.random() * 10)).then(() => learnAliasClient(uTenantA, "or", "shared_alias", "Item A", `user_${i}`)));
+          promises.push(new Promise((resolve) => setTimeout(resolve, Math.random() * 10)).then(() => learnAliasClient(uTenantB, "or", "shared_alias", "Item B", `user_${i}`)));
         }
 
         await Promise.all(promises);
@@ -725,7 +725,7 @@ describe("lexiconLearning & Teaching Intent", () => {
 
       learnAliasClient(tenant, "or", "initial_alias", "Initial Item", "user1");
       const initialLexicon = loadFacilityLexicon(tenant);
-      const initialSnapshot = JSON.parse(JSON.stringify(initialLexicon));
+      const initialSnapshot = structuredClone(initialLexicon);
 
       learnAliasClient(tenant, "or", "second_alias", "Second Item", "user2");
       const finalLexicon = loadFacilityLexicon(tenant);
@@ -757,7 +757,7 @@ describe("lexiconLearning & Teaching Intent", () => {
       // State 0 -> State 1 (New personal alias)
       learnAliasClient(tenant, "or", "matrix_alias", "Matrix Item", "user1");
       let lexicon = loadFacilityLexicon(tenant);
-      const initialSnapshot = JSON.parse(JSON.stringify(lexicon[0]));
+      const initialSnapshot = structuredClone(lexicon[0]);
       assert.strictEqual(lexicon[0].usageCount, 1);
       assert.strictEqual(lexicon[0].confidence, "personal");
 
