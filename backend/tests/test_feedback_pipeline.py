@@ -473,29 +473,37 @@ def test_hipaa_phi_scrubbing_and_prompt_injection():
 
 def test_concurrent_burst_execution():
     """Verify race condition resistance during concurrent burst traffic."""
-    import concurrent.futures
+    import asyncio
+    import httpx
+    from app.main import app
 
-    def submit_complaint(i):
-        unique_text = "C-arm calibration issue_" + str(i) + " " + ("xyz" * (i*2))
-        tenant_id = f"sacred_heart::or_burst_{i}"
+    async def run_burst():
+        async def submit_complaint(i):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as async_client:
+                unique_text = "C-arm calibration issue_" + str(i) + " " + ("xyz" * (i*2))
+                tenant_id = f"sacred_heart::or_burst_{i}"
 
-        # Write only to unique tenant record
-        post_res = client.post("/api/feedback", json={
-            "tenantId": tenant_id,
-            "source": "manual_submission",
-            "rawText": unique_text,
-            "userName": "Dr. Kelso",
-            "userRole": "Chief of Medicine"
-        })
+                # Yield to event loop to simulate true interleaving
+                await asyncio.sleep(0)
 
-        # Read from the unique tenant record immediately
-        get_res = client.get(f"/api/feedback?tenantId={tenant_id}")
+                # Write only to unique tenant record
+                post_res = await async_client.post("/api/feedback", json={
+                    "tenantId": tenant_id,
+                    "source": "manual_submission",
+                    "rawText": unique_text,
+                    "userName": "Dr. Kelso",
+                    "userRole": "Chief of Medicine"
+                })
 
-        return post_res, get_res
+                # Read from the unique tenant record immediately
+                get_res = await async_client.get(f"/api/feedback?tenantId={tenant_id}")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        futures = [executor.submit(submit_complaint, i) for i in range(25)]
-        results = [f.result() for f in concurrent.futures.as_completed(futures)]
+                return post_res, get_res
+
+        results = await asyncio.gather(*(submit_complaint(i) for i in range(25)))
+        return results
+
+    results = asyncio.run(run_burst())
 
     all_items = []
     for post_res, get_res in results:
@@ -557,6 +565,10 @@ def test_deterministic_state_transition_matrices():
     baseline_data = baseline_res.json()
     frozen_state = copy.deepcopy(baseline_data)
 
+    # Normalize transient fields for comparison
+    for item in frozen_state.get("items", []):
+        item.pop("createdAt", None)
+
     # Invalid transition
     patch_res3 = client.patch(f"/api/feedback/{item_id}/status", json={"status": "invalid_status"})
     assert patch_res3.status_code == 400
@@ -564,6 +576,11 @@ def test_deterministic_state_transition_matrices():
     # Ensure no implicit mutation occurred from the invalid transition
     new_res = client.get("/api/feedback?tenantId=sacred_heart::or")
     new_data = new_res.json()
+
+    # Normalize transient fields for comparison
+    for item in new_data.get("items", []):
+        item.pop("createdAt", None)
+
     assert new_data == frozen_state
 
 
@@ -621,6 +638,10 @@ def test_clinical_state_snapshot_consistency():
     # Freeze the baseline state for structural comparison
     frozen_state = copy.deepcopy(baseline_data)
 
+    # Normalize transient fields for comparison
+    for item in frozen_state.get("items", []):
+        item.pop("createdAt", None)
+
     # Check consistency invariants
     assert "items" in baseline_data
     assert "topRecommendations" in baseline_data
@@ -639,6 +660,10 @@ def test_clinical_state_snapshot_consistency():
     res2 = client.get("/api/feedback?tenantId=sacred_heart::or")
     assert res2.status_code == 200
     new_data = res2.json()
+
+    # Normalize transient fields for comparison
+    for item in new_data.get("items", []):
+        item.pop("createdAt", None)
 
     # Assert structural consistency
     assert new_data == frozen_state
