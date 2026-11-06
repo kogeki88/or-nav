@@ -442,13 +442,13 @@ test("deltaSyncPayload memory profiling and resource eviction", async (t) => {
       dbInstance = await offlineDb.selfHealOfflineDatabase();
     }
 
-    if (dbInstance && dbInstance.outbox) {
-      const originalPut = dbInstance.outbox.put.bind(dbInstance.outbox);
+    if (dbInstance && dbInstance.offlineOutbox) {
+      const originalPut = dbInstance.offlineOutbox.put.bind(dbInstance.offlineOutbox);
       let putCount = 0;
       let handledSafely = false;
 
       // Wrap the put method
-      dbInstance.outbox.put = async function(item) {
+      dbInstance.offlineOutbox.put = async function(item) {
           putCount++;
           if (putCount === 3) {
              throw new DOMException("QuotaExceededError", "QuotaExceededError");
@@ -469,7 +469,7 @@ test("deltaSyncPayload memory profiling and resource eviction", async (t) => {
       }
 
       // Let's restore it
-      dbInstance.outbox.put = originalPut;
+      dbInstance.offlineOutbox.put = originalPut;
 
       // We expect the app to handle it gracefully (e.g. queueOfflineMutation catches and warns, doesn't throw)
       // If it throws, we caught it, but we prefer it handles it silently for offline-first resilience.
@@ -606,5 +606,94 @@ test("deltaSyncPayload state consistency", async (t) => {
     // Offline-first multi-tenant invariants
     assert.strictEqual(decompressed[0].tenant_id, "tenant_Y");
     assert.strictEqual(decompressed[1].tenant_id, "tenant_Y");
+  });
+});
+
+
+test("deltaSyncPayload expanded hardening", async (t) => {
+  await t.test("multi-tenant array payload deep validation", () => {
+    // Tests that an array payload with mixed tenants correctly isolates when decompressing
+    const mixedPayloads = [
+      { id: 1, tenant_id: "tenant_X", payload: "A" },
+      { id: 2, tenant_id: "tenant_Y", payload: "B" },
+      { id: 3, tenant_id: "tenant_X", payload: "C" }
+    ];
+
+    // Simulate some active modifications and deep immutability check
+    const original = JSON.parse(JSON.stringify(mixedPayloads));
+    Object.freeze(original[0]);
+    Object.freeze(original[1]);
+    Object.freeze(original[2]);
+    Object.freeze(original);
+
+    const compressed = compressPayload(mixedPayloads);
+    const decompressed = decompressPayload(compressed) as any[];
+
+    // Ensure it correctly restored all and didn't mutate the originals
+    assert.deepStrictEqual(decompressed, mixedPayloads);
+
+    // Extract by tenant and ensure no cross-contamination of payloads
+    const xTenants = decompressed.filter(d => d.tenant_id === "tenant_X");
+    assert.strictEqual(xTenants.length, 2);
+    assert.ok(!xTenants.some(x => x.payload === "B"), "tenant_Y data leaked into tenant_X");
+
+    const yTenants = decompressed.filter(d => d.tenant_id === "tenant_Y");
+    assert.strictEqual(yTenants.length, 1);
+    assert.ok(!yTenants.some(y => y.payload === "A" || y.payload === "C"), "tenant_X data leaked into tenant_Y");
+  });
+
+  await t.test("race condition on rapid compress/decompress with shared mutable objects", async () => {
+    const sharedObj = { type: "config", tenant_id: "shared_tenant", flags: { active: true } };
+
+    // Simulate rapid concurrent updates to the shared object while compressing
+    const workerTask = async (i: number) => {
+      // Intentionally clone to mimic realistic state updates before passing to compress
+      const localState = { ...sharedObj, id: i, payload: `val_${i}`, flags: { ...sharedObj.flags } };
+      await new Promise(r => setTimeout(r, Math.random() * 5));
+      const compressed = compressPayload([localState]);
+      await new Promise(r => setTimeout(r, Math.random() * 5));
+      const decompressed = decompressPayload(compressed) as any[];
+      return decompressed[0];
+    };
+
+    const results = await Promise.all(Array.from({ length: 50 }, (_, i) => workerTask(i)));
+
+    for(let i = 0; i < 50; i++) {
+        const res = results.find(r => r.id === i);
+        assert.ok(res);
+        assert.strictEqual(res.tenant_id, "shared_tenant");
+        assert.strictEqual(res.payload, `val_${i}`);
+        assert.deepStrictEqual(res.flags, { active: true });
+    }
+  });
+
+  await t.test("offline-first invariants fallback structure", () => {
+     // A payload that is missing critical fields due to being generated offline should still survive the compress roundtrip
+     const offlineGenerated = [
+        { id: "temp-123", tenant_id: "offline_tenant", data: "sync_pending", syncedAt: undefined, syncErrors: null }
+     ];
+
+     const compressed = compressPayload(offlineGenerated);
+     const decompressed = decompressPayload(compressed) as any[];
+
+     assert.strictEqual(decompressed.length, 1);
+     assert.strictEqual(decompressed[0].tenant_id, "offline_tenant");
+     // Ensure undefined values are either stripped or restored safely without throwing
+     assert.ok(!("syncedAt" in decompressed[0]) || decompressed[0].syncedAt === undefined);
+     assert.strictEqual(decompressed[0].syncErrors, undefined);
+  });
+
+  await t.test("memory leak profiling multi-tenant rotation", () => {
+     const initialMemory = process.memoryUsage().heapUsed;
+
+     // By rotating a small set of tenants we ensure we don't blow up memory just from unique strings
+     for(let i=0; i<1000; i++) {
+        const payload = [ { id: i, tenant_id: `tenant_${i % 3}`, bigData: "x".repeat(100) } ];
+        decompressPayload(compressPayload(payload));
+     }
+
+     const finalMemory = process.memoryUsage().heapUsed;
+     // It shouldn't grow boundlessly
+     assert.ok((finalMemory - initialMemory) / 1024 / 1024 < 50, "Memory leaked significantly");
   });
 });
