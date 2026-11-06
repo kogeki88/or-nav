@@ -330,24 +330,37 @@ test('race condition resistance: handles rapid toggling between modes without cr
 });
 
 test('concurrent burst execution: handles massive volume of concurrent network requests gracefully (stress benchmark)', async () => {
+  let callCount = 0;
   fetchNetworkInfoMock.mock.mockImplementation(async () => {
-    return new Promise(resolve => setTimeout(() => resolve({
-      lan_ip: '192.168.1.10',
-      lan_url: 'http://192.168.1.10:3000',
-      mobile_url: 'http://192.168.1.10:3000',
-      https_url: 'https://example.trycloudflare.com',
+    const idx = callCount++;
+    await new Promise(r => setTimeout(r, Math.random() * 10)); // True interleaving
+    return {
+      lan_ip: `fac_burst_${idx}::dept_X_IP`,
+      lan_url: `http://fac_burst_${idx}::dept_X_IP:3000`,
+      mobile_url: `http://fac_burst_${idx}::dept_X_IP:3000`,
+      https_url: `https://example-${idx}.trycloudflare.com`,
       https_active: true
-    }), 10));
+    };
   });
 
+  const roots: HTMLDivElement[] = [];
   const renders = Array.from({ length: 50 }).map(() => {
     const root = document.createElement('div');
     document.body.appendChild(root);
+    roots.push(root);
     return render(<QRPairModal isOpen={true} onClose={() => {}} />, { container: root });
   });
 
   await waitFor(() => {
     assert.strictEqual(fetchNetworkInfoMock.mock.callCount(), 50, "Expected exactly 50 fetches");
+
+    // Assert namespace isolation using unique root containers
+    for (let i = 0; i < 50; i++) {
+      const qrImage = roots[i].querySelector('img');
+      const alt = qrImage?.getAttribute('alt') || '';
+      // Assert with word boundaries to prevent substring collisions
+      assert.match(alt, new RegExp(`example-${i}\\.trycloudflare\\.com`));
+    }
   }, { timeout: 5000 });
 
   renders.forEach((r) => r.unmount());
