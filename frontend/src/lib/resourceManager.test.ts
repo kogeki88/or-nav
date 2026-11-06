@@ -98,7 +98,8 @@ describe("ResourceManagerChecksum", () => {
     await Promise.all(
       Array.from({ length: burstSize }).map(async (_, i) => {
         // Yield to event loop to simulate true concurrency
-        await new Promise(r => setTimeout(r, Math.random() * 10));
+        // Deterministic concurrency without Math.random()
+        await new Promise(r => setImmediate(r));
 
         const facId = `fac_burst_${i}`;
         const deptId = `or_burst_${i}`;
@@ -135,7 +136,12 @@ describe("ResourceManagerChecksum", () => {
 
     // unpack installed packs so items are hydrated
     // allow time for background dexie operations from installPack to complete
-    await new Promise(resolve => setTimeout(resolve, 500));
+    for (let _ = 0; _ < 50; _++) {
+      const p = await resourceManager.getInstalledPacks();
+      const bPacks = p.filter(x => x.facilityId.startsWith("fac_burst_"));
+      if (bPacks.length === burstSize) break;
+      await new Promise(r => setTimeout(r, 20));
+    }
 
     await Promise.all(
         Array.from({ length: burstSize }).map(async (_, i) => {
@@ -816,7 +822,7 @@ describe("ResourceManagerChecksum", () => {
       return {
         ok: true,
         status: 200,
-        text: async () => url.includes("fac2") ? csvContentFac2 : csvContentFac1
+        text: async () => url.includes("fac2/er/") ? csvContentFac2 : csvContentFac1
       };
     });
 
@@ -905,7 +911,7 @@ describe("ResourceManagerChecksum", () => {
       return {
         ok: true,
         status: 200,
-        text: async () => url.includes("fac2") ? csvContentFac2 : csvContentFac1
+        text: async () => url.includes("fac2/er/") ? csvContentFac2 : csvContentFac1
       };
     });
 
@@ -980,7 +986,10 @@ describe("ResourceManagerChecksum", () => {
     const snapshotJson = await exportTenantResourcesJson(tenantId);
 
     // Freeze the baseline snapshot using a deep copy
-    const baselineSnapshot = JSON.parse(snapshotJson);
+    const baselineSnapshot = structuredClone(JSON.parse(snapshotJson));
+    Object.freeze(baselineSnapshot);
+    Object.freeze(baselineSnapshot.preferenceCards);
+    Object.freeze(baselineSnapshot.inventory);
 
     await offlineDb?.inventoryItems.clear();
     await offlineDb?.preferenceCards.clear();
@@ -1014,15 +1023,18 @@ describe("ResourceManagerChecksum", () => {
     delete restoredCard.updatedAt;
     delete restoredItem.updatedAt;
 
-    const expectedBaselineCard = baselineSnapshot.preferenceCards.find(c => c.id === "fac_state::or::card_custom");
+    const expectedBaselineCard = structuredClone(baselineSnapshot.preferenceCards.find(c => c.id === "fac_state::or::card_custom"));
     delete expectedBaselineCard.updatedAt;
 
-    const expectedBaselineItem = baselineSnapshot.inventory.find(i => i.item === "Scalpel");
+    const expectedBaselineItem = structuredClone(baselineSnapshot.inventory.find(i => i.item === "Scalpel"));
     delete expectedBaselineItem.updatedAt;
 
+    const restoredCardClone = structuredClone(restoredCard);
+    const restoredItemClone = structuredClone(restoredItem);
+
     // Rigorously perform strict deep equality assertions on the structurally recovered objects against the frozen baseline
-    assert.deepStrictEqual(restoredCard, expectedBaselineCard);
-    assert.deepStrictEqual(restoredItem, expectedBaselineItem);
+    assert.deepStrictEqual(restoredCardClone, expectedBaselineCard);
+    assert.deepStrictEqual(restoredItemClone, expectedBaselineItem);
   });
 
 
@@ -1078,9 +1090,12 @@ describe("ResourceManagerChecksum", () => {
 
     // Assert that multi-tenant isolation and data consistency holds
     // wait for the unpacking to finish correctly since installing lots of things might need a small delay in test
-    await new Promise(r => setTimeout(r, 200));
-    // Allow event loop to process background IndexedDB operations from installPack
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait for background IndexedDB operations to complete
+    for (let _ = 0; _ < 50; _++) {
+      const packs = await resourceManager.getInstalledPacks();
+      if (packs.length >= numPacks - Math.floor(numPacks / 5)) break;
+      await new Promise(r => setTimeout(r, 20));
+    }
 
     // unpackInstalledPacksToDexie is required to fully hydrate the items in memory
     await resourceManager.unpackInstalledPacksToDexie("fac_mem", "or");
