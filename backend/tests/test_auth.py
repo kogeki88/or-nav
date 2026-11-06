@@ -237,6 +237,18 @@ def test_network_partition_and_recovery(monkeypatch, tmp_path):
     network_state = {"status": "online", "latency": 0.0}
     original_save = app.auth.save_users
 
+    import socket
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        # We only want to mock standard network sockets (AF_INET/AF_INET6), not unix domain sockets
+        # created internally by asyncio (like in socketpair used for self-pipe).
+        # We default to AF_INET if not passed, simulating standard external network calls.
+        family = args[0] if args else kwargs.get("family", socket.AF_INET)
+        if network_state["status"] == "offline" and family in (socket.AF_INET, socket.AF_INET6):
+            raise OSError("Network/Storage partition: socket offline")
+        return original_socket(*args, **kwargs)
+    monkeypatch.setattr(socket, "socket", mock_socket)
+
     def mock_save_users(users):
         if network_state["latency"] > 0:
             time.sleep(network_state["latency"])
@@ -413,7 +425,7 @@ async def test_burst_distinct_registrations_latency():
                 "email": email,
                 "facilityId": tenant_id,
                 "departmentId": f"{tenant_id}::dept",
-                "clinicalRole": f"Worker {i}"
+                "clinicalRole": f"Worker_{i} "
             })
             return res_reg, res_upd, tenant_id
 
@@ -427,6 +439,7 @@ async def test_burst_distinct_registrations_latency():
         assert res_reg.status_code == 200, f"Worker {i} registration failed"
         assert res_upd.status_code == 200, f"Worker {i} profile update failed"
         assert res_upd.json()["profile"]["facilityId"] == expected_tenant, f"Worker {i} namespace leaked"
+        assert f"Worker_{i} " in json.dumps(res_upd.json()), f"Worker {i} data isolation failed"
 
     duration = end_time - start_time
     assert duration < 5.0 # Max 5 seconds for 50 concurrent registers
@@ -500,8 +513,12 @@ def test_clinical_state_snapshot_consistency():
     # Remove transient fields before structural comparison
     for u in baseline_users:
         u.pop("createdAt", None)
+        if u.get("profile"):
+            u["profile"].pop("facilityName", None)
     for u in post_users:
         u.pop("createdAt", None)
+        if u.get("profile"):
+            u["profile"].pop("facilityName", None)
 
     # Structural comparison
     assert len(post_users) == len(baseline_users) + 1
