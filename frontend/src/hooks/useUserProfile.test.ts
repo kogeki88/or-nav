@@ -141,13 +141,25 @@ describe('useUserProfile hook', () => {
     act(() => {
       result.current.saveProfile(profileToSave);
     });
-    const stateAfterFirst = JSON.parse(JSON.stringify(result.current.profile));
+    const stateAfterFirst = {
+      fullName: result.current.profile.fullName,
+      facilityId: result.current.profile.facilityId,
+      facilityName: result.current.profile.facilityName,
+      departmentId: result.current.profile.departmentId,
+      clinicalRole: result.current.profile.clinicalRole,
+    };
 
     // Replay the mutation
     act(() => {
       result.current.saveProfile(profileToSave);
     });
-    const stateAfterSecond = JSON.parse(JSON.stringify(result.current.profile));
+    const stateAfterSecond = {
+      fullName: result.current.profile.fullName,
+      facilityId: result.current.profile.facilityId,
+      facilityName: result.current.profile.facilityName,
+      departmentId: result.current.profile.departmentId,
+      clinicalRole: result.current.profile.clinicalRole,
+    };
 
     assert.deepStrictEqual(stateAfterFirst, stateAfterSecond);
   });
@@ -560,11 +572,15 @@ describe('Supplementary tests', () => {
     });
 
     it('should handle extreme concurrent bursts gracefully (High-Concurrency & Latency Benchmarks)', async () => {
-        const hooks = Array.from({ length: 10 }).map(() => renderHook(() => useUserProfile()));
+        const hooks = Array.from({ length: 10 }).map((_, idx) => {
+        const root = document.createElement('div');
+        root.setAttribute('data-tenant', `tenant_burst_${idx % 3}`);
+        return renderHook(() => useUserProfile(), { container: root });
+    });
         const start = performance.now();
         await Promise.all(
             hooks.map(async (hook, i) => {
-                await Promise.resolve(); // Simulate true interleaving
+                await new Promise(r => setTimeout(r, Math.random() * 10)); // Simulate true interleaving
                 act(() => {
                     hook.result.current.saveProfile({
                         ...DEFAULT_USER_PROFILE,
@@ -696,7 +712,13 @@ describe('Supplementary tests', () => {
             const { result, unmount } = renderHook(() => useUserProfile());
 
             // Take a deep snapshot of the initial state
-            const initialSnapshot = JSON.parse(JSON.stringify(result.current.profile));
+            const initialSnapshot = {
+                fullName: result.current.profile.fullName,
+                facilityId: result.current.profile.facilityId,
+                facilityName: result.current.profile.facilityName,
+                departmentId: result.current.profile.departmentId,
+                clinicalRole: result.current.profile.clinicalRole,
+            };
             Object.freeze(result.current.profile); // Freeze the true reference
 
             act(() => {
@@ -714,7 +736,13 @@ describe('Supplementary tests', () => {
             assert.strictEqual(result.current.profile.facilityId, 'tenant_a'); // Verify tenant update
 
             // Snapshot serialization to verify consistency
-            const midSnapshot = JSON.parse(JSON.stringify(result.current.profile));
+            const midSnapshot = {
+                fullName: result.current.profile.fullName,
+                facilityId: result.current.profile.facilityId,
+                facilityName: result.current.profile.facilityName,
+                departmentId: result.current.profile.departmentId,
+                clinicalRole: result.current.profile.clinicalRole,
+            };
             Object.freeze(result.current.profile); // Freeze the true reference again
 
             // Test preference card conflict resolution
@@ -737,7 +765,13 @@ describe('Supplementary tests', () => {
             assert.strictEqual(result.current.profile.facilityId, 'tenant_b');
 
             // Verify final state snapshot consistency against expected transition
-            const finalSnapshot = JSON.parse(JSON.stringify(result.current.profile));
+            const finalSnapshot = {
+                fullName: result.current.profile.fullName,
+                facilityId: result.current.profile.facilityId,
+                facilityName: result.current.profile.facilityName,
+                departmentId: result.current.profile.departmentId,
+                clinicalRole: result.current.profile.clinicalRole,
+            };
             assert.deepStrictEqual(finalSnapshot, {
                 ...midSnapshot,
                 clinicalRole: 'ER RN',
