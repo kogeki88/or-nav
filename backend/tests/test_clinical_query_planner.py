@@ -253,10 +253,13 @@ def test_offline_first_invariant_no_network_calls(monkeypatch):
     import httpx
 
     original_socket = socket.socket
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network call attempted during offline-first function!")
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     def poisoned_httpx_post(*args, **kwargs):
         raise RuntimeError("HTTP network call attempted during offline-first function!")
@@ -333,10 +336,13 @@ def test_planner_strict_offline_isolation(monkeypatch):
     """Ensures that absolutely zero network calls are made during planning."""
     import socket
     original_socket = socket.socket
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network call attempted during offline-first function!")
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     def poisoned_httpx_post(*args, **kwargs):
         raise RuntimeError("HTTP network call attempted during offline-first function!")
@@ -395,10 +401,13 @@ def test_planner_concurrent_burst_execution_and_latency(monkeypatch):
     """
     import socket
     original_socket = socket.socket
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network call attempted during offline-first function!")
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     def poisoned_httpx_post(*args, **kwargs):
         raise RuntimeError("HTTP network call attempted during offline-first function!")
@@ -445,7 +454,7 @@ def test_planner_concurrent_burst_execution_and_latency(monkeypatch):
     for tenant, seq, plan in results:
         # Strictly ensure results do not leak from other adjacent requests or tenants
         import re
-        assert str(seq) in plan.raw_query
+        assert f'worker_seq_{seq}' in plan.raw_query
         assert re.search(rf"\bworker_seq_{seq}\b", plan.raw_query)
 
         if tenant == "or_main":
@@ -480,10 +489,13 @@ def test_planner_supplementary_offline_and_multi_tenant(monkeypatch):
 
     # Offline first invariant
     original_socket = socket.socket
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network call attempted during offline-first function!")
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     monkeypatch.setattr(socket, "socket", poisoned_socket)
     monkeypatch.setattr(httpx, "post", lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("HTTP call")))
@@ -513,10 +525,13 @@ def test_planner_multi_tenant_facility_dept_boundary_enforcement(monkeypatch):
 
     # 1. Enforce Offline-first Invariants
     original_socket = socket.socket
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network call attempted during offline-first function!")
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     monkeypatch.setattr(socket, "socket", poisoned_socket)
     def poisoned_httpx_call(*args, **kwargs):
@@ -570,13 +585,15 @@ def test_planner_fault_injection_and_reconnection(monkeypatch):
     # We need a mutable network state object
     network_state = {"status": "online"}
     original_socket = socket.socket
-
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs and network_state["status"] == "offline":
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1) and network_state["status"] == "offline":
             raise RuntimeError("Network call attempted during offline-first function!")
         elif network_state["status"] == "degraded":
             time.sleep(0.01) # Intermittent latency
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     original_httpx_post = httpx.post
     original_httpx_get = httpx.get
@@ -648,10 +665,13 @@ def test_planner_memory_leak_and_event_listeners(monkeypatch):
 
     # Poison network
     original_socket = socket.socket
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network call attempted during offline-first function!")
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     monkeypatch.setattr(socket, "socket", poisoned_socket)
     monkeypatch.setattr(httpx, "post", lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("HTTP call")))
@@ -693,10 +713,13 @@ def test_planner_cache_eviction_under_memory_constraint(monkeypatch):
 
     # Poison network
     original_socket = socket.socket
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network call attempted during offline-first function!")
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     monkeypatch.setattr(socket, "socket", poisoned_socket)
     monkeypatch.setattr(httpx, "post", lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("HTTP call")))
@@ -730,10 +753,13 @@ def test_planner_hipaa_phi_boundary_attack(monkeypatch):
     import httpx
 
     original_socket = socket.socket
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network call attempted during offline-first function!")
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     monkeypatch.setattr(socket, "socket", poisoned_socket)
 
@@ -783,10 +809,13 @@ def test_planner_zero_trust_token_exchange(monkeypatch):
     import httpx
 
     original_socket = socket.socket
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network call attempted during offline-first function!")
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     monkeypatch.setattr(socket, "socket", poisoned_socket)
 
@@ -817,10 +846,13 @@ def test_planner_deterministic_state_transitions(monkeypatch):
 
     # Offline-first invariant
     original_socket = socket.socket
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network call attempted during offline-first function!")
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     monkeypatch.setattr(socket, "socket", poisoned_socket)
     def poisoned_httpx(*args, **kwargs):
@@ -867,10 +899,13 @@ def test_planner_preference_card_conflict_resolution(monkeypatch):
 
     # Offline-first invariant
     original_socket = socket.socket
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network call attempted during offline-first function!")
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     monkeypatch.setattr(socket, "socket", poisoned_socket)
     def poisoned_httpx(*args, **kwargs):
@@ -909,10 +944,13 @@ def test_planner_clinical_state_snapshot_consistency(monkeypatch):
 
     # Offline-first invariant
     original_socket = socket.socket
-    def poisoned_socket(family=-1, type=-1, proto=-1, fileno=None):
+    def poisoned_socket(*args, **kwargs):
+        family = kwargs.get('family', args[0] if args else -1)
+        if not args and not kwargs:
+            raise RuntimeError("Network call attempted during offline-first function! (default AF_INET)")
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network call attempted during offline-first function!")
-        return original_socket(family, type, proto, fileno)
+        return original_socket(*args, **kwargs)
 
     monkeypatch.setattr(socket, "socket", poisoned_socket)
     def poisoned_httpx(*args, **kwargs):
@@ -944,7 +982,7 @@ def test_planner_clinical_state_snapshot_consistency(monkeypatch):
         import copy
         norm = copy.deepcopy(snap)
         for item in norm:
-            for field in ['last_verified_at', 'updatedAt', 'verification_score', 'confidence', 'usedByUsers', 'user_preferred_term', 'facility_name']:
+            for field in ['last_verified_at', 'updatedAt', 'confidence', 'usedByUsers', 'user_preferred_term', 'facility_name']:
                 item.pop(field, None)
         return norm
 
