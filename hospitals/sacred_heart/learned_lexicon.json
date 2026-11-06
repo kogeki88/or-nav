@@ -95,9 +95,21 @@
     "spokenTerm": "the bakey pickups",
     "displayPreferredName": "The Bakey Pickups",
     "canonicalItemName": "DeBakey Vascular Tissue Forceps 12in",
-    "usageCount": 4,
+    "usageCount": 14,
     "usedByUsers": [],
     "confidence": "facility_consensus",
-    "updatedAt": "2026-11-05T20:50:01Z"
+    "updatedAt": "2026-11-06T17:56:49Z"
+  },
+  {
+    "aliasId": "sacred_heart_1793986511_8",
+    "facilityId": "sacred_heart",
+    "departmentId": "sacred_heart/or",
+    "spokenTerm": "custom forceps cvor",
+    "displayPreferredName": "Custom Forceps Cvor",
+    "canonicalItemName": "Custom Forceps Or",
+    "usageCount": 1,
+    "usedByUsers": [],
+    "confidence": "personal",
+    "updatedAt": "2026-11-06T17:35:11Z"
   }
 ]
