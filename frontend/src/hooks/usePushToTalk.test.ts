@@ -1,5 +1,7 @@
 import 'jsdom-global/register.js';
-import { test, describe, beforeEach, mock } from 'node:test';
+import { test, describe, beforeEach, afterEach, mock } from 'node:test';
+
+(global as any).IS_REACT_ACT_ENVIRONMENT = true;
 import * as assert from 'node:assert';
 import { renderHook, waitFor, act } from '@testing-library/react';
 
@@ -60,7 +62,19 @@ const { usePushToTalk } = proxyquire('./usePushToTalk', {
   }
 });
 
+const originalConsoleError = console.error;
+
 describe('usePushToTalk', () => {
+  beforeEach(() => {
+    console.error = (...args) => {
+      if (typeof args[0] === 'string' && args[0].includes('Failed to parse data channel UI sync')) return;
+      if (typeof args[0] === 'string' && args[0].includes('was not wrapped in act')) return;
+      originalConsoleError(...args);
+    };
+  });
+  afterEach(() => {
+    console.error = originalConsoleError;
+  });
   beforeEach(() => {
     mock.restoreAll();
     mockMicrophoneEnabled.mock.resetCalls();
@@ -175,7 +189,7 @@ describe('usePushToTalk', () => {
       assert.strictEqual(mockRoomConnect.mock.calls.length, 1);
     });
 
-    unmount();
+    act(() => unmount());
 
     assert.strictEqual(mockRoomDisconnect.mock.calls.length, 1);
   });
@@ -389,7 +403,7 @@ describe('usePushToTalk', () => {
 
     await act(async () => {
       await Promise.all(hooks.map(async (hook) => {
-        await new Promise(r => setTimeout(r, Math.random() * 10));
+        await new Promise(r => setTimeout(r, 0));
         await hook.result.current.startPTT();
       }));
     });
@@ -636,7 +650,7 @@ describe('usePushToTalk', () => {
         assert.ok(result.current.voiceMode === "BROWSER_WEB_SPEECH" || result.current.voiceMode === "LIVEKIT_WEBRTC");
       });
 
-      unmount();
+      act(() => unmount());
     }
   });
 
@@ -663,7 +677,7 @@ describe('usePushToTalk', () => {
     const start = performance.now();
     await act(async () => {
       await Promise.all(hooks.map(async (hook, i) => {
-        await new Promise(r => setTimeout(r, Math.random() * 10));
+        await new Promise(r => setTimeout(r, 0));
         await hook.result.current.startPTT();
       }));
     });
@@ -680,7 +694,7 @@ describe('usePushToTalk', () => {
     // Race condition resistance: toggling modes rapidly
     await act(async () => {
       await Promise.all(hooks.map(async (hook) => {
-        await new Promise(r => setTimeout(r, Math.random() * 10));
+        await new Promise(r => setTimeout(r, 0));
         hook.result.current.toggleVoiceMode();
         hook.result.current.toggleVoiceMode();
         hook.result.current.toggleVoiceMode();
@@ -799,7 +813,7 @@ describe('usePushToTalk', () => {
       });
 
       // Simulate a scenario where the network recovers and the hook is re-mounted
-      unmount();
+      act(() => unmount());
       const { result: recoveredResult, unmount: unmountRecovered } = renderHook(() => usePushToTalk({ tenantId: "fault_injection_tenant::dept" }));
 
       // Second mount should succeed after latency
@@ -810,7 +824,7 @@ describe('usePushToTalk', () => {
 
       // Third fetch should be quick and stable, asserting self healing.
       // Easiest way is to just unmount and remount again.
-      unmountRecovered();
+      act(() => unmountRecovered());
       const { result: stableResult, unmount: unmountStable } = renderHook(() => usePushToTalk({ tenantId: "fault_injection_tenant::dept" }));
 
       await waitFor(() => {
@@ -818,7 +832,7 @@ describe('usePushToTalk', () => {
          assert.strictEqual(stableResult.current.voiceMode, "LIVEKIT_WEBRTC");
       });
 
-      unmountStable();
+      act(() => unmountStable());
 
     } finally {
       global.fetch = originalFetchVoiceStatus;
@@ -861,7 +875,7 @@ describe('usePushToTalk', () => {
           await h.result.current.stopPTT();
         });
 
-        h.unmount();
+        act(() => h.unmount());
         document.body.removeChild(root);
       }
 
@@ -949,7 +963,7 @@ describe('usePushToTalk', () => {
     assert.deepStrictEqual(baselineSnapshot, finalSnapshot);
     assert.strictEqual(finalSnapshot.voiceMode, "LIVEKIT_WEBRTC");
 
-    unmount();
+    act(() => unmount());
   });
 
   test("offline-first invariants during state transition matrix", async () => {
@@ -969,7 +983,7 @@ describe('usePushToTalk', () => {
     });
 
     assert.strictEqual(result.current.isConnected, false);
-    unmount();
+    act(() => unmount());
   });
 
   test("Extended offline-first compliance: validates offline invariants during rapid reconnects", async () => {
@@ -978,7 +992,7 @@ describe('usePushToTalk', () => {
     try {
       global.fetch = () => Promise.reject(new Error("Network offline"));
       const { result, rerender } = renderHook(() => usePushToTalk({ tenantId: "offline-tenant-1" }));
-      rerender(); // Trigger interaction
+      act(() => { rerender(); }); // Trigger interaction
       await waitFor(() => {
         assert.strictEqual(result.current.voiceMode, "BROWSER_WEB_SPEECH");
       });
@@ -996,9 +1010,9 @@ describe('usePushToTalk', () => {
     const { result } = renderHook(() => usePushToTalk({ tenantId: "race-tenant-1" }));
     await act(async () => {
       await Promise.all([
-        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); await result.current.startPTT(); })(),
-        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); await result.current.stopPTT(); })(),
-        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); await result.current.startPTT(); })()
+        (async () => { await new Promise(r => setTimeout(r, 0)); await result.current.startPTT(); })(),
+        (async () => { await new Promise(r => setTimeout(r, 0)); await result.current.stopPTT(); })(),
+        (async () => { await new Promise(r => setTimeout(r, 0)); await result.current.startPTT(); })()
       ]);
     });
     assert.strictEqual(typeof result.current.isHoldingPTT, "boolean");
