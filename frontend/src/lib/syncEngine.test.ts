@@ -54,7 +54,9 @@ describe("useSyncEngine", () => {
 
   test("initializes as offline if navigator is offline", async () => {
     setNetworkOnline(false);
-    const { result } = renderHook(() => useSyncEngine("tenant-1"));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-1");
+    const { result } = renderHook(() => useSyncEngine("tenant-1"), { container: root });
 
     assert.strictEqual(result.current.status, "offline");
 
@@ -69,7 +71,9 @@ describe("useSyncEngine", () => {
 
   test("initializes as synced and triggers sync if online and autoSyncEnabled is true", async () => {
     setNetworkOnline(true);
-    const { result } = renderHook(() => useSyncEngine("tenant-1", true));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-1");
+    const { result } = renderHook(() => useSyncEngine("tenant-1", true), { container: root });
 
     // Initial status before triggerSync finishes
     assert.strictEqual(result.current.status, "syncing");
@@ -91,7 +95,9 @@ describe("useSyncEngine", () => {
 
   test("does not trigger auto sync if autoSyncEnabled is false", async () => {
     setNetworkOnline(true);
-    const { result } = renderHook(() => useSyncEngine("tenant-1", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-1");
+    const { result } = renderHook(() => useSyncEngine("tenant-1", false), { container: root });
 
     assert.strictEqual(result.current.status, "synced");
 
@@ -106,7 +112,9 @@ describe("useSyncEngine", () => {
   test("triggerSync enforces offline-first invariants", async () => {
     setNetworkOnline(true);
     // start with auto sync disabled to test manual trigger
-    const { result } = renderHook(() => useSyncEngine("tenant-2", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-2");
+    const { result } = renderHook(() => useSyncEngine("tenant-2", false), { container: root });
 
     // simulate going offline
     setNetworkOnline(false);
@@ -132,7 +140,9 @@ describe("useSyncEngine", () => {
       throw new Error("Network error");
     });
 
-    const { result } = renderHook(() => useSyncEngine("tenant-3", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-3");
+    const { result } = renderHook(() => useSyncEngine("tenant-3", false), { container: root });
 
     await act(async () => {
       setNetworkOnline(false); // simulating disconnection during sync initialization
@@ -149,7 +159,9 @@ describe("useSyncEngine", () => {
       throw new Error("Some non-fatal API error");
     });
 
-    const { result } = renderHook(() => useSyncEngine("tenant-4", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-4");
+    const { result } = renderHook(() => useSyncEngine("tenant-4", false), { container: root });
 
     await act(async () => {
       await result.current.triggerSync();
@@ -178,7 +190,9 @@ describe("useSyncEngine", () => {
       throw new Error("Sync made during offline mode!");
     });
 
-    const { result } = renderHook(() => useSyncEngine("tenant-offline", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-offline");
+    const { result } = renderHook(() => useSyncEngine("tenant-offline", false), { container: root });
     assert.strictEqual(result.current.status, "offline");
 
     let syncResult;
@@ -201,7 +215,9 @@ describe("useSyncEngine", () => {
     setNetworkOnline(true);
 
     // First tenant
-    const { result: res1, unmount: unmount1 } = renderHook(() => useSyncEngine("tenant-A", false));
+    const root1 = document.createElement("div");
+    root1.setAttribute("data-tenant", "tenant-A");
+    const { result: res1, unmount: unmount1 } = renderHook(() => useSyncEngine("tenant-A", false), { container: root1 });
     await act(async () => { await res1.current.triggerSync(); });
 
     assert.strictEqual(offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls.length, 1);
@@ -212,7 +228,9 @@ describe("useSyncEngine", () => {
     unmount1();
 
     // Second tenant
-    const { result: res2 } = renderHook(() => useSyncEngine("tenant-B", false));
+    const root2 = document.createElement("div");
+    root2.setAttribute("data-tenant", "tenant-B");
+    const { result: res2, unmount: unmount2 } = renderHook(() => useSyncEngine("tenant-B", false), { container: root2 });
     await act(async () => { await res2.current.triggerSync(); });
 
     assert.strictEqual(offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls.length, 2);
@@ -235,7 +253,9 @@ describe("useSyncEngine", () => {
     ];
 
     for (const fuzzId of fuzzInputs) {
-      const { result, unmount } = renderHook(() => useSyncEngine(fuzzId, false));
+      const root = document.createElement("div");
+      root.setAttribute("data-tenant", fuzzId);
+      const { result, unmount } = renderHook(() => useSyncEngine(fuzzId, false), { container: root });
 
       let syncResult;
       await act(async () => {
@@ -275,7 +295,9 @@ describe("useSyncEngine", () => {
       return -5;
     });
 
-    const { result, unmount } = renderHook(() => useSyncEngine("tenant-validate", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-validate");
+    const { result, unmount } = renderHook(() => useSyncEngine("tenant-validate", false), { container: root });
 
     let syncResult;
     await act(async () => {
@@ -291,7 +313,9 @@ describe("useSyncEngine", () => {
 
   test("listens to online/offline events", async () => {
     setNetworkOnline(true);
-    const { result } = renderHook(() => useSyncEngine("tenant-5", true));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-5");
+    const { result } = renderHook(() => useSyncEngine("tenant-5", true), { container: root });
 
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -432,7 +456,9 @@ describe("useSyncEngine statusLabel", () => {
   test("statusLabel offline with 0 pending", async () => {
     setNetworkOnline(false);
     offlineDbMocks.getPendingOutboxCount = mock.fn(async () => 0);
-    const { result } = renderHook(() => useSyncEngine("tenant-1", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-1");
+    const { result } = renderHook(() => useSyncEngine("tenant-1", false), { container: root });
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 0));
     });
@@ -442,7 +468,9 @@ describe("useSyncEngine statusLabel", () => {
   test("statusLabel offline with >0 pending", async () => {
     setNetworkOnline(false);
     offlineDbMocks.getPendingOutboxCount = mock.fn(async () => 5);
-    const { result } = renderHook(() => useSyncEngine("tenant-1", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-1");
+    const { result } = renderHook(() => useSyncEngine("tenant-1", false), { container: root });
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 0));
     });
@@ -458,7 +486,9 @@ describe("useSyncEngine statusLabel", () => {
     const flushPromise = new Promise(r => resolveFlush = r);
     offlineDbMocks.flushOfflineOutbox = mock.fn(() => flushPromise);
 
-    const { result } = renderHook(() => useSyncEngine("tenant-1", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-1");
+    const { result } = renderHook(() => useSyncEngine("tenant-1", false), { container: root });
 
     let triggerPromise: Promise<any>;
     act(() => {
@@ -481,7 +511,9 @@ describe("useSyncEngine statusLabel", () => {
     const flushPromise = new Promise(r => resolveFlush = r);
     offlineDbMocks.flushOfflineOutbox = mock.fn(() => flushPromise);
 
-    const { result } = renderHook(() => useSyncEngine("tenant-1", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-1");
+    const { result } = renderHook(() => useSyncEngine("tenant-1", false), { container: root });
 
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -508,7 +540,9 @@ describe("useSyncEngine statusLabel", () => {
     const flushPromise = new Promise(r => resolveFlush = r);
     offlineDbMocks.flushOfflineOutbox = mock.fn(() => flushPromise);
 
-    const { result } = renderHook(() => useSyncEngine("tenant-1", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-1");
+    const { result } = renderHook(() => useSyncEngine("tenant-1", false), { container: root });
 
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -529,7 +563,9 @@ describe("useSyncEngine statusLabel", () => {
 
   test("statusLabel synced", async () => {
     setNetworkOnline(true);
-    const { result } = renderHook(() => useSyncEngine("tenant-1", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-1");
+    const { result } = renderHook(() => useSyncEngine("tenant-1", false), { container: root });
 
     await act(async () => {
       await new Promise(resolve => setTimeout(resolve, 0));
@@ -595,7 +631,9 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
     setNetworkOnline(true);
     const burstSize = 50;
 
-    const { result, unmount } = renderHook(() => useSyncEngine("tenant-stress", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-stress");
+    const { result, unmount } = renderHook(() => useSyncEngine("tenant-stress", false), { container: root });
 
     const promises = Array.from({ length: burstSize }).map(async (_, idx) => {
       // Yield to event loop to simulate true concurrency
@@ -637,7 +675,9 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
     }));
 
     const hookInstances = hooks.map(hookParams => {
-       return renderHook(() => useSyncEngine(hookParams.tenantId, false));
+       const root = document.createElement("div");
+       root.setAttribute("data-tenant", hookParams.tenantId);
+       return renderHook(() => useSyncEngine(hookParams.tenantId, false), { container: root });
     });
 
     const promises = hookInstances.map(async (instance, i) => {
@@ -705,7 +745,9 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       setNetworkOnline(true);
       const tenantId = "tenant-fault-healing";
 
-      const { result, unmount } = renderHook(() => useSyncEngine(tenantId, false));
+      const root = document.createElement("div");
+      root.setAttribute("data-tenant", tenantId);
+      const { result, unmount } = renderHook(() => useSyncEngine(tenantId, false), { container: root });
 
       await act(async () => {
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -845,7 +887,9 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
   test("Latency benchmarks under load", async () => {
     setNetworkOnline(true);
 
-    const { result, unmount } = renderHook(() => useSyncEngine("tenant-latency", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-latency");
+    const { result, unmount } = renderHook(() => useSyncEngine("tenant-latency", false), { container: root });
 
     const start = performance.now();
     await act(async () => {
@@ -1014,7 +1058,9 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
 
     // Test the state machine hook directly
     // Use an uninitialized tenant and force autoSync=false so it starts cleanly
-    const { result, unmount } = renderHook(() => useSyncEngine("tenant-state-verif", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "tenant-state-verif");
+    const { result, unmount } = renderHook(() => useSyncEngine("tenant-state-verif", false), { container: root });
 
     let res: any;
 
@@ -1122,7 +1168,9 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
 
     // Simulate an outbox sync attempt where the syncEngine itself doesn't make fetch calls directly,
     // but we verify the environment's network isolation for outbox-related actions.
-    const { result, unmount } = renderHook(() => useSyncEngine("secure-tenant-1", false));
+    const root = document.createElement("div");
+    root.setAttribute("data-tenant", "secure-tenant-1");
+    const { result, unmount } = renderHook(() => useSyncEngine("secure-tenant-1", false), { container: root });
 
     // Force network online
     Object.defineProperty(navigator, 'onLine', {
