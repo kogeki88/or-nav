@@ -888,11 +888,8 @@ test('enforces deep state immutability to prevent invalid or separate-tenant tra
     apk_download_url: 'http://test.com/apk'
   };
 
-  // Apply Object.freeze to ensure immutability
+  // Apply Object.freeze to ensure immutability and catch implicit mutations
   const activeManifest = Object.freeze({ ...originalManifest });
-
-  // Separate deep copy for structural assertion to prevent tautology
-  const baselineManifest = JSON.parse(JSON.stringify(originalManifest));
 
   const root = document.createElement('div');
   root.setAttribute('data-tenant', 'tenant_freeze');
@@ -902,7 +899,7 @@ test('enforces deep state immutability to prevent invalid or separate-tenant tra
   global.fetch = undefined as any;
 
   try {
-    const { unmount } = render(
+    const { unmount, rerender } = render(
       <AutoUpdateModal
         isOpen={true}
         onClose={() => {}}
@@ -913,10 +910,24 @@ test('enforces deep state immutability to prevent invalid or separate-tenant tra
       { container: root }
     );
 
-    // Assert structurally against the separate deep copy
-    assert.deepStrictEqual(JSON.parse(JSON.stringify(activeManifest)), baselineManifest);
-
     // Test that the modal successfully rendered the frozen object without trying to mutate it
+    assert.ok(screen.getByText('Test Immutability'));
+
+    // Trigger an interaction to ensure the component does not attempt to mutate the manifest
+    const installBtn = screen.getByTestId('btn-install-apk-modal');
+    fireEvent.click(installBtn);
+
+    // Force a rerender to verify it handles frozen objects smoothly during updates
+    rerender(
+      <AutoUpdateModal
+        isOpen={true}
+        onClose={() => {}}
+        manifest={activeManifest}
+        currentVersion="v1.0.0"
+        currentBuild={100}
+      />
+    );
+
     assert.ok(screen.getByText('Test Immutability'));
 
     unmount();
