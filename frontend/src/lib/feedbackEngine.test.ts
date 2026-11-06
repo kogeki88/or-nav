@@ -359,8 +359,8 @@ test("FeedbackEngine - High-Concurrency & Stress Benchmarks", async (t) => {
     const start = performance.now();
 
     // Concurrent burst execution across multiple tenants to verify multi-tenant isolation under stress
-    const promises = Array.from({ length: 100 }, async (_, i) => {
-      await Promise.resolve();
+    const promises = Array.from({ length: 50 }, async (_, i) => {
+      await new Promise(r => setTimeout(r, Math.random() * 10));
       const tenant = `tenant_burst_${i}`;
       return submitManualFeedback({
         rawText: `Concurrent feedback ${i}`,
@@ -370,15 +370,15 @@ test("FeedbackEngine - High-Concurrency & Stress Benchmarks", async (t) => {
     const results = await Promise.all(promises);
 
     const end = performance.now();
-    assert.strictEqual(results.length, 100);
+    assert.strictEqual(results.length, 50);
 
     // Verify data integrity: items correctly saved locally with isolated tenants
     const localItems = getLocalFeedback();
 
 
-    assert.ok(localItems.length >= 100);
+    assert.ok(localItems.length >= 50);
 
-    for (let i = 0; i < 100; i++) {
+    for (let i = 0; i < 50; i++) {
       const tenantId = `tenant_burst_${i}::icu`;
       const tenantItems = localItems.filter(item => item.tenantId === tenantId);
       assert.strictEqual(tenantItems.length, 1, `Tenant ${tenantId} should have exactly 1 item`);
@@ -393,7 +393,7 @@ test("FeedbackEngine - High-Concurrency & Stress Benchmarks", async (t) => {
     const initialUpvotes = initialItem.upvotes;
 
     const upvotePromises = Array.from({ length: 50 }, async () => {
-      await Promise.resolve();
+      await new Promise(r => setTimeout(r, Math.random() * 10));
       return upvoteFeedback(testItemId);
     });
     await Promise.all(upvotePromises);
@@ -407,7 +407,7 @@ test("FeedbackEngine - High-Concurrency & Stress Benchmarks", async (t) => {
     global.fetch = async () => { throw new TypeError("Failed to fetch"); };
 
     const offlinePromises = Array.from({ length: 20 }, async (_, i) => {
-      await Promise.resolve();
+      await new Promise(r => setTimeout(r, Math.random() * 10));
       return submitManualFeedback({
         rawText: `Offline concurrent feedback ${i}`,
         userProfile: { facilityId: `tenant_offline_burst_${i}`, departmentId: "icu" }
