@@ -520,7 +520,7 @@ describe("High-Concurrency & Stress Benchmarks", () => {
     const mockTrack = new MockAudioTrack();
 
     const operations = Array.from({ length: 1000 }).map(async (_, i) => {
-      await Promise.resolve();
+      await new Promise(r => setTimeout(r, Math.random() * 10));
       if (i % 2 === 0) {
         visualizer.start(mockTrack as unknown as LocalAudioTrack);
       } else {
@@ -541,7 +541,7 @@ describe("High-Concurrency & Stress Benchmarks", () => {
     const mockTrack = new MockAudioTrack();
 
     const promises = Array.from({ length: 500 }).map(async () => {
-      await Promise.resolve(); // Yield to simulate concurrent interleaving
+      await new Promise(r => setTimeout(r, Math.random() * 10)); // Yield to simulate concurrent interleaving
       visualizer.start(mockTrack as unknown as LocalAudioTrack);
       visualizer.disconnect();
     });
@@ -580,7 +580,7 @@ describe("High-Concurrency & Stress Benchmarks", () => {
     const operations = instances.map(async (visualizer, i) => {
       // Must use valid UUID
       visualizer.setTenantId(`fac_burst_${i}::dept`);
-      await Promise.resolve();
+      await new Promise(r => setTimeout(r, Math.random() * 10));
       return { visualizer, i };
     });
 
@@ -601,7 +601,7 @@ describe("High-Concurrency & Stress Benchmarks", () => {
       const mockTrack = new MockAudioTrack();
 
       const operations = Array.from({ length: 100 }).map(async () => {
-        await Promise.resolve();
+        await new Promise(r => setTimeout(r, Math.random() * 10));
         visualizer.start(mockTrack as unknown as LocalAudioTrack);
         visualizer.disconnect();
       });
@@ -625,7 +625,8 @@ describe("Clinical Workflow Snapshot & Deterministic State Verifications", () =>
 
     // Create baseline state
     const originalState = { tenantId: visualizer.getTenantId() };
-    const frozenState = JSON.parse(JSON.stringify(originalState));
+    Object.freeze(originalState);
+    const frozenState = structuredClone(originalState);
 
     // Mutate
     visualizer.setTenantId("princeton_plainsboro::or");
