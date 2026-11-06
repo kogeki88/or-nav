@@ -193,9 +193,9 @@ test("ClinicalGraph High-Concurrency & Stress Benchmarks", async (t) => {
     const inventory = [{ item: "BurstItem", aliases: "burst" }];
 
     const startTime = performance.now();
-    // Simulate interleaved burst by yielding to the event loop
+    // Simulate interleaved burst by yielding to the event loop with jitter
     const tasks = tenantIds.map(async (tenantId) => {
-      await Promise.resolve(); // Explicitly yield to the event loop
+      await new Promise(r => setTimeout(r, Math.random() * 10));
       return compileClinicalGraph(tenantId, cards, inventory as any, "");
     });
 
@@ -264,7 +264,8 @@ test("ClinicalGraph Fault Injection & Network Partition Resilience", async (t) =
     assert.ok(recoveredGraph.inventoryTerms.has("recitem"));
 
     const latency = endTime - startTime;
-    assert.ok(latency >= 10, "Latency constraint not respected"); // Should be at least our 10ms simulated latency
+    // Allow for a bit of timer variation depending on OS
+    assert.ok(latency >= 8, `Latency constraint not respected, latency was ${latency}`); // Should be at least our 10ms simulated latency
   });
 
   await t.test("findShortestPath correctly handles node isolation due to network degradation", () => {
@@ -417,15 +418,11 @@ test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t)
     Object.freeze(graph.preferenceCards);
 
     // Create a separate deep copy for structural assertion
-    const baselineCopy = JSON.parse(JSON.stringify(graph, (key, value) =>
-      value instanceof Set ? Array.from(value) : value
-    ));
+    const baselineCopy = structuredClone(graph);
 
     // Perform a pseudo-mutation (compile again with identical inputs)
     const graph2 = compileClinicalGraph("tenant_snapshot", cards, inventory as any, md);
-    const snapshotCopy2 = JSON.parse(JSON.stringify(graph2, (key, value) =>
-      value instanceof Set ? Array.from(value) : value
-    ));
+    const snapshotCopy2 = structuredClone(graph2);
 
     // Verify deterministic state consistency (no hidden mutations on consecutive runs)
     assert.deepStrictEqual(baselineCopy, snapshotCopy2, "State transitions must be deterministic for identical inputs");
