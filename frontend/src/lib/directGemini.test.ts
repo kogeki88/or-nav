@@ -233,6 +233,8 @@ describe('directGemini', () => {
     setClientGeminiApiKey("test-key");
 
     const originalFetch = global.fetch;
+    const originalWindow = (global as any).window;
+
     try {
       global.fetch = undefined as any;
 
@@ -240,8 +242,26 @@ describe('directGemini', () => {
         () => directGeminiRAG("test query"),
         Error
       );
+
+      // Also strictly test navigator.onLine boundary logic
+      global.fetch = originalFetch;
+      (global as any).window = {
+        ...originalWindow,
+        navigator: { onLine: false }
+      };
+
+      await assert.rejects(
+        () => directGeminiRAG("test query 2"),
+        /Network offline/,
+        "Must correctly bubble network offline error when navigator.onLine is false"
+      );
     } finally {
       global.fetch = originalFetch;
+      if (originalWindow !== undefined) {
+        (global as any).window = originalWindow;
+      } else {
+        delete (global as any).window;
+      }
     }
   });
 
@@ -372,13 +392,13 @@ describe('directGemini', () => {
         } as unknown as Response;
       };
 
-      const customProfile = {
+      const customProfile = Object.freeze({
         userId: "test_user_999",
         name: "Test User",
         clinicalRole: "scrub_tech",
         departmentId: "pediatrics_dept",
         facilityName: "Isolated Facility 42"
-      };
+      });
 
       await directGeminiRAG("query", "Isolated Orientation", "Isolated Baseline", undefined, customProfile as any);
 
@@ -428,7 +448,7 @@ describe('directGemini', () => {
 
       const CONCURRENCY = 50;
       const promises = Array.from({ length: CONCURRENCY }).map((_, i) =>
-        directGeminiRAG(`Concurrent query ${i}`)
+        directGeminiRAG(`Concurrent query ${i}`, undefined, undefined, `fac_burst_${i}`)
       );
 
       const results = await Promise.all(promises);
@@ -475,9 +495,9 @@ describe('directGemini', () => {
       };
 
       const profiles = [
-        { name: "User A", clinicalRole: "scrub_tech", departmentId: "or_main", facilityName: "Facility A", facilityId: "fac_a" },
-        { name: "User B", clinicalRole: "circulator", departmentId: "icu_critical_care", facilityName: "Facility B", facilityId: "fac_b" },
-        { name: "User C", clinicalRole: "surgeon", departmentId: "er_trauma", facilityName: "Facility C", facilityId: "fac_c" },
+        Object.freeze({ name: "User A", clinicalRole: "scrub_tech", departmentId: "or_main", facilityName: "Facility A", facilityId: "fac_a" }),
+        Object.freeze({ name: "User B", clinicalRole: "circulator", departmentId: "icu_critical_care", facilityName: "Facility B", facilityId: "fac_b" }),
+        Object.freeze({ name: "User C", clinicalRole: "surgeon", departmentId: "er_trauma", facilityName: "Facility C", facilityId: "fac_c" }),
       ];
 
       const iterations = 10;
@@ -505,16 +525,19 @@ describe('directGemini', () => {
       // Strictly verify no cross-tenant leakage of worker_seq identifiers
       for (const prompt of capturedPrompts) {
         if (prompt.includes("Facility A")) {
-          assert.ok(!prompt.includes("worker_seq_fac_b"), "Leaked tenant B data into A");
-          assert.ok(!prompt.includes("worker_seq_fac_c"), "Leaked tenant C data into A");
+          assert.match(prompt, /worker_seq_fac_a_\d+\b/, "Must contain exactly its own worker seq");
+          assert.ok(!/worker_seq_fac_b_\d+\b/.test(prompt), "Leaked tenant B data into A");
+          assert.ok(!/worker_seq_fac_c_\d+\b/.test(prompt), "Leaked tenant C data into A");
         }
         if (prompt.includes("Facility B")) {
-          assert.ok(!prompt.includes("worker_seq_fac_a"), "Leaked tenant A data into B");
-          assert.ok(!prompt.includes("worker_seq_fac_c"), "Leaked tenant C data into B");
+          assert.match(prompt, /worker_seq_fac_b_\d+\b/, "Must contain exactly its own worker seq");
+          assert.ok(!/worker_seq_fac_a_\d+\b/.test(prompt), "Leaked tenant A data into B");
+          assert.ok(!/worker_seq_fac_c_\d+\b/.test(prompt), "Leaked tenant C data into B");
         }
         if (prompt.includes("Facility C")) {
-          assert.ok(!prompt.includes("worker_seq_fac_a"), "Leaked tenant A data into C");
-          assert.ok(!prompt.includes("worker_seq_fac_b"), "Leaked tenant B data into C");
+          assert.match(prompt, /worker_seq_fac_c_\d+\b/, "Must contain exactly its own worker seq");
+          assert.ok(!/worker_seq_fac_a_\d+\b/.test(prompt), "Leaked tenant A data into C");
+          assert.ok(!/worker_seq_fac_b_\d+\b/.test(prompt), "Leaked tenant B data into C");
         }
       }
     });
@@ -688,7 +711,7 @@ describe('directGemini', () => {
       const initialMemory = process.memoryUsage().heapUsed;
 
       const CONCURRENCY = 50;
-      const promises = Array.from({ length: CONCURRENCY }).map((_, i) => directGeminiRAG(`memory query ${i}`));
+      const promises = Array.from({ length: CONCURRENCY }).map((_, i) => directGeminiRAG(`memory query ${i}`, undefined, undefined, `tenant_${i % 5}`));
 
       await Promise.all(promises);
 
@@ -818,10 +841,9 @@ describe('directGemini', () => {
       }
 
       for (let i = 0; i < queries.length; i++) {
-        assert.strictEqual(snapshots[i].reply_text, snapshots2[i].reply_text, "RAG replies must be deterministic");
-        assert.strictEqual(snapshots[i].scrubbed_query, snapshots2[i].scrubbed_query, "RAG queries must be scrubbed deterministically");
-        assert.strictEqual(snapshots[i].routing_tier, snapshots2[i].routing_tier, "RAG routing must be deterministic");
-        assert.strictEqual(snapshots[i].phi_detected, snapshots2[i].phi_detected, "RAG PHI detection must be deterministic");
+        const s1 = { ...snapshots[i], latency_ms: 0 };
+        const s2 = structuredClone({ ...snapshots2[i], latency_ms: 0 });
+        assert.deepStrictEqual(s1, s2, "Deterministic state transition matrices must remain deeply consistent");
       }
     });
 
@@ -837,22 +859,12 @@ describe('directGemini', () => {
       const query = "Dr. Smith preference card tray setup for lap chole in OR 1";
       const res = await directGeminiRAG(query);
 
-      const snapshotString = JSON.stringify({
-        reply: res.reply_text,
-        tier: res.routing_tier,
-        scrubbed: res.scrubbed_query,
-        phi: res.phi_detected
-      });
+      const snapshot1 = { ...res, latency_ms: 0 };
 
       const res2 = await directGeminiRAG(query);
-      const snapshotString2 = JSON.stringify({
-        reply: res2.reply_text,
-        tier: res2.routing_tier,
-        scrubbed: res2.scrubbed_query,
-        phi: res2.phi_detected
-      });
+      const snapshot2 = structuredClone({ ...res2, latency_ms: 0 });
 
-      assert.strictEqual(snapshotString, snapshotString2, "Clinical state snapshot must remain perfectly consistent across identical parses");
+      assert.deepStrictEqual(snapshot1, snapshot2, "Clinical state snapshot must remain perfectly consistent across identical parses");
     });
 
     test("Enforce multi-tenant isolation and offline-first invariants during RAG snapshot generation", async () => {
