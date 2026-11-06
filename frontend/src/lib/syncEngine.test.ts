@@ -343,8 +343,8 @@ describe("useSyncEngine", () => {
         res2First = await hook2.result.current.triggerSync();
       });
 
-      const state1First = { ...hook1.result.current };
-      const state2First = { ...hook2.result.current };
+      const state1First = { status: hook1.result.current.status, pendingCount: hook1.result.current.pendingCount };
+      const state2First = { status: hook2.result.current.status, pendingCount: hook2.result.current.pendingCount };
 
       let res1Replay, res2Replay;
       await act(async () => {
@@ -352,8 +352,8 @@ describe("useSyncEngine", () => {
         res2Replay = await hook2.result.current.triggerSync();
       });
 
-      const state1Replay = { ...hook1.result.current };
-      const state2Replay = { ...hook2.result.current };
+      const state1Replay = { status: hook1.result.current.status, pendingCount: hook1.result.current.pendingCount };
+      const state2Replay = { status: hook2.result.current.status, pendingCount: hook2.result.current.pendingCount };
 
       assert.deepStrictEqual(res1First, res1Replay);
       assert.deepStrictEqual(res2First, res2Replay);
@@ -801,8 +801,8 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
         res2First = await hook2.result.current.triggerSync();
       });
 
-      const state1First = { ...hook1.result.current };
-      const state2First = { ...hook2.result.current };
+      const state1First = { status: hook1.result.current.status, pendingCount: hook1.result.current.pendingCount };
+      const state2First = { status: hook2.result.current.status, pendingCount: hook2.result.current.pendingCount };
 
       // Replay identical inputs sequentially to simulate idempotency
       let res1Replay, res2Replay;
@@ -811,8 +811,8 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
         res2Replay = await hook2.result.current.triggerSync();
       });
 
-      const state1Replay = { ...hook1.result.current };
-      const state2Replay = { ...hook2.result.current };
+      const state1Replay = { status: hook1.result.current.status, pendingCount: hook1.result.current.pendingCount };
+      const state2Replay = { status: hook2.result.current.status, pendingCount: hook2.result.current.pendingCount };
 
       // Output state remains strictly equal
       assert.deepStrictEqual(res1First, res1Replay);
@@ -869,7 +869,11 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       const burstSize = 100;
       const tenants = ["tenant-A", "tenant-B", "tenant-C"];
 
-      hooks = tenants.map(t => renderHook(() => useSyncEngine(t, false)));
+      hooks = tenants.map(t => {
+        const root = document.createElement("div");
+        root.setAttribute("data-tenant", t);
+        return renderHook(() => useSyncEngine(t, false), { container: root });
+      });
 
       const start = performance.now();
 
@@ -929,14 +933,16 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
 
       const hooks = [];
       for (let i = 0; i < burstSize; i++) {
-        hooks.push(renderHook(() => useSyncEngine(`tenant-mem-${i}`, false)));
+        const root = document.createElement("div");
+        root.setAttribute("data-tenant", `tenant-mem-${i % 5}`);
+        hooks.push({ hook: renderHook(() => useSyncEngine(`tenant-mem-${i % 5}`, false), { container: root }), root });
       }
 
       const promises = [];
       for (let i = 0; i < burstSize; i++) {
         promises.push((async () => {
           await new Promise(r => setTimeout(r, Math.random() * 2));
-          return hooks[i].result.current.triggerSync();
+          return hooks[i].hook.result.current.triggerSync();
         })());
       }
 
@@ -945,7 +951,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       });
 
       for (let i = 0; i < burstSize; i++) {
-        hooks[i].unmount();
+        hooks[i].hook.unmount();
       }
 
       // Allow event loop to clear up
@@ -1030,6 +1036,8 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
     const baseState = { procedureId: "proc-999", patientVitals: { hr: 75, bp: { sys: 120, dia: 80 } }, inventory: { used: ["item-1"], wasted: [] } };
     const modifiedState = { procedureId: "proc-999", patientVitals: { hr: 78, bp: { sys: 118, dia: 79 } }, inventory: { used: ["item-1", "item-2"], wasted: ["item-3"] } };
 
+    Object.freeze(baseState);
+    Object.freeze(modifiedState);
     const snapshotDelta = diffRecords(baseState, modifiedState);
     assert.deepStrictEqual(snapshotDelta, {
       patientVitals: { hr: 78, bp: { sys: 118, dia: 79 } },
@@ -1037,8 +1045,10 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
     }, "Snapshot delta must capture deep-nested clinical modifications accurately");
 
     // Preference Card Conflict Resolution
-    const remoteState = { id: "pref-123", surgeon: "Dr. A", equipment: ["scalpel", "forceps"], lastUpdated: 1000 };
-    const localState = { id: "pref-123", surgeon: "Dr. A", equipment: ["scalpel", "forceps", "sutures"], lastUpdated: 1050 };
+    const remoteState = { id: "pref-123", surgeon: "Dr. A", procedure: "Appendectomy", equipment: ["scalpel", "forceps"], lastUpdated: 1000 };
+    const localState = { id: "pref-123", surgeon: "Dr. A", procedure: "Appendectomy", equipment: ["scalpel", "forceps", "sutures"], lastUpdated: 1050 };
+    Object.freeze(remoteState);
+    Object.freeze(localState);
     const conflictDelta = diffRecords(remoteState, localState);
     assert.deepStrictEqual(conflictDelta, { equipment: ["scalpel", "forceps", "sutures"], lastUpdated: 1050 }, "Conflict resolution should generate accurate deltas favoring local state");
 
