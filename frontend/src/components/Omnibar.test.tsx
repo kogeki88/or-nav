@@ -1010,7 +1010,7 @@ test('clinical state snapshot consistency & deterministic state transition matri
     assert.strictEqual(input.value, 'Surgeon preference card update: Dr. Smith needs 2.0 prolene');
 
     // Take snapshot of the current text value for structural comparison using Deepcopy/JSON serialization
-    const stateSnapshot = JSON.parse(JSON.stringify({ value: input.value }));
+    const stateSnapshot = structuredClone({ value: input.value });
     assert.deepStrictEqual(stateSnapshot, { value: 'Surgeon preference card update: Dr. Smith needs 2.0 prolene' });
 
     // Submit the form
@@ -1066,7 +1066,7 @@ test('Omnibar: Concurrency, multi-tenant isolation, and offline mutation invaria
     // Simulate concurrent burst across isolated tenants
     const numWorkers = 50;
     const burstOperations = Array.from({ length: numWorkers }).map((_, i) => {
-      return Promise.resolve().then(() => {
+      return new Promise(r => setTimeout(r, Math.random() * 10)).then(() => {
         // Tenant 1
         fireEvent.change(input1, { target: { value: `Tenant ${tenant1} msg ${i}` } });
         fireEvent.click(submitBtn1);
@@ -1083,9 +1083,11 @@ test('Omnibar: Concurrency, multi-tenant isolation, and offline mutation invaria
     assert.strictEqual(onSendMessage2.mock.calls.length, 50);
 
     // Assert message content correctly populated across the event loop burst
+    const calls1 = onSendMessage1.mock.calls.map(c => c.arguments[0]);
+    const calls2 = onSendMessage2.mock.calls.map(c => c.arguments[0]);
     for (let i = 0; i < numWorkers; i++) {
-        assert.strictEqual(onSendMessage1.mock.calls[i].arguments[0], `Tenant ${tenant1} msg ${i}`);
-        assert.strictEqual(onSendMessage2.mock.calls[i].arguments[0], `Tenant ${tenant2} msg ${i}`);
+        assert.ok(calls1.includes(`Tenant ${tenant1} msg ${i}`));
+        assert.ok(calls2.includes(`Tenant ${tenant2} msg ${i}`));
     }
 
     // Verify offline-first: no fetch calls should have been made successfully
