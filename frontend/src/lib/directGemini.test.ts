@@ -841,8 +841,10 @@ describe('directGemini', () => {
       }
 
       for (let i = 0; i < queries.length; i++) {
-        const s1 = { ...snapshots[i], latency_ms: 0 };
-        const s2 = structuredClone({ ...snapshots2[i], latency_ms: 0 });
+        const s1 = structuredClone(snapshots[i]);
+        s1.latency_ms = 0;
+        const s2 = structuredClone(snapshots2[i]);
+        s2.latency_ms = 0;
         assert.deepStrictEqual(s1, s2, "Deterministic state transition matrices must remain deeply consistent");
       }
     });
@@ -859,10 +861,12 @@ describe('directGemini', () => {
       const query = "Dr. Smith preference card tray setup for lap chole in OR 1";
       const res = await directGeminiRAG(query);
 
-      const snapshot1 = { ...res, latency_ms: 0 };
+      const snapshot1 = structuredClone(res);
+      snapshot1.latency_ms = 0;
 
       const res2 = await directGeminiRAG(query);
-      const snapshot2 = structuredClone({ ...res2, latency_ms: 0 });
+      const snapshot2 = structuredClone(res2);
+      snapshot2.latency_ms = 0;
 
       assert.deepStrictEqual(snapshot1, snapshot2, "Clinical state snapshot must remain perfectly consistent across identical parses");
     });
