@@ -50,3 +50,27 @@ def test_peer_qna_create_invalid_tenant():
         "question_text": "How do I do this?",
     })
     assert resp.status_code == 422
+
+
+def test_verify_move_fuzz_payload_html():
+    resp = client.post("/api/inventory/verify-move", json={
+        "tenant_id": "sacred_heart::or",
+        "item": "<script>alert(1)</script>",
+        "expected_location": "location 1"
+    })
+    assert resp.status_code == 422
+
+def test_flag_wrong_fuzz_payload_html():
+    resp = client.post("/api/inventory/flag-wrong", json={
+        "tenant_id": "sacred_heart::or",
+        "item": "scalpel",
+        "reason": "<script>alert(1)</script>"
+    })
+    assert resp.status_code == 422
+
+def test_create_question_fuzz_payload_html():
+    resp = client.post("/api/questions", json={
+        "tenant_id": "sacred_heart::or",
+        "question_text": "<script>alert(1)</script>"
+    })
+    assert resp.status_code == 422
