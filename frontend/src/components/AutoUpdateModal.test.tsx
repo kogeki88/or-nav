@@ -2,7 +2,7 @@ import 'jsdom-global/register.js';
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
-import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, act, within } from '@testing-library/react';
 import { VersionManifest } from '@/lib/version';
 
 const proxyquire = require('proxyquire');
@@ -182,8 +182,8 @@ test('enforces multi-tenant isolation invariant with stateless and deterministic
     );
 
     // Assert Tenant A
-    assert.ok(screen.getByText('v0.61 (Build 18) ➔ v0.99-TenantA (Build 19)'));
-    assert.ok(screen.getByText('Tenant A Specific Features'));
+    assert.ok(within(rootA).getByText('v0.61 (Build 18) ➔ v0.99-TenantA (Build 19)'));
+    assert.ok(rootA.textContent?.includes('Tenant A Specific Features'));
 
     // Unmount and render Tenant B to verify no internal memoization or global leak persists
     unmount();
@@ -200,11 +200,11 @@ test('enforces multi-tenant isolation invariant with stateless and deterministic
     );
 
     // Assert Tenant B
-    assert.ok(screen.getByText('v0.61 (Build 18) ➔ v0.99-TenantB (Build 19)'));
-    assert.ok(screen.getByText('Tenant B Specific Features'));
+    assert.ok(within(rootB).getByText('v0.61 (Build 18) ➔ v0.99-TenantB (Build 19)'));
+    assert.ok(rootB.textContent?.includes('Tenant B Specific Features'));
 
     // Verify Tenant A data has completely leaked out of the render tree
-    assert.strictEqual(screen.queryByText('Tenant A Specific Features'), null);
+    assert.strictEqual(rootB.querySelector('*')?.textContent?.includes('Tenant A Specific Features'), false);
   } finally {
     document.body.removeChild(rootA);
     document.body.removeChild(rootB);
@@ -301,8 +301,8 @@ test('enforces multi-tenant boundary isolation and offline mutation replay idemp
       { container: root1 }
     );
 
-    assert.ok(screen.getByText(`Update for ${tenant1}`));
-    assert.strictEqual(screen.queryByText(`Update for ${tenant2}`), null);
+    assert.ok(root1.textContent?.includes(`Update for ${tenant1}`));
+    assert.strictEqual(root1.textContent?.includes(`Update for ${tenant2}`), false);
 
     // Replay exactly the same mutation
     rerender(
@@ -315,8 +315,8 @@ test('enforces multi-tenant boundary isolation and offline mutation replay idemp
       />
     );
 
-    assert.ok(screen.getByText(`Update for ${tenant1}`));
-    assert.strictEqual(screen.queryByText(`Update for ${tenant2}`), null);
+    assert.ok(root1.textContent?.includes(`Update for ${tenant1}`));
+    assert.strictEqual(root1.textContent?.includes(`Update for ${tenant2}`), false);
 
     unmount(); // Unmount to simulate fresh boundary context
 
@@ -332,8 +332,8 @@ test('enforces multi-tenant boundary isolation and offline mutation replay idemp
       { container: root2 }
     );
 
-    assert.ok(screen.getByText(`Update for ${tenant2}`));
-    assert.strictEqual(screen.queryByText(`Update for ${tenant1}`), null); // Assert Tenant 1 context is completely isolated/scrubbed
+    assert.ok(root2.textContent?.includes(`Update for ${tenant2}`));
+    assert.strictEqual(root2.textContent?.includes(`Update for ${tenant1}`), false); // Assert Tenant 1 context is completely isolated/scrubbed
   } finally {
     document.body.removeChild(root1);
     document.body.removeChild(root2);
@@ -599,8 +599,8 @@ test('supplementary: enforces multi-tenant boundary isolation (facility_id::dept
       { container: root1 }
     );
 
-    assert.ok(screen.getByText(`Update for ${tenant1}`));
-    assert.strictEqual(screen.queryByText(`Update for ${tenant2}`), null);
+    assert.ok(root1.textContent?.includes(`Update for ${tenant1}`));
+    assert.strictEqual(root1.textContent?.includes(`Update for ${tenant2}`), false);
 
     // Replay exactly the same mutation
     rerender(
@@ -613,8 +613,8 @@ test('supplementary: enforces multi-tenant boundary isolation (facility_id::dept
       />
     );
 
-    assert.ok(screen.getByText(`Update for ${tenant1}`));
-    assert.strictEqual(screen.queryByText(`Update for ${tenant2}`), null);
+    assert.ok(root1.textContent?.includes(`Update for ${tenant1}`));
+    assert.strictEqual(root1.textContent?.includes(`Update for ${tenant2}`), false);
 
     unmount(); // Unmount to simulate fresh boundary context
 
@@ -630,8 +630,8 @@ test('supplementary: enforces multi-tenant boundary isolation (facility_id::dept
       { container: root2 }
     );
 
-    assert.ok(screen.getByText(`Update for ${tenant2}`));
-    assert.strictEqual(screen.queryByText(`Update for ${tenant1}`), null); // Assert Tenant 1 context is completely isolated/scrubbed
+    assert.ok(root2.textContent?.includes(`Update for ${tenant2}`));
+    assert.strictEqual(root2.textContent?.includes(`Update for ${tenant1}`), false); // Assert Tenant 1 context is completely isolated/scrubbed
   } finally {
     global.fetch = tempFetch;
     document.body.removeChild(root1);
@@ -834,8 +834,8 @@ test('enforces clinical state snapshot consistency, preference card conflict res
     );
 
     // Verify state transition matrix consistency for snapshot A
-    assert.ok(screen.getByText(`Clinical Snapshot Update for ${tenantClinical1}`));
-    assert.strictEqual(screen.queryByText(`Clinical Snapshot Update for ${tenantClinical2}`), null);
+    assert.ok(root1.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical1}`));
+    assert.strictEqual(root1.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical2}`), false);
 
     // Simulate preference card conflict resolution: rerender tenant 1 with preference card B
     rerender1(
@@ -849,9 +849,9 @@ test('enforces clinical state snapshot consistency, preference card conflict res
     );
 
     // The modal should deterministically transition to state B without leakage
-    assert.ok(screen.getByText(`Clinical Snapshot Update for ${tenantClinical2}`));
+    assert.ok(root1.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical2}`));
     // The previous state (snapshot A) must be evicted and completely resolved
-    assert.strictEqual(screen.queryByText(`Clinical Snapshot Update for ${tenantClinical1}`), null);
+    assert.strictEqual(root1.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical1}`), false);
 
     unmount1();
 
@@ -867,8 +867,8 @@ test('enforces clinical state snapshot consistency, preference card conflict res
       { container: root2 }
     );
 
-    assert.ok(screen.getByText(`Clinical Snapshot Update for ${tenantClinical2}`));
-    assert.strictEqual(screen.queryByText(`Clinical Snapshot Update for ${tenantClinical1}`), null);
+    assert.ok(root2.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical2}`));
+    assert.strictEqual(root2.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical1}`), false);
 
     unmount2();
 
