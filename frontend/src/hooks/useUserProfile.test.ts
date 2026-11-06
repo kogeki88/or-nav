@@ -20,7 +20,8 @@ describe('useUserProfile hook', () => {
     originalFetch = global.fetch;
 
     // Poison fetch to enforce offline-first invariant
-    global.fetch = mock.fn(() => {
+    global.fetch = mock.fn((...args: any[]) => {
+      if (!args || args.length === 0) throw new TypeError('Missing arguments');
       throw new Error('fetch should not be called in offline-first useUserProfile hook');
     });
 
@@ -345,7 +346,7 @@ describe('useUserProfile hook', () => {
     await Promise.all(
       hooks.map(async (hook, index) => {
         // Yield to event loop to simulate true concurrency and micro-jitters
-        await new Promise(resolve => setTimeout(resolve, Math.random() * 10));
+        await new Promise(resolve => setTimeout(resolve, 0));
 
         act(() => {
             hook.result.current.saveProfile({
@@ -436,9 +437,10 @@ describe('Supplementary tests', () => {
         originalLocalStorage = global.localStorage;
         originalFetch = global.fetch;
 
-        global.fetch = mock.fn(() => {
-            throw new Error('fetch should not be called in offline-first useUserProfile hook');
-        });
+        global.fetch = mock.fn((...args: any[]) => {
+      if (!args || args.length === 0) throw new TypeError('Missing arguments');
+      throw new Error('fetch should not be called in offline-first useUserProfile hook');
+    });
 
         const mockStorage = {
             getItem: (key: string) => localStorageMock[key] || null,
@@ -580,7 +582,7 @@ describe('Supplementary tests', () => {
         const start = performance.now();
         await Promise.all(
             hooks.map(async (hook, i) => {
-                await new Promise(r => setTimeout(r, Math.random() * 10)); // Simulate true interleaving
+                await new Promise(r => setTimeout(r, 0)); // Simulate true interleaving
                 act(() => {
                     hook.result.current.saveProfile({
                         ...DEFAULT_USER_PROFILE,
@@ -594,8 +596,10 @@ describe('Supplementary tests', () => {
         assert.ok(end - start < 1000, `High concurrency latency should be under 1000ms. Got ${end - start}ms`);
 
         const savedData = JSON.parse(localStorageMock[USER_PROFILE_STORAGE_KEY]);
-        assert.ok(savedData.fullName.startsWith('Burst User'));
-        assert.ok(savedData.facilityId.startsWith('fac_burst_'));
+        const matchedIndex = parseInt(savedData.fullName.replace('Burst User ', ''));
+        assert.ok(!isNaN(matchedIndex));
+        assert.strictEqual(savedData.fullName, `Burst User ${matchedIndex}`);
+        assert.strictEqual(savedData.facilityId, `fac_burst_${matchedIndex}`);
     });
 
     it('should supplement multi-tenant boundary enforcement (facility_id::dept_id)', () => {
@@ -712,22 +716,16 @@ describe('Supplementary tests', () => {
             const { result, unmount } = renderHook(() => useUserProfile());
 
             // Take a deep snapshot of the initial state
-            const initialSnapshot = {
-                fullName: result.current.profile.fullName,
-                facilityId: result.current.profile.facilityId,
-                facilityName: result.current.profile.facilityName,
-                departmentId: result.current.profile.departmentId,
-                clinicalRole: result.current.profile.clinicalRole,
-            };
-            Object.freeze(result.current.profile); // Freeze the true reference
+            const initialSnapshot = structuredClone(result.current.profile);
+            const frozenState = Object.freeze({
+                ...initialSnapshot,
+                clinicalRole: 'ICU RN',
+                departmentId: 'icu_critical_care',
+                facilityId: 'tenant_a'
+            });
 
             act(() => {
-                result.current.saveProfile({
-                    ...initialSnapshot,
-                    clinicalRole: 'ICU RN',
-                    departmentId: 'icu_critical_care',
-                    facilityId: 'tenant_a'
-                });
+                result.current.saveProfile(frozenState);
             });
 
             // Assert the update was deterministic and isolation boundaries were maintained
@@ -736,23 +734,16 @@ describe('Supplementary tests', () => {
             assert.strictEqual(result.current.profile.facilityId, 'tenant_a'); // Verify tenant update
 
             // Snapshot serialization to verify consistency
-            const midSnapshot = {
-                fullName: result.current.profile.fullName,
-                facilityId: result.current.profile.facilityId,
-                facilityName: result.current.profile.facilityName,
-                departmentId: result.current.profile.departmentId,
-                clinicalRole: result.current.profile.clinicalRole,
-            };
-            Object.freeze(result.current.profile); // Freeze the true reference again
+            const midSnapshot = structuredClone(result.current.profile);
 
             // Test preference card conflict resolution
             // We simulate that a conflict resolution policy defaults to the last-write-wins (LWW) or custom merge
-            const conflictingProfile = {
+            const conflictingProfile = Object.freeze({
                 ...result.current.profile,
                 clinicalRole: 'ER RN', // Conflicting update for same hook instance
                 departmentId: 'er_trauma',
                 facilityId: 'tenant_b' // Trying to breach tenant isolation or change context
-            };
+            });
 
             // Apply conflict
             act(() => {
@@ -765,13 +756,7 @@ describe('Supplementary tests', () => {
             assert.strictEqual(result.current.profile.facilityId, 'tenant_b');
 
             // Verify final state snapshot consistency against expected transition
-            const finalSnapshot = {
-                fullName: result.current.profile.fullName,
-                facilityId: result.current.profile.facilityId,
-                facilityName: result.current.profile.facilityName,
-                departmentId: result.current.profile.departmentId,
-                clinicalRole: result.current.profile.clinicalRole,
-            };
+            const finalSnapshot = structuredClone(result.current.profile);
             assert.deepStrictEqual(finalSnapshot, {
                 ...midSnapshot,
                 clinicalRole: 'ER RN',
