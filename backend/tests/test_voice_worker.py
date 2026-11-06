@@ -285,6 +285,8 @@ async def test_concurrent_burst_execution_and_latency(monkeypatch):
     import socket
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
         family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
@@ -313,8 +315,9 @@ async def test_concurrent_burst_execution_and_latency(monkeypatch):
 
     monkeypatch.setattr("httpx.request", raise_offline_error)
 
+    import random
     async def _interleaved(coro):
-        await asyncio.sleep(0)
+        await asyncio.sleep(random.uniform(0, 0.01))
         return await coro
 
     num_requests = 100
@@ -345,6 +348,8 @@ async def test_concurrent_burst_write_race_condition(monkeypatch):
     import socket
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
         family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
@@ -373,8 +378,9 @@ async def test_concurrent_burst_write_race_condition(monkeypatch):
 
     monkeypatch.setattr("httpx.request", raise_offline_error)
 
+    import random
     async def _interleaved(coro):
-        await asyncio.sleep(0)
+        await asyncio.sleep(random.uniform(0, 0.01))
         return await coro
 
     num_requests = 50
@@ -410,6 +416,8 @@ async def test_offline_mutation_replay_idempotency(monkeypatch):
     import socket
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
         family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
@@ -501,6 +509,8 @@ async def test_supplementary_concurrent_burst_latency_and_race_condition_extende
     import socket
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
         family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
@@ -529,8 +539,9 @@ async def test_supplementary_concurrent_burst_latency_and_race_condition_extende
 
     monkeypatch.setattr("httpx.request", raise_offline_error)
 
+    import random
     async def _interleaved(coro):
-        await asyncio.sleep(0)
+        await asyncio.sleep(random.uniform(0, 0.01))
         return await coro
 
     num_requests = 200
@@ -575,6 +586,8 @@ async def test_supplementary_offline_mutation_replay_idempotency_multi_tenant(mo
     import socket
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
         family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
@@ -620,10 +633,13 @@ async def test_fault_injection_intermittent_latency_and_reconnection(monkeypatch
     import socket
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        if network_state["status"] == "offline":
-            raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
-        if network_state["latency"] > 0:
-            time.sleep(network_state["latency"])
+        if network_state['latency'] > 0:
+            time.sleep(network_state['latency'])
+        if not args and not kwargs:
+            if network_state['status'] == 'offline':
+                 raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
+        if network_state['status'] == 'offline':
+            raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
 
         family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
         if family != getattr(socket, 'AF_UNIX', -1):
@@ -632,10 +648,13 @@ async def test_fault_injection_intermittent_latency_and_reconnection(monkeypatch
         return original_socket(*args, **kwargs)
 
     def mock_httpx_raise(*args, **kwargs):
-        if network_state["status"] == "offline":
-            raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
-        if network_state["latency"] > 0:
-            time.sleep(network_state["latency"])
+        if network_state['latency'] > 0:
+            time.sleep(network_state['latency'])
+        if not args and not kwargs:
+            if network_state['status'] == 'offline':
+                 raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
+        if network_state['status'] == 'offline':
+            raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
         raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
 
     monkeypatch.setattr("socket.socket", mock_socket)
@@ -690,6 +709,8 @@ async def test_memory_leak_and_cache_eviction_voice_worker(monkeypatch: Any, tmp
     import socket
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
         family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
@@ -740,7 +761,8 @@ async def test_memory_leak_and_cache_eviction_voice_worker(monkeypatch: Any, tmp
     for i in range(num_requests):
         # Generate varied tenants to test eviction
         # (e.g., 20 unique tenants -> causes eviction with max cache size 5)
-        tenant = f"general_memorial_tenant_{i % 20}"
+        from app.services.inventory_search import MAX_SERVICES_CACHE_SIZE
+        tenant = f'general_memorial_tenant_{i % (MAX_SERVICES_CACHE_SIZE + 50)}'
         tasks.append(lookup_item_location(item_query="rapid infuser", tenant_id=tenant))
 
     results = await asyncio.gather(*tasks)
@@ -815,6 +837,8 @@ async def test_deterministic_state_transition_matrix(monkeypatch, tmp_path):
     import socket
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
         family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
@@ -869,6 +893,8 @@ async def test_preference_card_conflict_resolution(monkeypatch, tmp_path):
     import socket
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
         family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
@@ -908,6 +934,8 @@ async def test_clinical_state_snapshot_consistency(monkeypatch, tmp_path):
     import socket
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
         family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
         if family != getattr(socket, 'AF_UNIX', -1):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
@@ -949,8 +977,11 @@ async def test_clinical_state_snapshot_consistency(monkeypatch, tmp_path):
     assert len(snapshot_before) == len(snapshot_after)
 
     # Check one item changed
-    infuser_before = next((i for i in snapshot_before if i["item"].lower() == "rapid infuser"), None)
-    infuser_after = next((i for i in snapshot_after if i["item"].lower() == "rapid infuser"), None)
+    import copy
+    snapshot_before = copy.deepcopy(snapshot_before)
+    snapshot_after = copy.deepcopy(snapshot_after)
+    infuser_before = next((i for i in snapshot_before if i['item'].lower() == 'rapid infuser'), None)
+    infuser_after = next((i for i in snapshot_after if i['item'].lower() == 'rapid infuser'), None)
 
     for snap in [snapshot_before, snapshot_after]:
         for item in snap:
