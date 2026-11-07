@@ -141,7 +141,11 @@ describe("LiveKitAudioVisualizer Client Cleanup", () => {
       assert.strictEqual((visualizer as unknown as { animationFrameId: number | null }).animationFrameId, null);
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) {
+        delete (global as any).fetch;
+      } else {
+        global.fetch = originalFetch;
+      }
     }
   });
   it("should handle boundary inputs and fuzzing gracefully (null/undefined inputs)", () => {
@@ -243,7 +247,11 @@ describe("Fuzzing & Invariants", () => {
       assert.strictEqual(visualizer.getTenantId(), tenantAId);
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) {
+        delete (global as any).fetch;
+      } else {
+        global.fetch = originalFetch;
+      }
     }
   });
 });
@@ -437,7 +445,11 @@ describe("Memory Profiling & Resource Eviction Hardening", () => {
       assert.ok(diffMB < 150, `Memory growth exceeded allowed threshold: ${diffMB.toFixed(2)} MB`);
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) {
+        delete (global as any).fetch;
+      } else {
+        global.fetch = originalFetch;
+      }
       window.addEventListener = originalAddEventListener;
       window.removeEventListener = originalRemoveEventListener;
     }
@@ -605,7 +617,11 @@ describe("High-Concurrency & Stress Benchmarks", () => {
       visualizer.disconnect();
       assert.strictEqual((visualizer as unknown as { animationFrameId: number | null }).animationFrameId, null);
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) {
+        delete (global as any).fetch;
+      } else {
+        global.fetch = originalFetch;
+      }
     }
   });
 });
@@ -646,5 +662,82 @@ describe("Clinical Workflow Snapshot & Deterministic State Verifications", () =>
     // Apply conflict override
     visualizer.setTenantId(conflictTenant);
     assert.strictEqual(visualizer.getTenantId(), conflictTenant, "Last-Write-Wins (LWW) conflict resolution should apply for preference/state changes");
+  });
+});
+
+describe("Additional Hardened Edge Cases", () => {
+  let originalRequestAnimationFrame: typeof global.requestAnimationFrame;
+  let originalCancelAnimationFrame: typeof global.cancelAnimationFrame;
+  let requestAnimationFrameSpy: ReturnType<typeof mock.fn>;
+  let cancelAnimationFrameSpy: ReturnType<typeof mock.fn>;
+
+  beforeEach(() => {
+    originalRequestAnimationFrame = global.requestAnimationFrame;
+    originalCancelAnimationFrame = global.cancelAnimationFrame;
+
+    requestAnimationFrameSpy = mock.fn((cb: FrameRequestCallback) => {
+      return 123;
+    });
+    cancelAnimationFrameSpy = mock.fn((id: number) => { return; });
+
+    global.requestAnimationFrame = requestAnimationFrameSpy as unknown as typeof global.requestAnimationFrame;
+    global.cancelAnimationFrame = cancelAnimationFrameSpy as unknown as typeof global.cancelAnimationFrame;
+  });
+
+  afterEach(() => {
+    mock.restoreAll();
+    global.requestAnimationFrame = originalRequestAnimationFrame;
+    global.cancelAnimationFrame = originalCancelAnimationFrame;
+  });
+
+  it("should not double-start animation frames if unmuted is fired repeatedly", () => {
+    const canvas = document.createElement('canvas');
+    canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+    const visualizer = new LiveKitAudioVisualizer(canvas);
+    const mockTrack = new MockAudioTrack();
+
+    visualizer.start(mockTrack as unknown as import("livekit-client").LocalAudioTrack);
+    assert.strictEqual(requestAnimationFrameSpy.mock.calls.length, 1);
+
+    const unmutedListeners = mockTrack.getListeners('unmuted');
+    unmutedListeners[0]();
+    unmutedListeners[0]();
+
+    // Should still be 1 (or 2 if the first unmuted triggered one, but not linearly increasing)
+    // The visualizer handles this by checking if animationFrameId is null.
+    // Since requestAnimationFrameSpy returns 123, animationFrameId is NOT null.
+    // So subsequent unmuted calls should not increase the call count.
+    // However, the visualizer start sets it to non-null immediately.
+    assert.strictEqual(requestAnimationFrameSpy.mock.calls.length, 1);
+  });
+
+  it("should handle disconnect gracefully if called immediately after start before animation frame resolves", () => {
+    const canvas = document.createElement('canvas');
+    canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+    const visualizer = new LiveKitAudioVisualizer(canvas);
+    const mockTrack = new MockAudioTrack();
+
+    visualizer.start(mockTrack as unknown as import("livekit-client").LocalAudioTrack);
+    visualizer.disconnect();
+
+    assert.strictEqual(cancelAnimationFrameSpy.mock.calls.length, 1);
+    assert.strictEqual((visualizer as unknown as { animationFrameId: number | null }).animationFrameId, null);
+  });
+
+  it("should handle start with a track that immediately throws or fails internally (simulating WebRTC failure)", () => {
+    const canvas = document.createElement('canvas');
+    canvas.getContext = () => ({} as unknown as CanvasRenderingContext2D);
+    const visualizer = new LiveKitAudioVisualizer(canvas);
+    const mockTrack = {
+      on: () => { throw new Error("WebRTC Internal Failure"); },
+      off: () => {}
+    };
+
+    assert.throws(
+      () => visualizer.start(mockTrack as unknown as import("livekit-client").LocalAudioTrack),
+      (err: any) => /WebRTC Internal Failure/.test(err.message)
+    );
+
+    assert.strictEqual((visualizer as unknown as { animationFrameId: number | null }).animationFrameId, null);
   });
 });
