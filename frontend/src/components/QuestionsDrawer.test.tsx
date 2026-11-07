@@ -48,6 +48,9 @@ describe("QuestionsDrawer", () => {
         ok: true,
         json: async () => ({})
       };
+    }) as any;
+    global.fetch = fetchMock;
+  });
 
   it("should handle intermittent network latency seamlessly without double submission", async () => {
     let callCount = 0;
@@ -78,7 +81,7 @@ describe("QuestionsDrawer", () => {
     await userEvent.type(input, "Latency Question");
 
     // Fire click and don't await it so we can check immediate state
-    userEvent.click(askButton);
+    act(() => { askButton.click(); });
 
     await waitFor(() => {
         assert.strictEqual(askButton.hasAttribute("disabled"), true);
@@ -119,7 +122,7 @@ describe("QuestionsDrawer", () => {
     const askButton = screen.getByText("Ask").closest('button') as HTMLButtonElement;
 
     await userEvent.type(input, "First Offline Question");
-    await userEvent.click(askButton);
+    act(() => { askButton.click(); });
 
     await waitFor(() => {
         assert.strictEqual(input.value, "");
@@ -128,7 +131,7 @@ describe("QuestionsDrawer", () => {
     fetchState = "online";
 
     await userEvent.type(input, "Online Question");
-    await userEvent.click(askButton);
+    act(() => { askButton.click(); });
 
     await waitFor(() => {
         assert.strictEqual(input.value, "");
@@ -137,16 +140,13 @@ describe("QuestionsDrawer", () => {
     fetchState = "offline";
 
     await userEvent.type(input, "Second Offline Question");
-    await userEvent.click(askButton);
+    act(() => { askButton.click(); });
 
     await waitFor(() => {
         assert.strictEqual(input.value, "");
     });
 
     act(() => { unmount(); });
-  });
-});
-    global.fetch = fetchMock;
   });
 
   afterEach(() => {
