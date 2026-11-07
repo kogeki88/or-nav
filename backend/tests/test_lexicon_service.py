@@ -597,10 +597,15 @@ def test_unclosed_event_listeners_or_threads_in_lexicon(mock_lexicon_dir):
 
     initial_thread_count = threading.active_count()
 
-    # Run heavy operations
-    for i in range(100):
-        facility = f"thread_leak_fac_{i % 5}"
-        learn_alias(facility, "or", f"term_{i}", f"Item {i}", f"user_{i}")
+    from concurrent.futures import ThreadPoolExecutor
+    # Run heavy operations in parallel to simulate concurrent stress
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = []
+        for i in range(100):
+            facility = f"thread_leak_fac_{i % 5}"
+            futures.append(executor.submit(learn_alias, facility, "or", f"term_{i}", f"Item {i}", f"user_{i}"))
+        for f in futures:
+            f.result()
 
     gc.collect()
 
@@ -610,7 +615,7 @@ def test_unclosed_event_listeners_or_threads_in_lexicon(mock_lexicon_dir):
     for _ in range(50):
         if threading.active_count() - initial_thread_count < 5:
             break
-        time.sleep(0.01)
+        time.sleep(0.05)
     final_thread_count = threading.active_count()
     assert final_thread_count - initial_thread_count < 5, f"Thread leak detected! Initial: {initial_thread_count}, Final: {final_thread_count}"
 
@@ -802,8 +807,10 @@ def test_learn_alias_strict_multi_tenant_isolation(mock_lexicon_dir):
     """
     Ensure learn_alias explicitly isolates tenants.
     """
-    facility1 = "strict_fac_1::or"
-    facility2 = "strict_fac_2::or"
+    tenant_id1 = "1"
+    tenant_id2 = "2"
+    facility1 = f"strict_fac_{tenant_id1}::or"
+    facility2 = f"strict_fac_{tenant_id2}::or"
 
     learn_alias(facility1, "or", "isolated term", "Item A", "user1")
     learn_alias(facility2, "or", "another term", "Item B", "user2")
@@ -814,9 +821,13 @@ def test_learn_alias_strict_multi_tenant_isolation(mock_lexicon_dir):
     assert len(aliases1) == 1
     assert len(aliases2) == 0
 
+    import re
     # Asserting explicit boundary delimiter
     res1 = resolve_spoken_alias(facility1, "isolated term")
-    assert res1 is not None and "strict_fac_1::or" in res1["facilityId"]
+    assert res1 is not None
+    # \b is fine at the start/end if it's adjacent to a word char, here strict_fac_1 and or end in word chars
+    assert re.search(r"\b" + re.escape(facility1) + r"\b", res1["facilityId"])
 
     res2 = resolve_spoken_alias(facility2, "another term")
-    assert res2 is not None and "strict_fac_2::or" in res2["facilityId"]
+    assert res2 is not None
+    assert re.search(r"\b" + re.escape(facility2) + r"\b", res2["facilityId"])
