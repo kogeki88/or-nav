@@ -2,7 +2,9 @@ import 'jsdom-global/register.js';
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
-import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, act } from '@testing-library/react';
+
+(global as any).IS_REACT_ACT_ENVIRONMENT = true;
 
 // Setup IndexedDB mock for Dexie
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -49,7 +51,9 @@ const PeerQnAPanelMod = proxyquire('./PeerQnAPanel', {
 
 const PeerQnAPanel = PeerQnAPanelMod.default;
 
+let originalConsoleError = console.error;
 beforeEach(() => {
+  console.error = mock.fn();
   mockOfflineQuestions = [];
   mockSaveOfflinePeerQuestionCalls = [];
 
@@ -60,6 +64,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  console.error = originalConsoleError;
   cleanup();
 });
 
@@ -430,8 +435,8 @@ test('handles concurrent/rapid submissions correctly without duplication', async
     global.fetch = mock.fn(async (url: any, options: any) => {
         if (options && options.method === 'POST') {
             postCallCount++;
-            // Simulate network delay to test debouncing/submitting state
-            await new Promise(resolve => setTimeout(resolve, 0));
+            // Simulate network delay to test debouncing/submitting state with deterministic jitter
+            await new Promise(resolve => setTimeout(resolve, (postCallCount * 13) % 10));
             const body = JSON.parse(options.body);
             return {
                 ok: true,
@@ -547,14 +552,14 @@ test('high-concurrency and race condition benchmark', async () => {
     await new Promise(r => setTimeout(r, 0));
 
     await Promise.all(panels.map(async ({ comp, tenantId, id }) => {
-        // Yield execution to simulate real concurrent burst!
-        await Promise.resolve();
+        // Yield execution to simulate real concurrent burst with deterministic jitter!
+        await new Promise(r => setTimeout(r, (id * 13) % 10));
 
         const askTab = comp.getByText('Ask Department Peers');
         fireEvent.click(askTab);
 
         const textarea = comp.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
-        fireEvent.change(textarea, { target: { value: `Stress question ${id} for ${tenantId}` } });
+        fireEvent.change(textarea, { target: { value: `Stress question ${id} for  ${tenantId} ` } });
 
         const submitBtn = comp.getByText('Broadcast Question');
         fireEvent.click(submitBtn);
@@ -573,7 +578,7 @@ test('high-concurrency and race condition benchmark', async () => {
     console.log(`Concurrency bench: ${numPanels} requests in ${totalLatency.toFixed(2)}ms (${avgLatency.toFixed(2)}ms/req)`);
 
     // Cleanup
-    panels.forEach(({ comp }) => comp.unmount());
+    panels.forEach(({ comp }) => act(() => comp.unmount()));
     } finally {
         global.fetch = originalFetch;
     }
@@ -607,14 +612,14 @@ test('high-concurrency and race condition benchmark - offline first invariant', 
     const initialCount = mockSaveOfflinePeerQuestionCalls.length;
 
     await Promise.all(panels.map(async ({ comp, tenantId, id }) => {
-        // Yield execution to simulate real concurrent burst!
-        await Promise.resolve();
+        // Yield execution to simulate real concurrent burst with deterministic jitter!
+        await new Promise(r => setTimeout(r, (id * 13) % 10));
 
         const askTab = comp.getByText('Ask Department Peers');
         fireEvent.click(askTab);
 
         const textarea = comp.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
-        fireEvent.change(textarea, { target: { value: `Offline stress question ${id} for ${tenantId}` } });
+        fireEvent.change(textarea, { target: { value: `Offline stress question ${id} for worker::${tenantId}::` } });
 
         const submitBtn = comp.getByText('Broadcast Question');
         fireEvent.click(submitBtn);
@@ -631,6 +636,7 @@ test('high-concurrency and race condition benchmark - offline first invariant', 
         const workerId = `sacred_heart::or_burst_${i}`;
         const workerCalls = relevantCalls.filter(call => call.tenantId === workerId);
         assert.strictEqual(workerCalls.length, 1, `Exactly one offline payload must be persisted for worker ${workerId}`);
+        assert.ok(workerCalls[0].questionText.includes(`worker::${workerId}::`), 'Payload text must strictly bind tenant boundaries without substring leakage');
     }
 
     for (let i = 0; i < relevantCalls.length; i++) {
@@ -642,7 +648,7 @@ test('high-concurrency and race condition benchmark - offline first invariant', 
     }
 
     // Cleanup
-    panels.forEach(({ comp }) => comp.unmount());
+    panels.forEach(({ comp }) => act(() => comp.unmount()));
     } finally {
         global.fetch = originalFetch;
     }
@@ -794,7 +800,7 @@ test('supplementary test: concurrent burst execution, race condition resistance,
     // Race condition resistance: Only one POST should have gone through due to rapid click protection
     assert.strictEqual(postCallCount, 1, 'Race condition resistance verified: Only one request should be sent');
 
-    comp.unmount();
+    act(() => comp.unmount());
     } finally {
         global.fetch = originalFetch;
     }
@@ -841,7 +847,7 @@ test('supplementary multi-tenant boundary enforcement (facility_id::dept_id) and
         // 8. Assert multi-tenant boundary enforcement in the offline mutation payload
         assert.strictEqual(mockSaveOfflinePeerQuestionCalls[0].tenantId, 'facility1::dept2', 'The offline payload must strictly enforce the tenant boundary');
 
-        comp.unmount();
+        act(() => comp.unmount());
     } finally {
         global.fetch = originalFetch;
     }
@@ -917,8 +923,8 @@ test('supplementary invariant test 3: intermittent latency and self-healing reco
 
         // 4. Force a re-fetch (simulating self-healing reconnection)
         // Closing and reopening triggers fetchQuestions
-        comp.rerender(<PeerQnAPanel isOpen={false} onClose={() => {}} tenantId="facility2::dept3" userProfile={dummyProfile} />);
-        comp.rerender(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility2::dept3" userProfile={dummyProfile} />);
+        act(() => comp.rerender(<PeerQnAPanel isOpen={false} onClose={() => {}} tenantId="facility2::dept3" userProfile={dummyProfile} />));
+        act(() => comp.rerender(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility2::dept3" userProfile={dummyProfile} />));
 
         // Wait for the re-fetch with latency to resolve
         await waitFor(() => {
@@ -942,7 +948,7 @@ test('supplementary invariant test 3: intermittent latency and self-healing reco
         // Assert we successfully reconnected and performed the operation online
         assert.strictEqual(fetchCallCount, 3, 'Fetch should be called 3 times (fail, recover, post)');
 
-        comp.unmount();
+        act(() => comp.unmount());
     } finally {
         global.fetch = originalFetch;
     }
@@ -991,15 +997,15 @@ test('supplementary invariant test 4: network partition degradation and retry fa
         assert.ok(!comp.queryByText('Retry success?'));
 
         // 5. Force refetch
-        comp.rerender(<PeerQnAPanel isOpen={false} onClose={() => {}} tenantId="facility3::dept4" userProfile={dummyProfile} />);
-        comp.rerender(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility3::dept4" userProfile={dummyProfile} />);
+        act(() => comp.rerender(<PeerQnAPanel isOpen={false} onClose={() => {}} tenantId="facility3::dept4" userProfile={dummyProfile} />));
+        act(() => comp.rerender(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility3::dept4" userProfile={dummyProfile} />));
 
         // 6. Wait for success
         await waitFor(() => {
             assert.ok(comp.getByText('Retry success?'));
         });
 
-        comp.unmount();
+        act(() => comp.unmount());
     } finally {
         global.fetch = originalFetch;
     }
@@ -1033,7 +1039,7 @@ test('supplementary invariant test 5: multi-tenant isolation offline-first fetch
             assert.strictEqual(comp.queryByText('Tenant 2 question?'), null, 'Tenant 2 data must not leak into Tenant 1 panel');
         });
 
-        comp.unmount();
+        act(() => comp.unmount());
     } finally {
         global.fetch = originalFetch;
         mockOfflineQuestions = []; // Cleanup
@@ -1107,7 +1113,7 @@ test('memory profile: ensures no event listener leaks and bounds heap usage duri
             fireEvent.click(submitBtn);
         }
 
-        comp.unmount();
+        act(() => comp.unmount());
         root.remove();
     }
 
@@ -1191,7 +1197,7 @@ test('HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust t
     assert.strictEqual(savedCall.questionText, maliciousPayload);
 
     global.fetch = originalFetch;
-    comp.unmount();
+    act(() => comp.unmount());
 });
 
 test('enforces clinical state snapshot consistency, preference card conflict resolution, and deterministic state transition matrices', async () => {
@@ -1272,24 +1278,24 @@ test('enforces clinical state snapshot consistency, preference card conflict res
     assert.strictEqual(snapshot1[0].questionText, conflictText);
     assert.strictEqual(snapshot2[0].questionText, conflictText);
 
-    // Freeze the baseline state for structural comparison
-    Object.freeze(snapshot1[0]);
-    Object.freeze(snapshot2[0]);
-    const baselineSnapshot = structuredClone(snapshot1[0]);
-    const baselineSnapshot2 = structuredClone(snapshot2[0]);
-
     // Exclude volatile metadata
-    delete baselineSnapshot.createdAt;
-    delete baselineSnapshot.updatedAt;
-    delete baselineSnapshot2.createdAt;
-    delete baselineSnapshot2.updatedAt;
+    const clone1 = structuredClone(snapshot1[0]);
+    const clone2 = structuredClone(snapshot2[0]);
+    delete clone1.createdAt;
+    delete clone1.updatedAt;
+    delete clone2.createdAt;
+    delete clone2.updatedAt;
+
+    // Freeze the baseline state for structural comparison
+    const baselineSnapshot = Object.freeze(structuredClone(clone1));
+    const baselineSnapshot2 = Object.freeze(structuredClone(clone2));
 
     // Test that the mutations on the frozen objects throw error (deep immutability)
     try {
-        snapshot1[0].tenantId = 'mutated';
+        baselineSnapshot.tenantId = 'mutated';
     } catch(e) {}
     try {
-        snapshot2[0].tenantId = 'mutated';
+        baselineSnapshot2.tenantId = 'mutated';
     } catch(e) {}
 
 
@@ -1299,8 +1305,8 @@ test('enforces clinical state snapshot consistency, preference card conflict res
 
     // Cleanup
     global.fetch = originalFetch;
-    comp1.unmount();
-    comp2.unmount();
+    act(() => comp1.unmount());
+    act(() => comp2.unmount());
     root1.remove();
     root2.remove();
 });
