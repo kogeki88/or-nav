@@ -103,7 +103,7 @@ test("deltaSyncPayload edge cases and invariants", async (t) => {
   await t.test("offline-first invariants with global.fetch mock", async () => {
     const originalFetch = global.fetch;
     try {
-      global.fetch = async () => { throw new TypeError('Failed to fetch'); };
+      global.fetch = async (...args: any[]) => { if (args.length === 0) throw new TypeError('Missing arguments'); throw new TypeError('Failed to fetch'); };
 
       const mutations = [
         { id: 1, type: "offline_action", tenant_id: "offline_tenant", payload: "test" }
@@ -206,12 +206,12 @@ test("deltaSyncPayload concurrency, race conditions, and performance benchmarks"
         workerId,
         id: i,
         val: `worker-${workerId}-item-${i}`,
-        tenant_id: `tenant_${workerId}`,
+        tenant_id: `tenant_${workerId}::or`,
       }));
       // Simulate asynchronous timing
-      await new Promise(r => setImmediate(r));
+      await new Promise(r => setTimeout(r, (workerId * 13) % 10));
       const compressed = compressPayload(data);
-      await new Promise(r => setImmediate(r));
+      await new Promise(r => setTimeout(r, (workerId * 13) % 10));
       const decompressed = decompressPayload(compressed);
       return decompressed;
     };
@@ -222,10 +222,11 @@ test("deltaSyncPayload concurrency, race conditions, and performance benchmarks"
 
     for (let workerIdx = 0; workerIdx < numWorkers; workerIdx++) {
       const decompressed = results[workerIdx] as any[];
+      assert.ok(decompressed.length > 0);
       assert.strictEqual(decompressed.length, 100);
       for (let itemIdx = 0; itemIdx < 100; itemIdx++) {
         assert.strictEqual(decompressed[itemIdx].workerId, workerIdx);
-        assert.strictEqual(decompressed[itemIdx].tenant_id, `tenant_${workerIdx}`);
+        assert.strictEqual(decompressed[itemIdx].tenant_id, `tenant_${workerIdx}::or`);
         assert.strictEqual(decompressed[itemIdx].id, itemIdx);
         assert.strictEqual(decompressed[itemIdx].val, `worker-${workerIdx}-item-${itemIdx}`);
       }
@@ -277,7 +278,7 @@ test("deltaSyncPayload network resilience and fault injection", async (t) => {
     const fetchedPayloads: any[] = [];
     const originalFetch = global.fetch;
 
-    global.fetch = async (url, options) => {
+    global.fetch = async (...args: any[]) => { if (args.length === 0) throw new TypeError('Missing arguments'); const [url, options] = args;
       networkState.requests++;
       if (networkState.status === "offline") {
         throw new TypeError("Failed to fetch");
@@ -620,11 +621,8 @@ test("deltaSyncPayload expanded hardening", async (t) => {
     ];
 
     // Simulate some active modifications and deep immutability check
-    const original = structuredClone(mixedPayloads);
-    Object.freeze(original[0]);
-    Object.freeze(original[1]);
-    Object.freeze(original[2]);
-    Object.freeze(original);
+    const original = Object.freeze(structuredClone(mixedPayloads));
+    original.forEach(Object.freeze);
 
     const compressed = compressPayload(mixedPayloads);
     const decompressed = decompressPayload(compressed) as any[];
@@ -649,9 +647,9 @@ test("deltaSyncPayload expanded hardening", async (t) => {
     const workerTask = async (i: number) => {
       // Intentionally clone to mimic realistic state updates before passing to compress
       const localState = { ...sharedObj, id: i, payload: `val_${i}`, flags: { ...sharedObj.flags } };
-      await new Promise(r => setImmediate(r));
+      await new Promise(r => setTimeout(r, (i * 13) % 10));
       const compressed = compressPayload([localState]);
-      await new Promise(r => setImmediate(r));
+      await new Promise(r => setTimeout(r, (i * 13) % 10));
       const decompressed = decompressPayload(compressed) as any[];
       return decompressed[0];
     };
