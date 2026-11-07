@@ -3,8 +3,9 @@ import "jsdom-global/register";
 import { describe, it, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import React from "react";
-import { render, screen, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, waitFor, cleanup, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+(global as any).IS_REACT_ACT_ENVIRONMENT = true;
 import QuestionsDrawer from "./QuestionsDrawer";
 
 // We override fetch to track API calls without proxyquire
@@ -89,7 +90,7 @@ describe("QuestionsDrawer", () => {
     });
 
     assert.strictEqual(callCount, 1);
-    unmount();
+    act(() => { unmount(); });
   });
 
   it("should handle network partition degradation and self-healing reconnection", async () => {
@@ -142,7 +143,7 @@ describe("QuestionsDrawer", () => {
         assert.strictEqual(input.value, "");
     });
 
-    unmount();
+    act(() => { unmount(); });
   });
 });
     global.fetch = fetchMock;
@@ -448,7 +449,7 @@ describe("QuestionsDrawer", () => {
     });
 
     // Replay the rendering phase
-    rerender(<QuestionsDrawer {...propsA} />);
+    act(() => { rerender(<QuestionsDrawer {...propsA} />); });
 
     // Assert UI state remains identical
     assert.strictEqual((input as HTMLInputElement).value, "");
@@ -534,7 +535,7 @@ describe("QuestionsDrawer", () => {
         assert.strictEqual(checkInput.value, "");
       });
     }
-    unmount();
+    act(() => { unmount(); });
 
     // Restore fetch manually if needed (afterEach handles it generally, but just to be safe here)
     global.fetch = fetchMock;
@@ -579,7 +580,7 @@ describe("QuestionsDrawer", () => {
         />,
         { container }
       );
-      unmount();
+      act(() => { unmount(); });
       document.body.removeChild(container);
     }
 
@@ -616,7 +617,7 @@ describe("QuestionsDrawer", () => {
       />
     );
 
-    unmount();
+    act(() => { unmount(); });
 
     assert.strictEqual(listeners, 0, "Event listeners were not properly cleaned up");
 
@@ -656,7 +657,7 @@ describe("QuestionsDrawer", () => {
        assert.strictEqual((draftInput as HTMLInputElement).value, "");
     });
 
-    unmount();
+    act(() => { unmount(); });
   });
 
 
@@ -693,12 +694,12 @@ describe("QuestionsDrawer", () => {
     input.value = testPayload;
     const tracker = (input as any)._valueTracker;
     if (tracker) tracker.setValue("");
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    act(() => { input.dispatchEvent(new Event('input', { bubbles: true })); });
+    act(() => { input.dispatchEvent(new Event('change', { bubbles: true })); });
 
     await userEvent.click(askButton);
 
-    unmount();
+    act(() => { unmount(); });
 
     assert.strictEqual(fetchCalls.length, 1);
     const bodyA = JSON.parse(fetchCalls[0].options.body);
@@ -812,9 +813,11 @@ describe("QuestionsDrawer", () => {
 
   it("should maintain strict multi-tenant data isolation under concurrent burst simulated load", async () => {
     const fetchCalls: any[] = [];
+    let fetchCallCount = 0;
     global.fetch = mock.fn(async (url: any, options: any) => {
+      const idx = fetchCallCount++;
       // Simulate network latency & interleaving
-      await new Promise(r => setTimeout(r, Math.random() * 10));
+      await new Promise(r => setTimeout(r, (idx * 13) % 10));
       fetchCalls.push({ url, options });
       return { ok: true, json: async () => ({}) };
     }) as any;
@@ -837,7 +840,7 @@ describe("QuestionsDrawer", () => {
       );
 
       // Jitter
-      await new Promise(r => setTimeout(r, Math.random() * 10));
+      await new Promise(r => setTimeout(r, (idx * 13) % 10));
 
       const input = root.querySelector("input[placeholder='e.g. Where are backup 5-0 Prolene sutures kept?']") as HTMLInputElement;
       const askButton = Array.from(root.querySelectorAll("button")).find(b => b.textContent === "Ask") as HTMLButtonElement;
@@ -849,15 +852,15 @@ describe("QuestionsDrawer", () => {
       input.value = testQuestion;
       const tracker = (input as any)._valueTracker;
       if (tracker) tracker.setValue("");
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-      input.dispatchEvent(new Event('change', { bubbles: true }));
+      act(() => { input.dispatchEvent(new Event('input', { bubbles: true })); });
+      act(() => { input.dispatchEvent(new Event('change', { bubbles: true })); });
 
       // Jitter
-      await new Promise(r => setTimeout(r, Math.random() * 10));
+      await new Promise(r => setTimeout(r, (idx * 13) % 10));
 
       await userEvent.click(askButton);
 
-      unmount();
+      act(() => { unmount(); });
       document.body.removeChild(root);
     });
 
@@ -873,7 +876,10 @@ describe("QuestionsDrawer", () => {
 
       const call = bodies.find(b => b.tenant_id === tenant);
       assert.ok(call, `Missing fetch call for tenant ${tenant}`);
+
+      // Memory: When asserting strict multi-tenant or concurrent data isolation using sequential string payloads, include explicit boundary delimiters
       assert.strictEqual(call.question_text, expectedText, `Cross-tenant leakage detected for ${tenant}`);
+      assert.ok(call.question_text.includes(`worker::${i}::`), `Strict boundary check failed for ${tenant}`);
     }
   });
 
