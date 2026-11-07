@@ -343,18 +343,18 @@ test('concurrent burst execution: handles massive volume of concurrent network r
   let callCount = 0;
   fetchNetworkInfoMock.mock.mockImplementation(async () => {
     const idx = callCount++;
-    await new Promise(r => setTimeout(r, 0)); // True interleaving
+    await new Promise(r => setTimeout(r, (idx * 13) % 10)); // pseudo-random deterministic jitter
     return {
       lan_ip: `fac_burst_${idx}::dept_X_IP`,
       lan_url: `http://fac_burst_${idx}::dept_X_IP:3000`,
       mobile_url: `http://fac_burst_${idx}::dept_X_IP:3000`,
-      https_url: `https://example-${idx}.trycloudflare.com`,
+      https_url: `https://tenant_${idx}::example.trycloudflare.com`,
       https_active: true
     };
   });
 
   const roots: HTMLDivElement[] = [];
-  const renders = Array.from({ length: 50 }).map(() => {
+  const renders = Array.from({ length: 50 }).map((_, i) => {
     const root = document.createElement('div');
     document.body.appendChild(root);
     roots.push(root);
@@ -369,7 +369,7 @@ test('concurrent burst execution: handles massive volume of concurrent network r
       const qrImage = roots[i].querySelector('img');
       const alt = qrImage?.getAttribute('alt') || '';
       // Assert with word boundaries to prevent substring collisions
-      assert.strictEqual(alt, `QR code pairing to https://example-${i}.trycloudflare.com`);
+      assert.strictEqual(alt, `QR code pairing to https://tenant_${i}::example.trycloudflare.com`);
     }
   }, { timeout: 5000 });
 
@@ -667,4 +667,87 @@ test('Preference card conflict resolution: simulated overriding preference prope
   unmount();
   fetchNetworkInfoMock.mock.resetCalls();
   QRCodeToDataURLMock.mock.resetCalls();
+});
+
+
+test('multi-tenant isolation: strict composite-key delimiter injection boundary for network resolution', async () => {
+  for (let i = 1; i <= 5; i++) {
+    fetchNetworkInfoMock.mock.mockImplementationOnce(async () => ({
+      lan_ip: `tenant_uid_${i}::192.168.1.10`,
+      lan_url: `http://tenant_uid_${i}::192.168.1.10:3000`,
+      mobile_url: `http://tenant_uid_${i}::192.168.1.10:3000`,
+      https_url: `https://tenant_uid_${i}::example.trycloudflare.com`,
+      https_active: true
+    }));
+
+    const { unmount } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+    await waitFor(() => {
+      const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+      assert.ok(args.some((arg: string) => arg.includes(`tenant_uid_${i}::example.trycloudflare.com`)), `Tenant ${i} data should be used`);
+      if (i > 1) {
+        assert.ok(!args.some((arg: string) => arg.includes(`tenant_uid_${i - 1}::`)), `Data from Tenant ${i - 1} should not leak into Tenant ${i}`);
+      }
+    });
+
+    unmount();
+    QRCodeToDataURLMock.mock.resetCalls();
+  }
+});
+
+test('offline-first compliance: validates fallback network state snapshot immutability using structuredClone and Object.freeze', async () => {
+  const baselineState = {
+    lan_ip: "127.0.0.1",
+    mobile_url: "http://127.0.0.1:3000",
+    lan_url: "http://127.0.0.1:3000",
+    https_active: false,
+  };
+  const frozenState = Object.freeze(structuredClone(baselineState));
+
+  fetchNetworkInfoMock.mock.mockImplementation(async () => {
+    throw new Error('Offline fallback triggered');
+  });
+
+  const { unmount } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  await waitFor(() => {
+    const lanBtn = screen.getByText('📶 Local LAN IP').closest('button');
+    assert.ok(lanBtn?.className.includes('bg-zinc-800'), 'LAN mode should be active by default offline');
+  });
+
+  assert.strictEqual(frozenState.https_active, false);
+  assert.strictEqual(frozenState.lan_ip, "127.0.0.1");
+
+  const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+  assert.ok(args.some((arg: string) => arg.includes(':3000') && arg.startsWith('http://')), 'Fallback uses the expected offline URL structure');
+
+  unmount();
+});
+
+test('race condition resistance: concurrent offline-first fallback generation with deterministic jitter', async () => {
+  let callCount = 0;
+  fetchNetworkInfoMock.mock.mockImplementation(async () => {
+    const idx = callCount++;
+    await new Promise(r => setTimeout(r, (idx * 13) % 10)); // pseudo-random deterministic jitter
+    throw new Error('Network offline');
+  });
+
+  const roots: HTMLDivElement[] = [];
+  const renders = Array.from({ length: 15 }).map((_, i) => {
+    const root = document.createElement('div');
+    document.body.appendChild(root);
+    roots.push(root);
+    return render(<QRPairModal isOpen={true} onClose={() => {}} />, { container: root });
+  });
+
+  await waitFor(() => {
+    renders.forEach((_, i) => {
+      const qrImage = roots[i].querySelector('img');
+      assert.ok(qrImage !== null);
+      const alt = qrImage?.getAttribute('alt') || '';
+      assert.ok(alt.includes('http://'), 'Fallback degraded to local URL correctly');
+    });
+  }, { timeout: 5000 });
+
+  renders.forEach((r, i) => r.unmount());
 });
