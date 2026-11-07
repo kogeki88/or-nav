@@ -44,7 +44,7 @@ def test_feedback_pipeline_multi_tenant_isolation():
     # Create a new item for Sacred Heart to ensure it doesn't leak
     payload = {
         "tenantId": "sacred_heart::or",
-        "rawText": "Isolated test complaint"
+        "rawText": "Isolated test complaint for sacred_heart::or"
     }
     client.post("/api/feedback", json=payload)
 
@@ -63,7 +63,7 @@ def test_feedback_pipeline_multi_tenant_isolation():
     # Add a new item to sacred_heart::icu
     payload_icu = {
         "tenantId": "sacred_heart::icu",
-        "rawText": "Isolated test complaint for ICU"
+        "rawText": "Isolated test complaint for sacred_heart::icu"
     }
     client.post("/api/feedback", json=payload_icu)
 
@@ -75,7 +75,7 @@ def test_feedback_pipeline_multi_tenant_isolation():
     # Only items with tenantId starting with sacred_heart::icu
     icu_items = [it for it in res_sh_icu_final.json()["items"] if it["tenantId"] == "sacred_heart::icu"]
     assert len(icu_items) == 1
-    assert icu_items[0]["rawText"] == "Isolated test complaint for ICU"
+    assert icu_items[0]["rawText"] == "Isolated test complaint for sacred_heart::icu"
 
 
 def test_offline_first_invariants(monkeypatch):
@@ -233,12 +233,8 @@ def test_offline_first_socket_invariants(monkeypatch):
 
     import os
     def mock_socket(*args, **kwargs):
-        if not args and not kwargs:
-            if os.name != "nt":
-                raise RuntimeError("Network access is strictly forbidden in offline-first mode")
-            return original_socket(*args, **kwargs)
         family = args[0] if args else kwargs.get("family", socket.AF_INET)
-        if isinstance(family, int) and family != getattr(socket, "AF_UNIX", None):
+        if isinstance(family, int) and family != getattr(socket, "AF_UNIX", -1):
             raise RuntimeError("Network access is strictly forbidden in offline-first mode")
         return original_socket(*args, **kwargs)
 
@@ -315,17 +311,17 @@ def test_feedback_pipeline_multi_tenant_isolation_boundary():
     """Enforce multi-tenant boundaries by explicitly testing cross-tenant access denial when fetching items."""
     payload = {
         "tenantId": "princeton_plainsboro::or",
-        "rawText": "Highly confidential clinic feedback"
+        "rawText": "Highly confidential clinic feedback princeton_plainsboro::or::secret"
     }
     client.post("/api/feedback", json=payload)
 
     res_pp = client.get("/api/feedback?tenantId=princeton_plainsboro::or")
     items_pp = res_pp.json()["items"]
-    assert any(it["rawText"] == "Highly confidential clinic feedback" for it in items_pp)
+    assert any(it["rawText"] == "Highly confidential clinic feedback princeton_plainsboro::or::secret" for it in items_pp)
 
     res_sh = client.get("/api/feedback?tenantId=sacred_heart::or")
     items_sh = res_sh.json()["items"]
-    assert not any(it["rawText"] == "Highly confidential clinic feedback" for it in items_sh)
+    assert not any(it["rawText"] == "Highly confidential clinic feedback princeton_plainsboro::or::secret" for it in items_sh)
 
 def test_network_partition_and_self_healing(monkeypatch):
     import time
@@ -407,7 +403,7 @@ def test_resource_eviction_and_memory_profiling(monkeypatch, tmp_path):
         # Inject an item periodically to simulate load
         if i % 100 == 0:
             client.post("/api/feedback", json={
-                "tenantId": f"sacred_heart::or_{(i // 100) % 5}",
+                "tenantId": f"sacred_heart::or_{i}",
                 "rawText": f"High volume test item {i}"
             })
 
