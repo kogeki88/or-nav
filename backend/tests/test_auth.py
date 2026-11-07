@@ -243,7 +243,7 @@ def test_network_partition_and_recovery(monkeypatch, tmp_path):
         # We only want to mock standard network sockets (AF_INET/AF_INET6), not unix domain sockets
         # created internally by asyncio (like in socketpair used for self-pipe).
         # We default to AF_INET if not passed, simulating standard external network calls.
-        family = args[0] if args else kwargs.get("family", socket.AF_INET)
+        family = args[0] if (args and isinstance(args[0], int)) else kwargs.get("family", socket.AF_INET)
         if network_state["status"] == "offline" and family in (socket.AF_INET, socket.AF_INET6):
             raise OSError("Network/Storage partition: socket offline")
         return original_socket(*args, **kwargs)
@@ -416,16 +416,15 @@ async def test_burst_distinct_registrations_latency():
 
             res_reg = await client.post("/api/auth/register", json={"email": email, "password": "password123"})
 
-            import random
-            # Explicitly yield execution to the event loop
-            await asyncio.sleep(random.uniform(0, 0.01)) # or Promise.resolve equivalent in python: asyncio.sleep(0)
+            # Explicitly yield execution to the event loop with deterministic jitter
+            await asyncio.sleep((i * 13) % 10 / 1000.0) # or Promise.resolve equivalent in python: asyncio.sleep(0)
 
             # Profile endpoint takes userId or email from request body. No headers needed according to app.auth code
             res_upd = await client.put("/api/auth/profile", json={
                 "email": email,
                 "facilityId": tenant_id,
                 "departmentId": f"{tenant_id}::dept",
-                "clinicalRole": f"Worker_{i} "
+                "clinicalRole": f"::Worker_{i}::"
             })
             return res_reg, res_upd, tenant_id
 
@@ -439,7 +438,7 @@ async def test_burst_distinct_registrations_latency():
         assert res_reg.status_code == 200, f"Worker {i} registration failed"
         assert res_upd.status_code == 200, f"Worker {i} profile update failed"
         assert res_upd.json()["profile"]["facilityId"] == expected_tenant, f"Worker {i} namespace leaked"
-        assert f"Worker_{i} " in json.dumps(res_upd.json()), f"Worker {i} data isolation failed"
+        assert f"::Worker_{i}::" in json.dumps(res_upd.json()), f"Worker {i} data isolation failed"
 
     duration = end_time - start_time
     assert duration < 5.0 # Max 5 seconds for 50 concurrent registers
@@ -501,14 +500,15 @@ def test_clinical_state_snapshot_consistency():
     import app.auth
 
     # Take baseline snapshot
-    baseline_users = copy.deepcopy(app.auth.load_users())
+    import json
+    baseline_users = json.loads(json.dumps(app.auth.load_users()))
 
     # Mutate state
     email = f"snapshot_{uuid.uuid4().hex}@hospital.org"
     client.post("/api/auth/register", json={"email": email, "password": "password123"})
 
     # Take post-mutation snapshot
-    post_users = copy.deepcopy(app.auth.load_users())
+    post_users = json.loads(json.dumps(app.auth.load_users()))
 
     # Remove transient fields before structural comparison
     for u in baseline_users:
