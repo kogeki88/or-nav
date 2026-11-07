@@ -201,7 +201,10 @@ describe("Departments Configuration and Lookups", () => {
     test("should maintain configuration and contract invariants offline without network access", async () => {
       const originalFetch = global.fetch;
       try {
-        global.fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+        global.fetch = mock.fn((...args: any[]) => {
+          if (args.length === 0) throw new TypeError("Missing arguments");
+          return Promise.reject(new TypeError("Failed to fetch"));
+        });
 
         setActiveDepartmentId("pacu_periop");
         assert.strictEqual(getActiveDepartmentId(), "pacu_periop");
@@ -266,7 +269,7 @@ describe("Departments Configuration and Lookups", () => {
         const id = ids[i % ids.length];
         const tenantId = `fac_burst_${i}::${id}`;
 
-        await new Promise(r => setTimeout(r, Math.random() * 10));
+        await new Promise(r => setTimeout(r, (i * 13) % 10));
 
         setActiveDepartmentId(tenantId);
         const activeId = getActiveDepartmentId();
@@ -297,10 +300,13 @@ describe("Departments Configuration and Lookups", () => {
     test("concurrent burst under offline-first network failure", async () => {
       const originalFetch = global.fetch;
       try {
-        global.fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
+        global.fetch = mock.fn((...args: any[]) => {
+          if (args.length === 0) throw new TypeError("Missing arguments");
+          return Promise.reject(new TypeError("Failed to fetch"));
+        });
 
-        const promises = Array.from({ length: 50 }, async () => {
-          await new Promise(r => setTimeout(r, Math.random() * 10));
+        const promises = Array.from({ length: 50 }, async (_, i) => {
+          await new Promise(r => setTimeout(r, (i * 13) % 10));
           setActiveDepartmentId("pacu_periop");
           assert.strictEqual(getActiveDepartmentId(), "pacu_periop");
           const dept = getDepartment(getActiveDepartmentId());
@@ -470,12 +476,21 @@ describe("Departments Configuration and Lookups", () => {
   });
 
   describe("Fault Injection & Network Partition Resilience", () => {
+    let originalConsoleError: any;
+    beforeEach(() => {
+      originalConsoleError = console.error;
+      console.error = mock.fn();
+    });
+    afterEach(() => {
+      console.error = originalConsoleError;
+    });
     test("network partition degradation and self-healing reconnection", async () => {
       const originalFetch = global.fetch;
       const network_state = { status: "online" };
 
       try {
-        global.fetch = mock.fn(() => {
+        global.fetch = mock.fn((...args: any[]) => {
+          if (args.length === 0) throw new TypeError("Missing arguments");
           if (network_state.status === "offline") {
             return Promise.reject(new TypeError("Failed to fetch"));
           }
@@ -718,11 +733,10 @@ describe("Departments Configuration and Lookups", () => {
       setActiveDepartmentId("pacu_periop");
 
       // Freeze baseline using deepcopy equivalent for state snapshot consistency
-      const baselineState = structuredClone({
+      const baselineState = Object.freeze(structuredClone({
         activeDept: getActiveDepartmentId(),
         deptDef: getDepartment(getActiveDepartmentId())
-      });
-      Object.freeze(baselineState);
+      }));
 
       // Perform state mutations (simulating a clinical session workflow)
       setActiveDepartmentId("er_trauma");
@@ -735,10 +749,10 @@ describe("Departments Configuration and Lookups", () => {
       setActiveDepartmentId("pacu_periop");
 
       // Extract post-mutation snapshot
-      const postMutationState = structuredClone({
+      const postMutationState = Object.freeze(structuredClone({
         activeDept: getActiveDepartmentId(),
         deptDef: getDepartment(getActiveDepartmentId())
-      });
+      }));
 
       // Structural comparison against baseline
       assert.deepStrictEqual(postMutationState, baselineState, "Clinical state snapshot structural comparison failed after mutation cycle");
