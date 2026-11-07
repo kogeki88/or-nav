@@ -627,8 +627,8 @@ test("Deep Freeze validation for snapshot consistency", async (t) => {
 
         // Freeze the array and its contents
         const internalLexiconCopy = structuredClone(internalLexicon);
-        Object.freeze(internalLexicon);
         internalLexicon.forEach(entry => Object.freeze(entry));
+        Object.freeze(internalLexicon);
 
         // Attempt a transition. If learnAliasClient mutates the array by reference, it will throw a TypeError in strict mode.
         // If it correctly uses a copy or replaces the array, it will succeed.
@@ -705,7 +705,8 @@ test("Concurrent multi-tenant isolation burst execution", async (t) => {
 
             // Append structural delimiters in JavaScript .includes() checks to prevent false positive substring matches
             const userString = lexicon[0].usedByUsers.join(",");
-            assert.ok(userString.includes(`worker${idx}::`), `Missing strict boundary delimiter match for worker${idx}`);
+            // Using explicit word boundary check or exact matching to avoid false positives (e.g. worker1 matching worker10)
+            assert.ok(new RegExp('\\bworker' + idx + '::').test(userString), `Missing strict boundary delimiter match for worker${idx}`);
         }
     } finally {
         global.fetch = originalFetch;
