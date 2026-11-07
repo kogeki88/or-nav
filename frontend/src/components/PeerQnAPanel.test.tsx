@@ -231,7 +231,7 @@ test('enforces multi-tenant isolation in network requests', async () => {
     render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="sacred_heart::or" userProfile={dummyProfile} />);
 
     await waitFor(() => {
-        assert.ok(fetchUrl.includes('tenant_id=sacred_heart%3A%3Aor'), 'Fetch URL should contain correctly encoded tenant_id');
+        assert.ok(fetchUrl.includes('tenant_id=sacred_heart%3A%3Aor'), 'Fetch URL should contain correctly encoded tenant_id boundary');
     });
 });
 
@@ -250,7 +250,8 @@ test('offline-first fallback when network fails', async () => {
         }
     ];
 
-    global.fetch = mock.fn(async () => {
+    global.fetch = mock.fn(async (...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Missing arguments');
         throw new Error('Network offline');
     });
 
@@ -262,7 +263,8 @@ test('offline-first fallback when network fails', async () => {
 });
 
 test('offline submission fallback handles tenant isolation', async () => {
-    global.fetch = mock.fn(async () => {
+    global.fetch = mock.fn(async (...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Missing arguments');
         throw new Error('Network error');
     });
 
@@ -429,7 +431,7 @@ test('handles concurrent/rapid submissions correctly without duplication', async
         if (options && options.method === 'POST') {
             postCallCount++;
             // Simulate network delay to test debouncing/submitting state
-            await new Promise(resolve => setTimeout(resolve, 50));
+            await new Promise(resolve => setTimeout(resolve, 0));
             const body = JSON.parse(options.body);
             return {
                 ok: true,
@@ -483,7 +485,8 @@ test('enforces strict multi-tenant isolation on offline boundary', async () => {
         }
     ];
 
-    global.fetch = mock.fn(async () => {
+    global.fetch = mock.fn(async (...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Missing arguments');
         throw new Error('Network offline');
     });
 
@@ -541,7 +544,7 @@ test('high-concurrency and race condition benchmark', async () => {
     });
 
     // Wait for event loop
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise(r => setTimeout(r, 0));
 
     await Promise.all(panels.map(async ({ comp, tenantId, id }) => {
         // Yield execution to simulate real concurrent burst!
@@ -585,7 +588,8 @@ test('high-concurrency and race condition benchmark - offline first invariant', 
     // Poison fetch
     const originalFetch = global.fetch;
     try {
-    global.fetch = mock.fn(async () => {
+    global.fetch = mock.fn(async (...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Missing arguments');
         throw new Error('Network offline');
     });
 
@@ -598,7 +602,7 @@ test('high-concurrency and race condition benchmark - offline first invariant', 
     });
 
     // Wait for event loop
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise(r => setTimeout(r, 0));
 
     const initialCount = mockSaveOfflinePeerQuestionCalls.length;
 
@@ -647,7 +651,8 @@ test('high-concurrency and race condition benchmark - offline first invariant', 
 
 test('multi-tenant boundary enforcement and offline replay idempotency', async () => {
     // 1. Simulate network offline
-    global.fetch = mock.fn(async () => {
+    global.fetch = mock.fn(async (...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Missing arguments');
         throw new Error('Network offline');
     });
 
@@ -682,7 +687,8 @@ test('multi-tenant boundary enforcement and offline replay idempotency', async (
 });
 
 test('supplementary invariant test: multi-tenant isolation and offline-first', async () => {
-    global.fetch = mock.fn(async () => {
+    global.fetch = mock.fn(async (...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Missing arguments');
         throw new Error('Network offline');
     });
     mockSaveOfflinePeerQuestionCalls = [];
@@ -706,7 +712,8 @@ test('supplementary invariant test: multi-tenant isolation and offline-first', a
 
 test('supplementary invariant test 2: concurrent burst execution latency and multi-tenant isolation', async () => {
     // 1. Simulate network offline
-    global.fetch = mock.fn(async () => {
+    global.fetch = mock.fn(async (...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Missing arguments');
         throw new Error('Network offline');
     });
 
@@ -797,7 +804,10 @@ test('supplementary multi-tenant boundary enforcement (facility_id::dept_id) and
     // 1. Simulate network offline using missing fetch
     const originalFetch = global.fetch;
     try {
-        global.fetch = mock.fn(async () => { throw new Error('Network offline'); });
+        global.fetch = mock.fn(async (...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Missing arguments');
+        throw new Error('Network offline');
+    });
 
         // 2. Clear any previous offline calls
         mockSaveOfflinePeerQuestionCalls = [];
@@ -853,7 +863,7 @@ test('supplementary invariant test 3: intermittent latency and self-healing reco
 
             // Second call has latency but succeeds (intermittent latency / reconnection)
             if (fetchCallCount === 2) {
-                await new Promise(resolve => setTimeout(resolve, 50)); // Simulating latency
+                await new Promise(resolve => setTimeout(resolve, 0)); // Simulating latency
                 return {
                     ok: true,
                     json: async () => [{
@@ -903,7 +913,7 @@ test('supplementary invariant test 3: intermittent latency and self-healing reco
         const comp = render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility2::dept3" userProfile={dummyProfile} />, { container: root });
 
         // Wait for initial fetch to fail and fallback
-        await new Promise(resolve => setTimeout(resolve, 20));
+        await new Promise(resolve => setTimeout(resolve, 0));
 
         // 4. Force a re-fetch (simulating self-healing reconnection)
         // Closing and reopening triggers fetchQuestions
@@ -975,7 +985,7 @@ test('supplementary invariant test 4: network partition degradation and retry fa
         const comp = render(<PeerQnAPanel isOpen={true} onClose={() => {}} tenantId="facility3::dept4" userProfile={dummyProfile} />, { container: root });
 
         // 4. Wait for initial failed fetch
-        await new Promise(resolve => setTimeout(resolve, 20));
+        await new Promise(resolve => setTimeout(resolve, 0));
 
         // Ensure no mock questions
         assert.ok(!comp.queryByText('Retry success?'));
@@ -999,7 +1009,10 @@ test('supplementary invariant test 5: multi-tenant isolation offline-first fetch
     // 1. Simulate network offline
     const originalFetch = global.fetch;
     try {
-        global.fetch = mock.fn(async () => { throw new Error('Network offline'); });
+        global.fetch = mock.fn(async (...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Missing arguments');
+        throw new Error('Network offline');
+    });
 
         // 2. Setup offline questions for two different tenants
         mockOfflineQuestions = [
@@ -1047,7 +1060,7 @@ test('memory profile: ensures no event listener leaks and bounds heap usage duri
     }
 
     // Give garbage collector a tiny tick
-    await new Promise(r => setTimeout(r, 10));
+    await new Promise(r => setTimeout(r, 0));
 
     const initialListeners = process.listeners('uncaughtException');
     const initialMemory = process.memoryUsage().heapUsed;
@@ -1103,7 +1116,7 @@ test('memory profile: ensures no event listener leaks and bounds heap usage duri
         global.gc();
     }
 
-    await new Promise(r => setTimeout(r, 10));
+    await new Promise(r => setTimeout(r, 0));
 
     const finalListeners = process.listeners('uncaughtException');
     const finalMemory = process.memoryUsage().heapUsed;
@@ -1133,7 +1146,8 @@ test('HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust t
     const originalFetch = global.fetch;
     const testTenantId = 'security_tenant_x';
 
-    global.fetch = async () => {
+    global.fetch = async (...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Missing arguments');
         return Promise.reject(new Error('Network offline'));
     };
 
@@ -1187,7 +1201,10 @@ test('enforces clinical state snapshot consistency, preference card conflict res
     const tenantClinical2 = 'snapshot_dept_B';
 
     // Simulate network offline to force offline-first invariants
-    global.fetch = mock.fn(async () => Promise.reject(new Error('Network offline')));
+    global.fetch = mock.fn(async (...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Missing arguments');
+        return Promise.reject(new Error('Network offline'));
+    });
 
     mockSaveOfflinePeerQuestionCalls = [];
 
@@ -1258,8 +1275,8 @@ test('enforces clinical state snapshot consistency, preference card conflict res
     // Freeze the baseline state for structural comparison
     Object.freeze(snapshot1[0]);
     Object.freeze(snapshot2[0]);
-    const baselineSnapshot = JSON.parse(JSON.stringify(snapshot1[0]));
-    const baselineSnapshot2 = JSON.parse(JSON.stringify(snapshot2[0]));
+    const baselineSnapshot = structuredClone(snapshot1[0]);
+    const baselineSnapshot2 = structuredClone(snapshot2[0]);
 
     // Exclude volatile metadata
     delete baselineSnapshot.createdAt;
