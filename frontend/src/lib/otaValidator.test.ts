@@ -84,7 +84,7 @@ describe('OTA Validator', () => {
     it('validates manifest strictly independent of network state (offline-first)', () => {
       const originalFetch = global.fetch;
       try {
-        global.fetch = (async () => { throw new Error('Network offline'); }) as unknown as typeof fetch;
+        global.fetch = (async (...args: any[]) => { if (args.length === 0) throw new TypeError('Missing arguments'); throw new Error('Network offline'); }) as unknown as typeof fetch;
         const result = validateOTAManifest(validManifest, currentVersion, currentBuild);
         assert.strictEqual(result.valid, true);
       } finally {
@@ -111,12 +111,12 @@ describe('OTA Validator', () => {
       const replayResult1 = validateOTAManifest(validManifest, currentVersion, currentBuild);
       const replayResult2 = validateOTAManifest(validManifest, currentVersion, currentBuild);
 
-      assert.strictEqual(initialResult.valid, replayResult1.valid);
-      assert.strictEqual(initialResult.valid, replayResult2.valid);
+      assert.deepStrictEqual(initialResult, replayResult1);
+      assert.deepStrictEqual(initialResult, replayResult2);
 
       // 2. Multi-tenant boundary enforcement (facility_id::dept_id)
-      const tenantAManifest = { ...validManifest, 'facility_id::dept_id': 'facA::dept1' };
-      const tenantBManifest = { ...validManifest, 'facility_id::dept_id': 'facB::dept2' };
+      const tenantAManifest = { ...validManifest, 'facility_id::dept_id': 'facA::dept1::or' };
+      const tenantBManifest = { ...validManifest, 'facility_id::dept_id': 'facB::dept2::or' };
 
       // Valid downgrade scenarios
       const newManifestA = { ...tenantAManifest, version: 'v0.65', build_number: 22 };
@@ -139,8 +139,8 @@ describe('OTA Validator', () => {
       assert.strictEqual(mutatedResultB.valid, true);
 
       // Ensure boundaries are respected
-      assert.strictEqual((newManifestA as any)['facility_id::dept_id'], 'facA::dept1');
-      assert.strictEqual((newManifestB as any)['facility_id::dept_id'], 'facB::dept2');
+      assert.strictEqual((newManifestA as any)['facility_id::dept_id'], 'facA::dept1::or');
+      assert.strictEqual((newManifestB as any)['facility_id::dept_id'], 'facB::dept2::or');
     });
   });
 
@@ -235,7 +235,7 @@ describe('OTA Validator', () => {
       // Perform a large number of validations directly to measure memory growth
       const iterations = 50000;
       for (let i = 0; i < iterations; i++) {
-        const entityId = i % (MAX_CACHE + 50);
+        const entityId = i;
         const tenantManifest = {
           ...validManifest,
           version: `v0.${60 + entityId}`,
@@ -294,7 +294,7 @@ describe('OTA Validator', () => {
       const concurrency = 1000;
       const tasks = Array.from({ length: concurrency }).map(async (_, i) => {
         // Yield execution for true interleaving
-        await new Promise(r => setImmediate(r));
+        await new Promise(r => setTimeout(r, (i * 13) % 10));
 
         // Unique tenant manifest payload
         const tenantManifest = {
@@ -340,7 +340,7 @@ describe('OTA Validator', () => {
       let networkState = { status: 'offline', latency: 0 };
       let fetchAttempts = 0;
 
-      global.fetch = mock.fn(async (url: string) => {
+      global.fetch = mock.fn(async (...args: any[]) => { if (args.length === 0) throw new TypeError('Missing arguments'); const url = args[0] as string;
         const state = networkState;
         fetchAttempts++;
         if (state.latency > 0) {
@@ -502,7 +502,7 @@ describe('OTA Validator', () => {
   describe('Clinical State Snapshot Consistency', () => {
     it('preserves clinical state snapshot consistency across offline-first validations', () => {
       const originalFetch = global.fetch;
-      global.fetch = mock.fn(() => Promise.reject(new Error('Network offline'))) as unknown as typeof fetch;
+      global.fetch = mock.fn(async (...args: any[]) => { if (args.length === 0) throw new TypeError('Missing arguments'); return Promise.reject(new Error('Network offline')); }) as unknown as typeof fetch;
       try {
         const baselineSnapshot = structuredClone({ ...validManifest, changelog: 'Clinical state baseline' });
         // Freeze baseline state to verify true immutability resilience (throws on shallow mutation)
