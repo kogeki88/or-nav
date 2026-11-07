@@ -330,7 +330,7 @@ async function checkAndMergePRs(apiKey) {
   let syncStatus = 'SUCCESS';
   try {
     log('Syncing local workspace with origin/main via pull rebase with autostash...');
-    execSync('git pull --rebase --autostash origin main', { cwd: ROOT_DIR, encoding: 'utf8', timeout: 30000 });
+    execSync('git pull --rebase --autostash', { cwd: ROOT_DIR, encoding: 'utf8', timeout: 30000 });
 
     log('Local workspace successfully synchronized.');
   } catch (syncErr) {
