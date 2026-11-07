@@ -149,6 +149,11 @@ test("deltaSyncPayload edge cases and invariants", async (t) => {
     const duplicateMutations = restored.filter(m => m.id === 1);
     assert.strictEqual(duplicateMutations.length, 2);
     assert.deepStrictEqual(duplicateMutations[0], duplicateMutations[1]);
+
+    // Explicitly verify core state fields signifying mutation outcomes are preserved in the replayed state
+    assert.ok("id" in duplicateMutations[0]);
+    assert.ok("type" in duplicateMutations[0]);
+    assert.ok("tenant_id" in duplicateMutations[0]);
   });
 });
 
@@ -227,6 +232,7 @@ test("deltaSyncPayload concurrency, race conditions, and performance benchmarks"
       for (let itemIdx = 0; itemIdx < 100; itemIdx++) {
         assert.strictEqual(decompressed[itemIdx].workerId, workerIdx);
         assert.strictEqual(decompressed[itemIdx].tenant_id, `tenant_${workerIdx}::or`);
+        assert.ok(new RegExp(`\\btenant_${workerIdx}::or\\b`).test(decompressed[itemIdx].tenant_id), "Explicit boundary check for multi-tenant isolation");
         assert.strictEqual(decompressed[itemIdx].id, itemIdx);
         assert.strictEqual(decompressed[itemIdx].val, `worker-${workerIdx}-item-${itemIdx}`);
       }
@@ -595,7 +601,7 @@ test("deltaSyncPayload state consistency", async (t) => {
 
     // Freeze the baseline state for structural comparison and immutability checking
     Object.freeze(baselineState);
-    const frozenBaseline = structuredClone(baselineState);
+    const frozenBaseline = Object.freeze(structuredClone(baselineState));
 
     const mutations = [ baselineState, { ...baselineState, clinical_status: "post_op" } ];
     const compressed = compressPayload(mutations);
@@ -621,8 +627,9 @@ test("deltaSyncPayload expanded hardening", async (t) => {
     ];
 
     // Simulate some active modifications and deep immutability check
-    const original = Object.freeze(structuredClone(mixedPayloads));
+    const original = structuredClone(mixedPayloads);
     original.forEach(Object.freeze);
+    Object.freeze(original);
 
     const compressed = compressPayload(mixedPayloads);
     const decompressed = decompressPayload(compressed) as any[];
