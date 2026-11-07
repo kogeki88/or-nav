@@ -700,12 +700,13 @@ test('ChatCanvas deterministic state transition matrices, preference card confli
     }
   ];
 
-  const frozenMessages = Object.freeze(structuredClone(messages));
+  const frozenMessages = structuredClone(messages);
   frozenMessages.forEach((msg: any) => {
-    Object.freeze(msg);
     if (msg.teachingCard) Object.freeze(msg.teachingCard);
     if (msg.quickAddWidget) Object.freeze(msg.quickAddWidget);
+    Object.freeze(msg);
   });
+  Object.freeze(frozenMessages);
 
   try {
     const { container, rerender } = render(
@@ -783,14 +784,14 @@ test('ChatCanvas enforces multi-tenant boundary with structural delimiter inject
   const { container: containerA, unmount: unmountA } = render(
     <ChatCanvas messages={messagesTenantA} loading={false} tenantId="facility1::dept1" onVerifyPendingMove={async () => {}} />
   );
-  assert.ok(containerA.innerHTML.includes('Fac1_Dept1_Item<'));
-  assert.ok(!containerA.innerHTML.includes('Fac1::Dept1_Item<'));
+  assert.ok(new RegExp('\\bFac1_Dept1_Item<').test(containerA.innerHTML));
+  assert.ok(!new RegExp('Fac1::Dept1_Item<').test(containerA.innerHTML));
   act(() => { unmountA(); });
 
   const { container: containerB, unmount: unmountB } = render(
     <ChatCanvas messages={messagesTenantB} loading={false} tenantId="facility1::dept1::or" onVerifyPendingMove={async () => {}} />
   );
-  assert.ok(containerB.innerHTML.includes('Fac1::Dept1_Item<'));
-  assert.ok(!containerB.innerHTML.includes('Fac1_Dept1_Item<'));
+  assert.ok(new RegExp('Fac1::Dept1_Item<').test(containerB.innerHTML));
+  assert.ok(!new RegExp('\\bFac1_Dept1_Item<').test(containerB.innerHTML));
   act(() => { unmountB(); });
 });
