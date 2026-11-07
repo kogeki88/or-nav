@@ -96,7 +96,7 @@ test('offline mutation idempotency and multi-tenant isolation', async () => {
     const originalFetch = global.fetch;
     try {
         global.fetch = mock.fn((...args: any[]) => {
-            if (!args || args.length === 0) throw new TypeError('Failed to fetch');
+            if (args.length === 0) throw new TypeError('Failed to fetch');
             return Promise.reject(new TypeError('Failed to fetch'));
         }) as any;
 
@@ -214,8 +214,8 @@ test('boundary inputs and schema enforcement for fuzzing inputs', () => {
     ];
 
     for (const d of fuzzyInputs) {
-        Object.freeze(d);
-        const { unmount } = render(<CoordinateCard card={d} facilityId="tenant_fuzzy" />);
+        const frozenCard = Object.freeze(structuredClone(d));
+        const { unmount } = render(<CoordinateCard card={frozenCard as any} facilityId="tenant_fuzzy" />);
 
         // Actively trigger component interaction while state is frozen
         const addBtn = screen.queryByTestId('add-local-alias-btn');
@@ -395,7 +395,7 @@ test('fault injection: intermittent latency network partition reconnection and s
 
     // Simulate network partition and self-healing
     global.fetch = mock.fn(async (...args: any[]) => {
-        if (!args || args.length === 0) throw new TypeError('Failed to fetch');
+        if (args.length === 0) throw new TypeError('Failed to fetch');
         fetchCallCount++;
         if (networkState.status === 'offline') {
             await new Promise(r => setTimeout(r, 50));
@@ -466,7 +466,7 @@ test('memory profiling, leak detection, unclosed event listeners, and cache evic
 
     const originalFetch = global.fetch;
     global.fetch = mock.fn((...args: any[]) => {
-        if (!args || args.length === 0) throw new TypeError('Failed to fetch');
+        if (args.length === 0) throw new TypeError('Failed to fetch');
         return Promise.reject(new Error('Offline mode enforced'));
     }) as any;
 
