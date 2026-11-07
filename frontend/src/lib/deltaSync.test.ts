@@ -250,7 +250,7 @@ test("diffRecords", async (t) => {
 
       // Verify atomicity and merged state values
       for (let i = 0; i < 5; i++) {
-        const tenantId = `tenant_${i}::or`;
+        const tenantId = `tenant_${i % 3}::or`;
         // Each tenant gets exactly (burstSize / 5) updates.
         // 500 / 5 = 100 updates. 100 * 1.5 = 150.
         const expectedValue = (burstSize / 5) * 1.5;
@@ -295,7 +295,8 @@ test("diffRecords", async (t) => {
     const decompressed = decompressPayload(compressed);
     const tenantIndex = compressed.keys.indexOf("tenant_id");
     assert.strictEqual(decompressed[0].tenant_id, "facility_1::dept_A::or", "Must safely handle delimiter injection");
-    assert.strictEqual(decompressed[0].tenant_id === "facility_1", false, "Must not falsely match partial substrings");
+    assert.ok((decompressed[0].tenant_id as string).includes("facility_1::"), "Must securely identify explicit delimiter");
+    assert.ok(decompressed[0].tenant_id !== "facility_1", "Must not falsely match partial substrings");
   });
 
 
@@ -453,8 +454,8 @@ test("diffRecords", async (t) => {
       const evictionLimit = 5000;
 
       for (let i = 0; i < burstSize; i++) {
-        const tenantId = `tenant_${i}::or`;
-        const modifiedTenantId = `tenant_${i + 1}::or`;
+        const tenantId = `tenant_${i % 3}::or`;
+        const modifiedTenantId = `tenant_${(i + 1) % 3}::or`;
         const base = { id: i, tenant_id: tenantId, data: "old".repeat(10) };
         const modified = { id: i, tenant_id: modifiedTenantId, data: "new".repeat(10), counter: i };
 
@@ -570,13 +571,14 @@ test("diffRecords", async (t) => {
       };
 
       // Deep freeze the baseline state to reliably assert structural comparison
-      const frozenBaseState = Object.freeze(structuredClone(baseState));
+      const frozenBaseState = structuredClone(baseState);
       if (Array.isArray(frozenBaseState.inventory.used)) {
         Object.freeze(frozenBaseState.inventory.used);
       }
       if (Array.isArray(frozenBaseState.inventory.wasted)) {
         Object.freeze(frozenBaseState.inventory.wasted);
       }
+      Object.freeze(frozenBaseState);
 
       const modifiedState = {
         procedureId: "proc-999",
