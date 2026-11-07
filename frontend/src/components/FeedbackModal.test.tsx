@@ -65,8 +65,18 @@ const FeedbackModalMod = proxyquire('./FeedbackModal', {
 const FeedbackModal = FeedbackModalMod.FeedbackModal;
 
 
+
+let originalConsoleError: any;
+let originalConsoleWarn: any;
+
 beforeEach(() => {
+    originalConsoleError = console.error;
+    originalConsoleWarn = console.warn;
+    console.error = mock.fn();
+    console.warn = mock.fn();
+
     if (typeof global.localStorage === 'undefined') {
+
         global.localStorage = {
             getItem: mock.fn(() => null),
             setItem: mock.fn(),
@@ -77,10 +87,14 @@ beforeEach(() => {
 });
 
 
+
 afterEach(() => {
+  console.error = originalConsoleError;
+  console.warn = originalConsoleWarn;
   cleanup();
   mock.reset();
 });
+
 
 test('opens modal and allows selecting feedback type', async () => {
     const onCloseMock = mock.fn();
@@ -545,9 +559,9 @@ test('concurrent burst execution: handles double clicks and prevents multiple su
     // Fire click multiple times concurrently
     // Simulate true interleaving in JS concurrency test using Promise.all
     await Promise.all([
-        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); fireEvent.click(submitBtn); })(),
-        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); fireEvent.click(submitBtn); })(),
-        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); fireEvent.click(submitBtn); })()
+        (async (i) => { await new Promise(r => setTimeout(r, (i * 13) % 10)); fireEvent.click(submitBtn); })(1),
+        (async (i) => { await new Promise(r => setTimeout(r, (i * 13) % 10)); fireEvent.click(submitBtn); })(2),
+        (async (i) => { await new Promise(r => setTimeout(r, (i * 13) % 10)); fireEvent.click(submitBtn); })(3)
     ]);
 
     // Wait for the submission process to complete
@@ -653,9 +667,9 @@ test('multi-tenant boundary enforcement (facility_id::dept_id) and offline mutat
     // Fire multiple rapid clicks to simulate idempotency replay issue
     // Simulate true interleaving in JS concurrency test using Promise.all
     await Promise.all([
-        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); fireEvent.click(submitBtn); })(),
-        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); fireEvent.click(submitBtn); })(),
-        (async () => { await new Promise(r => setTimeout(r, Math.random() * 10)); fireEvent.click(submitBtn); })()
+        (async (i) => { await new Promise(r => setTimeout(r, (i * 13) % 10)); fireEvent.click(submitBtn); })(1),
+        (async (i) => { await new Promise(r => setTimeout(r, (i * 13) % 10)); fireEvent.click(submitBtn); })(2),
+        (async (i) => { await new Promise(r => setTimeout(r, (i * 13) % 10)); fireEvent.click(submitBtn); })(3)
     ]);
 
     await waitFor(() => {
