@@ -264,6 +264,22 @@ def test_offline_mutation_replay_idempotency(tmp_path, monkeypatch):
     assert config_1.inventory_path == config_2.inventory_path == config_3.inventory_path
     assert config_1.orientation_path == config_2.orientation_path == config_3.orientation_path
 
+    # Hardening: Mutate and test structural replay idempotency directly
+    from app.services.inventory_search import get_inventory_service
+    inv_service = get_inventory_service("replay_tenant")
+    inv_service.add_inventory_item("Idempotent Item", "Loc X")
+
+    # Mutate once
+    inv_service.flag_wrong("Idempotent Item", timestamp="2024-01-01T00:00:00Z")
+    snapshot_1 = inv_service.get_sync_payload()
+
+    # Mutate again (offline idempotent replay)
+    inv_service.flag_wrong("Idempotent Item", timestamp="2024-01-01T00:00:00Z")
+    snapshot_2 = inv_service.get_sync_payload()
+
+    # Baseline invariants enforce structural equality without popping core state fields
+    assert snapshot_1 == snapshot_2
+
 def test_config_offline_first_caching_and_healing(tmp_path, monkeypatch):
     """
     Test fault injection, network/storage partition degradation, intermittent latency,
@@ -290,7 +306,31 @@ def test_config_offline_first_caching_and_healing(tmp_path, monkeypatch):
 
     monkeypatch.setattr(app.config, "HOSPITALS_DIR", hospitals_mock)
 
+    import socket
+    import sys
     network_state = {"status": "online", "latency": 0.0}
+
+    # Better to patch the connect method than the socket class itself to avoid isinstance issues
+    # But since we just want to fail network connections:
+
+    class MockSocket(socket.socket):
+        def __init__(self, family=-1, type=-1, proto=-1, fileno=None):
+            if family == -1:
+                family = socket.AF_INET
+            if type == -1:
+                type = socket.SOCK_STREAM
+            if proto == -1:
+                proto = 0
+
+            if network_state["status"] == "offline":
+                af_inet = getattr(socket, 'AF_INET', -1)
+                af_inet6 = getattr(socket, 'AF_INET6', -1)
+                if family in (af_inet, af_inet6):
+                    raise OSError("Simulated Network Offline")
+
+            super().__init__(family, type, proto, fileno)
+
+    monkeypatch.setattr(socket, "socket", MockSocket)
 
     original_iterdir = Path.iterdir
     original_resolve = Path.resolve
@@ -436,7 +476,7 @@ def test_memory_profiling_high_volume(tmp_path, monkeypatch):
              patch.object(Path, 'exists', new=mock_exists):
 
              for i in range(5000):
-                 get_tenant(f"tenant_{i % 5}")
+                 get_tenant(f"tenant_{i}")
 
         snapshot2 = tracemalloc.take_snapshot()
         stats = snapshot2.compare_to(snapshot1, 'lineno')
@@ -643,15 +683,24 @@ def test_config_state_snapshots_and_transitions(tmp_path, monkeypatch):
 
     inv_service = get_inventory_service("icu_critical_care")
 
-    # Verify clinical state snapshot consistency using deepcopy
+    # Verify clinical state snapshot consistency natively stripping transient differences without redundant deepcopy
     baseline_snapshot = inv_service.get_sync_payload()
-    baseline_state = copy.deepcopy(baseline_snapshot)
+    import json
+    def safe_json_dumps(obj):
+        try:
+            return json.dumps(obj)
+        except TypeError:
+            import copy
+            return json.dumps(copy.deepcopy(obj), default=str)
+
+    baseline_state = json.loads(safe_json_dumps(baseline_snapshot))
 
     # Transition the state
     inv_service.flag_wrong("Snap Item")
-    post_mutation_state = inv_service.get_sync_payload()
+    post_mutation_snapshot = inv_service.get_sync_payload()
+    post_mutation_state = json.loads(safe_json_dumps(post_mutation_snapshot))
 
-    # Assert structural changes between deepcopied baseline and actual mutated state
+    # Assert structural changes between baseline and actual mutated state
     assert baseline_state[0]["status"] == "verified"
     assert baseline_state[0]["verification_score"] == 3.0
 
@@ -704,10 +753,11 @@ def test_config_offline_first_multi_tenant_isolation(tmp_path, monkeypatch):
     inv_service_a = get_inventory_service("tenant_a")
     inv_service_b = get_inventory_service("tenant_b")
 
-    inv_service_a.add_inventory_item("Shared Context Item", "Loc A")
+    # Enforcing strict boundary delimiters for isolation assertion
+    inv_service_a.add_inventory_item("Shared Context Item", "Loc A", aliases="tenant_uid_tenant_a::alias")
     inv_service_a.report_move("Shared Context Item", "Loc A Move")
 
-    inv_service_b.add_inventory_item("Shared Context Item", "Loc B")
+    inv_service_b.add_inventory_item("Shared Context Item", "Loc B", aliases="tenant_uid_tenant_b::alias")
     inv_service_b.report_move("Shared Context Item", "Loc B Move")
 
     a_row, _ = inv_service_a._find_matching_row("Shared Context Item")
@@ -715,6 +765,10 @@ def test_config_offline_first_multi_tenant_isolation(tmp_path, monkeypatch):
 
     assert a_row["pending_location"] == "Loc A Move"
     assert b_row["pending_location"] == "Loc B Move"
+
+    # Validate isolation using explicit boundary delimiters in structural payload
+    assert "tenant_uid_tenant_a::" in a_row["aliases"]
+    assert "tenant_uid_tenant_b::" in b_row["aliases"]
 
     def mock_resolve(self, *args, **kwargs):
         raise OSError("Simulated offline storage partition")
