@@ -390,7 +390,7 @@ describe("scrubClient standard and adversarial tests", () => {
     test("scrubPhi executes successfully completely offline (offline-first invariant)", async () => {
       const originalFetch = (global as any).fetch;
       try {
-        (global as any).fetch = mock.fn((...args) => { if (!args || args.length === 0) throw new TypeError("Missing arguments"); return Promise.reject(new TypeError("Failed to fetch")); });
+        (global as any).fetch = mock.fn((...args: any[]) => { if (args.length === 0) throw new TypeError("Missing arguments"); return Promise.reject(new TypeError("Failed to fetch")); });
         const result = scrubPhi("Patient MRN 123456 needs 3-0 silk");
         assert.strictEqual(result.text, `Patient ${REDACTION} needs 3-0 silk`);
         assert.strictEqual(result.redactionCount, 1);
@@ -402,7 +402,7 @@ describe("scrubClient standard and adversarial tests", () => {
     test("offline mutation replay idempotency", async () => {
       const originalFetch = (global as any).fetch;
       try {
-        (global as any).fetch = mock.fn((...args) => { if (!args || args.length === 0) throw new TypeError("Missing arguments"); return Promise.reject(new TypeError("Failed to fetch")); });
+        (global as any).fetch = mock.fn((...args: any[]) => { if (args.length === 0) throw new TypeError("Missing arguments"); return Promise.reject(new TypeError("Failed to fetch")); });
         const mutationPayload = "Update patient MRN 123456";
 
         const replay1 = scrubPhi(mutationPayload);
@@ -474,14 +474,14 @@ describe("scrubClient standard and adversarial tests", () => {
       const originalFetch = (global as any).fetch;
       try {
         // Enforce offline-first invariant during stress test
-        (global as any).fetch = mock.fn((...args) => { if (!args || args.length === 0) throw new TypeError("Missing arguments"); return Promise.reject(new TypeError("Failed to fetch")); });
+        (global as any).fetch = mock.fn((...args: any[]) => { if (args.length === 0) throw new TypeError("Missing arguments"); return Promise.reject(new TypeError("Failed to fetch")); });
 
         const workerPromises = Array.from({ length: numWorkers }, async (_, workerIdx) => {
-          const tenantId = `fac_burst_${workerIdx}`;
+          const tenantId = `fac_burst_${workerIdx}::`;
           const results = [];
 
           for (let i = 0; i < iterationsPerWorker; i++) {
-            await new Promise(r => setTimeout(r, Math.random() * 10)); // Explicitly yield to event loop for true concurrency
+            await new Promise(r => setTimeout(r, (i * 13) % 10)); // Explicitly yield to event loop for true concurrency
 
             const inputs = [
               `${tenantId} Patient MRN 123456 needs surgery`,
@@ -616,7 +616,7 @@ describe("scrubClient standard and adversarial tests", () => {
 
       const iterations = 10000;
       for (let i = 0; i < iterations; i++) {
-        scrubPhi(`Random text ${i % 5} for patient MRN 123456`);
+        scrubPhi(`Random text ${i} for patient MRN 123456`);
       }
 
       if (global.gc) {
@@ -667,7 +667,8 @@ describe("scrubClient standard and adversarial tests", () => {
         data: "Patient Jane Doe needs 3-0 silk and MRN 987654"
       };
 
-      const baselineSnapshot = JSON.parse(JSON.stringify(snapshot));
+      const baselineSnapshot = Object.freeze(structuredClone(snapshot));
+      Object.freeze(baselineSnapshot.meta);
 
       const result = scrubPhi(snapshot.data);
       assert.strictEqual(result.text, `Patient ${REDACTION} needs 3-0 silk and ${REDACTION}`);
@@ -692,13 +693,13 @@ describe("scrubClient standard and adversarial tests", () => {
     test("enforce multi-tenant isolation and offline-first invariants", async () => {
       const originalFetch = (global as any).fetch;
       try {
-        (global as any).fetch = mock.fn((...args) => { if (!args || args.length === 0) throw new TypeError("Missing arguments"); return Promise.reject(new TypeError("Failed to fetch (offline)")); });
+        (global as any).fetch = mock.fn((...args: any[]) => { if (args.length === 0) throw new TypeError("Missing arguments"); return Promise.reject(new TypeError("Failed to fetch (offline)")); });
 
         // Reset cache to strictly enforce expected cache size logic at end of block
         clearScrubCache();
 
-        const tenantAPayload = JSON.stringify({ dataA: "Tenant A Data: MRN 123456" });
-        const tenantBPayload = JSON.stringify({ dataB: "Tenant B Data: pt Jane Doe" });
+        const tenantAPayload = JSON.stringify({ tenantId: "tenant_uid_A::", dataA: "Tenant A Data: MRN 123456" });
+        const tenantBPayload = JSON.stringify({ tenantId: "tenant_uid_B::", dataB: "Tenant B Data: pt Jane Doe" });
 
         const resA = scrubPhi(tenantAPayload);
         const resB = scrubPhi(tenantBPayload);
@@ -709,6 +710,8 @@ describe("scrubClient standard and adversarial tests", () => {
 
         assert.strictEqual(parsedA.dataA, `Tenant A Data: ${REDACTION}`);
         assert.strictEqual(parsedB.dataB, `Tenant B Data: pt ${REDACTION}`);
+        assert.strictEqual(parsedA.tenantId, "tenant_uid_A::");
+        assert.strictEqual(parsedB.tenantId, "tenant_uid_B::");
 
         // Multi-tenant isolation: No crossover. Explicitly verify strict property absence
         assert.ok(!Object.keys(parsedA).includes('dataB'));
