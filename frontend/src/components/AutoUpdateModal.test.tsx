@@ -5,6 +5,8 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, cleanup, act, within } from '@testing-library/react';
 import { VersionManifest } from '@/lib/version';
 
+(global as any).IS_REACT_ACT_ENVIRONMENT = true;
+
 const proxyquire = require('proxyquire');
 
 let currentOpenApkDownloadMock = mock.fn();
@@ -26,8 +28,9 @@ beforeEach(() => {
 
   // Poison global.fetch to strictly enforce offline-first invariant
   // If the component attempts ANY network request during render or interaction, the test will fail
-  global.fetch = () => {
-    throw new Error('NETWORK CALL DETECTED: Offline-first invariant violated. Fetch is forbidden in pure UI components.');
+  global.fetch = (...args: any[]) => {
+    if (args.length === 0) throw new TypeError('Missing arguments');
+    return Promise.reject(new Error('NETWORK CALL DETECTED: Offline-first invariant violated. Fetch is forbidden in pure UI components.'));
   };
 });
 
@@ -57,15 +60,17 @@ test('does not render if isOpen is false or manifest is null', () => {
   );
   assert.strictEqual(screen.queryByTestId('auto-update-modal'), null);
 
-  rerender(
-    <AutoUpdateModal
+  act(() => {
+    rerender(
+      <AutoUpdateModal
       isOpen={true}
       onClose={() => {}}
       manifest={null}
       currentVersion="v0.61"
       currentBuild={18}
     />
-  );
+    );
+  });
   assert.strictEqual(screen.queryByTestId('auto-update-modal'), null);
 });
 
@@ -132,15 +137,21 @@ test('closes modal when X button or Remind Me Later is clicked', () => {
   fireEvent.click(closeBtn);
   assert.strictEqual(onCloseMock.mock.callCount(), 1);
 
-  rerender(
-    <AutoUpdateModal
+  act(() => {
+
+    act(() => {
+    rerender(
+      <AutoUpdateModal
       isOpen={true}
       onClose={onCloseMock}
       manifest={manifest}
       currentVersion="v0.61"
       currentBuild={18}
     />
-  );
+    );
+  });
+
+  });
 
   const remindBtn = screen.getByText('Remind Me Later');
   fireEvent.click(remindBtn);
@@ -186,7 +197,7 @@ test('enforces multi-tenant isolation invariant with stateless and deterministic
     assert.ok(rootA.textContent?.includes('Tenant A Specific Features'));
 
     // Unmount and render Tenant B to verify no internal memoization or global leak persists
-    unmount();
+    act(() => { unmount(); });
 
     render(
       <AutoUpdateModal
@@ -281,12 +292,12 @@ test('enforces multi-tenant boundary isolation and offline mutation replay idemp
   try {
     const manifestTenant1: VersionManifest = {
       ...manifest,
-      changelog: `Update for ${tenant1}`,
+      changelog: `Update for ${tenant1}::`,
     };
 
     const manifestTenant2: VersionManifest = {
       ...manifest,
-      changelog: `Update for ${tenant2}`,
+      changelog: `Update for ${tenant2}::`,
     };
 
     // Replay idempotency for Tenant 1
@@ -301,10 +312,11 @@ test('enforces multi-tenant boundary isolation and offline mutation replay idemp
       { container: root1 }
     );
 
-    assert.ok(root1.textContent?.includes(`Update for ${tenant1}`));
-    assert.strictEqual(root1.textContent?.includes(`Update for ${tenant2}`), false);
+    assert.ok(root1.textContent?.includes(`Update for ${tenant1}::`));
+    assert.strictEqual(root1.textContent?.includes(`Update for ${tenant2}::`), false);
 
     // Replay exactly the same mutation
+    act(() => {
     rerender(
       <AutoUpdateModal
         isOpen={true}
@@ -314,11 +326,12 @@ test('enforces multi-tenant boundary isolation and offline mutation replay idemp
         currentBuild={18}
       />
     );
+  });
 
-    assert.ok(root1.textContent?.includes(`Update for ${tenant1}`));
-    assert.strictEqual(root1.textContent?.includes(`Update for ${tenant2}`), false);
+    assert.ok(root1.textContent?.includes(`Update for ${tenant1}::`));
+    assert.strictEqual(root1.textContent?.includes(`Update for ${tenant2}::`), false);
 
-    unmount(); // Unmount to simulate fresh boundary context
+    act(() => { unmount(); }); // Unmount to simulate fresh boundary context
 
     // Switch to Tenant 2, verifying Multi-Tenant Isolation
     render(
@@ -332,8 +345,8 @@ test('enforces multi-tenant boundary isolation and offline mutation replay idemp
       { container: root2 }
     );
 
-    assert.ok(root2.textContent?.includes(`Update for ${tenant2}`));
-    assert.strictEqual(root2.textContent?.includes(`Update for ${tenant1}`), false); // Assert Tenant 1 context is completely isolated/scrubbed
+    assert.ok(root2.textContent?.includes(`Update for ${tenant2}::`));
+    assert.strictEqual(root2.textContent?.includes(`Update for ${tenant1}::`), false); // Assert Tenant 1 context is completely isolated/scrubbed
   } finally {
     document.body.removeChild(root1);
     document.body.removeChild(root2);
@@ -385,7 +398,7 @@ test('handles high-concurrency and race conditions (Burst/Stress)', async () => 
     const renderPromises = rootNodes.map(async ({ root, isTenantA }, index) => {
       const start = performance.now();
       // Yield execution to event loop to simulate actual asynchronous concurrency
-      await new Promise(resolve => setTimeout(resolve, Math.random() * 10));
+      await new Promise(resolve => setTimeout(resolve, (index * 13) % 10));
 
       const currentManifest = {
         ...manifest,
@@ -406,13 +419,13 @@ test('handles high-concurrency and race conditions (Burst/Stress)', async () => 
       );
 
       // Yield again so renders interleave
-      await new Promise(resolve => setTimeout(resolve, Math.random() * 5));
+      await new Promise(resolve => setTimeout(resolve, (index * 7) % 5));
 
       // Assert deterministic text
       assert.ok(queryByText(`v0.61 (Build 18) ➔ ${currentManifest.version} (Build ${currentManifest.build_number})`));
 
       // Cleanup and track latency
-      unmount();
+      act(() => { unmount(); });
       latencies.push(performance.now() - start);
     });
 
@@ -519,7 +532,7 @@ test('supplementary: extends concurrent burst execution, race condition resistan
   try {
     const renderPromises = rootNodes.map(async ({ root, isTenant1 }, index) => {
       const start = performance.now();
-      await new Promise(resolve => setTimeout(resolve, Math.random() * 10)); // Race condition resistance
+      await new Promise(resolve => setTimeout(resolve, (index * 13) % 10)); // Race condition resistance
 
       const currentManifest = {
         ...manifest,
@@ -538,12 +551,12 @@ test('supplementary: extends concurrent burst execution, race condition resistan
         { container: root }
       );
 
-      await new Promise(resolve => setTimeout(resolve, Math.random() * 5));
+      await new Promise(resolve => setTimeout(resolve, (index * 7) % 5));
 
       // Assert that it renders successfully with manifest even with no network available (offline-first invariant)
       assert.ok(queryByText(`v0.61 (Build 18) ➔ ${currentManifest.version} (Build ${currentManifest.build_number})`));
 
-      unmount();
+      act(() => { unmount(); });
       latencies.push(performance.now() - start);
     });
 
@@ -579,12 +592,12 @@ test('supplementary: enforces multi-tenant boundary isolation (facility_id::dept
   try {
     const manifestTenant1: VersionManifest = {
       ...manifest,
-      changelog: `Update for ${tenant1}`,
+      changelog: `Update for ${tenant1}::`,
     };
 
     const manifestTenant2: VersionManifest = {
       ...manifest,
-      changelog: `Update for ${tenant2}`,
+      changelog: `Update for ${tenant2}::`,
     };
 
     // Replay idempotency for Tenant 1
@@ -599,10 +612,11 @@ test('supplementary: enforces multi-tenant boundary isolation (facility_id::dept
       { container: root1 }
     );
 
-    assert.ok(root1.textContent?.includes(`Update for ${tenant1}`));
-    assert.strictEqual(root1.textContent?.includes(`Update for ${tenant2}`), false);
+    assert.ok(root1.textContent?.includes(`Update for ${tenant1}::`));
+    assert.strictEqual(root1.textContent?.includes(`Update for ${tenant2}::`), false);
 
     // Replay exactly the same mutation
+    act(() => {
     rerender(
       <AutoUpdateModal
         isOpen={true}
@@ -612,11 +626,12 @@ test('supplementary: enforces multi-tenant boundary isolation (facility_id::dept
         currentBuild={18}
       />
     );
+  });
 
-    assert.ok(root1.textContent?.includes(`Update for ${tenant1}`));
-    assert.strictEqual(root1.textContent?.includes(`Update for ${tenant2}`), false);
+    assert.ok(root1.textContent?.includes(`Update for ${tenant1}::`));
+    assert.strictEqual(root1.textContent?.includes(`Update for ${tenant2}::`), false);
 
-    unmount(); // Unmount to simulate fresh boundary context
+    act(() => { unmount(); }); // Unmount to simulate fresh boundary context
 
     // Switch to Tenant 2, verifying Multi-Tenant Isolation
     render(
@@ -630,8 +645,8 @@ test('supplementary: enforces multi-tenant boundary isolation (facility_id::dept
       { container: root2 }
     );
 
-    assert.ok(root2.textContent?.includes(`Update for ${tenant2}`));
-    assert.strictEqual(root2.textContent?.includes(`Update for ${tenant1}`), false); // Assert Tenant 1 context is completely isolated/scrubbed
+    assert.ok(root2.textContent?.includes(`Update for ${tenant2}::`));
+    assert.strictEqual(root2.textContent?.includes(`Update for ${tenant1}::`), false); // Assert Tenant 1 context is completely isolated/scrubbed
   } finally {
     global.fetch = tempFetch;
     document.body.removeChild(root1);
@@ -694,7 +709,7 @@ test('enforces memory profiling, leak detection, unclosed event listeners, and c
         { container: root }
       );
 
-      unmount();
+      act(() => { unmount(); });
     });
 
     await Promise.all(renderPromises);
@@ -779,7 +794,7 @@ test('enforces HIPAA PII/PHI redaction verification, regex boundary attacks, zer
     assert.ok(screen.getByText(/eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9/));
     assert.ok(screen.getByText(/Patient: John Doe, MRN: 123456/));
 
-    unmount();
+    act(() => { unmount(); });
   } finally {
     global.fetch = tempFetch;
     if (document.body.contains(root)) {
@@ -809,7 +824,7 @@ test('enforces clinical state snapshot consistency, preference card conflict res
     const preferenceCardA: VersionManifest = {
       ...manifest,
       version: 'v1.0.0',
-      changelog: `Clinical Snapshot Update for ${tenantClinical1}`,
+      changelog: `Clinical Snapshot Update for ${tenantClinical1}::`,
       build_number: 100
     };
 
@@ -817,7 +832,7 @@ test('enforces clinical state snapshot consistency, preference card conflict res
     const preferenceCardB: VersionManifest = {
       ...manifest,
       version: 'v1.1.0',
-      changelog: `Clinical Snapshot Update for ${tenantClinical2}`,
+      changelog: `Clinical Snapshot Update for ${tenantClinical2}::`,
       build_number: 101
     };
 
@@ -834,10 +849,11 @@ test('enforces clinical state snapshot consistency, preference card conflict res
     );
 
     // Verify state transition matrix consistency for snapshot A
-    assert.ok(root1.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical1}`));
-    assert.strictEqual(root1.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical2}`), false);
+    assert.ok(root1.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical1}::`));
+    assert.strictEqual(root1.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical2}::`), false);
 
     // Simulate preference card conflict resolution: rerender tenant 1 with preference card B
+    act(() => {
     rerender1(
       <AutoUpdateModal
         isOpen={true}
@@ -847,13 +863,14 @@ test('enforces clinical state snapshot consistency, preference card conflict res
         currentBuild={90}
       />
     );
+  });
 
     // The modal should deterministically transition to state B without leakage
-    assert.ok(root1.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical2}`));
+    assert.ok(root1.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical2}::`));
     // The previous state (snapshot A) must be evicted and completely resolved
-    assert.strictEqual(root1.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical1}`), false);
+    assert.strictEqual(root1.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical1}::`), false);
 
-    unmount1();
+    act(() => { unmount1(); });
 
     // Render snapshot B on tenant 2 strictly enforcing boundary
     const { unmount: unmount2 } = render(
@@ -867,10 +884,10 @@ test('enforces clinical state snapshot consistency, preference card conflict res
       { container: root2 }
     );
 
-    assert.ok(root2.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical2}`));
-    assert.strictEqual(root2.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical1}`), false);
+    assert.ok(root2.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical2}::`));
+    assert.strictEqual(root2.textContent?.includes(`Clinical Snapshot Update for ${tenantClinical1}::`), false);
 
-    unmount2();
+    act(() => { unmount2(); });
 
   } finally {
     global.fetch = tempFetch;
@@ -918,6 +935,7 @@ test('enforces deep state immutability to prevent invalid or separate-tenant tra
     fireEvent.click(installBtn);
 
     // Force a rerender to verify it handles frozen objects smoothly during updates
+    act(() => {
     rerender(
       <AutoUpdateModal
         isOpen={true}
@@ -927,10 +945,11 @@ test('enforces deep state immutability to prevent invalid or separate-tenant tra
         currentBuild={100}
       />
     );
+  });
 
     assert.ok(screen.getByText('Test Immutability'));
 
-    unmount();
+    act(() => { unmount(); });
   } finally {
     global.fetch = tempFetch;
     if (document.body.contains(root)) {
