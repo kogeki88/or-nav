@@ -5175,8 +5175,10 @@
     "id": "backlog-518",
     "title": "Testing: Continuous Invariant & Stress Hardening Round 2 for PeerQnAPanel",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Hardening Round 2): Continuous Invariants for PeerQnAPanel\n\n**File:** `frontend/src/components/PeerQnAPanel.test.tsx`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/components/PeerQnAPanel.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Hardening Round 2): Continuous Invariants for PeerQnAPanel\n\n**File:** `frontend/src/components/PeerQnAPanel.test.tsx`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/components/PeerQnAPanel.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "7487098802861809140",
+    "dispatchedAt": "2026-11-07T17:19:45.401Z"
   },
   {
     "id": "backlog-519",
@@ -5992,8 +5994,10 @@
     "id": "backlog-600",
     "title": "Testing: Continuous Invariant & Stress Hardening Round 4 for DeltaSync",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Hardening Round 4): Continuous Invariants for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Hardening Round 4): Continuous Invariants for DeltaSync\n\n**File:** `frontend/src/lib/deltaSync.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/lib/deltaSync.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "7485077688088564779",
+    "dispatchedAt": "2026-11-07T17:19:47.641Z"
   },
   {
     "id": "backlog-601",
@@ -6009,15 +6013,19 @@
     "id": "backlog-602",
     "title": "Testing: Continuous Invariant & Stress Hardening Round 4 for FeedbackPipeline",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Hardening Round 4): Continuous Invariants for FeedbackPipeline\n\n**File:** `backend/tests/test_feedback_pipeline.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_feedback_pipeline.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Hardening Round 4): Continuous Invariants for FeedbackPipeline\n\n**File:** `backend/tests/test_feedback_pipeline.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_feedback_pipeline.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "9423457507107543797",
+    "dispatchedAt": "2026-11-07T17:19:49.600Z"
   },
   {
     "id": "backlog-603",
     "title": "Testing: Continuous Invariant & Stress Hardening Round 4 for IntentParser",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Hardening Round 4): Continuous Invariants for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Hardening Round 4): Continuous Invariants for IntentParser\n\n**File:** `backend/tests/test_intent_parser.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_intent_parser.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "14511462349698408731",
+    "dispatchedAt": "2026-11-07T17:19:51.033Z"
   },
   {
     "id": "backlog-604",
@@ -6043,15 +6051,19 @@
     "id": "backlog-606",
     "title": "Testing: Continuous Invariant & Stress Hardening Round 4 for VoiceWorker",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Hardening Round 4): Continuous Invariants for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Hardening Round 4): Continuous Invariants for VoiceWorker\n\n**File:** `backend/tests/test_voice_worker.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_voice_worker.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "17021238364024786684",
+    "dispatchedAt": "2026-11-07T17:19:52.365Z"
   },
   {
     "id": "backlog-607",
     "title": "Testing: Continuous Invariant & Stress Hardening Round 4 for PushToTalkHook",
     "category": "Testing",
-    "status": "pending",
-    "prompt": "# 🚀 Testing Task (Hardening Round 4): Continuous Invariants for PushToTalkHook\n\n**File:** `frontend/src/hooks/usePushToTalk.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/hooks/usePushToTalk.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Testing Task (Hardening Round 4): Continuous Invariants for PushToTalkHook\n\n**File:** `frontend/src/hooks/usePushToTalk.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/hooks/usePushToTalk.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "18312851762658998957",
+    "dispatchedAt": "2026-11-07T17:19:53.696Z"
   },
   {
     "id": "backlog-608",
@@ -6074,15 +6086,19 @@
     "id": "backlog-610",
     "title": "Code Health: Continuous Invariant & Stress Hardening Round 4 for AutoUpdateModal",
     "category": "Code Health",
-    "status": "pending",
-    "prompt": "# 🚀 Code Health Task (Hardening Round 4): Continuous Invariants for AutoUpdateModal\n\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Code Health Task (Hardening Round 4): Continuous Invariants for AutoUpdateModal\n\n**File:** `frontend/src/components/AutoUpdateModal.test.tsx`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/components/AutoUpdateModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "4792834737645311867",
+    "dispatchedAt": "2026-11-07T17:19:41.510Z"
   },
   {
     "id": "backlog-611",
     "title": "Bolt: Continuous Invariant & Stress Hardening Round 4 for OmnibarSearch",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Hardening Round 4): Continuous Invariants for OmnibarSearch\n\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/components/Omnibar.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Hardening Round 4): Continuous Invariants for OmnibarSearch\n\n**File:** `frontend/src/components/Omnibar.test.tsx`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/components/Omnibar.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "16476892416590608500",
+    "dispatchedAt": "2026-11-07T17:19:30.760Z"
   },
   {
     "id": "backlog-612",
@@ -6095,8 +6111,10 @@
     "id": "backlog-613",
     "title": "Performance: Continuous Invariant & Stress Hardening Round 4 for SyncEngineOutbox",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Performance Task (Hardening Round 4): Continuous Invariants for SyncEngineOutbox\n\n**File:** `frontend/src/lib/syncEngine.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/lib/syncEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Performance Task (Hardening Round 4): Continuous Invariants for SyncEngineOutbox\n\n**File:** `frontend/src/lib/syncEngine.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/lib/syncEngine.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "9745517510014924561",
+    "dispatchedAt": "2026-11-07T17:19:33.082Z"
   },
   {
     "id": "backlog-614",
@@ -6112,15 +6130,19 @@
     "id": "backlog-615",
     "title": "Bolt: Continuous Invariant & Stress Hardening Round 4 for ClinicalQueryPlannerService",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Hardening Round 4): Continuous Invariants for ClinicalQueryPlannerService\n\n**File:** `backend/tests/test_clinical_query_planner.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_clinical_query_planner.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Hardening Round 4): Continuous Invariants for ClinicalQueryPlannerService\n\n**File:** `backend/tests/test_clinical_query_planner.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_clinical_query_planner.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "2157850439623015209",
+    "dispatchedAt": "2026-11-07T17:19:34.527Z"
   },
   {
     "id": "backlog-616",
     "title": "Bolt: Continuous Invariant & Stress Hardening Round 4 for SurgicalOntologyService",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Hardening Round 4): Continuous Invariants for SurgicalOntologyService\n\n**File:** `backend/tests/test_surgical_ontology.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_surgical_ontology.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Hardening Round 4): Continuous Invariants for SurgicalOntologyService\n\n**File:** `backend/tests/test_surgical_ontology.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_surgical_ontology.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "13130879140349016193",
+    "dispatchedAt": "2026-11-07T17:19:36.646Z"
   },
   {
     "id": "backlog-617",
@@ -6136,8 +6158,10 @@
     "id": "backlog-618",
     "title": "Sentinel: Continuous Invariant & Stress Hardening Round 4 for ChatRouterMultiTenant",
     "category": "Security",
-    "status": "pending",
-    "prompt": "# 🚀 Sentinel Task (Hardening Round 4): Continuous Invariants for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Hardening Round 4): Continuous Invariants for ChatRouterMultiTenant\n\n**File:** `backend/tests/test_chat_router.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_chat_router.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "11901577148256669998",
+    "dispatchedAt": "2026-11-07T17:19:27.368Z"
   },
   {
     "id": "backlog-619",
@@ -6150,8 +6174,10 @@
     "id": "backlog-620",
     "title": "Sentinel: Continuous Invariant & Stress Hardening Round 4 for LimiterConcurrencyThrottling",
     "category": "Security",
-    "status": "pending",
-    "prompt": "# 🚀 Sentinel Task (Hardening Round 4): Continuous Invariants for LimiterConcurrencyThrottling\n\n**File:** `backend/tests/test_limiter_concurrency.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_limiter_concurrency.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Sentinel Task (Hardening Round 4): Continuous Invariants for LimiterConcurrencyThrottling\n\n**File:** `backend/tests/test_limiter_concurrency.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_limiter_concurrency.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "7077015053858651197",
+    "dispatchedAt": "2026-11-07T17:19:29.480Z"
   },
   {
     "id": "backlog-621",
@@ -6164,15 +6190,19 @@
     "id": "backlog-622",
     "title": "Bolt: Continuous Invariant & Stress Hardening Round 4 for DeltaSyncPayload",
     "category": "Performance",
-    "status": "pending",
-    "prompt": "# 🚀 Bolt Task (Hardening Round 4): Continuous Invariants for DeltaSyncPayload\n\n**File:** `frontend/src/lib/deltaSyncPayload.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/lib/deltaSyncPayload.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Bolt Task (Hardening Round 4): Continuous Invariants for DeltaSyncPayload\n\n**File:** `frontend/src/lib/deltaSyncPayload.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/lib/deltaSyncPayload.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "7671809984519623278",
+    "dispatchedAt": "2026-11-07T17:19:39.668Z"
   },
   {
     "id": "backlog-623",
     "title": "Code Health: Continuous Invariant & Stress Hardening Round 4 for Departments",
     "category": "Code Health",
-    "status": "pending",
-    "prompt": "# 🚀 Code Health Task (Hardening Round 4): Continuous Invariants for Departments\n\n**File:** `frontend/src/lib/departments.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/lib/departments.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+    "status": "dispatched",
+    "prompt": "# 🚀 Code Health Task (Hardening Round 4): Continuous Invariants for Departments\n\n**File:** `frontend/src/lib/departments.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/lib/departments.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
+    "sessionId": "1034645701618018891",
+    "dispatchedAt": "2026-11-07T17:19:43.457Z"
   },
   {
     "id": "backlog-624",
