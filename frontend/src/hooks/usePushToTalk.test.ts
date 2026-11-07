@@ -516,10 +516,8 @@ describe('usePushToTalk', () => {
         // Assert output state remains strictly equal to the state after first execution
         // We omit functions since they might be recreated or irrelevant to pure state checks,
         // but since we spread, we check values.
-        assert.strictEqual(result1.current.isHoldingPTT, state1.isHoldingPTT);
-        assert.strictEqual(result1.current.voiceMode, state1.voiceMode);
-        assert.strictEqual(result1.current.isConnected, state1.isConnected);
-        assert.strictEqual(result1.current.roomError, state1.roomError);
+        const replayState = { isHoldingPTT: result1.current.isHoldingPTT, voiceMode: result1.current.voiceMode, isConnected: result1.current.isConnected, roomError: result1.current.roomError };
+        assert.deepStrictEqual(replayState, state1);
       }
 
       // Stop PTT
@@ -1002,7 +1000,7 @@ describe('usePushToTalk', () => {
       assert.strictEqual(result.current.isHoldingPTT, true);
     } finally {
       global.fetch = originalFetchVoiceStatus;
-      if (typeof originalWindow !== 'undefined') global.window = originalWindow;
+      if (originalWindow === undefined) delete (global as any).window; else (global as any).window = originalWindow;
     }
   });
 
