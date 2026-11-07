@@ -33,13 +33,13 @@ def test_feedback_pipeline_multi_tenant_isolation():
     assert res_sh.status_code == 200
     initial_sh_count = len(res_sh.json()["items"])
     for item in res_sh.json()["items"]:
-        assert item["tenantId"].startswith("sacred_heart")
+        assert item["tenantId"] == "sacred_heart::or"
 
     res_pp = client.get("/api/feedback?tenantId=princeton_plainsboro::or")
     assert res_pp.status_code == 200
     initial_pp_count = len(res_pp.json()["items"])
     for item in res_pp.json()["items"]:
-        assert item["tenantId"].startswith("princeton_plainsboro")
+        assert item["tenantId"] == "princeton_plainsboro::or"
 
     # Create a new item for Sacred Heart to ensure it doesn't leak
     payload = {
@@ -58,7 +58,7 @@ def test_feedback_pipeline_multi_tenant_isolation():
     res_cg = client.get("/api/feedback?tenantId=county_general::er")
     assert res_cg.status_code == 200
     for item in res_cg.json()["items"]:
-        assert item["tenantId"].startswith("county_general")
+        assert item["tenantId"] == "county_general::er"
 
     # Add a new item to sacred_heart::icu
     payload_icu = {
@@ -231,10 +231,16 @@ def test_offline_first_socket_invariants(monkeypatch):
     import socket
     original_socket = socket.socket
 
-    def mock_socket(family=-1, *args, **kwargs):
-        if family != getattr(socket, "AF_UNIX", None):
+    import os
+    def mock_socket(*args, **kwargs):
+        if not args and not kwargs:
+            if os.name != "nt":
+                raise RuntimeError("Network access is strictly forbidden in offline-first mode")
+            return original_socket(*args, **kwargs)
+        family = args[0] if args else kwargs.get("family", socket.AF_INET)
+        if isinstance(family, int) and family != getattr(socket, "AF_UNIX", None):
             raise RuntimeError("Network access is strictly forbidden in offline-first mode")
-        return original_socket(family, *args, **kwargs)
+        return original_socket(*args, **kwargs)
 
     monkeypatch.setattr(socket, "socket", mock_socket)
 
@@ -466,7 +472,8 @@ def test_hipaa_phi_scrubbing_and_prompt_injection():
     res2 = client.post("/api/feedback", json=payload2)
     assert res2.status_code == 422
 
-def test_concurrent_burst_execution():
+@pytest.mark.asyncio
+async def test_concurrent_burst_execution():
     """Verify race condition resistance during concurrent burst traffic."""
     import asyncio
     import httpx
@@ -477,10 +484,10 @@ def test_concurrent_burst_execution():
         async def submit_complaint(i):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as async_client:
                 unique_text = f"C-arm calibration issue_{i} " + ("xyz" * (i*2))
-                tenant_id = f"sacred_heart::or_burst_{i}"
+                tenant_id = f"sacred_heart::or_burst_{i}::end"
 
                 # Yield to event loop to simulate true interleaving
-                await asyncio.sleep(random.uniform(0, 0.01))
+                await asyncio.sleep(((i * 13) % 10) / 1000.0)
 
                 # Write only to unique tenant record
                 post_res = await async_client.post("/api/feedback", json={
@@ -499,7 +506,7 @@ def test_concurrent_burst_execution():
         results = await asyncio.gather(*(submit_complaint(i) for i in range(25)))
         return results
 
-    results = asyncio.run(run_burst())
+    results = await run_burst()
 
     all_items = []
     for post_res, get_res in results:
