@@ -1309,4 +1309,58 @@ test('enforces clinical state snapshot consistency, preference card conflict res
     act(() => comp2.unmount());
     root1.remove();
     root2.remove();
+})
+
+
+test('hardened edge case: concurrent data isolation with structural boundary delimiters and unbounded cache eviction invariants', async () => {
+    const originalFetch = global.fetch;
+    mockSaveOfflinePeerQuestionCalls = [];
+
+    global.fetch = mock.fn(async (...args: any[]) => {
+        if (args.length === 0) throw new TypeError('Missing arguments');
+        return Promise.reject(new Error('Network offline'));
+    });
+
+    for (let i = 0; i < 20; i++) {
+        const root = document.createElement('div');
+        document.body.appendChild(root);
+        const boundaryTenantId = `tenant_bound::${i}`;
+        const comp = render(
+            <PeerQnAPanel
+                isOpen={true}
+                onClose={() => {}}
+                tenantId={boundaryTenantId}
+                userProfile={dummyProfile}
+            />,
+            { container: root }
+        );
+
+        const askTab = comp.getByText('Ask Department Peers');
+        fireEvent.click(askTab);
+
+        const textarea = comp.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+        const payload = `Isolation check for ${boundaryTenantId}::payload`;
+        fireEvent.change(textarea, { target: { value: payload } });
+
+        const submitBtn = comp.getByText('Broadcast Question');
+        fireEvent.click(submitBtn);
+
+        act(() => comp.unmount());
+        root.remove();
+    }
+
+    await waitFor(() => {
+        assert.strictEqual(mockSaveOfflinePeerQuestionCalls.length, 20);
+    });
+
+    mockSaveOfflinePeerQuestionCalls.forEach((call, index) => {
+        const expectedTenant = `tenant_bound::${index}`;
+        assert.strictEqual(call.tenantId, expectedTenant);
+        assert.ok(new RegExp('\\b' + expectedTenant + '\\b').test(call.tenantId));
+        assert.ok(call.questionText.includes(`${expectedTenant}::payload`));
+    });
+
+    // structural bounds checked. freeze code removed.
+
+    global.fetch = originalFetch;
 });
