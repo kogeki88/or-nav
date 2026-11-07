@@ -5175,10 +5175,8 @@
     "id": "backlog-518",
     "title": "Testing: Continuous Invariant & Stress Hardening Round 2 for PeerQnAPanel",
     "category": "Testing",
-    "status": "dispatched",
-    "prompt": "# 🚀 Testing Task (Hardening Round 2): Continuous Invariants for PeerQnAPanel\n\n**File:** `frontend/src/components/PeerQnAPanel.test.tsx`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/components/PeerQnAPanel.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
-    "sessionId": "12494566399127974300",
-    "dispatchedAt": "2026-11-06T18:35:29.964Z"
+    "status": "pending",
+    "prompt": "# 🚀 Testing Task (Hardening Round 2): Continuous Invariants for PeerQnAPanel\n\n**File:** `frontend/src/components/PeerQnAPanel.test.tsx`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/components/PeerQnAPanel.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
   },
   {
     "id": "backlog-519",
