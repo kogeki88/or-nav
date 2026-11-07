@@ -101,7 +101,7 @@ test('UserProfileModal handles offline-first idempotency and missing global fetc
   cleanup();
   const onSaveProfileMock = mock.fn();
   const mockOnClose = mock.fn();
-  const origFetch = global.fetch;
+  const localOrigFetch = global.fetch;
   (global as any).fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
 
   render(
@@ -128,7 +128,7 @@ test('UserProfileModal handles offline-first idempotency and missing global fetc
     assert.strictEqual(onSaveProfileMock.mock.calls.length, 1);
   });
 
-  (global as any).fetch = origFetch;
+  if (typeof localOrigFetch !== "undefined") { (global as any).fetch = localOrigFetch; } else { delete (global as any).fetch; }
   mock.restoreAll();
 });
 
@@ -178,7 +178,7 @@ test('UserProfileModal guarantees offline mutation replay idempotency', async (t
   cleanup();
   const onSaveProfileMock = mock.fn();
   const mockOnClose = mock.fn();
-  const origFetch = global.fetch;
+  const localOrigFetch = global.fetch;
   (global as any).fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
 
   render(
@@ -210,7 +210,7 @@ test('UserProfileModal guarantees offline mutation replay idempotency', async (t
     assert.strictEqual(onSaveProfileMock.mock.calls.length, 1, 'Should only trigger save once on offline replay burst');
   });
 
-  (global as any).fetch = origFetch;
+  if (typeof localOrigFetch !== "undefined") { (global as any).fetch = localOrigFetch; } else { delete (global as any).fetch; }
   mock.restoreAll();
 });
 
@@ -310,7 +310,7 @@ test('UserProfileModal enforces multi-tenant isolation and offline-first invaria
   const onSaveProfileMock = mock.fn();
   const mockOnClose = mock.fn();
 
-  const origFetch = global.fetch;
+  const localOrigFetch = global.fetch;
   (global as any).fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
 
   const numWorkers = 50;
@@ -364,7 +364,7 @@ test('UserProfileModal enforces multi-tenant isolation and offline-first invaria
     assert.strictEqual(res.onSaveProfileMock.mock.calls[0].arguments[0].facilityId, res.tenantId);
   }
 
-  (global as any).fetch = origFetch;
+  if (typeof localOrigFetch !== "undefined") { (global as any).fetch = localOrigFetch; } else { delete (global as any).fetch; }
   mock.restoreAll();
 });
 
@@ -376,7 +376,7 @@ test('UserProfileModal handles network partition degradation, intermittent laten
 
   // Mock global fetch to simulate a network partition (offline state) followed by recovery (online with latency)
   let fetchAttempts = 0;
-  const origFetch = global.fetch;
+  const localOrigFetch = global.fetch;
 
   (global as any).fetch = mock.fn(async (...args: any[]) => {
     fetchAttempts++;
@@ -436,7 +436,7 @@ test('UserProfileModal handles network partition degradation, intermittent laten
   assert.strictEqual(savedDataRecovered.clinicalRole, 'Scrub Tech');
   assert.ok(fetchAttempts >= 2, "fetch should be called at least twice");
 
-  (global as any).fetch = origFetch;
+  if (typeof localOrigFetch !== "undefined") { (global as any).fetch = localOrigFetch; } else { delete (global as any).fetch; }
   mock.restoreAll();
 });
 
@@ -561,7 +561,7 @@ test('UserProfileModal handles offline QuotaExceededError gracefully during mult
     throw new DOMException('QuotaExceededError: DOM Exception 22', 'QuotaExceededError');
   });
 
-  const origFetch = global.fetch;
+  const localOrigFetch = global.fetch;
   (global as any).fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch')));
 
   const onSaveProfileMock = mock.fn();
@@ -597,7 +597,7 @@ test('UserProfileModal handles offline QuotaExceededError gracefully during mult
   assert.strictEqual(savedProfile.facilityId, 'tenant_quota');
 
   localStorage.setItem = originalSetItem;
-  (global as any).fetch = origFetch;
+  if (typeof localOrigFetch !== "undefined") { (global as any).fetch = localOrigFetch; } else { delete (global as any).fetch; }
   mock.restoreAll();
 });
 
