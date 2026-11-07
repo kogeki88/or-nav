@@ -21,11 +21,13 @@ class LocalStorageMock {
 
 describe('directGemini', () => {
   let originalWindow: unknown;
+  let originalLocalStorage: unknown;
   let originalFetch: unknown;
   let originalBtoa: unknown;
 
   beforeEach(() => {
     originalWindow = global.window;
+    originalLocalStorage = (global as any).localStorage;
     originalFetch = global.fetch;
     originalBtoa = global.btoa;
 
@@ -40,8 +42,10 @@ describe('directGemini', () => {
 
   afterEach(() => {
     (global as { window?: unknown }).window = originalWindow;
-    if (originalWindow === undefined) {
+    if (originalLocalStorage === undefined) {
       delete (global as { localStorage?: unknown }).localStorage;
+    } else {
+      (global as { localStorage?: unknown }).localStorage = originalLocalStorage;
     }
     global.fetch = originalFetch as typeof fetch;
     global.btoa = originalBtoa as typeof btoa;
@@ -433,7 +437,7 @@ describe('directGemini', () => {
         maxActiveRequests = Math.max(maxActiveRequests, activeRequests);
 
         // Yield to event loop to simulate concurrency correctly
-        await new Promise(r => setTimeout(r, Math.random() * 10));
+        await new Promise(r => setTimeout(r, (activeRequests * 13) % 10));
 
         activeRequests--;
         totalCompleted++;
@@ -484,7 +488,7 @@ describe('directGemini', () => {
         }
 
         // Random latency 0-20ms to jumble execution order
-        await new Promise(r => setTimeout(r, Math.random() * 20));
+        await new Promise(r => setTimeout(r, (capturedPrompts.length * 13) % 10));
 
         return {
           ok: true,
@@ -506,7 +510,7 @@ describe('directGemini', () => {
       for (let i = 0; i < iterations; i++) {
         for (const p of profiles) {
           // Simulate multi-tenant context using facility_id::dept_id boundary mapping implicitly handled by directGeminiRAG's internal profile context
-          const worker_seq = `worker_seq_${p.facilityId}_${i}`;
+          const worker_seq = `worker_seq_${p.facilityId}_${i}::seq`;
           promises.push(directGeminiRAG(`query ${p.facilityId}::${p.departmentId} ${worker_seq}`, undefined, undefined, undefined, p as any));
         }
       }
@@ -525,19 +529,19 @@ describe('directGemini', () => {
       // Strictly verify no cross-tenant leakage of worker_seq identifiers
       for (const prompt of capturedPrompts) {
         if (prompt.includes("Facility A")) {
-          assert.match(prompt, /worker_seq_fac_a_\d+\b/, "Must contain exactly its own worker seq");
-          assert.ok(!/worker_seq_fac_b_\d+\b/.test(prompt), "Leaked tenant B data into A");
-          assert.ok(!/worker_seq_fac_c_\d+\b/.test(prompt), "Leaked tenant C data into A");
+          assert.match(prompt, /worker_seq_fac_a_\d+::seq\b/, "Must contain exactly its own worker seq");
+          assert.ok(!/worker_seq_fac_b_\d+::seq\b/.test(prompt), "Leaked tenant B data into A");
+          assert.ok(!/worker_seq_fac_c_\d+::seq\b/.test(prompt), "Leaked tenant C data into A");
         }
         if (prompt.includes("Facility B")) {
-          assert.match(prompt, /worker_seq_fac_b_\d+\b/, "Must contain exactly its own worker seq");
-          assert.ok(!/worker_seq_fac_a_\d+\b/.test(prompt), "Leaked tenant A data into B");
-          assert.ok(!/worker_seq_fac_c_\d+\b/.test(prompt), "Leaked tenant C data into B");
+          assert.match(prompt, /worker_seq_fac_b_\d+::seq\b/, "Must contain exactly its own worker seq");
+          assert.ok(!/worker_seq_fac_a_\d+::seq\b/.test(prompt), "Leaked tenant A data into B");
+          assert.ok(!/worker_seq_fac_c_\d+::seq\b/.test(prompt), "Leaked tenant C data into B");
         }
         if (prompt.includes("Facility C")) {
-          assert.match(prompt, /worker_seq_fac_c_\d+\b/, "Must contain exactly its own worker seq");
-          assert.ok(!/worker_seq_fac_a_\d+\b/.test(prompt), "Leaked tenant A data into C");
-          assert.ok(!/worker_seq_fac_b_\d+\b/.test(prompt), "Leaked tenant B data into C");
+          assert.match(prompt, /worker_seq_fac_c_\d+::seq\b/, "Must contain exactly its own worker seq");
+          assert.ok(!/worker_seq_fac_a_\d+::seq\b/.test(prompt), "Leaked tenant A data into C");
+          assert.ok(!/worker_seq_fac_b_\d+::seq\b/.test(prompt), "Leaked tenant B data into C");
         }
       }
     });
@@ -769,7 +773,8 @@ describe('directGemini', () => {
       setClientGeminiApiKey("test-offline-key");
 
       let fetchCount = 0;
-      global.fetch = async () => {
+      global.fetch = async (...args: any[]) => {
+        if (args.length === 0) throw new TypeError('Missing arguments');
         fetchCount++;
         // Simulate network randomly dropping after 10 requests
         if (fetchCount > 10) {
@@ -843,8 +848,10 @@ describe('directGemini', () => {
       for (let i = 0; i < queries.length; i++) {
         const s1 = structuredClone(snapshots[i]);
         s1.latency_ms = 0;
+        Object.freeze(s1);
         const s2 = structuredClone(snapshots2[i]);
         s2.latency_ms = 0;
+        Object.freeze(s2);
         assert.deepStrictEqual(s1, s2, "Deterministic state transition matrices must remain deeply consistent");
       }
     });
@@ -863,17 +870,20 @@ describe('directGemini', () => {
 
       const snapshot1 = structuredClone(res);
       snapshot1.latency_ms = 0;
+      Object.freeze(snapshot1);
 
       const res2 = await directGeminiRAG(query);
       const snapshot2 = structuredClone(res2);
       snapshot2.latency_ms = 0;
+      Object.freeze(snapshot2);
 
       assert.deepStrictEqual(snapshot1, snapshot2, "Clinical state snapshot must remain perfectly consistent across identical parses");
     });
 
     test("Enforce multi-tenant isolation and offline-first invariants during RAG snapshot generation", async () => {
       setClientGeminiApiKey("test-key");
-      global.fetch = async () => {
+      global.fetch = async (...args: any[]) => {
+        if (args.length === 0) throw new TypeError('Missing arguments');
         return Promise.reject(new Error("Network offline"));
       };
 
