@@ -58,7 +58,7 @@ test("ClinicalGraph Performance and Cycle Detection Benchmarks", async (t) => {
 test("ClinicalGraph Multi-tenant Isolation and Offline Invariants", async (t) => {
   const originalFetch = global.fetch;
   try {
-    global.fetch = (async () => { throw new Error("Network offline"); }) as any;
+    global.fetch = (async (...args: any[]) => { if (!args || args.length === 0) throw new TypeError("Missing arguments"); throw new Error("Network offline"); }) as any;
 
     await t.test("compileClinicalGraph enforces multi-tenant isolation", () => {
       const tenantACards = [{ id: "A1", surgeon: "Dr. Smith", procedure: "TKA" }];
@@ -141,7 +141,11 @@ test("ClinicalGraph Multi-tenant Isolation and Offline Invariants", async (t) =>
     });
 
   } finally {
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) {
+      delete (global as any).fetch;
+    } else {
+      global.fetch = originalFetch;
+    }
   }
 });
 
@@ -304,7 +308,7 @@ test("ClinicalGraph Hardened Eviction and Caching Limits", async (t) => {
     }));
 
     for (let i = 0; i < cacheBustingIterations; i++) {
-        compileClinicalGraph("tenant_cache_" + String(i % 50), uniqueCards, [], "");
+        compileClinicalGraph("tenant_cache_" + String(i), uniqueCards, [], "");
     }
 
     if (global.gc) {
