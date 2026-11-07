@@ -84,5 +84,104 @@
       "clinicalRole": "ICU RN"
     },
     "createdAt": "2026-10-27T23:07:35.625823+00:00"
+  },
+  {
+    "userId": "usr-b713e2bf",
+    "email": "offline2@test.com",
+    "fullName": "Offline2",
+    "passwordHash": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+    "onboardingCompleted": false,
+    "profile": null,
+    "createdAt": "2026-11-07T01:12:39.401694+00:00"
+  },
+  {
+    "userId": "usr-6c5fd331",
+    "email": "login_0_662c83e3a07a4beb882ac58c28081f4a@sacredheart.org",
+    "fullName": "Test User",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "onboardingCompleted": false,
+    "profile": null,
+    "createdAt": "2026-11-07T01:15:51.592115+00:00"
+  },
+  {
+    "userId": "usr-63dac9ef",
+    "email": "login_1_43c6333c091748159bd47236ae4eed27@sacredheart.org",
+    "fullName": "Test User",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "onboardingCompleted": false,
+    "profile": null,
+    "createdAt": "2026-11-07T01:15:51.601416+00:00"
+  },
+  {
+    "userId": "usr-ebdb7697",
+    "email": "login_2_37da36778fb24f6fa3c68b948e90b472@sacredheart.org",
+    "fullName": "Test User",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "onboardingCompleted": false,
+    "profile": null,
+    "createdAt": "2026-11-07T01:15:51.610422+00:00"
+  },
+  {
+    "userId": "usr-615f8518",
+    "email": "login_3_56c6d4a03bcd4509b03b590fdb77a6cd@sacredheart.org",
+    "fullName": "Test User",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "onboardingCompleted": false,
+    "profile": null,
+    "createdAt": "2026-11-07T01:15:51.618166+00:00"
+  },
+  {
+    "userId": "usr-240695a1",
+    "email": "login_4_52e9acf1e569414396d6df628ad8f720@sacredheart.org",
+    "fullName": "Test User",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "onboardingCompleted": false,
+    "profile": null,
+    "createdAt": "2026-11-07T01:15:51.626422+00:00"
+  },
+  {
+    "userId": "usr-df00a8ac",
+    "email": "login_5_d95626f1489c4a2b94d420545befa643@sacredheart.org",
+    "fullName": "Test User",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "onboardingCompleted": false,
+    "profile": null,
+    "createdAt": "2026-11-07T01:15:51.634567+00:00"
+  },
+  {
+    "userId": "usr-7bddd681",
+    "email": "login_6_5733051f6d3141fdb42db9ee0b946e0a@sacredheart.org",
+    "fullName": "Test User",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "onboardingCompleted": false,
+    "profile": null,
+    "createdAt": "2026-11-07T01:15:51.644167+00:00"
+  },
+  {
+    "userId": "usr-d4eac85e",
+    "email": "login_7_fb9ef042cee8488084538f52537ee10d@sacredheart.org",
+    "fullName": "Test User",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "onboardingCompleted": false,
+    "profile": null,
+    "createdAt": "2026-11-07T01:15:51.651814+00:00"
+  },
+  {
+    "userId": "usr-2f3902ac",
+    "email": "login_8_7316853e3a2f48cc95f4f83c97685204@sacredheart.org",
+    "fullName": "Test User",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "onboardingCompleted": false,
+    "profile": null,
+    "createdAt": "2026-11-07T01:15:51.659898+00:00"
+  },
+  {
+    "userId": "usr-ce10d252",
+    "email": "login_9_004b94f5541842a3b6584f060fb510b2@sacredheart.org",
+    "fullName": "Test User",
+    "passwordHash": "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f",
+    "onboardingCompleted": false,
+    "profile": null,
+    "createdAt": "2026-11-07T01:15:51.667901+00:00"
   }
 ]

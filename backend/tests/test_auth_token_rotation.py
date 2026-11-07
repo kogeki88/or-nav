@@ -31,11 +31,10 @@ def clean_auth_state(tmp_path, monkeypatch):
 
     orig_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if len(args) > 0 else kwargs.get("family", -1)
-        import os
-        if family == getattr(socket, 'AF_UNIX', -1) or os.name == 'nt':
-            return orig_socket(*args, **kwargs)
-        raise RuntimeError("Network requests are disabled in this test suite.")
+        family = args[0] if args else kwargs.get('family', socket.AF_INET)
+        if family in (socket.AF_INET, socket.AF_INET6):
+            raise OSError("Network access forbidden in offline mode")
+        return orig_socket(*args, **kwargs)
     monkeypatch.setattr(socket, "socket", mock_socket)
 
     # Save the initial demo user state to the tmp_path
@@ -98,7 +97,8 @@ class TestAuthTokenRotation:
         assert token1.startswith("token-")
         assert token2.startswith("token-")
 
-    def test_auth_token_rotation_concurrent_burst(self):
+    @pytest.mark.asyncio
+    async def test_auth_token_rotation_concurrent_burst(self):
         """Verify race condition resistance and measure latency for concurrent requests."""
         num_requests = 50
         emails = [f"login_{i}_{uuid.uuid4().hex}@sacredheart.org" for i in range(num_requests)]
@@ -129,10 +129,8 @@ class TestAuthTokenRotation:
                 )
                 return email, res
 
-        async def _run():
-            tasks = [make_login_request(email) for email in emails]
-            return await asyncio.gather(*tasks)
-        results = asyncio.run(_run())
+        tasks = [make_login_request(email) for email in emails]
+        results = await asyncio.gather(*tasks)
 
         latency = time.time() - start_time
         assert latency < 25.0, f"Latency was {latency}s, expected < 25.0s"
@@ -437,16 +435,15 @@ class TestAuthTokenRotation:
 
         # Simulate heavy concurrent load: 200 register/login cycles
         for i in range(200):
-            email = f"memtest{i % 5}@hospital.org"
+            email = f"memtest{i}@hospital.org"
             pwd = "pass_word_secure"
 
-            if i < 5:
-                # Register user
-                res_reg = client.post(
-                    "/api/auth/register",
-                    json={"email": email, "password": pwd, "fullName": f"User {i}"}
-                )
-                assert res_reg.status_code == 200
+            # Register user
+            res_reg = client.post(
+                "/api/auth/register",
+                json={"email": email, "password": pwd, "fullName": f"User {i}"}
+            )
+            assert res_reg.status_code == 200
 
             # Login user
             res_log = client.post(
