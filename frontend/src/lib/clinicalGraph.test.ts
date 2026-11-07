@@ -58,7 +58,7 @@ test("ClinicalGraph Performance and Cycle Detection Benchmarks", async (t) => {
 test("ClinicalGraph Multi-tenant Isolation and Offline Invariants", async (t) => {
   const originalFetch = global.fetch;
   try {
-    global.fetch = (async (...args: any[]) => { if (!args || args.length === 0) throw new TypeError("Missing arguments"); throw new Error("Network offline"); }) as any;
+    global.fetch = (async (...args: any[]) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new Error("Network offline"); }) as any;
 
     await t.test("compileClinicalGraph enforces multi-tenant isolation", () => {
       const tenantACards = [{ id: "A1", surgeon: "Dr. Smith", procedure: "TKA" }];
@@ -135,9 +135,7 @@ test("ClinicalGraph Multi-tenant Isolation and Offline Invariants", async (t) =>
       const replayGraph1 = compileClinicalGraph(tenantA, cardsA, invA, "");
       const replayGraph2 = compileClinicalGraph(tenantA, cardsA, invA, "");
 
-      assert.strictEqual(replayGraph1.tenantId, replayGraph2.tenantId);
-      assert.deepStrictEqual(replayGraph1.indexedSurgeonNames, replayGraph2.indexedSurgeonNames);
-      assert.deepStrictEqual(Array.from(replayGraph1.inventoryTerms), Array.from(replayGraph2.inventoryTerms));
+      assert.deepStrictEqual(replayGraph1, replayGraph2);
     });
 
   } finally {
@@ -198,8 +196,8 @@ test("ClinicalGraph High-Concurrency & Stress Benchmarks", async (t) => {
 
     const startTime = performance.now();
     // Simulate interleaved burst by yielding to the event loop with jitter
-    const tasks = tenantIds.map(async (tenantId) => {
-      await new Promise(r => setTimeout(r, Math.random() * 10));
+    const tasks = tenantIds.map(async (tenantId, i) => {
+      await new Promise(r => setTimeout(r, (i * 13) % 10));
       return compileClinicalGraph(tenantId, cards, inventory as any, "");
     });
 
@@ -420,9 +418,11 @@ test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t)
     // Deep freeze active state to trigger TypeError on implicit mutation
     Object.freeze(graph);
     Object.freeze(graph.preferenceCards);
+    graph.preferenceCards.forEach(Object.freeze);
 
     // Create a separate deep copy for structural assertion
-    const baselineCopy = structuredClone(graph);
+    const baselineCopy = Object.freeze(structuredClone(graph));
+    baselineCopy.preferenceCards.forEach(Object.freeze);
 
     // Perform a pseudo-mutation (compile again with identical inputs)
     const graph2 = compileClinicalGraph("tenant_snapshot", cards, inventory as any, md);
