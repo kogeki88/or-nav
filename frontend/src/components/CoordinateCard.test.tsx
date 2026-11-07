@@ -95,7 +95,10 @@ test('renders partial coordinates and handles missing values gracefully', () => 
 test('offline mutation idempotency and multi-tenant isolation', async () => {
     const originalFetch = global.fetch;
     try {
-        global.fetch = mock.fn(() => Promise.reject(new TypeError('Failed to fetch'))) as any;
+        global.fetch = mock.fn((...args: any[]) => {
+            if (!args || args.length === 0) throw new TypeError('Failed to fetch');
+            return Promise.reject(new TypeError('Failed to fetch'));
+        }) as any;
 
         const cardData1: CoordinateCardData = {
             item: 'Item Y', room: 'OR 1', cabinet: '2', shelf: '3', container: '4', full_code: 'OR 1-2-3-4',
@@ -391,7 +394,8 @@ test('fault injection: intermittent latency network partition reconnection and s
     let fetchCallCount = 0;
 
     // Simulate network partition and self-healing
-    global.fetch = mock.fn(async () => {
+    global.fetch = mock.fn(async (...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Failed to fetch');
         fetchCallCount++;
         if (networkState.status === 'offline') {
             await new Promise(r => setTimeout(r, 50));
@@ -450,18 +454,21 @@ test('memory profiling, leak detection, unclosed event listeners, and cache evic
     let addedListeners = 0;
     let removedListeners = 0;
 
-    window.addEventListener = function() {
+    window.addEventListener = mock.fn(function(this: any, ...args: any[]) {
         addedListeners++;
-        return originalAddEventListener.apply(window, arguments as any);
-    };
+        return originalAddEventListener.apply(window, args as any);
+    }) as any;
 
-    window.removeEventListener = function() {
+    window.removeEventListener = mock.fn(function(this: any, ...args: any[]) {
         removedListeners++;
-        return originalRemoveEventListener.apply(window, arguments as any);
-    };
+        return originalRemoveEventListener.apply(window, args as any);
+    }) as any;
 
     const originalFetch = global.fetch;
-    global.fetch = () => { throw new Error('Offline mode enforced'); };
+    global.fetch = mock.fn((...args: any[]) => {
+        if (!args || args.length === 0) throw new TypeError('Failed to fetch');
+        return Promise.reject(new Error('Offline mode enforced'));
+    }) as any;
 
     let storageFailing = true;
     const originalGetItem = (global as any).localStorage?.getItem;
@@ -498,18 +505,16 @@ test('memory profiling, leak detection, unclosed event listeners, and cache evic
 
     try {
         for (let i = 0; i < iterations; i++) {
-            const container = document.createElement('div');
-            document.body.appendChild(container);
+            const root = document.createElement('div');
+            document.body.appendChild(root);
+            const { unmount } = render(<CoordinateCard card={cardData} facilityId={`leak_tenant_${i % 5}`} />, { container: root });
 
-            const { unmount } = render(<CoordinateCard card={cardData} facilityId={`leak_tenant_${i % 5}`} />, { container });
-
-            // Trigger state updates
-            fireEvent.click(screen.getByTestId('add-local-alias-btn'));
-            fireEvent.change(screen.getByTestId('add-local-alias-input'), { target: { value: `Alias-${i}` } });
-            fireEvent.click(screen.getByTestId('save-local-alias-btn'));
+            fireEvent.click(root.querySelector('[data-testid="add-local-alias-btn"]') as Element);
+            fireEvent.change(root.querySelector('[data-testid="add-local-alias-input"]') as Element, { target: { value: `Alias-${i}` } });
+            fireEvent.click(root.querySelector('[data-testid="save-local-alias-btn"]') as Element);
 
             unmount();
-            document.body.removeChild(container);
+            document.body.removeChild(root);
         }
 
         if (global.gc) global.gc();
