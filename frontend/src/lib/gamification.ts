@@ -184,10 +184,14 @@ export function getDefaultRewards(): ClinicianRewards {
 }
 
 function getStorageKey(userId?: string): string {
-  const uid =
-    userId ||
-    (typeof window !== "undefined" ? getCurrentSession()?.userId : null) ||
-    "default_user";
+  let uid: string;
+  if (typeof userId === 'string') {
+    uid = userId;
+  } else if (userId != null) {
+    uid = String(userId);
+  } else {
+    uid = (typeof window !== "undefined" ? getCurrentSession()?.userId : null) || "default_user";
+  }
   return `ornav_gamification_${uid}`;
 }
 
