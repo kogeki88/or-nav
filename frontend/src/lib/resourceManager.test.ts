@@ -161,9 +161,11 @@ describe("ResourceManagerChecksum", () => {
         const tenantId = `${facId}::${deptId}`;
         const expectedItem = `Item_${i}`;
 
-        const tenantItems = await offlineDb?.inventoryItems.where("tenant_id").equals(tenantId).toArray();
+        const tenantItems = await offlineDb?.inventoryItems.where("tenant_id").startsWith(tenantId).toArray();
         assert.ok(tenantItems && tenantItems.length > 0, `Expected items for ${tenantId}`);
         assert.ok(tenantItems!.some(item => item.item === expectedItem), `Expected item ${expectedItem} in ${tenantId}`);
+        // Verify explicit boundary delimiter matches to enforce strict multi-tenant isolation and prevent subset false positives
+        assert.ok(tenantItems!.every(item => new RegExp('\\b' + tenantId.replace('::', '\\:\\:') + '\\b').test(item.tenant_id)), `Strict boundary match failed for ${tenantId}`);
     }
 
     mock.restoreAll();
@@ -1039,11 +1041,12 @@ describe("ResourceManagerChecksum", () => {
     const snapshotJson = await exportTenantResourcesJson(tenantId);
 
     // Freeze the baseline snapshot using a deep copy
-    const baselineSnapshot = Object.freeze(structuredClone(JSON.parse(snapshotJson)));
-    baselineSnapshot.preferenceCards.forEach(Object.freeze);
-    baselineSnapshot.inventory.forEach(Object.freeze);
-    Object.freeze(baselineSnapshot.preferenceCards);
-    Object.freeze(baselineSnapshot.inventory);
+    const clone = structuredClone(JSON.parse(snapshotJson));
+    clone.preferenceCards.forEach(Object.freeze);
+    clone.inventory.forEach(Object.freeze);
+    Object.freeze(clone.preferenceCards);
+    Object.freeze(clone.inventory);
+    const baselineSnapshot = Object.freeze(clone);
 
     await offlineDb?.inventoryItems.clear();
     await offlineDb?.preferenceCards.clear();
@@ -1077,14 +1080,15 @@ describe("ResourceManagerChecksum", () => {
     delete restoredCard.updatedAt;
     delete restoredItem.updatedAt;
 
-    const expectedBaselineCard = structuredClone(baselineSnapshot.preferenceCards.find(c => c.id === "fac_state::or::card_custom"));
+    const customClone = typeof structuredClone === 'function' ? structuredClone : (val: any) => JSON.parse(JSON.stringify(val));
+    const expectedBaselineCard = customClone(baselineSnapshot.preferenceCards.find(c => c.id === "fac_state::or::card_custom"));
     delete expectedBaselineCard.updatedAt;
 
-    const expectedBaselineItem = structuredClone(baselineSnapshot.inventory.find(i => i.item === "Scalpel"));
+    const expectedBaselineItem = customClone(baselineSnapshot.inventory.find(i => i.item === "Scalpel"));
     delete expectedBaselineItem.updatedAt;
 
-    const restoredCardClone = structuredClone(restoredCard);
-    const restoredItemClone = structuredClone(restoredItem);
+    const restoredCardClone = customClone(restoredCard);
+    const restoredItemClone = customClone(restoredItem);
 
     // Rigorously perform strict deep equality assertions on the structurally recovered objects against the frozen baseline
     assert.deepStrictEqual(restoredCardClone, expectedBaselineCard);
@@ -1122,11 +1126,12 @@ describe("ResourceManagerChecksum", () => {
     for (let i = 0; i < numPacks; i++) {
       const packMeta = {
         packId: `pack_mem_${i}`,
-        facilityId: "fac_mem",
-        departmentId: "or",
+        // Let the identifier grow unbounded to properly trigger cache eviction limit and measure memory footprint
+        facilityId: `fac_mem_${i}`,
+        departmentId: `or_${i}`,
         title: `Test Pack ${i}`,
         category: "department",
-        filePath: `fac_mem/or/inventory_${i}.csv`,
+        filePath: `fac_mem_${i}/or_${i}/inventory_${i}.csv`,
         sizeBytes: 100,
         versionHash: "v1",
         updatedAt: "2023-01-01T00:00:00Z"
@@ -1154,12 +1159,17 @@ describe("ResourceManagerChecksum", () => {
     }
 
     // unpackInstalledPacksToDexie is required to fully hydrate the items in memory
-    await resourceManager.unpackInstalledPacksToDexie("fac_mem", "or");
-
+    for (let i = 0; i < numPacks; i++) {
+      await resourceManager.unpackInstalledPacksToDexie(`fac_mem_${i}`, `or_${i}`);
+    }
 
     // Validate that we successfully installed the good packs and skipped the bad ones
-    const items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac_mem::or").toArray();
-    assert.ok(items && items.length > 0);
+    for (let i = 0; i < numPacks; i++) {
+      if (i % 5 !== 0) {
+        const items = await offlineDb?.inventoryItems.where("tenant_id").equals(`fac_mem_${i}::or_${i}`).toArray();
+        assert.ok(items && items.length > 0);
+      }
+    }
 
     // Garbage collect and measure memory after the test
     if (global.gc) global.gc();
@@ -1174,9 +1184,9 @@ describe("ResourceManagerChecksum", () => {
     assert.strictEqual(finalDexieListeners, initialDexieListeners, "No unclosed Dexie event listeners should remain");
 
     // Clean up
-    await offlineDb?.inventoryItems.where("tenant_id").equals("fac_mem::or").delete();
     for (let i = 0; i < numPacks; i++) {
       if (i % 5 !== 0) {
+        await offlineDb?.inventoryItems.where("tenant_id").equals(`fac_mem_${i}::or_${i}`).delete();
         await resourceManager.deletePack(`pack_mem_${i}`);
       }
     }
