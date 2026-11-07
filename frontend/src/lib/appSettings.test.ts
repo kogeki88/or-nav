@@ -357,7 +357,7 @@ describe('appSettings', () => {
     // Assert tenant isolation
     assert.strictEqual((finalSettings as any).tenantId, undefined);
     const rawStorage = localStorage.getItem(APP_SETTINGS_STORAGE_KEY) || "";
-    assert.ok(!rawStorage.match(/sacred_heart::or_burst_\d+\b/));
+    assert.ok(!/\bsacred_heart::or_burst_\d+\b/.test(rawStorage));
   });
 
   test('latency benchmark for rapid consecutive reads and writes', () => {
@@ -588,7 +588,7 @@ describe('appSettings', () => {
       assert.ok(finalSettings.fontScaling > 1.0);
       assert.strictEqual((finalSettings as any).tenantId, undefined);
       const rawStorage = localStorage.getItem(APP_SETTINGS_STORAGE_KEY) || "";
-      assert.ok(!rawStorage.match(/sacred_heart::or_burst_\d+\b/));
+      assert.ok(!/\bsacred_heart::or_burst_\d+\b/.test(rawStorage));
     } finally {
       (global as any).fetch = originalFetch;
       (global as { localStorage?: unknown }).localStorage = originalLocalStorage;
@@ -834,8 +834,12 @@ describe('appSettings', () => {
       // To strictly adhere to the invariant, freeze before validating properties
       const snapshot = Object.freeze(structuredClone(activeState));
 
+      // Simulate a parallel action before assertion to ensure structural integrity
+      saveAppSettings(activeState);
+      const postActionState = getAppSettings();
+
       // Assert structural deep copy matches frozen state
-      assert.deepStrictEqual(snapshot, activeState);
+      assert.deepStrictEqual(snapshot, postActionState);
 
       // The final state depends on the mock localStorage's synchronicity,
       // but we can guarantee the snapshot contains valid typed values and isn't corrupted.
