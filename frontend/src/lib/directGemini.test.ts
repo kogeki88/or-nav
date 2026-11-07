@@ -41,7 +41,7 @@ describe('directGemini', () => {
   });
 
   afterEach(() => {
-    (global as { window?: unknown }).window = originalWindow;
+    if (originalWindow === undefined) { delete (global as any).window; } else { (global as { window?: unknown }).window = originalWindow; }
     if (originalLocalStorage === undefined) {
       delete (global as { localStorage?: unknown }).localStorage;
     } else {
@@ -715,7 +715,7 @@ describe('directGemini', () => {
       const initialMemory = process.memoryUsage().heapUsed;
 
       const CONCURRENCY = 50;
-      const promises = Array.from({ length: CONCURRENCY }).map((_, i) => directGeminiRAG(`memory query ${i}`, undefined, undefined, `tenant_${i % 5}`));
+      const promises = Array.from({ length: CONCURRENCY }).map((_, i) => directGeminiRAG(`memory query ${i}`, undefined, undefined, `tenant_${i}`));
 
       await Promise.all(promises);
 
@@ -848,9 +848,11 @@ describe('directGemini', () => {
       for (let i = 0; i < queries.length; i++) {
         const s1 = structuredClone(snapshots[i]);
         s1.latency_ms = 0;
+        Object.keys(s1).forEach(k => { if (typeof s1[k] === 'object' && s1[k] !== null) Object.freeze(s1[k]); });
         Object.freeze(s1);
         const s2 = structuredClone(snapshots2[i]);
         s2.latency_ms = 0;
+        Object.keys(s2).forEach(k => { if (typeof s2[k] === 'object' && s2[k] !== null) Object.freeze(s2[k]); });
         Object.freeze(s2);
         assert.deepStrictEqual(s1, s2, "Deterministic state transition matrices must remain deeply consistent");
       }
@@ -870,11 +872,13 @@ describe('directGemini', () => {
 
       const snapshot1 = structuredClone(res);
       snapshot1.latency_ms = 0;
+      Object.keys(snapshot1).forEach(k => { if (typeof snapshot1[k as keyof typeof snapshot1] === 'object' && snapshot1[k as keyof typeof snapshot1] !== null) Object.freeze(snapshot1[k as keyof typeof snapshot1]); });
       Object.freeze(snapshot1);
 
       const res2 = await directGeminiRAG(query);
       const snapshot2 = structuredClone(res2);
       snapshot2.latency_ms = 0;
+      Object.keys(snapshot2).forEach(k => { if (typeof snapshot2[k as keyof typeof snapshot2] === 'object' && snapshot2[k as keyof typeof snapshot2] !== null) Object.freeze(snapshot2[k as keyof typeof snapshot2]); });
       Object.freeze(snapshot2);
 
       assert.deepStrictEqual(snapshot1, snapshot2, "Clinical state snapshot must remain perfectly consistent across identical parses");
@@ -887,12 +891,10 @@ describe('directGemini', () => {
         return Promise.reject(new Error("Network offline"));
       };
 
-      try {
-        await directGeminiRAG("preference card for Dr. Smith");
-        assert.fail("Should have thrown offline error");
-      } catch (err: any) {
-        assert.match(err.message, /Network offline/, "Must strictly throw offline error to respect offline-first invariants");
-      }
+      await assert.rejects(
+        () => directGeminiRAG("preference card for Dr. Smith"),
+        /Network offline/
+      );
 
       setClientGeminiApiKey("");
       const baselineRes = await directGeminiRAG("preference card for Dr. Smith", undefined, undefined, "PEDS-123");
