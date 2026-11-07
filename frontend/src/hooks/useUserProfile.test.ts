@@ -5,6 +5,8 @@ import { useUserProfile } from './useUserProfile.ts';
 import { renderHook, act, cleanup } from '@testing-library/react';
 import { USER_PROFILE_STORAGE_KEY, DEFAULT_USER_PROFILE, USER_PROFILE_EVENT } from '@/lib/userProfile';
 
+const customClone = typeof structuredClone === 'function' ? structuredClone : (val: any) => JSON.parse(JSON.stringify(val));
+
 describe('useUserProfile hook', () => {
   let localStorageMock: Record<string, string>;
   let originalLocalStorage: any;
@@ -70,7 +72,7 @@ describe('useUserProfile hook', () => {
       writable: true,
       configurable: true,
     });
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
   });
 
   it('should initialize with DEFAULT_USER_PROFILE if localStorage is empty', () => {
@@ -142,27 +144,16 @@ describe('useUserProfile hook', () => {
     act(() => {
       result.current.saveProfile(profileToSave);
     });
-    const stateAfterFirst = {
-      fullName: result.current.profile.fullName,
-      facilityId: result.current.profile.facilityId,
-      facilityName: result.current.profile.facilityName,
-      departmentId: result.current.profile.departmentId,
-      clinicalRole: result.current.profile.clinicalRole,
-    };
+    const stateAfterFirst = customClone(result.current.profile);
 
     // Replay the mutation
     act(() => {
       result.current.saveProfile(profileToSave);
     });
-    const stateAfterSecond = {
-      fullName: result.current.profile.fullName,
-      facilityId: result.current.profile.facilityId,
-      facilityName: result.current.profile.facilityName,
-      departmentId: result.current.profile.departmentId,
-      clinicalRole: result.current.profile.clinicalRole,
-    };
+    const stateAfterSecond = customClone(result.current.profile);
 
     assert.deepStrictEqual(stateAfterFirst, stateAfterSecond);
+    assert.deepStrictEqual(result.current.profile, profileToSave);
   });
 
   it('should sync state across multiple hooks when a profile is saved', () => {
@@ -481,7 +472,7 @@ describe('Supplementary tests', () => {
             writable: true,
             configurable: true,
         });
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     });
 
 
@@ -495,13 +486,9 @@ describe('Supplementary tests', () => {
 
         // Ensure offline-first invariant is strictly enforced using node:test mock pattern
         // The fetch mock is set up to throw an Error synchronously in beforeEach.
-        let fetchThrew = false;
-        try {
+        assert.throws(() => {
             global.fetch('https://example.com');
-        } catch (e) {
-            fetchThrew = true;
-        }
-        assert.ok(fetchThrew, 'fetch should throw per offline-first invariant');
+        }, Error, 'fetch should throw per offline-first invariant');
 
         // Track listener count by directly counting in process or relying on window.addEventListener mock
         let listenerDelta = 0;
@@ -525,6 +512,8 @@ describe('Supplementary tests', () => {
         for (let i = 0; i < 100; i++) {
             hooks.push(renderHook(() => useUserProfile()));
         }
+        Object.freeze(hooks);
+        hooks.forEach(Object.freeze);
 
         // Validate that mounting properly registers listeners
         assert.strictEqual(listenerDelta, 100, 'Each hook should register exactly one event listener');
@@ -629,15 +618,19 @@ describe('Supplementary tests', () => {
             act(() => {
                 result.current.saveProfile(profileUpdates);
             });
+            const stateAfterFirst = customClone(result.current.profile);
+
             act(() => {
                 result.current.saveProfile(profileUpdates);
             });
+            const stateAfterSecond = customClone(result.current.profile);
 
-            assert.strictEqual(result.current.profile.fullName, 'Offline Mutation');
+            assert.deepStrictEqual(stateAfterFirst, stateAfterSecond);
+            assert.deepStrictEqual(result.current.profile, profileUpdates);
             const savedData = JSON.parse(localStorageMock[USER_PROFILE_STORAGE_KEY]);
-            assert.strictEqual(savedData.fullName, 'Offline Mutation');
+            assert.deepStrictEqual(savedData, profileUpdates);
         } finally {
-            global.fetch = originalFetch;
+            if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
         }
     });
 
@@ -716,7 +709,7 @@ describe('Supplementary tests', () => {
             const { result, unmount } = renderHook(() => useUserProfile());
 
             // Take a deep snapshot of the initial state
-            const initialSnapshot = structuredClone(result.current.profile);
+            const initialSnapshot = customClone(result.current.profile);
             const frozenState = Object.freeze({
                 ...initialSnapshot,
                 clinicalRole: 'ICU RN',
@@ -734,7 +727,7 @@ describe('Supplementary tests', () => {
             assert.strictEqual(result.current.profile.facilityId, 'tenant_a'); // Verify tenant update
 
             // Snapshot serialization to verify consistency
-            const midSnapshot = structuredClone(result.current.profile);
+            const midSnapshot = customClone(result.current.profile);
 
             // Test preference card conflict resolution
             // We simulate that a conflict resolution policy defaults to the last-write-wins (LWW) or custom merge
@@ -756,7 +749,7 @@ describe('Supplementary tests', () => {
             assert.strictEqual(result.current.profile.facilityId, 'tenant_b');
 
             // Verify final state snapshot consistency against expected transition
-            const finalSnapshot = structuredClone(result.current.profile);
+            const finalSnapshot = customClone(result.current.profile);
             assert.deepStrictEqual(finalSnapshot, {
                 ...midSnapshot,
                 clinicalRole: 'ER RN',
@@ -769,7 +762,7 @@ describe('Supplementary tests', () => {
 
             unmount();
         } finally {
-            global.fetch = originalFetch;
+            if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
         }
     });
 });
