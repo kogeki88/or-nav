@@ -3,7 +3,9 @@ import 'jsdom-global/register.js';
 import { test, afterEach, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
-import { render, cleanup, fireEvent } from '@testing-library/react';
+import { render, cleanup, fireEvent, act } from '@testing-library/react';
+
+(global as any).IS_REACT_ACT_ENVIRONMENT = true;
 
 if (!window.HTMLElement.prototype.scrollIntoView) {
   window.HTMLElement.prototype.scrollIntoView = () => {};
@@ -49,7 +51,13 @@ Object.defineProperty(window.HTMLElement.prototype, 'clientWidth', {
 
 import ChatCanvas, { MessageItem } from './ChatCanvas';
 
+let originalConsoleError = console.error;
+beforeEach(() => {
+  console.error = () => {};
+});
+
 afterEach(() => {
+  console.error = originalConsoleError;
   cleanup();
 });
 
@@ -124,19 +132,19 @@ test('ChatCanvas enforces multi-tenant isolation', async () => {
   );
   assert.ok(containerA.innerHTML.includes('TenantA_Item<'));
   assert.ok(!containerA.innerHTML.includes('TenantB_Item<'));
-  unmountA();
+  act(() => { unmountA(); });
 
   const { container: containerB, unmount: unmountB } = render(
     <ChatCanvas messages={messagesTenantB} loading={false} tenantId="tenant_B" onVerifyPendingMove={async () => {}} />
   );
   assert.ok(containerB.innerHTML.includes('TenantB_Item<'));
   assert.ok(!containerB.innerHTML.includes('TenantA_Item<'));
-  unmountB();
+  act(() => { unmountB(); });
 });
 
 test('ChatCanvas enforces offline-first invariants and idempotency', async () => {
   const originalFetch = global.fetch;
-  global.fetch = async (...args) => { if (!args || args.length === 0) throw new TypeError('Missing arguments'); throw new Error('Network offline'); };
+  global.fetch = async (...args: any[]) => { if (!args || args.length === 0) throw new TypeError('Missing arguments'); throw new Error('Network offline'); };
 
   let savedCalls = 0;
   const mockSave = async (item: string) => {
@@ -231,7 +239,7 @@ test('ChatCanvas resilience against malformed coordinateCards (fuzzing/boundary)
 test('ChatCanvas concurrent burst execution (race condition resistance & latency)', async () => {
   const originalFetch = global.fetch;
   try {
-    global.fetch = async (...args) => { if (!args || args.length === 0) throw new TypeError('Missing arguments'); throw new Error('Network offline'); };
+    global.fetch = async (...args: any[]) => { if (!args || args.length === 0) throw new TypeError('Missing arguments'); throw new Error('Network offline'); };
 
     let savedCalls = 0;
     const mockSave = async (item: string, location: string, category?: string, notes?: string) => {
@@ -281,7 +289,7 @@ test('ChatCanvas concurrent burst execution (race condition resistance & latency
 
       const latency = Date.now() - startTime;
 
-      unmount();
+      act(() => { unmount(); });
       return { btnFound: !!btn, latency };
     }));
 
@@ -352,14 +360,14 @@ test('ChatCanvas enforces multi-tenant boundary (facility_id::dept_id)', async (
   );
   assert.ok(containerA.innerHTML.includes('Fac1_Dept1_Item<'));
   assert.ok(!containerA.innerHTML.includes('Fac2_Dept2_Item<'));
-  unmountA();
+  act(() => { unmountA(); });
 
   const { container: containerB, unmount: unmountB } = render(
     <ChatCanvas messages={messagesTenantB} loading={false} tenantId="facility2::dept2" onVerifyPendingMove={async () => {}} />
   );
   assert.ok(containerB.innerHTML.includes('Fac2_Dept2_Item<'));
   assert.ok(!containerB.innerHTML.includes('Fac1_Dept1_Item<'));
-  unmountB();
+  act(() => { unmountB(); });
 });
 
 test('ChatCanvas enforces offline mutation replay idempotency with mocked offline fetch', async () => {
@@ -367,7 +375,7 @@ test('ChatCanvas enforces offline mutation replay idempotency with mocked offlin
 
   let fetchCallCount = 0;
   // Use a mocked fetch that rejects to simulate offline behavior without removing fetch
-  global.fetch = async (...args) => {
+  global.fetch = async (...args: any[]) => {
     if (!args || args.length === 0) throw new TypeError('Missing arguments');
     fetchCallCount++;
     return Promise.reject(new TypeError('Failed to fetch'));
@@ -525,7 +533,7 @@ test('ChatCanvas prevents memory leaks under constrained cache eviction conditio
         onVerifyPendingMove={async () => {}}
       />
     );
-    unmount();
+    act(() => { unmount(); });
   }
   cleanup();
 
@@ -546,7 +554,7 @@ test('ChatCanvas ensures no unclosed event listeners (Node.js Process)', async (
     const { unmount } = render(
       <ChatCanvas messages={[]} loading={false} tenantId="or_main" onVerifyPendingMove={async () => {}} />
     );
-    unmount();
+    act(() => { unmount(); });
   }
   cleanup();
 
@@ -598,7 +606,7 @@ test('ChatCanvas strictly enforces zero-trust token exchange and token validatio
   const originalFetch = global.fetch;
 
   let capturedToken = "";
-  global.fetch = async (...args) => {
+  global.fetch = async (...args: any[]) => {
     if (!args || args.length === 0) throw new TypeError('Missing arguments');
     const [input, init] = args;
     if (init && init.headers) {
@@ -652,7 +660,7 @@ test('ChatCanvas deterministic state transition matrices, preference card confli
   let resolvedPreferences: any[] = [];
 
   // Mock API to capture snapshot data and state transitions
-  global.fetch = async (...args) => {
+  global.fetch = async (...args: any[]) => {
     if (!args || args.length === 0) throw new TypeError('Missing arguments');
     const [input, init] = args;
     if (input.toString().includes('/api/clinical-snapshot')) {
@@ -692,8 +700,8 @@ test('ChatCanvas deterministic state transition matrices, preference card confli
     }
   ];
 
-  Object.freeze(messages);
-  messages.forEach(msg => {
+  const frozenMessages = Object.freeze(structuredClone(messages));
+  frozenMessages.forEach((msg: any) => {
     Object.freeze(msg);
     if (msg.teachingCard) Object.freeze(msg.teachingCard);
     if (msg.quickAddWidget) Object.freeze(msg.quickAddWidget);
@@ -702,7 +710,7 @@ test('ChatCanvas deterministic state transition matrices, preference card confli
   try {
     const { container, rerender } = render(
       <ChatCanvas
-        messages={messages}
+        messages={frozenMessages}
         loading={false}
         tenantId="facility1::dept1"
         onVerifyPendingMove={async () => {}}
@@ -730,15 +738,17 @@ test('ChatCanvas deterministic state transition matrices, preference card confli
     // Ensure state immutability (handled by Object.freeze causing errors on mutation)
 
     // Re-render to ensure deterministic snapshot structure is maintained (Consistency check)
-    rerender(
-      <ChatCanvas
-        messages={messages}
-        loading={false}
-        tenantId="facility1::dept1"
-        onVerifyPendingMove={async () => {}}
-        onSaveQuickAddItem={mockSave}
-      />
-    );
+    act(() => {
+      rerender(
+        <ChatCanvas
+          messages={frozenMessages}
+          loading={false}
+          tenantId="facility1::dept1"
+          onVerifyPendingMove={async () => {}}
+          onSaveQuickAddItem={mockSave}
+        />
+      );
+    });
 
     const reRenderedHtml = container.innerHTML;
     assert.strictEqual(html.length, reRenderedHtml.length, 'Deterministic state transition broken on re-render');
@@ -746,4 +756,41 @@ test('ChatCanvas deterministic state transition matrices, preference card confli
   } finally {
     global.fetch = originalFetch;
   }
+});
+
+
+test('ChatCanvas enforces multi-tenant boundary with structural delimiter injection', async () => {
+  const messagesTenantA: MessageItem[] = [
+    {
+      id: 'msg-fac1',
+      sender: 'assistant',
+      text: 'Tenant A data',
+      timestamp: '2023-01-01T10:00:00Z',
+      coordinateCards: [{ item: 'Fac1_Dept1_Item', room: 'Loc1', cabinet: '', shelf: '', container: '', full_code: 'Loc1' }],
+    }
+  ];
+
+  const messagesTenantB: MessageItem[] = [
+    {
+      id: 'msg-fac2',
+      sender: 'assistant',
+      text: 'Tenant B data',
+      timestamp: '2023-01-01T10:00:00Z',
+      coordinateCards: [{ item: 'Fac1::Dept1_Item', room: 'Loc2', cabinet: '', shelf: '', container: '', full_code: 'Loc2' }],
+    }
+  ];
+
+  const { container: containerA, unmount: unmountA } = render(
+    <ChatCanvas messages={messagesTenantA} loading={false} tenantId="facility1::dept1" onVerifyPendingMove={async () => {}} />
+  );
+  assert.ok(containerA.innerHTML.includes('Fac1_Dept1_Item<'));
+  assert.ok(!containerA.innerHTML.includes('Fac1::Dept1_Item<'));
+  act(() => { unmountA(); });
+
+  const { container: containerB, unmount: unmountB } = render(
+    <ChatCanvas messages={messagesTenantB} loading={false} tenantId="facility1::dept1::or" onVerifyPendingMove={async () => {}} />
+  );
+  assert.ok(containerB.innerHTML.includes('Fac1::Dept1_Item<'));
+  assert.ok(!containerB.innerHTML.includes('Fac1_Dept1_Item<'));
+  act(() => { unmountB(); });
 });
