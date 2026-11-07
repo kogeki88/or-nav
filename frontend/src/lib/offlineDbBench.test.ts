@@ -187,7 +187,7 @@ describe("Dexie Benchmarks", () => {
   test("concurrent burst execution and race condition resistance", async () => {
     const originalFetch = global.fetch;
     // Explicitly verify offline-first invariants
-    global.fetch = () => Promise.reject(new Error("Network call strictly forbidden during offlineDB benchmark"));
+    global.fetch = (...args: any[]) => { if (args.length === 0) throw new TypeError('Missing arguments'); return Promise.reject(new Error("Network call strictly forbidden during offlineDB benchmark")); };
 
     try {
         const db = new BenchmarkDB();
@@ -198,7 +198,7 @@ describe("Dexie Benchmarks", () => {
           const items = [];
           for (let i = 0; i < ITEMS_PER_WORKER; i++) {
             // explicitly generate unique identifiable payload variables (like sequential IDs)
-            await new Promise(r => setTimeout(r, Math.random() * 10));
+            await new Promise(r => setTimeout(r, ((workerId * 13 + i) % 10)));
             items.push({
               id: `${tenant}::worker${workerId}::item_${i}`,
               tenant_id: tenant,
@@ -258,7 +258,7 @@ describe("Dexie Benchmarks", () => {
             assert.ok(tenantItems.every(i => i.tenant_id !== otherTenantStr), "Leaked data from other tenant");
         }
     } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) delete (global as any).fetch; else global.fetch = originalFetch;
     }
   });
 
@@ -325,7 +325,7 @@ describe("Dexie Benchmarks", () => {
     assert.ok(deduplicatedMutations.has(otherKey2));
     assert.strictEqual(mutationIdsByKey.get(otherKey2)?.length, 1);
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else global.fetch = originalFetch;
     }
   });
 
@@ -428,26 +428,26 @@ describe("Dexie Benchmarks", () => {
 
     const card1 = finalCardsA.find(c => c.id === "card_1");
     assert.ok(card1, "card_1 should exist");
-    assert.deepStrictEqual(normalize(card1), {
+    assert.deepStrictEqual(structuredClone(normalize(card1)), structuredClone({
       id: "card_1",
       tenant_id: tenantA,
       surgeon: "Dr. Smith",
       procedure: "Appendectomy",
       instruments: ["Scalpel", "Scissors"],
       deleted: false
-    }, "Conflict resolution should favor the latest timestamp structural match");
+    }), "Conflict resolution should favor the latest timestamp structural match");
     assert.strictEqual(card1?.updatedAt, 2000, "updatedAt should match the winning transaction");
 
     const card2 = finalCardsA.find(c => c.id === "card_2");
     assert.ok(card2, "card_2 should exist");
-    assert.deepStrictEqual(normalize(card2), {
+    assert.deepStrictEqual(structuredClone(normalize(card2)), structuredClone({
       id: "card_2",
       tenant_id: tenantA,
       surgeon: "Dr. Jones",
       procedure: "Cholecystectomy",
       instruments: ["Trocar", "Camera"],
       deleted: false
-    }, "Newer server sync should apply, malicious update should be rejected structural match");
+    }), "Newer server sync should apply, malicious update should be rejected structural match");
     assert.strictEqual(card2?.updatedAt, 3000);
     assert.strictEqual(card2?.tenant_id, tenantA, "Multi-tenant isolation must be preserved");
 
@@ -455,14 +455,14 @@ describe("Dexie Benchmarks", () => {
     assert.strictEqual(finalCardsB.length, 1, "Tenant B should have 1 card in the database (tombstoned)");
     const card3 = finalCardsB.find(c => c.id === "card_3");
     assert.ok(card3, "card_3 should exist as tombstone");
-    assert.deepStrictEqual(normalize(card3), {
+    assert.deepStrictEqual(structuredClone(normalize(card3)), structuredClone({
       id: "card_3",
       tenant_id: tenantB,
       surgeon: "Dr. Smith",
       procedure: "Appendectomy",
       instruments: ["Scalpel", "Forceps"],
       deleted: true
-    }, "card_3 should be marked as deleted (tombstoned) structural match");
+    }), "card_3 should be marked as deleted (tombstoned) structural match");
     assert.strictEqual(card3?.updatedAt, 2500);
 
     await db.preferenceCards.clear();
@@ -479,7 +479,7 @@ describe("Dexie Benchmarks", () => {
     let fetchCallCount = 0;
 
     // Simulate intermittent network partition and latency
-    global.fetch = async (input: any, init?: any) => {
+    global.fetch = async (...args: any[]) => { if (args.length === 0) throw new TypeError('Missing arguments');
       fetchCallCount++;
       if (fetchCallCount % 3 === 0) {
         // Intermittent latency
@@ -543,7 +543,7 @@ describe("Dexie Benchmarks", () => {
 
       // Self-healing reconnection phase
       // Network restored to 100% reliability
-      global.fetch = () => Promise.resolve(new Response(JSON.stringify({ success: true })));
+      global.fetch = (...args: any[]) => { if (args.length === 0) throw new TypeError('Missing arguments'); return Promise.resolve(new Response(JSON.stringify({ success: true }))); };
 
       const pendingMutations = await db.offlineOutbox.orderBy("timestamp").toArray();
       const replayedMutations: number[] = [];
@@ -567,7 +567,7 @@ describe("Dexie Benchmarks", () => {
       assert.strictEqual(finalOutbox.length, 0, "Outbox should be empty after self-healing replay");
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else global.fetch = originalFetch;
     }
   });
 
