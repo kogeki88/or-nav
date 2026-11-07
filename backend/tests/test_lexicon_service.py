@@ -69,9 +69,13 @@ def test_load_save_lexicon_offline_persistence(mock_lexicon_dir, tmp_path):
 
 
 def test_multi_tenant_isolation_and_offline_replay_idempotency(mock_lexicon_dir):
-    facility1 = "tenant1::dept1"
-    facility2 = "tenant2::dept1"
-    facility3 = "tenant1::dept2"
+    # Fuzzed tenant IDs to ensure no boundary leakage
+    import random
+    import string
+    rand_suffix = ''.join(random.choices(string.ascii_lowercase, k=4))
+    facility1 = f"tenant1_{rand_suffix}::dept1"
+    facility2 = f"tenant2_{rand_suffix}::dept1"
+    facility3 = f"tenant1_{rand_suffix}::dept2"
 
     # Save multiple times to simulate offline replay idempotency
     payload1 = [
@@ -278,7 +282,9 @@ def enforce_offline_first(monkeypatch):
     original_socket = socket.socket
 
     def _mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', socket.AF_INET)
+        if args and not isinstance(args[0], int):
+            raise RuntimeError("Network call blocked by offline-first invariant enforcement.")
+        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', -1))
         if family in (getattr(socket, 'AF_INET', -1), getattr(socket, 'AF_INET6', -1)):
             raise RuntimeError("Network call blocked by offline-first invariant enforcement.")
         return original_socket(*args, **kwargs)
@@ -327,11 +333,13 @@ def test_learn_alias_concurrency_race_condition(mock_lexicon_dir):
 
 def test_resolve_spoken_alias_concurrent_multi_tenant(mock_lexicon_dir):
     """Test multi-tenant isolation under concurrent burst traffic."""
+    import random, string
+    tenant_uid = ''.join(random.choices(string.ascii_lowercase, k=4))
 
     def worker(i):
         import time
         time.sleep(((i * 13) % 10) * 0.001)
-        fac = f"burst_fac_{i}::"
+        fac = f"burst_fac_{i % 3}_{tenant_uid}::or"
         learn_alias(
             facility_id=fac,
             department_id="or",
@@ -340,7 +348,11 @@ def test_resolve_spoken_alias_concurrent_multi_tenant(mock_lexicon_dir):
             user_id=f"user::{i}"
         )
         # Immediately try resolving it
-        return resolve_spoken_alias(fac, f"where is the term_{i}::test")
+        res = resolve_spoken_alias(fac, f"where is the term_{i}::test")
+        import re
+        assert res is not None, "Resolution failed"
+        assert res.get("facilityId") == f"burst_fac_{i % 3}_{tenant_uid}::or", f"Cross-tenant leak detected: {res}"
+        return res
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         futures = [executor.submit(worker, i) for i in range(100)]
@@ -351,10 +363,10 @@ def test_resolve_spoken_alias_concurrent_multi_tenant(mock_lexicon_dir):
         assert r is not None
 
     # Verify isolation
-    assert load_facility_lexicon("burst_fac_0::") is not None
-    assert len(load_facility_lexicon("burst_fac_0::")) > 0
-    assert len(load_facility_lexicon("burst_fac_1::")) > 0
-    assert len(load_facility_lexicon("burst_fac_2::")) > 0
+    assert load_facility_lexicon(f"burst_fac_0_{tenant_uid}::or") is not None
+    assert len(load_facility_lexicon(f"burst_fac_0_{tenant_uid}::or")) > 0
+    assert len(load_facility_lexicon(f"burst_fac_1_{tenant_uid}::or")) > 0
+    assert len(load_facility_lexicon(f"burst_fac_2_{tenant_uid}::or")) > 0
 
 def test_lexicon_service_latency_under_load(mock_lexicon_dir):
     """Test latency of resolve_spoken_alias under a large lexicon size."""
@@ -401,7 +413,9 @@ def test_lexicon_service_latency_under_load(mock_lexicon_dir):
 
 def test_stress_test_extreme_concurrency(mock_lexicon_dir):
     """Stress test extreme concurrency for multi-tenant isolation and race condition resistance."""
-    facilities = ["stress_fac_1::", "stress_fac_2::", "stress_fac_3::", "stress_fac_4::", "stress_fac_5::"]
+    import random, string
+    tenant_uid = ''.join(random.choices(string.ascii_lowercase, k=4))
+    facilities = [f"stress_fac_1_{tenant_uid}::or", f"stress_fac_2_{tenant_uid}::or", f"stress_fac_3_{tenant_uid}::or", f"stress_fac_4_{tenant_uid}::or", f"stress_fac_5_{tenant_uid}::or"]
 
     def worker(i):
         import time
@@ -749,26 +763,27 @@ def test_clinical_state_snapshot_consistency(mock_lexicon_dir):
     learn_alias(facility, "or", "term X", "Item X", "user1")
     learn_alias(facility, "or", "term Y", "Item Y", "user2")
 
-    # Snapshot is effectively the loaded lexicon (make a deep copy of the dicts)
-    import copy
-    snapshot1 = copy.deepcopy(load_facility_lexicon(facility))
+    # Snapshot is effectively the loaded lexicon
+    import json
+    snapshot1_raw = load_facility_lexicon(facility)
+    snapshot1 = json.loads(json.dumps(snapshot1_raw))
     assert len(snapshot1) >= 2
 
     # Modify state
     learn_alias(facility, "or", "term Z", "Item Z", "user3")
 
     # Snapshot 2
-    snapshot2 = copy.deepcopy(load_facility_lexicon(facility))
+    snapshot2_raw = load_facility_lexicon(facility)
+    snapshot2 = json.loads(json.dumps(snapshot2_raw))
     assert len(snapshot2) == len(snapshot1) + 1
 
     # Verify consistency of previous items in new snapshot
     def strip_volatile(d):
         return {k: v for k, v in d.items() if k not in ["updatedAt", "usageCount", "confidence", "usedByUsers"]}
 
-    import copy
-    clean_snapshot2 = [strip_volatile(copy.deepcopy(s)) for s in snapshot2]
+    clean_snapshot2 = [strip_volatile(s) for s in snapshot2]
     for item in snapshot1:
-        clean_item = strip_volatile(copy.deepcopy(item))
+        clean_item = strip_volatile(item)
         assert clean_item in clean_snapshot2, "Baseline state mutated during snapshot transition."
 
 def test_get_all_aliases_for_item_title_casing(mock_lexicon_dir):
@@ -787,8 +802,8 @@ def test_learn_alias_strict_multi_tenant_isolation(mock_lexicon_dir):
     """
     Ensure learn_alias explicitly isolates tenants.
     """
-    facility1 = "strict_fac_1"
-    facility2 = "strict_fac_2"
+    facility1 = "strict_fac_1::or"
+    facility2 = "strict_fac_2::or"
 
     learn_alias(facility1, "or", "isolated term", "Item A", "user1")
     learn_alias(facility2, "or", "another term", "Item B", "user2")
@@ -798,3 +813,10 @@ def test_learn_alias_strict_multi_tenant_isolation(mock_lexicon_dir):
 
     assert len(aliases1) == 1
     assert len(aliases2) == 0
+
+    # Asserting explicit boundary delimiter
+    res1 = resolve_spoken_alias(facility1, "isolated term")
+    assert res1 is not None and "strict_fac_1::or" in res1["facilityId"]
+
+    res2 = resolve_spoken_alias(facility2, "another term")
+    assert res2 is not None and "strict_fac_2::or" in res2["facilityId"]
