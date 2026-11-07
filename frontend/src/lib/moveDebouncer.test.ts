@@ -283,13 +283,13 @@ describe("moveDebouncer", () => {
 
       // Simulate concurrent burst traffic
       await Promise.all(
-        payloads.map((payload) =>
+        payloads.map((payload, i) =>
           new Promise<void>((resolve) => {
             // Random micro-delays to simulate real concurrency/race conditions
             setTimeout(() => {
               debouncer(payload);
               resolve();
-            }, Math.random() * 10);
+            }, (i * 13) % 10);
           })
         )
       );
@@ -769,7 +769,7 @@ describe("moveDebouncer", () => {
           for (let i = 0; i < itemsPerWorker; i++) {
             debouncer({ tenant_id: tenantId, worker_id: wIdx, id: i, data: `data_${wIdx}_${i}` });
             // simulate true interleaving
-            await new Promise(r => setTimeout(r, Math.random() * 10));
+            await new Promise(r => setTimeout(r, (i * 13) % 10));
           }
         };
       });
