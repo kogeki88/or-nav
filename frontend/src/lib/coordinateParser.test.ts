@@ -131,7 +131,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
     test("Offline-First Invariant: Coordinate parsing operates purely offline without relying on network state", () => {
       // Mock fetch to throw immediately to ensure no network calls are made
       const originalFetch = global.fetch;
-      global.fetch = () => { throw new Error("Network request attempted during offline parsing"); };
+      global.fetch = (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new Error("Network request attempted during offline parsing"); };
 
       try {
         const result = normalizeLocationCoordinate("OR 5 A 1 B");
@@ -143,7 +143,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
 
     test("Supplementary High-Concurrency Burst with Offline-First and Multi-Tenant Isolation Invariants", async () => {
       const originalFetch = global.fetch;
-      global.fetch = () => { throw new Error("Network request attempted during offline parsing"); };
+      global.fetch = (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new Error("Network request attempted during offline parsing"); };
 
       try {
         const tenants = ["tenantX", "tenantY"];
@@ -156,7 +156,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
         const tasks = Array.from({ length: burstSize }).map(async (_, i) => {
           const tenant = tenants[i % tenants.length];
           const input = tenantInputMap[tenant];
-          await new Promise(r => setTimeout(r, Math.random() * 5));
+          await new Promise(r => setTimeout(r, (i * 13) % 10));
           const result = extractAndNormalizeCoordinateClient(input);
           return { tenant, result };
         });
@@ -195,7 +195,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
       // To simulate offline replay, we disable fetch, run the identical coordinate parsing
       // multiple times sequentially, and guarantee identical results.
       const originalFetch = global.fetch;
-      global.fetch = () => { throw new Error("Network request attempted during offline parsing"); };
+      global.fetch = (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new Error("Network request attempted during offline parsing"); };
 
       try {
         const input = "ICU 1 A 1 B";
@@ -225,7 +225,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
     test("Multi-Tenant Boundary Enforcement (facility_id::dept_id) Under Concurrent Load", async () => {
       // Mock fetch to simulate strict offline boundaries
       const originalFetch = global.fetch;
-      global.fetch = () => { throw new Error("Network request attempted during offline parsing"); };
+      global.fetch = (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new Error("Network request attempted during offline parsing"); };
 
       try {
         const tenants = [
@@ -248,7 +248,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
           const tenantId = tenants[i % tenants.length];
           const inputStr = tenantInputMap[tenantId];
 
-          await new Promise(r => setTimeout(r, Math.random() * 5));
+          await new Promise(r => setTimeout(r, (i * 13) % 10));
           const res = extractAndNormalizeCoordinateClient(inputStr);
           return { tenantId, result: res };
         });
@@ -298,7 +298,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
       const startTime = performance.now();
 
       const promises = Array.from({ length: burstSize }).map(async (_, i) => {
-        await new Promise(r => setTimeout(r, Math.random() * 5));
+        await new Promise(r => setTimeout(r, (i * 13) % 10));
           const input = inputs[i % inputs.length];
           // Mix operations
           if (i % 2 === 0) {
@@ -332,7 +332,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
       const tasks = [];
 
       const originalFetch = global.fetch;
-      global.fetch = () => { throw new Error("Network request attempted during offline parsing"); };
+      global.fetch = (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new Error("Network request attempted during offline parsing"); };
 
       try {
         for (let i = 0; i < concurrentTasks; i++) {
@@ -342,7 +342,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
 
           tasks.push(
             (async () => {
-              await new Promise(r => setTimeout(r, Math.random() * 5));
+              await new Promise(r => setTimeout(r, (i * 13) % 10));
               const result = extractAndNormalizeCoordinateClient(input);
               return { tenant, input, result };
             })()
@@ -413,8 +413,8 @@ describe("Phase 4 Offline Partition & Multi-Tenant Isolation Extension", () => {
         "fac_beta::dept_1": "Trauma Bay 3 C 4 D"
       };
 
-      const tasks = tenants.map(async tenantId => {
-        await new Promise(r => setTimeout(r, Math.random() * 5));
+      const tasks = tenants.map(async (tenantId, i) => {
+        await new Promise(r => setTimeout(r, (i * 13) % 10));
           const input = tenantInputMap[tenantId];
           const result = extractAndNormalizeCoordinateClient(input);
           return { tenantId, result };
@@ -486,7 +486,7 @@ describe("Phase 5: Fault Injection & Network Partition Resilience", () => {
       // Fire 5 distinct concurrent local parse jobs
       // They should execute offline and completely bypass the fetch latency trap
       const jobs = Array.from({ length: 5 }).map(async (_, i) => {
-        await new Promise(r => setTimeout(r, Math.random() * 5));
+        await new Promise(r => setTimeout(r, (i * 13) % 10));
           return extractAndNormalizeCoordinateClient(`OR ${i + 1} A 1 B`);
       });
 
@@ -574,7 +574,7 @@ describe("Phase 6: Memory Profiling & Resource Eviction Hardening", () => {
       for(let i = 0; i < burstSize; i++) {
         tasks.push(
             (async () => {
-              await new Promise(r => setTimeout(r, Math.random() * 5));
+              await new Promise(r => setTimeout(r, (i * 13) % 10));
              const res = extractAndNormalizeCoordinateClient(inputs[i % inputs.length]);
              return res;
           })()
@@ -701,7 +701,7 @@ describe("Phase 8: Clinical Workflow Snapshot & Deterministic State Verification
       for (let i = 0; i < 100; i++) {
         tasks.push(
             (async () => {
-              await new Promise(r => setTimeout(r, Math.random() * 5));
+              await new Promise(r => setTimeout(r, (i * 13) % 10));
           return extractAndNormalizeCoordinateClient(`OR ${(i % 10) + 1} A 1 B`);
         })());
       }
@@ -744,7 +744,7 @@ describe("Phase 9: Continuous Invariants & Hardened Edge Cases", () => {
     ];
 
     const tasks = Array.from({ length: burstSize }).map(async (_, i) => {
-      await new Promise(r => setTimeout(r, Math.random() * 5));
+      await new Promise(r => setTimeout(r, (i * 13) % 10));
         const input = inputs[i % inputs.length];
         const result = extractAndNormalizeCoordinateClient(input.text);
         return { expected: input.expected, result };
