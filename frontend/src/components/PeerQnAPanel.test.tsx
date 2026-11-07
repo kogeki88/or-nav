@@ -507,8 +507,8 @@ test('enforces strict multi-tenant isolation on offline boundary', async () => {
 test('high-concurrency and race condition benchmark', async () => {
     const numPanels = 50;
     const originalFetch = global.fetch;
-    try {
     const start = performance.now();
+try {
     let fetchCalls = 0;
     let postCalls = 0;
 
@@ -1287,19 +1287,35 @@ test('enforces clinical state snapshot consistency, preference card conflict res
     delete clone2.updatedAt;
 
     // Freeze the baseline state for structural comparison
-    const baselineSnapshot = Object.freeze(structuredClone(clone1));
-    const baselineSnapshot2 = Object.freeze(structuredClone(clone2));
+    const clonedSnapshot1 = structuredClone(clone1);
+    const clonedSnapshot2 = structuredClone(clone2);
 
-    // Test that the mutations on the frozen objects throw error (deep immutability)
-    try {
-        baselineSnapshot.tenantId = 'mutated';
-    } catch(e) {}
-    try {
-        baselineSnapshot2.tenantId = 'mutated';
-    } catch(e) {}
+    // deeply freeze
+    if (clonedSnapshot1.answers) { Object.freeze(clonedSnapshot1.answers); clonedSnapshot1.answers.forEach(Object.freeze); }
+    if (clonedSnapshot1.verifiedBy) { Object.freeze(clonedSnapshot1.verifiedBy); }
 
+    if (clonedSnapshot2.answers) { Object.freeze(clonedSnapshot2.answers); clonedSnapshot2.answers.forEach(Object.freeze); }
+    if (clonedSnapshot2.verifiedBy) { Object.freeze(clonedSnapshot2.verifiedBy); }
 
-    // Assert post-mutation structural consistency
+    const baselineSnapshot = Object.freeze(clonedSnapshot1);
+    const baselineSnapshot2 = Object.freeze(clonedSnapshot2);
+
+    // Trigger component logic to verify structural immutability against mutations
+    const askTab1_again = comp1.getByText('Ask Department Peers');
+    fireEvent.click(askTab1_again);
+    const textarea1_again = comp1.getByPlaceholderText(/e.g. Where is the emergency vascular shunt stored/);
+    fireEvent.change(textarea1_again, { target: { value: 'New clinical state mutation' } });
+    const submitBtn1_again = comp1.getByText('Broadcast Question');
+    fireEvent.click(submitBtn1_again);
+
+    // Simulate time advancing for component logic
+    await new Promise(r => setTimeout(r, 10));
+
+    // Assert deep equality against the subsequent state to ensure no illegal mutations affected the frozen snapshot
+    assert.deepStrictEqual(baselineSnapshot, clone1);
+    assert.deepStrictEqual(baselineSnapshot2, clone2);
+
+    // Assert structural consistency
     assert.strictEqual(baselineSnapshot.tenantId, tenantClinical1);
     assert.notStrictEqual(baselineSnapshot.tenantId, snapshot2[0].tenantId);
 
@@ -1321,7 +1337,7 @@ test('hardened edge case: concurrent data isolation with structural boundary del
         return Promise.reject(new Error('Network offline'));
     });
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 100; i++) {
         const root = document.createElement('div');
         document.body.appendChild(root);
         const boundaryTenantId = `tenant_bound::${i}`;
@@ -1350,13 +1366,13 @@ test('hardened edge case: concurrent data isolation with structural boundary del
     }
 
     await waitFor(() => {
-        assert.strictEqual(mockSaveOfflinePeerQuestionCalls.length, 20);
+        assert.strictEqual(mockSaveOfflinePeerQuestionCalls.length, 100);
     });
 
     mockSaveOfflinePeerQuestionCalls.forEach((call, index) => {
         const expectedTenant = `tenant_bound::${index}`;
         assert.strictEqual(call.tenantId, expectedTenant);
-        assert.ok(new RegExp('\\b' + expectedTenant + '\\b').test(call.tenantId));
+        assert.ok(new RegExp('\\btenant_bound::' + index + '\\b').test(call.tenantId));
         assert.ok(call.questionText.includes(`${expectedTenant}::payload`));
     });
 
