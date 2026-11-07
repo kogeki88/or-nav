@@ -354,12 +354,12 @@ test('concurrent burst execution: handles massive volume of concurrent network r
   });
 
   const roots: HTMLDivElement[] = [];
-  const renders = Array.from({ length: 50 }).map((_, i) => {
+  const renders = await Promise.all(Array.from({ length: 50 }).map(async (_, i) => {
     const root = document.createElement('div');
     document.body.appendChild(root);
     roots.push(root);
     return render(<QRPairModal isOpen={true} onClose={() => {}} />, { container: root });
-  });
+  }));
 
   await waitFor(() => {
     assert.strictEqual(fetchNetworkInfoMock.mock.callCount(), 50, "Expected exactly 50 fetches");
@@ -702,7 +702,8 @@ test('offline-first compliance: validates fallback network state snapshot immuta
     lan_url: "http://127.0.0.1:3000",
     https_active: false,
   };
-  const frozenState = Object.freeze(structuredClone(baselineState));
+  const customClone = typeof structuredClone === "function" ? structuredClone : (val) => JSON.parse(JSON.stringify(val));
+  const frozenState = Object.freeze(customClone(baselineState));
 
   fetchNetworkInfoMock.mock.mockImplementation(async () => {
     throw new Error('Offline fallback triggered');
@@ -733,12 +734,12 @@ test('race condition resistance: concurrent offline-first fallback generation wi
   });
 
   const roots: HTMLDivElement[] = [];
-  const renders = Array.from({ length: 15 }).map((_, i) => {
+  const renders = await Promise.all(Array.from({ length: 15 }).map(async (_, i) => {
     const root = document.createElement('div');
     document.body.appendChild(root);
     roots.push(root);
     return render(<QRPairModal isOpen={true} onClose={() => {}} />, { container: root });
-  });
+  }));
 
   await waitFor(() => {
     renders.forEach((_, i) => {
