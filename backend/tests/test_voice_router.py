@@ -51,8 +51,10 @@ class TestVoiceRouter:
         # Network restriction mocks for offline-first testing
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
-            family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
             import os
+            family = kwargs.get('family', getattr(socket, 'AF_INET', 2))
+            if len(args) > 0 and isinstance(args[0], int):
+                family = args[0]
             if family != getattr(socket, 'AF_UNIX', -1) and os.name != 'nt':
                 raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
             return original_socket(*args, **kwargs)
@@ -72,7 +74,7 @@ class TestVoiceRouter:
         audio = b"0" * 500  # Over 400 byte limit to trigger transcript logic
 
         # Conflict: different tenants require different preferences
-        hint_1 = "tenant a prefers 3-0 silk"
+        hint_1 = f"tenant {tenant_1} prefers 3-0 silk"
         resp_t1 = client.post(
             "/api/voice/transcribe",
             files={"file": ("test_t1.wav", audio, "audio/wav")},
@@ -82,7 +84,7 @@ class TestVoiceRouter:
         res_t1 = resp_t1.json()
         assert "silk" in res_t1["transcript"].lower()
 
-        hint_2 = "tenant b prefers 4-0 vicryl"
+        hint_2 = f"tenant {tenant_2} prefers 4-0 vicryl"
         resp_t2 = client.post(
             "/api/voice/transcribe",
             files={"file": ("test_t2.wav", audio, "audio/wav")},
@@ -93,6 +95,12 @@ class TestVoiceRouter:
         assert "vicryl" in res_t2["transcript"].lower()
 
         # Conflict resolution check - tenants do not cross boundaries
+        import re as re_mod
+        assert re_mod.search(r'\b' + re_mod.escape(tenant_1) + r'\b', res_t1["transcript"])
+        assert re_mod.search(r'\b' + re_mod.escape(tenant_2) + r'\b', res_t2["transcript"])
+        assert not re_mod.search(r'\b' + re_mod.escape(tenant_2) + r'\b', res_t1["transcript"])
+        assert not re_mod.search(r'\b' + re_mod.escape(tenant_1) + r'\b', res_t2["transcript"])
+
         assert "vicryl" not in res_t1["transcript"].lower()
         assert "silk" not in res_t2["transcript"].lower()
 
@@ -202,15 +210,16 @@ class TestVoiceRouter:
         data_1 = resp_1.json()
         data_2 = resp_2.json()
 
-        assert tenant_1 in data_1["transcript"]
-        assert tenant_1 in data_1["safe_transcript"]
-        assert tenant_2 not in data_1["transcript"]
-        assert tenant_2 not in data_1["safe_transcript"]
+        import re as re_mod
+        assert re_mod.search(r'\b' + re_mod.escape(tenant_1) + r'\b', data_1["transcript"])
+        assert re_mod.search(r'\b' + re_mod.escape(tenant_1) + r'\b', data_1["safe_transcript"])
+        assert not re_mod.search(r'\b' + re_mod.escape(tenant_2) + r'\b', data_1["transcript"])
+        assert not re_mod.search(r'\b' + re_mod.escape(tenant_2) + r'\b', data_1["safe_transcript"])
 
-        assert tenant_2 in data_2["transcript"]
-        assert tenant_2 in data_2["safe_transcript"]
-        assert tenant_1 not in data_2["transcript"]
-        assert tenant_1 not in data_2["safe_transcript"]
+        assert re_mod.search(r'\b' + re_mod.escape(tenant_2) + r'\b', data_2["transcript"])
+        assert re_mod.search(r'\b' + re_mod.escape(tenant_2) + r'\b', data_2["safe_transcript"])
+        assert not re_mod.search(r'\b' + re_mod.escape(tenant_1) + r'\b', data_2["transcript"])
+        assert not re_mod.search(r'\b' + re_mod.escape(tenant_1) + r'\b', data_2["safe_transcript"])
 
     def test_voice_transcribe_offline_mutation_replay_idempotency(self, client, monkeypatch):
         import httpx
@@ -222,11 +231,9 @@ class TestVoiceRouter:
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
             import os
-            if not args and not kwargs:
-                if os.name != "nt":
-                    raise RuntimeError("Offline invariant violated: External network call attempted.")
-
-            family = args[0] if args else kwargs.get("family", socket.AF_INET)
+            family = kwargs.get("family", getattr(socket, "AF_INET", 2))
+            if args and isinstance(args[0], int):
+                family = args[0]
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
             return original_socket(*args, **kwargs)
@@ -410,11 +417,9 @@ class TestVoiceRouter:
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
             import os
-            if not args and not kwargs:
-                if os.name != "nt":
-                    raise RuntimeError("Offline invariant violated: External network call attempted.")
-
-            family = args[0] if args else kwargs.get("family", socket.AF_INET)
+            family = kwargs.get("family", getattr(socket, "AF_INET", 2))
+            if args and isinstance(args[0], int):
+                family = args[0]
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
             return original_socket(*args, **kwargs)
@@ -444,11 +449,9 @@ class TestVoiceRouter:
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
             import os
-            if not args and not kwargs:
-                if os.name != "nt":
-                    raise RuntimeError("Offline invariant violated: External network call attempted.")
-
-            family = args[0] if args else kwargs.get("family", socket.AF_INET)
+            family = kwargs.get("family", getattr(socket, "AF_INET", 2))
+            if args and isinstance(args[0], int):
+                family = args[0]
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
             return original_socket(*args, **kwargs)
@@ -808,11 +811,9 @@ class TestVoiceRouter:
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
             import os
-            if not args and not kwargs:
-                if os.name != "nt":
-                    raise RuntimeError("Offline invariant violated: External network call attempted.")
-
-            family = args[0] if args else kwargs.get("family", socket.AF_INET)
+            family = kwargs.get("family", getattr(socket, "AF_INET", 2))
+            if args and isinstance(args[0], int):
+                family = args[0]
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
             return original_socket(*args, **kwargs)
@@ -836,7 +837,7 @@ class TestVoiceRouter:
 
         # Burst of requests to check if memory grows unbounded
         for i in range(200):
-            resp = client.post("/api/voice/token", json={"tenant_id": f"tenant_{i % 5}", "participant_name": "user"})
+            resp = client.post("/api/voice/token", json={"tenant_id": f"tenant_{i}", "participant_name": "user"})
             assert resp.status_code == 200
 
         gc.collect()
@@ -980,11 +981,9 @@ class TestVoiceRouter:
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
             import os
-            if not args and not kwargs:
-                if os.name != "nt":
-                    raise RuntimeError("Offline invariant violated: External network call attempted.")
-
-            family = args[0] if args else kwargs.get("family", socket.AF_INET)
+            family = kwargs.get("family", getattr(socket, "AF_INET", 2))
+            if args and isinstance(args[0], int):
+                family = args[0]
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
             return original_socket(*args, **kwargs)
