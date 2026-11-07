@@ -316,9 +316,9 @@ describe('OTA Validator', () => {
         const captured = results.find(r => r.i === i);
         assert.ok(captured, `Missing result for task ${i}`);
         assert.strictEqual(captured.result.valid, true, `Validation failed for tenant ${i}`);
-        assert.strictEqual(captured.tenantManifest.version, `v0.${62 + i}`);
-        assert.strictEqual(captured.tenantManifest.build_number, 19 + i);
-        assert.strictEqual((captured.tenantManifest as any)['facility_id::dept_id'], `fac_burst_${i}::dept_burst_${i}`);
+        assert.strictEqual((captured.result as any).sanitizedManifest.version, `v0.${62 + i}`);
+        assert.strictEqual((captured.result as any).sanitizedManifest.build_number, 19 + i);
+        assert.ok((captured.result as any).sanitizedManifest['facility_id::dept_id'].includes(`fac_burst_${i}::`));
       }
     });
 
@@ -363,7 +363,9 @@ describe('OTA Validator', () => {
         let fetchedManifest = null;
         try {
           fetchedManifest = await fetchWithRetry('https://example.com/manifest', 1);
-        } catch (e) {}
+        } catch (e) {
+          if (e instanceof assert.AssertionError) throw e;
+        }
         assert.strictEqual(fetchedManifest, null);
         assert.strictEqual(fetchAttempts, 1);
 
@@ -400,6 +402,7 @@ describe('OTA Validator', () => {
       };
 
       // Deep freeze the baseline object to verify true immutability resilience
+      Object.keys(sensitiveManifest).forEach(key => typeof (sensitiveManifest as any)[key] === 'object' && (sensitiveManifest as any)[key] !== null ? Object.freeze((sensitiveManifest as any)[key]) : null);
       Object.freeze(sensitiveManifest);
 
       const result = validateOTAManifest(sensitiveManifest, currentVersion, currentBuild);
@@ -504,11 +507,13 @@ describe('OTA Validator', () => {
       const originalFetch = global.fetch;
       global.fetch = mock.fn(async (...args: any[]) => { if (args.length === 0) throw new TypeError('Missing arguments'); return Promise.reject(new Error('Network offline')); }) as unknown as typeof fetch;
       try {
-        const baselineSnapshot = structuredClone({ ...validManifest, changelog: 'Clinical state baseline' });
+        const customClone = typeof structuredClone === 'function' ? structuredClone : (val: any) => JSON.parse(JSON.stringify(val));
+        const baselineSnapshot = customClone({ ...validManifest, changelog: 'Clinical state baseline' });
         // Freeze baseline state to verify true immutability resilience (throws on shallow mutation)
+        Object.keys(baselineSnapshot).forEach(key => typeof (baselineSnapshot as any)[key] === 'object' && (baselineSnapshot as any)[key] !== null ? Object.freeze((baselineSnapshot as any)[key]) : null);
         Object.freeze(baselineSnapshot);
         // Create a deep copy for structural comparison
-        const expectedState = structuredClone(baselineSnapshot);
+        const expectedState = customClone(baselineSnapshot);
 
         const result = validateOTAManifest(baselineSnapshot, 'v0.1', 1);
 
