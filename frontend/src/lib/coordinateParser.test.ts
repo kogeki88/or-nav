@@ -758,6 +758,52 @@ describe("Phase 9: Continuous Invariants & Hardened Edge Cases", () => {
     });
   });
 
+  test("Multi-Tenant Isolation with Structural Boundary Delimiters", async () => {
+    const burstSize = 500;
+    const inputs = [
+      { text: "OR 1 A 1 B", expected: "OR 1 A 1 B", tenantId: 101 },
+      { text: "ICU 2 C 3 D", expected: "ICU 2 C 3 D", tenantId: 202 },
+      { text: "ER 5 E 6 F", expected: "ER 5 E 6 F", tenantId: 303 }
+    ];
+
+    const tasks = Array.from({ length: burstSize }).map(async (_, i) => {
+      await new Promise(r => setTimeout(r, (i * 13) % 10));
+      const input = inputs[i % inputs.length];
+      const payload = `tenant_uid_${input.tenantId}:: ${input.text}`;
+      const result = extractAndNormalizeCoordinateClient(payload);
+      return { expected: input.expected, tenantId: input.tenantId, result };
+    });
+
+    const results = await Promise.all(tasks);
+
+    results.forEach((res) => {
+      assert.ok(res.result);
+      assert.strictEqual(res.result.location, res.expected, "State bled across tenants during high concurrency burst");
+      const cleanText = res.result.cleanText;
+      const hasTenantBoundary = new RegExp('\\btenant_uid_' + res.tenantId + '::').test(cleanText);
+      assert.ok(hasTenantBoundary, "Structural boundary delimiter lost or mutated for tenant " + res.tenantId);
+    });
+  });
+
+  test("Deep Structural Idempotency against multiple replays", () => {
+    const inputs = ["OR 1 A 2 B", "ICU 3 B 1 C", "Pump Room A 1 B"];
+
+    for (let i = 0; i < inputs.length; i++) {
+      const initialResult = extractAndNormalizeCoordinateClient(inputs[i]);
+      if (initialResult) {
+        const frozenResult = Object.freeze(structuredClone(initialResult));
+
+        const replayResult1 = extractAndNormalizeCoordinateClient(inputs[i]);
+        const replayResult2 = extractAndNormalizeCoordinateClient(inputs[i]);
+        const replayResult3 = extractAndNormalizeCoordinateClient(inputs[i]);
+
+        assert.deepStrictEqual(frozenResult, replayResult1, "Drift detected on replay 1");
+        assert.deepStrictEqual(frozenResult, replayResult2, "Drift detected on replay 2");
+        assert.deepStrictEqual(frozenResult, replayResult3, "Drift detected on replay 3");
+      }
+    }
+  });
+
   test("Offline-first Compliance: Ensure no network calls are ever made", () => {
     const originalFetch = global.fetch;
     const originalXHR = global.XMLHttpRequest;
