@@ -714,6 +714,37 @@ describe("useWakeLock Fault Injection & Network Partition Resilience", () => {
 
 
 describe("useWakeLock Memory Profiling & Resource Eviction", () => {
+it("should not leak wake lock if unmounted while requesting", async () => {
+    let mockRelease = mock.fn(async function(this: any) { this.released = true; });
+    let resolveRequest: any;
+    const requestPromise = new Promise((resolve) => {
+      resolveRequest = resolve;
+    });
+
+    let localMockRequest = mock.fn(() => requestPromise);
+    Object.defineProperty(global.navigator, "wakeLock", {
+      value: { request: localMockRequest },
+      writable: true, configurable: true,
+    });
+
+    const { unmount } = renderHook(() => useWakeLock(true));
+
+    act(() => {
+      unmount();
+    });
+
+    await act(async () => {
+      resolveRequest({
+        addEventListener: () => {},
+        release: mockRelease,
+        released: false,
+      });
+      await Promise.resolve();
+    });
+
+    assert.strictEqual(mockRelease.mock.calls.length, 1);
+  });
+
   it("should not leak memory or unclosed event listeners during high-volume rapid toggling", async () => {
     let mockAddEventListener = function() {};
     let mockRelease = async function() {};

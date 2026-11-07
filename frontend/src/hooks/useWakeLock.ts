@@ -14,7 +14,12 @@ export function useWakeLock(enabled: boolean) {
       if (typeof window === "undefined" || !("wakeLock" in navigator)) return;
       try {
         if (!wakeLockRef.current || wakeLockRef.current.released) {
-          wakeLockRef.current = await navigator.wakeLock.request("screen");
+          const lock = await navigator.wakeLock.request("screen");
+          if (!active) {
+            lock.release().catch(() => {});
+            return;
+          }
+          wakeLockRef.current = lock;
           wakeLockRef.current.addEventListener("release", () => {
             wakeLockRef.current = null;
           });
