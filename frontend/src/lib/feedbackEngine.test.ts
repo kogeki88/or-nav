@@ -54,7 +54,7 @@ test("FeedbackEngine - Offline Queueing and Storage Persistence", async (t) => {
 
   // Mock fetch to simulate offline state by throwing an error
   const originalFetch = global.fetch;
-  global.fetch = async () => {
+  global.fetch = async (...args) => { if (args.length === 0) throw new TypeError("Missing arguments");
     throw new TypeError("Failed to fetch");
   };
 
@@ -133,7 +133,7 @@ test("FeedbackEngine - Retry with Exponential Backoff", async (t) => {
   localStorage.setItem(FEEDBACK_OFFLINE_QUEUE_KEY, "[]");
 
   let fetchAttempts = 0;
-  global.fetch = async () => {
+  global.fetch = async (...args) => { if (args.length === 0) throw new TypeError("Missing arguments");
     fetchAttempts++;
     throw new TypeError("Failed to fetch");
   };
@@ -176,7 +176,7 @@ test("FeedbackEngine - Retry with Exponential Backoff", async (t) => {
   queue4[0].lastAttempt = Date.now() - 5000; // 2^2 * 1000 = 4000ms backoff
   localStorage.setItem(FEEDBACK_OFFLINE_QUEUE_KEY, JSON.stringify(queue4));
 
-  global.fetch = async () => {
+  global.fetch = async (...args) => { if (args.length === 0) throw new TypeError("Missing arguments");
     return { ok: true, status: 200 } as any;
   };
 
@@ -206,7 +206,7 @@ test("FeedbackEngine - Multi-tenant isolation invariant", async (t) => {
   ] as any);
 
   const originalFetch = global.fetch;
-  global.fetch = async () => { throw new TypeError("Failed to fetch"); };
+  global.fetch = async (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new TypeError("Failed to fetch"); };
 
   try {
     const resultsA = await fetchFeedbackItems({ tenantId: "tenant_A::or" });
@@ -273,7 +273,7 @@ test("FeedbackEngine - Extended multi-tenant boundary enforcement (facility_id::
 
   const originalFetch = global.fetch;
   let networkFails = true;
-  global.fetch = async () => {
+  global.fetch = async (...args) => { if (args.length === 0) throw new TypeError("Missing arguments");
     if (networkFails) throw new TypeError("Failed to fetch");
     return { ok: true, status: 200 } as any;
   };
@@ -360,7 +360,7 @@ test("FeedbackEngine - High-Concurrency & Stress Benchmarks", async (t) => {
 
     // Concurrent burst execution across multiple tenants to verify multi-tenant isolation under stress
     const promises = Array.from({ length: 50 }, async (_, i) => {
-      await new Promise(r => setTimeout(r, Math.random() * 10));
+      await new Promise(r => setTimeout(r, 0));
       const tenant = `tenant_burst_${i}`;
       return submitManualFeedback({
         rawText: `Concurrent feedback ${i}`,
@@ -392,8 +392,8 @@ test("FeedbackEngine - High-Concurrency & Stress Benchmarks", async (t) => {
     const initialItem = localItems.find(item => item.id === testItemId)!;
     const initialUpvotes = initialItem.upvotes;
 
-    const upvotePromises = Array.from({ length: 50 }, async () => {
-      await new Promise(r => setTimeout(r, Math.random() * 10));
+    const upvotePromises = Array.from({ length: 50 }, async (_, i) => {
+      await new Promise(r => setTimeout(r, 0));
       return upvoteFeedback(testItemId);
     });
     await Promise.all(upvotePromises);
@@ -404,10 +404,10 @@ test("FeedbackEngine - High-Concurrency & Stress Benchmarks", async (t) => {
     assert.strictEqual(finalItem.upvotes, initialUpvotes + 50, "Upvotes lost due to race condition");
 
     // Test offline-first invariants during stress test
-    global.fetch = async () => { throw new TypeError("Failed to fetch"); };
+    global.fetch = async (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new TypeError("Failed to fetch"); };
 
     const offlinePromises = Array.from({ length: 20 }, async (_, i) => {
-      await new Promise(r => setTimeout(r, Math.random() * 10));
+      await new Promise(r => setTimeout(r, 0));
       return submitManualFeedback({
         rawText: `Offline concurrent feedback ${i}`,
         userProfile: { facilityId: `tenant_offline_burst_${i}`, departmentId: "icu" }
@@ -418,7 +418,7 @@ test("FeedbackEngine - High-Concurrency & Stress Benchmarks", async (t) => {
     const offlineQueue = getOfflineQueue();
     // The queue should capture all offline creations.
 
-    const newOfflineItems = offlineQueue.filter(q => q.type === "CREATE" && q.payload.rawText.includes("Offline concurrent"));
+    const newOfflineItems = offlineQueue.filter(q => q.type === "CREATE" && q.payload.rawText.includes("Offline concurrent feedback "));
     assert.strictEqual(newOfflineItems.length, 20, "Offline queue did not correctly capture all concurrent offline mutations");
 
     // Drain queue to ensure no local crashes during batch processing
@@ -443,7 +443,9 @@ test("FeedbackEngine - Fault Injection, Intermittent Latency, and Network Partit
   let fetchCallCount = 0;
   let latencyMs = 0;
 
-  global.fetch = async (input, init) => {
+  global.fetch = async (...args) => {
+    if (args.length === 0) throw new TypeError("Missing arguments");
+    const [input, init] = args;
     fetchCallCount++;
     if (latencyMs > 0) {
       await new Promise(r => setTimeout(r, latencyMs));
@@ -521,7 +523,7 @@ test("FeedbackEngine - Fault Injection, Intermittent Latency, and Network Partit
     // 4. Fault injection: Simulated 500 Server Error
 
 
-    global.fetch = async () => { throw new TypeError("Failed to fetch"); };
+    global.fetch = async (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new TypeError("Failed to fetch"); };
     await upvoteFeedback(item1.id);
     await new Promise(r => setTimeout(r, 10));
 
@@ -643,7 +645,9 @@ test("FeedbackEngine - Security Invariants: HIPAA PHI, Regex Boundaries, Zero-Tr
   const originalFetch = global.fetch;
 
   let fetchPayload: any = null;
-  global.fetch = async (input, init) => {
+  global.fetch = async (...args) => {
+    if (args.length === 0) throw new TypeError("Missing arguments");
+    const [input, init] = args;
     if (init && init.body) {
       fetchPayload = JSON.parse(init.body as string);
     }
@@ -677,7 +681,7 @@ test("FeedbackEngine - Security Invariants: HIPAA PHI, Regex Boundaries, Zero-Tr
 
     await t.test("Offline-first invariants", async () => {
       // Poison fetch to verify offline-first invariants
-      global.fetch = () => Promise.reject(new Error("Network offline"));
+      global.fetch = (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); return Promise.reject(new Error("Network offline")); };
 
       const res = await submitManualFeedback({ rawText: "Offline feedback", userProfile: { facilityId: "f4", departmentId: "d4" } });
 
@@ -690,7 +694,9 @@ test("FeedbackEngine - Security Invariants: HIPAA PHI, Regex Boundaries, Zero-Tr
       assert.ok(inQueue, "Item should be enqueued for offline sync");
 
       // Restore fetch for rest of tests
-      global.fetch = async (input, init) => {
+      global.fetch = async (...args) => {
+    if (args.length === 0) throw new TypeError("Missing arguments");
+    const [input, init] = args;
         if (init && init.body) {
           fetchPayload = JSON.parse(init.body as string);
         }
@@ -726,7 +732,7 @@ test("FeedbackEngine - Clinical Workflow Snapshot & Deterministic State Verifica
 
   try {
     await t.test("Deterministic state transition matrices", async () => {
-      global.fetch = () => Promise.reject(new Error("Network offline"));
+      global.fetch = (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); return Promise.reject(new Error("Network offline")); };
       const item = await submitManualFeedback({
         rawText: "The retractor handle is slipping during long procedures.",
         userProfile: { facilityId: "f1", departmentId: "d1" }
@@ -759,15 +765,16 @@ test("FeedbackEngine - Clinical Workflow Snapshot & Deterministic State Verifica
       });
 
       const activeState = getLocalFeedback();
-      const baselineSnapshot = JSON.parse(JSON.stringify(activeState));
+      const baselineSnapshot = structuredClone(activeState);
 
       // Freeze active state to verify immutability
       Object.freeze(activeState);
+      activeState.forEach(Object.freeze);
 
       // Perform mutation on Tenant A
       await updateFeedbackStatus(itemTenantA.id, "planned");
 
-      const postMutationSnapshot = JSON.parse(JSON.stringify(getLocalFeedback()));
+      const postMutationSnapshot = structuredClone(getLocalFeedback());
 
       // Verify Tenant B's state is perfectly preserved (snapshot consistency)
       const baselineB = baselineSnapshot.find((i: any) => i.id === itemTenantB.id);
