@@ -5883,10 +5883,11 @@
     "id": "backlog-589",
     "title": "Testing: Continuous Invariant & Stress Hardening Round 3 for UserProfileModal",
     "category": "Testing",
-    "status": "dispatched",
+    "status": "completed",
     "prompt": "# 🚀 Testing Task (Hardening Round 3): Continuous Invariants for UserProfileModal\n\n**File:** `frontend/src/components/UserProfileModal.test.tsx`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/components/UserProfileModal.test.tsx`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification.",
     "sessionId": "1528992311770673867",
-    "dispatchedAt": "2026-11-07T01:04:57.419Z"
+    "dispatchedAt": "2026-11-07T01:04:57.419Z",
+    "completedAt": "2026-11-07T01:29:57.172Z"
   },
   {
     "id": "backlog-590",
@@ -6098,5 +6099,12 @@
     "category": "Security",
     "status": "pending",
     "prompt": "# 🚀 Sentinel Task (Hardening Round 4): Continuous Invariants for ResourceManagerChecksum\n\n**File:** `frontend/src/lib/resourceManager.test.ts`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `frontend/src/lib/resourceManager.test.ts`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
+  },
+  {
+    "id": "backlog-615",
+    "title": "Bolt: Continuous Invariant & Stress Hardening Round 4 for ClinicalQueryPlannerService",
+    "category": "Performance",
+    "status": "pending",
+    "prompt": "# 🚀 Bolt Task (Hardening Round 4): Continuous Invariants for ClinicalQueryPlannerService\n\n**File:** `backend/tests/test_clinical_query_planner.py`\n**Objective:**\n1. Harden edge cases, race conditions, and invariants in `backend/tests/test_clinical_query_planner.py`.\n2. Ensure zero regressions on existing test suites.\n3. Verify multi-tenant isolation and offline-first compliance.\n4. Submit PR immediately upon verification."
   }
 ]
