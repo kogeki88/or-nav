@@ -1,3 +1,4 @@
+import re
 import asyncio
 import socket
 import time
@@ -32,19 +33,29 @@ def strict_offline_first(monkeypatch):
     original_socket = socket.socket
     import os
     def _raise_offline_error(*args, **kwargs):
-        if args and args[0] == getattr(socket, 'AF_UNIX', -1):
+        if args and isinstance(args[0], int) and args[0] == getattr(socket, 'AF_UNIX', -1):
             return original_socket(*args, **kwargs)
         if 'family' in kwargs and kwargs['family'] == getattr(socket, 'AF_UNIX', -1):
             return original_socket(*args, **kwargs)
+
+        family = getattr(socket, 'AF_INET', -1)
+        if args and isinstance(args[0], int):
+            family = args[0]
+        elif args and not isinstance(args[0], int):
+            pass
+        elif 'family' in kwargs:
+            family = kwargs['family']
+
         if not args and not kwargs:
             if os.name == 'nt':
                 return original_socket(*args, **kwargs)
             raise RuntimeError("Offline-first violation: Network request attempted")
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', -1))
+
         if family != getattr(socket, 'AF_UNIX', -1):
             if os.name == 'nt':
                  return original_socket(*args, **kwargs)
             raise RuntimeError(f"Offline-first violation: Network request attempted (family={family})")
+
         return original_socket(*args, **kwargs)
 
     def _raise_httpx_error(*args, **kwargs):
@@ -193,7 +204,7 @@ class TestLimiterConcurrencyThrottling:
             time.sleep(((idx * 13) % 10) * 0.005)
 
             # Do strict tenant assertions inside request to ensure isolation didn't leak fuzzed keys
-            assert f"worker{idx}::" in payload["message"]
+            assert re.search(r"\bworker" + str(idx) + r"::", payload["message"]) is not None
 
             return client.post("/api/chat", json=payload, headers={"X-Forwarded-For": ip, "X-Tenant-Boundary": tenant})
 
@@ -653,7 +664,6 @@ class TestLimiterConcurrencyThrottling:
 
         from concurrent.futures import ThreadPoolExecutor
 
-        # Use a dynamic modulo bound based on MAX_SERVICES_CACHE_SIZE so eviction can still happen
         def access_tenant(i):
             tid = f"tenant_{i}::dept"
             return get_inventory_service(tid)
