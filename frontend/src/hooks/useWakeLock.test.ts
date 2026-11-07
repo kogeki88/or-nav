@@ -1,4 +1,5 @@
 import 'jsdom-global/register';
+(global as any).IS_REACT_ACT_ENVIRONMENT = true;
 import { renderHook, act } from "@testing-library/react";
 import { useWakeLock } from "./useWakeLock";
 import { describe, it, mock, beforeEach, afterEach } from "node:test";
@@ -49,7 +50,11 @@ describe("useWakeLock", () => {
 
     await Promise.resolve();
 
-    rerender({ enabled: false });
+    act(() => {
+
+      rerender({ enabled: false });
+
+    });
 
     await Promise.resolve();
 
@@ -104,7 +109,11 @@ describe("useWakeLock", () => {
     const { unmount } = renderHook(() => useWakeLock(true));
     await Promise.resolve();
 
-    unmount();
+    act(() => {
+
+      unmount();
+
+    });
 
     assert.ok(removeEventListenerSpy.mock.calls.some((c: any) => c.arguments[0] === 'visibilitychange'));
     assert.ok(mockRelease.mock.calls.length >= 1);
@@ -145,11 +154,16 @@ describe("useWakeLock", () => {
 
       assert.strictEqual(mockRequest.mock.calls.length, 0);
     } finally {
-      Object.defineProperty(global.navigator, "wakeLock", {
-        value: originalWakeLock,
-        writable: true,
-        configurable: true,
-      });
+      if (originalWakeLock === undefined) {
+        // @ts-ignore
+        delete global.navigator.wakeLock;
+      } else {
+        Object.defineProperty(global.navigator, "wakeLock", {
+          value: originalWakeLock,
+          writable: true,
+          configurable: true,
+        });
+      }
     }
   });
 
@@ -188,7 +202,7 @@ describe("useWakeLock", () => {
       assert.strictEqual(mockRequest.mock.calls.length, 1);
       assert.strictEqual(fetchMock.mock.calls.length, 0);
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
     }
   });
 
@@ -209,11 +223,19 @@ describe("useWakeLock", () => {
       assert.strictEqual(mockRequest.mock.calls.length, 1);
       assert.strictEqual(mockRelease.mock.calls.length, 0);
 
-      rerender1({ enabled: false });
+      act(() => {
+
+        rerender1({ enabled: false });
+
+      });
       await Promise.resolve();
       assert.strictEqual(mockRelease.mock.calls.length, 1);
 
-      unmount1();
+      act(() => {
+
+        unmount1();
+
+      });
       await Promise.resolve();
 
       mockRequest.mock.resetCalls();
@@ -227,11 +249,19 @@ describe("useWakeLock", () => {
       assert.strictEqual(mockRequest.mock.calls.length, 1);
       assert.strictEqual(mockRelease.mock.calls.length, 0);
 
-      rerender2({ enabled: false });
+      act(() => {
+
+        rerender2({ enabled: false });
+
+      });
       await Promise.resolve();
       assert.strictEqual(mockRelease.mock.calls.length, 1);
 
-      unmount2();
+      act(() => {
+
+        unmount2();
+
+      });
       await Promise.resolve();
     } finally {
       if (document.body.contains(root1)) document.body.removeChild(root1);
@@ -257,10 +287,16 @@ describe("useWakeLock", () => {
       assert.strictEqual(mockRequest.mock.calls.length, 1);
 
       // Replay identical input (offline mutation replay)
-      rerender({ enabled: true });
+      act(() => {
+        rerender({ enabled: true });
+      });
       await Promise.resolve();
 
-      rerender({ enabled: true });
+      act(() => {
+
+        rerender({ enabled: true });
+
+      });
       await Promise.resolve();
 
       // Should not re-request the lock multiple times redundantly
@@ -268,7 +304,7 @@ describe("useWakeLock", () => {
       assert.strictEqual(mockRelease.mock.calls.length, 0);
       assert.strictEqual(fetchMock.mock.calls.length, 0);
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
     }
   });
 
@@ -305,12 +341,16 @@ describe("useWakeLock", () => {
       let results: boolean[] = [];
       await act(async () => {
         results = await Promise.all(
-          hooks.map(async ({ hook, root }) => {
-            await new Promise(r => setTimeout(r, Math.random() * 10));
+          hooks.map(async ({ hook, root }, i) => {
+            await new Promise(r => setTimeout(r, (i * 13) % 10));
 
-            hook.rerender({ enabled: true });
+            act(() => {
 
-            await new Promise(r => setTimeout(r, Math.random() * 10));
+              hook.rerender({ enabled: true });
+
+            });
+
+            await new Promise(r => setTimeout(r, (i * 13) % 10));
             return true;
           })
         );
@@ -318,7 +358,9 @@ describe("useWakeLock", () => {
 
       await act(async () => {
         for (const { hook, root } of hooks) {
-          hook.unmount();
+          act(() => {
+            hook.unmount();
+          });
           if (document.body.contains(root)) {
             document.body.removeChild(root);
           }
@@ -332,7 +374,7 @@ describe("useWakeLock", () => {
       assert.strictEqual(mockRelease.mock.calls.length, burstSize);
       assert.strictEqual(fetchMock.mock.calls.length, 0); // Assert offline-first invariant under load
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
     }
   });
 
@@ -346,7 +388,9 @@ describe("useWakeLock", () => {
     for (let i = 0; i < iterations; i++) {
       const { unmount } = renderHook(() => useWakeLock(true));
       await Promise.resolve();
-      unmount();
+      act(() => {
+        unmount();
+      });
       await Promise.resolve();
     }
 
@@ -388,11 +432,17 @@ describe("useWakeLock", () => {
       await Promise.resolve();
 
       // Offline replay idempotency
-      rerender({ enabled: true });
+      act(() => {
+        rerender({ enabled: true });
+      });
       await Promise.resolve();
       assert.strictEqual(mockRequest.mock.calls.length, 1);
 
-      unmount();
+      act(() => {
+
+        unmount();
+
+      });
       await Promise.resolve();
       assert.strictEqual(mockRelease.mock.calls.length, 1);
 
@@ -404,18 +454,24 @@ describe("useWakeLock", () => {
         container: rootB
       });
       await Promise.resolve();
-      rerenderB({ enabled: true });
+      act(() => {
+        rerenderB({ enabled: true });
+      });
       await Promise.resolve();
 
       assert.strictEqual(mockRequest.mock.calls.length, 1);
 
-      unmountB();
+      act(() => {
+
+        unmountB();
+
+      });
       await Promise.resolve();
       assert.strictEqual(mockRelease.mock.calls.length, 1);
 
       assert.strictEqual(fetchMock.mock.calls.length, 0); // verify offline invariants
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
       if (document.body.contains(rootA)) document.body.removeChild(rootA);
       if (document.body.contains(rootB)) document.body.removeChild(rootB);
     }
@@ -463,7 +519,9 @@ describe("useWakeLock additional concurrent tests", () => {
       promises.push((async () => {
         const { unmount } = renderHook(() => useWakeLock(true));
         await Promise.resolve();
-        unmount();
+        act(() => {
+          unmount();
+        });
         await Promise.resolve();
       })());
     }
@@ -605,7 +663,7 @@ describe("useWakeLock Fault Injection & Network Partition Resilience", () => {
         // Assert no fetch calls were made despite network degradation errors in wake lock
         assert.strictEqual(fetchMock.mock.calls.length, 0);
     } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
         if (document.body.contains(rootA)) document.body.removeChild(rootA);
         if (document.body.contains(rootB)) document.body.removeChild(rootB);
     }
@@ -641,9 +699,13 @@ describe("useWakeLock Fault Injection & Network Partition Resilience", () => {
      assert.strictEqual(mockRequest.mock.calls.length, 1);
 
      // Simulation of replay of enabled mutation
-     rerender({ enabled: false }); // toggle off
+     act(() => {
+       rerender({ enabled: false });
+     }); // toggle off
      await Promise.resolve();
-     rerender({ enabled: true });  // replay on
+     act(() => {
+       rerender({ enabled: true });
+     });  // replay on
      await Promise.resolve();
 
      assert.strictEqual(mockRequest.mock.calls.length, 2);
@@ -694,7 +756,9 @@ describe("useWakeLock Memory Profiling & Resource Eviction", () => {
       const iterations = 1000;
       for (let i = 0; i < iterations; i++) {
         const { unmount } = renderHook(() => useWakeLock(true));
-        unmount();
+        act(() => {
+          unmount();
+        });
       }
 
       await Promise.resolve();
@@ -775,7 +839,9 @@ describe("useWakeLock Strict Security Invariants & HIPAA PHI Boundary Verificati
     for (const payload of maliciousPayloads) {
       const { unmount } = renderHook(() => useWakeLock(payload as unknown as boolean));
       await Promise.resolve();
-      unmount();
+      act(() => {
+        unmount();
+      });
     }
 
     assert.strictEqual(mockRequest.mock.calls.length, maliciousPayloads.length);
@@ -805,17 +871,29 @@ describe("useWakeLock Strict Security Invariants & HIPAA PHI Boundary Verificati
       assert.strictEqual(mockRequest.mock.calls.length, 1);
       assert.strictEqual(fetchMock.mock.calls.length, 0);
 
-      rerender({ enabled: false });
+      act(() => {
+
+        rerender({ enabled: false });
+
+      });
       await Promise.resolve();
 
-      rerender({ enabled: true });
+      act(() => {
+
+        rerender({ enabled: true });
+
+      });
       await Promise.resolve();
 
       assert.strictEqual(fetchMock.mock.calls.length, 0);
 
-      unmount();
+      act(() => {
+
+        unmount();
+
+      });
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
     }
   });
 });
@@ -861,7 +939,9 @@ describe("useWakeLock Deterministic State Verifications", () => {
     assert.strictEqual(mockRequest.mock.calls.length, 0);
 
     // Toggle 1: on
-    rerender({ enabled: true });
+    act(() => {
+      rerender({ enabled: true });
+    });
     await Promise.resolve();
     const requestCallsAfterOn = mockRequest.mock.calls.length;
     assert.strictEqual(requestCallsAfterOn > 0, true);
@@ -875,18 +955,26 @@ describe("useWakeLock Deterministic State Verifications", () => {
 
     // Toggle 2: off
     const releaseCallsBeforeOff = mockRelease.mock.calls.length;
-    rerender({ enabled: false });
+    act(() => {
+      rerender({ enabled: false });
+    });
     await Promise.resolve();
     const releaseCallsAfterOff = mockRelease.mock.calls.length;
     assert.strictEqual(releaseCallsAfterOff > releaseCallsBeforeOff, true);
 
     // Toggle 3: on again
-    rerender({ enabled: true });
+    act(() => {
+      rerender({ enabled: true });
+    });
     await Promise.resolve();
     const requestCallsAfterSecondOn = mockRequest.mock.calls.length;
     assert.strictEqual(requestCallsAfterSecondOn > requestCallsAfterVisibility, true);
 
-    unmount();
+    act(() => {
+
+      unmount();
+
+    });
     await Promise.resolve();
     assert.strictEqual(mockRelease.mock.calls.length > releaseCallsAfterOff, true);
   });
@@ -915,13 +1003,25 @@ describe("useWakeLock Deterministic State Verifications", () => {
       assert.strictEqual(mockRequest.mock.calls.length > 0, true);
       assert.strictEqual(fetchMock.mock.calls.length, 0);
 
-      rerender({ enabled: false });
+      act(() => {
+
+        rerender({ enabled: false });
+
+      });
       await Promise.resolve();
 
-      rerender({ enabled: true });
+      act(() => {
+
+        rerender({ enabled: true });
+
+      });
       await Promise.resolve();
 
-      unmount();
+      act(() => {
+
+        unmount();
+
+      });
       await Promise.resolve();
 
       // The component is purely client-side so the main thing to verify is that no external network
@@ -930,7 +1030,7 @@ describe("useWakeLock Deterministic State Verifications", () => {
       assert.strictEqual(fetchMock.mock.calls.length, 0);
       assert.strictEqual(container.getAttribute('data-tenant'), tenantId);
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
       if (document.body.contains(container)) document.body.removeChild(container);
     }
   });
