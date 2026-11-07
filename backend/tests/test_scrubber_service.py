@@ -149,7 +149,7 @@ class TestScrubberServiceOfflineFirst:
         """
         _orig_socket = socket.socket
         def poison(*args, **kwargs):
-            family = args[0] if args else kwargs.get('family', socket.AF_INET)
+            family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
                 if os.name != 'nt':
                     raise RuntimeError("Network call attempted during offline-first function execution")
@@ -184,7 +184,7 @@ class TestScrubberServiceOfflineFirst:
         """
         _orig_socket = socket.socket
         def poison(*args, **kwargs):
-            family = args[0] if args else kwargs.get('family', socket.AF_INET)
+            family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
                 if os.name != 'nt':
                     raise RuntimeError("Network call attempted during offline-first function execution")
@@ -271,7 +271,7 @@ class TestScrubberServiceMultiTenantIsolation:
         """
         _orig_socket = socket.socket
         def poison(*args, **kwargs):
-            family = args[0] if args else kwargs.get('family', socket.AF_INET)
+            family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
                 if os.name != 'nt':
                     raise RuntimeError("Network call attempted during offline-first function execution")
@@ -324,7 +324,7 @@ class TestScrubberServiceMultiTenantIsolation:
         """
         _orig_socket = socket.socket
         def poison(*args, **kwargs):
-            family = args[0] if args else kwargs.get('family', socket.AF_INET)
+            family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
                 if os.name != 'nt':
                     raise RuntimeError("Network call attempted during offline-first function execution")
@@ -461,7 +461,7 @@ class TestScrubberServiceFaultInjection:
         """
         _orig_socket = socket.socket
         def flaky_socket(*args, **kwargs):
-            family = args[0] if args else kwargs.get('family', socket.AF_INET)
+            family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
                 if os.name != 'nt':
                     import time
@@ -494,7 +494,7 @@ class TestScrubberServiceFaultInjection:
 
         _orig_socket = socket.socket
         def dynamic_socket(*args, **kwargs):
-            family = args[0] if args else kwargs.get('family', socket.AF_INET)
+            family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
                 if os.name != 'nt':
                     if network_state["status"] == "offline":
@@ -537,7 +537,7 @@ class TestScrubberServiceFaultInjection:
 
         _orig_socket = socket.socket
         def dynamic_socket(*args, **kwargs):
-            family = args[0] if args else kwargs.get('family', socket.AF_INET)
+            family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
                 if os.name != 'nt':
                     if network_state["status"] == "degraded":
@@ -582,7 +582,7 @@ class TestScrubberServiceMemoryAndResources:
         # Mock network to ensure offline invariant
         _orig_socket = socket.socket
         def offline_socket(*args, **kwargs):
-            family = args[0] if args else kwargs.get('family', socket.AF_INET)
+            family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
                 if os.name != 'nt':
                     raise socket.error("Network unreachable - Offline First")
@@ -729,7 +729,7 @@ class TestScrubberServiceSecurityHardening:
         # Enforce offline-first invariant
         _orig_socket = socket.socket
         def offline_socket(*args, **kwargs):
-            family = args[0] if args else kwargs.get('family', socket.AF_INET)
+            family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
                 if os.name != 'nt':
                     raise RuntimeError("Network call attempted during offline-first function execution")
@@ -778,7 +778,7 @@ class TestScrubberServiceSecurityHardening:
         import socket
         _orig_socket = socket.socket
         def offline_socket(*args, **kwargs):
-            family = args[0] if args else kwargs.get('family', socket.AF_INET)
+            family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
                 if os.name != 'nt':
                     raise RuntimeError("Network call attempted during offline-first function execution")
@@ -877,7 +877,7 @@ class TestScrubberContinuousInvariants:
         import socket
         _orig_socket = socket.socket
         def offline_socket(*args, **kwargs):
-            family = args[0] if args else kwargs.get('family', socket.AF_INET)
+            family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
                 if os.name != 'nt':
                     raise RuntimeError("Network call attempted during offline-first function execution")
@@ -925,9 +925,10 @@ class TestScrubberContinuousInvariants:
             assert "[REDACTED_PHI]" in text
             assert str(1000000 + idx) not in text
             assert f"Tenant::{t_id}:: " in text
-            assert f"dataA_{idx} " in text
+            import re
+            assert re.search(r"\bdataA_" + str(idx) + r"\b", text)
 
             # Cross-contamination check
             for other_t_id, other_idx, other_text in results:
                 if idx != other_idx:
-                    assert f"dataA_{idx} " not in other_text
+                    assert not re.search(r"\bdataA_" + str(idx) + r"\b", other_text)
