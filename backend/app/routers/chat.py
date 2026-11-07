@@ -180,9 +180,9 @@ class VerifyMoveRequest(BaseModel):
     expected_location: Optional[str] = Field(
         default=None, max_length=200, pattern=r"^[a-zA-Z0-9_\-\s:·]+$", description="Expected pending coordinate target (prevents stale confirms)")
     timestamp: Optional[str] = Field(
-        default=None, max_length=50, description="Mutation timestamp for offline conflict resolution")
+        default=None, max_length=50, pattern=r"^[^<]*$", description="Mutation timestamp for offline conflict resolution")
 
-    @field_validator("item", "expected_location", mode="before", check_fields=False)
+    @field_validator("item", "expected_location", "timestamp", mode="before", check_fields=False)
     @classmethod
     def sanitize_html(cls, v):
         if isinstance(v, str):
@@ -208,9 +208,9 @@ class FlagWrongRequest(BaseModel):
     item: str = Field(..., min_length=1, max_length=200, pattern=r"^[^<]*$")
     reason: str = Field(default="Location empty or item moved", min_length=1, max_length=500, pattern=r"^[^<]*$")
     timestamp: Optional[str] = Field(
-        default=None, max_length=50, description="Mutation timestamp for offline conflict resolution")
+        default=None, max_length=50, pattern=r"^[^<]*$", description="Mutation timestamp for offline conflict resolution")
 
-    @field_validator("item", "reason", mode="before", check_fields=False)
+    @field_validator("item", "reason", "timestamp", mode="before", check_fields=False)
     @classmethod
     def sanitize_html(cls, v):
         if isinstance(v, str):
