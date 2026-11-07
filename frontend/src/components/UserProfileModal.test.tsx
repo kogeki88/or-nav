@@ -2,7 +2,7 @@ import 'jsdom-global/register';
 import { test, mock, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import React from 'react';
-import { render, screen, fireEvent, waitFor, cleanup, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import fc from 'fast-check';
 import UserProfileModal from './UserProfileModal';
@@ -11,6 +11,8 @@ import * as auth from '../lib/auth';
 import * as resourceManager from '../lib/resourceManager';
 
 // Mock localStorage to fix offline-first issues
+(global as any).IS_REACT_ACT_ENVIRONMENT = true;
+
 Object.defineProperty(global, 'localStorage', {
   value: {
     getItem: mock.fn(),
@@ -197,8 +199,8 @@ test('UserProfileModal guarantees offline mutation replay idempotency', async (t
   const saveBtn = screen.getAllByTestId('button-save-profile')[0];
 
   // Simulate offline burst replay
-  const burstClicks = Array.from({ length: 10 }, async () => {
-    await new Promise(r => setTimeout(r, Math.random() * 10)); // Macrotask jitter for true interleaving
+  const burstClicks = Array.from({ length: 10 }, async (_, i) => {
+    await new Promise(r => setTimeout(r, (i * 13) % 10)); // Macrotask jitter for true interleaving
     fireEvent.click(saveBtn);
   });
 
@@ -341,7 +343,7 @@ test('UserProfileModal enforces multi-tenant isolation and offline-first invaria
 
     const saveBtn = within(root).getByTestId('button-save-profile');
 
-    await new Promise(r => setTimeout(r, Math.random() * 10)); // Macrotask jitter
+    await new Promise(r => setTimeout(r, (i * 13) % 10)); // Macrotask jitter
     fireEvent.click(saveBtn);
 
     await waitFor(() => {
@@ -476,7 +478,7 @@ test('UserProfileModal prevents memory leaks and DOM accumulation over high-volu
       { container: root }
     );
 
-    unmount();
+    act(() => { unmount(); });
     document.body.removeChild(root);
   }
 
@@ -633,7 +635,7 @@ test('UserProfileModal enforces clinical state snapshot consistency, preference 
   // Trigger Preference Card Conflict Resolution
   // Simulate another process merging state (e.g. upvoting/merging a preference card collision)
   // by rerendering with conflicting props.
-  rerender(
+  act(() => { rerender(
     <UserProfileModal
       isOpen={true}
       onClose={mockOnClose}
@@ -645,7 +647,7 @@ test('UserProfileModal enforces clinical state snapshot consistency, preference 
       })}
       onSaveProfile={onSaveProfileMock}
     />
-  );
+  ); });
 
   // According to useEffect in UserProfileModal:
   // useEffect(() => { setFormData(currentProfile); ... }, [currentProfile, isOpen]);

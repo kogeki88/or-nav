@@ -56,7 +56,7 @@ export default function UserProfileModal({
 
   useModalA11y(isOpen, onClose, modalRef);
 
-  const currentRoles = ROLES_BY_DEPARTMENT[formData.departmentId] || ROLES_BY_DEPARTMENT["or_main"];
+  const currentRoles = Array.isArray(ROLES_BY_DEPARTMENT[formData.departmentId as keyof typeof ROLES_BY_DEPARTMENT]) ? ROLES_BY_DEPARTMENT[formData.departmentId as keyof typeof ROLES_BY_DEPARTMENT] : ROLES_BY_DEPARTMENT["or_main"];
 
   const handleFacilityChange = (facId: string) => {
     const fac = REGISTERED_FACILITIES.find((f) => f.id === facId);
@@ -68,7 +68,7 @@ export default function UserProfileModal({
   };
 
   const handleDepartmentChange = (deptId: string) => {
-    const newRoles = ROLES_BY_DEPARTMENT[deptId] || ROLES_BY_DEPARTMENT["or_main"];
+    const newRoles = Array.isArray(ROLES_BY_DEPARTMENT[deptId as keyof typeof ROLES_BY_DEPARTMENT]) ? ROLES_BY_DEPARTMENT[deptId as keyof typeof ROLES_BY_DEPARTMENT] : ROLES_BY_DEPARTMENT["or_main"];
     const roleStillValid = newRoles.includes(formData.clinicalRole);
     setFormData({
       ...formData,
@@ -80,7 +80,7 @@ export default function UserProfileModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const validRoles = ROLES_BY_DEPARTMENT[formData.departmentId] || ROLES_BY_DEPARTMENT["or_main"];
+    const validRoles = Array.isArray(ROLES_BY_DEPARTMENT[formData.departmentId as keyof typeof ROLES_BY_DEPARTMENT]) ? ROLES_BY_DEPARTMENT[formData.departmentId as keyof typeof ROLES_BY_DEPARTMENT] : ROLES_BY_DEPARTMENT["or_main"];
     let finalRole = formData.clinicalRole;
     if (!validRoles.includes(formData.clinicalRole)) {
       finalRole = validRoles[0];
