@@ -219,9 +219,9 @@ describe("Dexie Benchmarks", () => {
           const myWorkerItems = readBack.filter(item => item.worker_seq === workerId);
           for (let i = 0; i < myWorkerItems.length; i++) {
             const res = myWorkerItems[i];
-            assert.ok(res.id.includes(`worker${workerId}::`), "Found wrong worker ID");
-            assert.ok(!res.id.includes(`worker${workerId + 1}::`), "Leaked data from adjacent requests: output contains res.id + 1 data");
-            assert.ok(!res.id.includes(`worker${workerId - 1}::`), "Leaked data from adjacent requests: output contains res.id - 1 data");
+            assert.ok(new RegExp(`\\bworker${workerId}\\b`).test(res.id), "Found wrong worker ID");
+            assert.ok(!new RegExp(`\\bworker${workerId + 1}\\b`).test(res.id), "Leaked data from adjacent requests: output contains res.id + 1 data");
+            assert.ok(!new RegExp(`\\bworker${workerId - 1}\\b`).test(res.id), "Leaked data from adjacent requests: output contains res.id - 1 data");
           }
 
           // Update concurrently
@@ -338,7 +338,7 @@ describe("Dexie Benchmarks", () => {
     const tenantB = "tenant_B::surgery";
 
     // 1. Initial State Snapshot
-    const initialState = Object.freeze([
+    const _initialStateRaw = [
       Object.freeze({
         id: "card_1",
         tenant_id: tenantA,
@@ -366,9 +366,11 @@ describe("Dexie Benchmarks", () => {
         updatedAt: 1000,
         deleted: false
       })
-    ]);
+    ];
+    const initialState = Object.freeze(_initialStateRaw.map(item => Object.freeze(item)));
 
-    await db.preferenceCards.bulkPut(structuredClone(initialState));
+    const _clone = typeof structuredClone === "function" ? structuredClone : (val: any) => JSON.parse(JSON.stringify(val));
+    await db.preferenceCards.bulkPut(_clone(initialState));
 
     // 2. State Transition Matrix (Actions applied deterministically)
     const transitions = [
@@ -428,7 +430,7 @@ describe("Dexie Benchmarks", () => {
 
     const card1 = finalCardsA.find(c => c.id === "card_1");
     assert.ok(card1, "card_1 should exist");
-    assert.deepStrictEqual(structuredClone(normalize(card1)), structuredClone({
+    assert.deepStrictEqual(_clone(normalize(card1)), _clone({
       id: "card_1",
       tenant_id: tenantA,
       surgeon: "Dr. Smith",
@@ -440,7 +442,7 @@ describe("Dexie Benchmarks", () => {
 
     const card2 = finalCardsA.find(c => c.id === "card_2");
     assert.ok(card2, "card_2 should exist");
-    assert.deepStrictEqual(structuredClone(normalize(card2)), structuredClone({
+    assert.deepStrictEqual(_clone(normalize(card2)), _clone({
       id: "card_2",
       tenant_id: tenantA,
       surgeon: "Dr. Jones",
@@ -455,7 +457,7 @@ describe("Dexie Benchmarks", () => {
     assert.strictEqual(finalCardsB.length, 1, "Tenant B should have 1 card in the database (tombstoned)");
     const card3 = finalCardsB.find(c => c.id === "card_3");
     assert.ok(card3, "card_3 should exist as tombstone");
-    assert.deepStrictEqual(structuredClone(normalize(card3)), structuredClone({
+    assert.deepStrictEqual(_clone(normalize(card3)), _clone({
       id: "card_3",
       tenant_id: tenantB,
       surgeon: "Dr. Smith",
@@ -691,7 +693,7 @@ describe("Dexie Benchmarks", () => {
     const maxItems = 50;
     for (let i = 0; i < 150; i++) {
         await db.inventoryItems.put({
-            id: `unbounded-test-${i}`,
+            id: `unbounded-test-${i.toString().padStart(4, "0")}`,
             tenant_id: 'tenant_unbounded::dept',
             item: `Item ${i}`,
             status: 'available'
@@ -762,7 +764,7 @@ describe("Dexie Benchmarks", () => {
     // Race condition test: parallel reads and writes across tenants without interfering with expected counts
     const promises = [];
     const readWorker = async (tenantId: string) => {
-        const items = await db.inventoryItems.where('tenant_id').equals(tenantId).toArray();
+        const items = await db.inventoryItems.where("tenant_id").startsWith(tenantId).toArray();
         assert.ok(items.length >= 0);
         assert.ok(items.every(item => item.tenant_id === tenantId));
     };
