@@ -392,16 +392,30 @@ test("FeedbackEngine - High-Concurrency & Stress Benchmarks", async (t) => {
     const initialItem = localItems.find(item => item.id === testItemId)!;
     const initialUpvotes = initialItem.upvotes;
 
+    global.fetch = async (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new TypeError("Network offline"); };
+
     const upvotePromises = Array.from({ length: 50 }, async (_, i) => {
       await new Promise(r => setTimeout(r, 0));
       return upvoteFeedback(testItemId);
     });
     await Promise.all(upvotePromises);
 
-    // Verify race condition resistance: final upvote count must exactly equal initial + 50
+    global.fetch = mockFetch;
+
+
+    // Test race conditions on offline sync and UI
     const finalLocalItems = getLocalFeedback();
     const finalItem = finalLocalItems.find(item => item.id === testItemId)!;
     assert.strictEqual(finalItem.upvotes, initialUpvotes + 50, "Upvotes lost due to race condition");
+    const queue = getOfflineQueue();
+    const upvotesInQueue = queue.filter(q => q.type === "UPVOTE" && q.endpoint.includes(testItemId));
+    assert.strictEqual(upvotesInQueue.length, 50, "Offline queue missed concurrent upvotes");
+    // Simulate going back online
+    global.fetch = mockFetch;
+    await drainFeedbackQueue();
+    const finalQueue = getOfflineQueue();
+    assert.strictEqual(finalQueue.filter(q => q.type === "UPVOTE").length, 0, "Queue did not drain completely");
+
 
     // Test offline-first invariants during stress test
     global.fetch = async (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new TypeError("Failed to fetch"); };
@@ -768,6 +782,8 @@ test("FeedbackEngine - Clinical Workflow Snapshot & Deterministic State Verifica
       const baselineSnapshot = structuredClone(activeState);
 
       // Freeze active state to verify immutability
+      const frozenBaselineSnapshot = Object.freeze(structuredClone(baselineSnapshot));
+      frozenBaselineSnapshot.forEach((item: any) => Object.freeze(item));
       Object.freeze(activeState);
       activeState.forEach(Object.freeze);
 
@@ -777,16 +793,14 @@ test("FeedbackEngine - Clinical Workflow Snapshot & Deterministic State Verifica
       const postMutationSnapshot = structuredClone(getLocalFeedback());
 
       // Verify Tenant B's state is perfectly preserved (snapshot consistency)
-      const baselineB = baselineSnapshot.find((i: any) => i.id === itemTenantB.id);
+      const baselineB = frozenBaselineSnapshot.find((i: any) => i.id === itemTenantB.id);
       const postMutationB = postMutationSnapshot.find((i: any) => i.id === itemTenantB.id);
 
       // Normalize volatile fields
-      if (baselineB && postMutationB) {
-        baselineB.createdAt = "normalized";
-        postMutationB.createdAt = "normalized";
-      }
+      const bExpected = { ...baselineB, createdAt: "normalized" };
+      const bActual = { ...postMutationB, createdAt: "normalized" };
 
-      assert.deepStrictEqual(postMutationB, baselineB, "Tenant B snapshot must remain structurally unmodified");
+      assert.deepStrictEqual(bActual, bExpected, "Tenant B snapshot must remain structurally unmodified");
 
       // Verify multi-tenant isolation via fetchFeedbackItems offline filtering
       const filteredA = await fetchFeedbackItems({ tenantId: "facility_A::dept_A" });
