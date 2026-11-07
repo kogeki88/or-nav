@@ -637,7 +637,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
 
     const promises = Array.from({ length: burstSize }).map(async (_, idx) => {
       // Yield to event loop to simulate true concurrency
-      await new Promise(r => setTimeout(r, Math.random() * 10));
+      await new Promise(r => setTimeout(r, (idx * 13) % 10));
       return result.current.triggerSync();
     });
 
@@ -681,7 +681,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
     });
 
     const promises = hookInstances.map(async (instance, i) => {
-      await new Promise(r => setTimeout(r, Math.random() * 10));
+      await new Promise(r => setTimeout(r, (i * 13) % 10));
       const syncRes = await instance.result.current.triggerSync();
       instance.unmount();
       return syncRes;
@@ -925,7 +925,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       for (let i = 0; i < burstSize; i++) {
         const hook = hooks[i % tenants.length];
         promises.push((async () => {
-          await new Promise(r => setTimeout(r, Math.random() * 5));
+          await new Promise(r => setTimeout(r, (i * 13) % 10));
           return hook.result.current.triggerSync();
         })());
       }
@@ -985,7 +985,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       const promises = [];
       for (let i = 0; i < burstSize; i++) {
         promises.push((async () => {
-          await new Promise(r => setTimeout(r, Math.random() * 2));
+          await new Promise(r => setTimeout(r, (i * 13) % 10));
           return hooks[i].hook.result.current.triggerSync();
         })());
       }
@@ -1128,6 +1128,66 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       Object.defineProperty(global.navigator, 'onLine', originalOnline);
     }
   });
+
+
+test("SyncEngineOutbox Continuous Invariants: State immutability and precise outbox ordering", async () => {
+    // 1. Enforce strict state immutability via deep freeze during outbox diff calculation
+    const baseState = { procedureId: "proc-999", patientVitals: { hr: 75, bp: { sys: 120, dia: 80 } }, inventory: { used: ["item-1"], wasted: [] } };
+    const mutation1 = { procedureId: "proc-999", patientVitals: { hr: 78, bp: { sys: 118, dia: 79 } }, inventory: { used: ["item-1", "item-2"], wasted: ["item-3"] } };
+
+    const clone = structuredClone(baseState);
+    clone.patientVitals.bp = Object.freeze(clone.patientVitals.bp); // freeze nested deep
+    clone.patientVitals = Object.freeze(clone.patientVitals); // freeze nested
+    clone.inventory.used = Object.freeze(clone.inventory.used);
+    clone.inventory.wasted = Object.freeze(clone.inventory.wasted);
+    clone.inventory = Object.freeze(clone.inventory); // fully deep freeze as requested
+    const frozenBase = Object.freeze(clone); // freeze parent
+
+    // We are testing diffRecords explicitly because it's the core delta engine of SyncEngineOutbox.
+    const delta1 = diffRecords(frozenBase, mutation1);
+
+    // Assert mutation doesn't bleed into frozen base
+    assert.strictEqual(frozenBase.patientVitals.hr, 75, "Base state must remain strictly immutable during diffing");
+    assert.deepStrictEqual(delta1, {
+      patientVitals: { hr: 78, bp: { sys: 118, dia: 79 } },
+      inventory: { used: ["item-1", "item-2"], wasted: ["item-3"] }
+    }, "Delta calculation must generate precise structural updates");
+
+    // 2. Ensuring identifier boundaries don't leak into outbox mocks
+    setNetworkOnline(true);
+
+    // We instantiate two hooks with boundary-testing tenant ids
+    const root1 = document.createElement("div");
+    root1.setAttribute("data-tenant", "tenant_A::clinic_1");
+    const { result: res1, unmount: unmount1 } = renderHook(() => useSyncEngine("tenant_A::clinic_1", false), { container: root1 });
+
+    const root2 = document.createElement("div");
+    root2.setAttribute("data-tenant", "tenant_A::clinic_10");
+    const { result: res2, unmount: unmount2 } = renderHook(() => useSyncEngine("tenant_A::clinic_10", false), { container: root2 });
+
+    await act(async () => {
+      // Trigger in precise order
+      await res1.current.triggerSync();
+      await res2.current.triggerSync();
+    });
+
+    const syncCalls = offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls.map((c: any) => c.arguments ? c.arguments[0] : c[0]);
+
+    // Validate that the system properly isolates the sync operations to the exact tenant string via structural boundaries
+    // We parse the argument strictly to ensure that no sequential identifiers pass false boundaries
+    const isStrictBoundary = (tenant: string, activeId: string) => {
+      const boundaryMatch = new RegExp(`^${activeId}$`).test(tenant);
+      return boundaryMatch;
+    }
+
+    // Check strict boundaries and exact sequential ordering of the outbox triggers
+    assert.ok(isStrictBoundary(syncCalls[syncCalls.length - 2], "tenant_A::clinic_1"), "Continuous invariant: outbox must sync exact boundaries preventing sequential false positive leakage");
+    assert.ok(isStrictBoundary(syncCalls[syncCalls.length - 1], "tenant_A::clinic_10"), "Continuous invariant: outbox must sync exact boundaries preventing sequential false positive leakage");
+
+    unmount1();
+    unmount2();
+  });
+
 
   test("HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust token exchange, and prompt injection hardening in SyncEngineOutbox", async () => {
     // 1. HIPAA PII/PHI Redaction Verification & Regex Boundary Attack
