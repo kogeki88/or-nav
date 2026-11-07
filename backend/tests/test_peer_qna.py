@@ -242,7 +242,7 @@ async def test_peer_qna_high_concurrency_burst():
         tenant = f"sacred_heart::or_burst_{i}" if i % 2 == 0 else f"county_general::or_burst_{i}"
         payload = {
             "tenant_id": tenant,
-            "question_text": f"Concurrent question {i} data",
+            "question_text": f"Concurrent question {i}:: data",
             "asked_by": "Concurrent User",
             "idempotency_key": f"concurrent-idem-{uuid.uuid4().hex}"
         }
@@ -270,7 +270,7 @@ async def test_peer_qna_high_concurrency_burst():
         assert status == 200
         assert data["tenantId"] == tenant
         assert f"Concurrent question data" not in data["questionText"]
-        assert f"Concurrent question {int(tenant.split('_')[-1])} data" in data["questionText"]
+        assert f"Concurrent question {int(tenant.split('_')[-1])}:: data" in data["questionText"]
 
     # Verify Multi-tenant Isolation after burst
     for i in range(num_requests):
@@ -507,11 +507,11 @@ def test_memory_leak_on_high_volume_requests():
     gc.collect()
     snapshot1 = tracemalloc.take_snapshot()
 
-    for i in range(500):
-        tenant = f"tenant_{i}"
+    tenant = "sacred_heart::or_mem_leak"
+    for i in range(600):  # Run more than MAX_PEER_QUESTIONS (500)
         client.post("/api/peer-questions", json={
             "tenant_id": tenant,
-            "question_text": "Is this leaking memory?",
+            "question_text": f"Is this leaking memory {i}?",
             "idempotency_key": f"mem-{uuid.uuid4().hex}"
         })
         client.get(f"/api/peer-questions?tenant_id={tenant}")
@@ -587,6 +587,7 @@ def test_hipaa_phi_boundary_prompt_injection_and_zero_trust(monkeypatch):
     5. Offline-first invariants enforced.
     """
     import httpx
+    import socket
 
     def poisoned_httpx_call(*args, **kwargs):
         raise RuntimeError("HTTP network call attempted during offline-first function!")
@@ -594,6 +595,15 @@ def test_hipaa_phi_boundary_prompt_injection_and_zero_trust(monkeypatch):
     monkeypatch.setattr(httpx, "post", poisoned_httpx_call)
     monkeypatch.setattr(httpx, "get", poisoned_httpx_call)
     monkeypatch.setattr(httpx, "request", poisoned_httpx_call)
+
+    original_socket = socket.socket
+    def mock_socket(*args, **kwargs):
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get("family", socket.AF_INET)
+        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
+            raise RuntimeError("Network call attempted via socket during offline-first function!")
+        return original_socket(*args, **kwargs)
+
+    monkeypatch.setattr(socket, "socket", mock_socket)
 
     # 1. HIPAA PII/PHI Redaction Verification
     res = client.post(
