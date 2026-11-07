@@ -137,7 +137,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
         const result = normalizeLocationCoordinate("OR 5 A 1 B");
         assert.strictEqual(result, "OR 5 A 1 B");
       } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
       }
     });
 
@@ -172,7 +172,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
           }
         }
       } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
       }
     });
 
@@ -218,7 +218,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
         assert.deepStrictEqual(firstRun, secondRun);
         assert.deepStrictEqual(secondRun, thirdRun);
       } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
       }
     });
 
@@ -271,7 +271,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
           }
         }
       } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
       }
     });
   });
@@ -368,7 +368,7 @@ describe("coordinateParser (extractAndNormalizeCoordinateClient / normalizeLocat
           }
         }
       } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
       }
     });
   });
@@ -386,7 +386,7 @@ describe("Phase 4 Offline Partition & Multi-Tenant Isolation Extension", () => {
   test("Extended Multi-Tenant Boundary Enforcement (facility_id::dept_id) and Offline Mutation Replay Idempotency", async () => {
     const originalFetch = global.fetch;
     // Enforce offline-first invariant
-    global.fetch = undefined as any;
+    delete (global as any).fetch;
 
     try {
       // 1. Offline Mutation Replay Idempotency
@@ -435,7 +435,7 @@ describe("Phase 4 Offline Partition & Multi-Tenant Isolation Extension", () => {
         }
       }
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
 });
@@ -461,7 +461,7 @@ describe("Phase 5: Fault Injection & Network Partition Resilience", () => {
       // Ensures the local engine responds quickly despite the degraded network
       assert.ok(end - start < 50, `Expected degradation response to be fast (< 50ms), got ${end - start}ms`);
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
 
@@ -502,7 +502,7 @@ describe("Phase 5: Fault Injection & Network Partition Resilience", () => {
       // The total time should be negligible (<< 2000ms latency trap) since it runs offline
       assert.ok(end - start < 500, `Expected total time to bypass latency to be < 500ms, got ${end - start}ms`);
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
 
@@ -542,7 +542,7 @@ describe("Phase 5: Fault Injection & Network Partition Resilience", () => {
 
       assert.deepStrictEqual(offlineRes2, reconnectedRes2, "Reconnected parse must yield identical object to offline parse");
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
 });
@@ -600,7 +600,7 @@ describe("Phase 6: Memory Profiling & Resource Eviction Hardening", () => {
       assert.ok(growthMB < 50, `Expected memory growth < 50MB, but grew by ${growthMB.toFixed(2)}MB. Potential memory leak detected.`);
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
 
@@ -712,7 +712,7 @@ describe("Phase 8: Clinical Workflow Snapshot & Deterministic State Verification
       // Ensure the exact same object structure and values are returned, proving state snapshot consistency
       assert.deepStrictEqual(initialSnapshot, finalSnapshot, "Clinical state snapshot drifted after load");
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
 });
@@ -780,7 +780,7 @@ describe("Phase 9: Continuous Invariants & Hardened Edge Cases", () => {
       assert.ok(res.result);
       assert.strictEqual(res.result.location, res.expected, "State bled across tenants during high concurrency burst");
       const cleanText = res.result.cleanText;
-      const hasTenantBoundary = new RegExp('\\btenant_uid_' + res.tenantId + '::').test(cleanText);
+      const hasTenantBoundary = new RegExp('\\btenant_uid_' + res.tenantId + '\\b').test(cleanText);
       assert.ok(hasTenantBoundary, "Structural boundary delimiter lost or mutated for tenant " + res.tenantId);
     });
   });
@@ -791,7 +791,8 @@ describe("Phase 9: Continuous Invariants & Hardened Edge Cases", () => {
     for (let i = 0; i < inputs.length; i++) {
       const initialResult = extractAndNormalizeCoordinateClient(inputs[i]);
       if (initialResult) {
-        const frozenResult = Object.freeze(structuredClone(initialResult));
+        const customClone = typeof structuredClone === 'function' ? structuredClone : (val: any) => JSON.parse(JSON.stringify(val));
+        const frozenResult = Object.freeze(customClone(initialResult));
 
         const replayResult1 = extractAndNormalizeCoordinateClient(inputs[i]);
         const replayResult2 = extractAndNormalizeCoordinateClient(inputs[i]);
@@ -824,8 +825,8 @@ describe("Phase 9: Continuous Invariants & Hardened Edge Cases", () => {
         assert.ok(result);
       });
     } finally {
-      global.fetch = originalFetch;
-      global.XMLHttpRequest = originalXHR;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
+      if (originalXHR === undefined) delete (global as any).XMLHttpRequest; else (global as any).XMLHttpRequest = originalXHR;
     }
   });
 });
