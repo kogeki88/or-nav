@@ -143,9 +143,18 @@ def test_learn_alias_offline_replay_idempotency(mock_lexicon_dir):
     entries = load_facility_lexicon(facility)
     assert len(entries) == 1
 
-    state1 = {k: v for k, v in entry1.items() if k not in ["updatedAt", "usageCount", "confidence"]}
-    state2 = {k: v for k, v in entry2.items() if k not in ["updatedAt", "usageCount", "confidence"]}
-
+    import copy
+    state1 = copy.deepcopy(entry1)
+    state2 = copy.deepcopy(entry2)
+    # The fields updatedAt and confidence might change, but usageCount signifies the mutation outcome.
+    # Actually wait, we should symmetrically deepcopy before checking structural equality, and avoid removing core state fields like usageCount.
+    # However, since learn_alias increments usageCount (outcome of mutation), we can just check it explicitly.
+    assert state1["usageCount"] == 1
+    assert state2["usageCount"] == 2
+    # Ensure they are otherwise identical (except for volatile metadata)
+    for k in ["updatedAt", "confidence", "usageCount"]:
+        state1.pop(k, None)
+        state2.pop(k, None)
     assert state1 == state2
 
 
@@ -267,13 +276,12 @@ def enforce_offline_first(monkeypatch):
     monkeypatch.setattr("httpx.request", _block_network)
 
     original_socket = socket.socket
-    # Use getattr to safely check for AF_UNIX for cross-platform compatibility
-    af_unix = getattr(socket, "AF_UNIX", None)
 
-    def _mock_socket(family=-1, type=-1, proto=-1, fileno=None):
-        if af_unix is not None and family == af_unix:
-            return original_socket(family, type, proto, fileno)
-        raise RuntimeError("Network call blocked by offline-first invariant enforcement.")
+    def _mock_socket(*args, **kwargs):
+        family = args[0] if args else kwargs.get('family', socket.AF_INET)
+        if family in (getattr(socket, 'AF_INET', -1), getattr(socket, 'AF_INET6', -1)):
+            raise RuntimeError("Network call blocked by offline-first invariant enforcement.")
+        return original_socket(*args, **kwargs)
 
     monkeypatch.setattr("socket.socket", _mock_socket)
 
@@ -283,8 +291,8 @@ def test_learn_alias_concurrency_race_condition(mock_lexicon_dir):
     num_threads = 50
 
     def worker(i):
-        import time, random
-        time.sleep(random.uniform(0, 0.01))
+        import time
+        time.sleep(((i * 13) % 10) * 0.001)
         # Even threads learn "termA", Odd threads learn "termB"
         term = "termA" if i % 2 == 0 else "termB"
         return learn_alias(
@@ -292,7 +300,7 @@ def test_learn_alias_concurrency_race_condition(mock_lexicon_dir):
             department_id="or",
             spoken_term=term,
             canonical_item="Canonical Item",
-            user_id=f"user_{i}"
+            user_id=f"user::{i}"
         )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_threads) as executor:
@@ -321,18 +329,18 @@ def test_resolve_spoken_alias_concurrent_multi_tenant(mock_lexicon_dir):
     """Test multi-tenant isolation under concurrent burst traffic."""
 
     def worker(i):
-        import time, random
-        time.sleep(random.uniform(0, 0.01))
-        fac = f"burst_fac_{i}"
+        import time
+        time.sleep(((i * 13) % 10) * 0.001)
+        fac = f"burst_fac_{i}::"
         learn_alias(
             facility_id=fac,
             department_id="or",
-            spoken_term=f"term_{i}_test",
-            canonical_item=f"Item {i}",
-            user_id=f"user_{i}"
+            spoken_term=f"term_{i}::test",
+            canonical_item=f"Item::{i}",
+            user_id=f"user::{i}"
         )
         # Immediately try resolving it
-        return resolve_spoken_alias(fac, f"where is the term_{i}_test")
+        return resolve_spoken_alias(fac, f"where is the term_{i}::test")
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
         futures = [executor.submit(worker, i) for i in range(100)]
@@ -343,10 +351,10 @@ def test_resolve_spoken_alias_concurrent_multi_tenant(mock_lexicon_dir):
         assert r is not None
 
     # Verify isolation
-    assert load_facility_lexicon("burst_fac_0") is not None
-    assert len(load_facility_lexicon("burst_fac_0")) > 0
-    assert len(load_facility_lexicon("burst_fac_1")) > 0
-    assert len(load_facility_lexicon("burst_fac_2")) > 0
+    assert load_facility_lexicon("burst_fac_0::") is not None
+    assert len(load_facility_lexicon("burst_fac_0::")) > 0
+    assert len(load_facility_lexicon("burst_fac_1::")) > 0
+    assert len(load_facility_lexicon("burst_fac_2::")) > 0
 
 def test_lexicon_service_latency_under_load(mock_lexicon_dir):
     """Test latency of resolve_spoken_alias under a large lexicon size."""
@@ -393,18 +401,18 @@ def test_lexicon_service_latency_under_load(mock_lexicon_dir):
 
 def test_stress_test_extreme_concurrency(mock_lexicon_dir):
     """Stress test extreme concurrency for multi-tenant isolation and race condition resistance."""
-    facilities = ["stress_fac_1", "stress_fac_2", "stress_fac_3", "stress_fac_4", "stress_fac_5"]
+    facilities = ["stress_fac_1::", "stress_fac_2::", "stress_fac_3::", "stress_fac_4::", "stress_fac_5::"]
 
     def worker(i):
-        import time, random
-        time.sleep(random.uniform(0, 0.01))
+        import time
+        time.sleep(((i * 13) % 10) * 0.001)
         fac = facilities[i % len(facilities)]
         return learn_alias(
             facility_id=fac,
             department_id="or",
-            spoken_term=f"term_{i % 5}_test",
-            canonical_item=f"Canonical Item {i % 5}",
-            user_id=f"user_{i}"
+            spoken_term=f"term::{i % 5}::test",
+            canonical_item=f"Canonical Item::{i % 5}",
+            user_id=f"user::{i}"
         )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=50) as executor:
@@ -757,9 +765,10 @@ def test_clinical_state_snapshot_consistency(mock_lexicon_dir):
     def strip_volatile(d):
         return {k: v for k, v in d.items() if k not in ["updatedAt", "usageCount", "confidence", "usedByUsers"]}
 
-    clean_snapshot2 = [strip_volatile(s) for s in snapshot2]
+    import copy
+    clean_snapshot2 = [strip_volatile(copy.deepcopy(s)) for s in snapshot2]
     for item in snapshot1:
-        clean_item = strip_volatile(item)
+        clean_item = strip_volatile(copy.deepcopy(item))
         assert clean_item in clean_snapshot2, "Baseline state mutated during snapshot transition."
 
 def test_get_all_aliases_for_item_title_casing(mock_lexicon_dir):
