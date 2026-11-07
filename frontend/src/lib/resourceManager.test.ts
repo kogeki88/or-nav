@@ -24,11 +24,14 @@ describe("ResourceManagerChecksum", () => {
     // 1. Setup multi-tenant data with malicious PHI/PII and Prompt Injections
     const csvContentFac1 = "item,room,cabinet,shelf,container,full_code\nScalpel,Main OR,A,1,A,Main OR A 1 A\nMalicious Item [REDACTED_PHI],ER,B,2,C,ER B 2 C\nItem with SSN [REDACTED_PHI],ER,B,2,C,ER B 2 C\n<script>alert('xss')</script>,Main OR,A,1,A,Main OR A 1 A\n";
 
-    mock.method(global, 'fetch', async () => ({
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      return {
       ok: true,
       status: 200,
       text: async () => csvContentFac1
-    }));
+    };
+    });
 
     const packMeta = {
       packId: "pack_security_test",
@@ -78,7 +81,9 @@ describe("ResourceManagerChecksum", () => {
     // 1. Setup multi-tenant data
     let fetchCount = 0;
 
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      const url = args[0] as string;
       assert.ok(url !== undefined);
       fetchCount++;
       const match = url.match(/fac_burst_(\d+)/);
@@ -99,7 +104,7 @@ describe("ResourceManagerChecksum", () => {
       Array.from({ length: burstSize }).map(async (_, i) => {
         // Yield to event loop to simulate true concurrency
         // Deterministic concurrency without Math.random()
-        await new Promise(r => setImmediate(r));
+        await new Promise(r => setTimeout(r, (i * 13) % 10));
 
         const facId = `fac_burst_${i}`;
         const deptId = `or_burst_${i}`;
@@ -207,11 +212,14 @@ describe("ResourceManagerChecksum", () => {
 
   test("installPack stores pack and hydrates inventory correctly with offline-first support", async () => {
     const csvContent = "item,room,cabinet,shelf,container,full_code,phonetic_code,surgeon_notes,category\nScalpel,Main OR,A,1,A,Main OR A 1 A,S K A L P E L,Sharp,instruments\n";
-    mock.method(global, 'fetch', async () => ({
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      return {
       ok: true,
       status: 200,
       text: async () => csvContent
-    }));
+    };
+    });
 
     const pack = await resourceManager.installPack({
       packId: "pack_1",
@@ -242,7 +250,9 @@ describe("ResourceManagerChecksum", () => {
   });
 
   test("ensureProfilePacksInstalled handles offline-first operations", async () => {
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      const url = args[0] as string;
       assert.ok(url !== undefined);
       if (url.includes("manifest.json")) {
         return {
@@ -275,7 +285,9 @@ describe("ResourceManagerChecksum", () => {
 
   test("ensureProfilePacksInstalled upgrades pack based on versionHash (ResourceManagerChecksum)", async () => {
     // Initial install
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      const url = args[0] as string;
       assert.ok(url !== undefined);
       if (url.includes("manifest.json")) {
         return {
@@ -301,7 +313,9 @@ describe("ResourceManagerChecksum", () => {
     mock.restoreAll();
 
     // Update install with v2
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      const url = args[0] as string;
       assert.ok(url !== undefined);
       if (url.includes("manifest.json")) {
         return {
@@ -332,11 +346,14 @@ describe("ResourceManagerChecksum", () => {
   test("ResourceManagerChecksum malformed payload resilience and fuzzing", async () => {
     // 1. Fuzzing downloadPackContent
     // empty string
-    mock.method(global, 'fetch', async () => ({
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      return {
       ok: true,
       status: 200,
       text: async () => ""
-    }));
+    };
+    });
 
     await assert.rejects(
       async () => {
@@ -347,11 +364,14 @@ describe("ResourceManagerChecksum", () => {
     mock.restoreAll();
 
     // whitespace string
-    mock.method(global, 'fetch', async () => ({
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      return {
       ok: true,
       status: 200,
       text: async () => "   \n  \t  "
-    }));
+    };
+    });
 
     await assert.rejects(
       async () => {
@@ -398,11 +418,14 @@ describe("ResourceManagerChecksum", () => {
     mock.restoreAll();
 
     // Fuzzing CSV parsing
-    mock.method(global, 'fetch', async () => ({
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      return {
       ok: true,
       status: 200,
       text: async () => "random string that is not a csv\nno headers\n1,2,3"
-    }));
+    };
+    });
     await assert.doesNotReject(
       async () => {
         await resourceManager.installPack({
@@ -427,7 +450,9 @@ describe("ResourceManagerChecksum", () => {
     }
 
     // 3. ensureProfilePacksInstalled missing/malformed manifest fields
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      const url = args[0] as string;
       assert.ok(url !== undefined);
       if (url.includes("manifest.json")) {
         return {
@@ -460,7 +485,9 @@ describe("ResourceManagerChecksum", () => {
 
   test("ensureProfilePacksInstalled multi-tenant isolation invariant (ResourceManagerChecksum)", async () => {
     // Test that packs for fac1 don't overwrite fac2 and purging unassigned works
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      const url = args[0] as string;
       assert.ok(url !== undefined);
       return {
         ok: true,
@@ -509,11 +536,14 @@ describe("ResourceManagerChecksum", () => {
     const csvContentFac2 = "item,room,cabinet,shelf,container,full_code\nForceps,ER,B,2,C,ER B 2 C\n";
 
     // Install pack for Facility 1 (v1)
-    mock.method(global, 'fetch', async () => ({
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      return {
       ok: true,
       status: 200,
       text: async () => csvContentFac1
-    }));
+    };
+    });
     await resourceManager.installPack({
       packId: "pack_fac1", facilityId: "fac1", departmentId: "or", title: "Test Pack 1", category: "department", filePath: "fac1/or/inventory.csv", sizeBytes: 100, versionHash: "v1", updatedAt: "2023-01-01T00:00:00Z",
     });
@@ -521,11 +551,14 @@ describe("ResourceManagerChecksum", () => {
     mock.restoreAll();
 
     // Install pack for Facility 2 (v1)
-    mock.method(global, 'fetch', async () => ({
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      return {
       ok: true,
       status: 200,
       text: async () => csvContentFac2
-    }));
+    };
+    });
     await resourceManager.installPack({
       packId: "pack_fac2", facilityId: "fac2", departmentId: "er", title: "Test Pack 2", category: "department", filePath: "fac2/er/inventory.csv", sizeBytes: 100, versionHash: "v1", updatedAt: "2023-01-01T00:00:00Z",
     });
@@ -545,11 +578,14 @@ describe("ResourceManagerChecksum", () => {
     // 3. Verify Checksum/versionHash update logic
     // Update Facility 1 pack to v2 with new content (adding Retractor)
     const csvContentFac1_v2 = "item,room,cabinet,shelf,container,full_code\nScalpel,Main OR,A,1,A,Main OR A 1 A\nRetractor,Main OR,A,1,B,Main OR A 1 B\n";
-    mock.method(global, 'fetch', async () => ({
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      return {
       ok: true,
       status: 200,
       text: async () => csvContentFac1_v2
-    }));
+    };
+    });
 
     await resourceManager.installPack({
       packId: "pack_fac1", facilityId: "fac1", departmentId: "or", title: "Test Pack 1", category: "department", filePath: "fac1/or/inventory.csv", sizeBytes: 100, versionHash: "v2", updatedAt: "2023-01-02T00:00:00Z",
@@ -573,7 +609,9 @@ describe("ResourceManagerChecksum", () => {
   });
 
   test("getResourceStorageSummary calculates total size correctly", async () => {
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      const url = args[0] as string;
       assert.ok(url !== undefined);
       return {
         ok: true,
@@ -599,11 +637,14 @@ describe("ResourceManagerChecksum", () => {
 
   test("deletePack removes pack from IndexedDB and offline inventory", async () => {
     const csvContent = "item,room,cabinet,shelf,container,full_code\nScalpel,Main OR,A,1,A,Main OR A 1 A\n";
-    mock.method(global, 'fetch', async () => ({
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      return {
       ok: true,
       status: 200,
       text: async () => csvContent
-    }));
+    };
+    });
 
     await resourceManager.installPack({
       packId: "pack_del_1",
@@ -643,7 +684,9 @@ describe("ResourceManagerChecksum", () => {
     const mdContent = "# General Hospital Orientation\n\nWelcome to General Hospital.";
     const csvContent = "item,room,cabinet,shelf,container,full_code\nGuideline,Main OR,B,2,C,Main OR B 2 C\n";
 
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      const url = args[0] as string;
       assert.ok(url !== undefined);
       if (url.includes("manifest.json")) {
         return {
@@ -697,7 +740,8 @@ describe("ResourceManagerChecksum", () => {
   });
 
   test("downloadPackContent throws error on fetch failure", async () => {
-    mock.method(global, 'fetch', async () => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
       throw new Error("Network offline");
     });
 
@@ -716,7 +760,9 @@ describe("ResourceManagerChecksum", () => {
     // Simulate network state
     const networkState = { status: "online" };
 
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      const url = args[0] as string;
       assert.ok(url !== undefined);
       if (networkState.status === "offline") {
         throw new TypeError("Failed to fetch"); // Correct way to simulate offline in fetch
@@ -776,11 +822,14 @@ describe("ResourceManagerChecksum", () => {
 
   test("unpackInstalledPacksToDexie hydrates inventory successfully", async () => {
     const csvContent = "item,room,cabinet,shelf,container,full_code\nForceps,Main OR,B,2,C,Main OR B 2 C\n";
-    mock.method(global, 'fetch', async () => ({
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      return {
       ok: true,
       status: 200,
       text: async () => csvContent
-    }));
+    };
+    });
 
     // First, install the pack which hydrates it.
     await resourceManager.installPack({
@@ -817,7 +866,9 @@ describe("ResourceManagerChecksum", () => {
     const csvContentFac2 = "item,room,cabinet,shelf,container,full_code\nForceps,ER,B,2,C,ER B 2 C\n";
 
     // Mock fetch to simulate offline mutation replay idempotency but return specific payloads for each tenant
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      const url = args[0] as string;
       assert.ok(url !== undefined);
       return {
         ok: true,
@@ -906,7 +957,9 @@ describe("ResourceManagerChecksum", () => {
     const csvContentFac1 = "item,room,cabinet,shelf,container,full_code\nSuture,Main OR,A,1,A,Main OR A 1 A\n";
     const csvContentFac2 = "item,room,cabinet,shelf,container,full_code\nGauze,ER,B,2,C,ER B 2 C\n";
 
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      const url = args[0] as string;
       assert.ok(url !== undefined);
       return {
         ok: true,
@@ -986,8 +1039,9 @@ describe("ResourceManagerChecksum", () => {
     const snapshotJson = await exportTenantResourcesJson(tenantId);
 
     // Freeze the baseline snapshot using a deep copy
-    const baselineSnapshot = structuredClone(JSON.parse(snapshotJson));
-    Object.freeze(baselineSnapshot);
+    const baselineSnapshot = Object.freeze(structuredClone(JSON.parse(snapshotJson)));
+    baselineSnapshot.preferenceCards.forEach(Object.freeze);
+    baselineSnapshot.inventory.forEach(Object.freeze);
     Object.freeze(baselineSnapshot.preferenceCards);
     Object.freeze(baselineSnapshot.inventory);
 
@@ -1053,7 +1107,9 @@ describe("ResourceManagerChecksum", () => {
     // memory stays under control and that our listeners don't leak.
     const numPacks = 50;
 
-    mock.method(global, 'fetch', async (url: string) => {
+    mock.method(global, 'fetch', async (...args: any[]) => {
+      if (args.length === 0) throw new TypeError('Missing arguments');
+      const url = args[0] as string;
       assert.ok(url !== undefined);
       return {
         ok: true,
