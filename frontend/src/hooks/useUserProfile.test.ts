@@ -21,7 +21,7 @@ describe('useUserProfile hook', () => {
 
     // Poison fetch to enforce offline-first invariant
     global.fetch = mock.fn((...args: any[]) => {
-      if (!args || args.length === 0) throw new TypeError('Missing arguments');
+      if (args.length === 0) throw new TypeError('Missing arguments');
       throw new Error('fetch should not be called in offline-first useUserProfile hook');
     });
 
@@ -438,7 +438,7 @@ describe('Supplementary tests', () => {
         originalFetch = global.fetch;
 
         global.fetch = mock.fn((...args: any[]) => {
-      if (!args || args.length === 0) throw new TypeError('Missing arguments');
+      if (args.length === 0) throw new TypeError('Missing arguments');
       throw new Error('fetch should not be called in offline-first useUserProfile hook');
     });
 
@@ -582,7 +582,7 @@ describe('Supplementary tests', () => {
         const start = performance.now();
         await Promise.all(
             hooks.map(async (hook, i) => {
-                await new Promise(r => setTimeout(r, 0)); // Simulate true interleaving
+                await new Promise(r => setTimeout(r, (i * 13) % 10)); // Simulate deterministic interleaving
                 act(() => {
                     hook.result.current.saveProfile({
                         ...DEFAULT_USER_PROFILE,
