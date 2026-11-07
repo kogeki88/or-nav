@@ -209,7 +209,8 @@ test("diffRecords", async (t) => {
     };
     const originalFetch = global.fetch;
     let fetchCalled = false;
-    global.fetch = async () => {
+    global.fetch = async (...args) => {
+      if (args.length === 0) throw new TypeError("Missing arguments");
       fetchCalled = true;
       throw new Error("Network calls are forbidden");
     };
@@ -220,7 +221,7 @@ test("diffRecords", async (t) => {
 
       const promises = Array.from({ length: burstSize }).map(async (_, index) => {
         // Yield execution to event loop to simulate concurrency and race conditions
-        await new Promise(r => setTimeout(r, Math.random() * 10));
+        await new Promise(r => setTimeout(r, (index * 13) % 10));
 
         const tenantId = `tenant_${index % 5}::or`;
         const modifiedTenantId = `tenant_${(index % 5) + 1}::or`;
@@ -288,6 +289,16 @@ test("diffRecords", async (t) => {
     assert.deepStrictEqual(decompressed, payloads, "Decompressed payload must perfectly match original input across tenant states");
   });
 
+  await t.test("Multi-tenant isolation boundary injection", () => {
+    const payload = [{ id: 1, tenant_id: "facility_1::dept_A::or", data: "test" }];
+    const compressed = compressPayload(payload);
+    const decompressed = decompressPayload(compressed);
+    const tenantIndex = compressed.keys.indexOf("tenant_id");
+    assert.strictEqual(decompressed[0].tenant_id, "facility_1::dept_A::or", "Must safely handle delimiter injection");
+    assert.strictEqual(decompressed[0].tenant_id === "facility_1", false, "Must not falsely match partial substrings");
+  });
+
+
   await t.test("Offline mutation replay idempotency: sequential replays produce identical state without network", () => {
     const originalFetch = global.fetch;
     try {
@@ -319,7 +330,9 @@ test("diffRecords", async (t) => {
       let fetchCalls = 0;
 
       // Test resilient fetch mechanism inside flushOfflineOutbox
-      global.fetch = async (url, options) => {
+      global.fetch = async (...args) => {
+        if (args.length === 0) throw new TypeError("Missing arguments");
+        const [url, options] = args;
         fetchCalls++;
 
         // 1-3: Network partition (Offline)
@@ -417,7 +430,8 @@ test("diffRecords", async (t) => {
   await t.test("Memory Profiling & Resource Eviction Hardening: detects memory leaks and ensures resource cleanup under constraint", async () => {
     const originalFetch = global.fetch;
     let fetchCalled = false;
-    global.fetch = async () => {
+    global.fetch = async (...args) => {
+      if (args.length === 0) throw new TypeError("Missing arguments");
       fetchCalled = true;
       throw new Error("Network calls are forbidden in this offline-first test");
     };
@@ -439,8 +453,8 @@ test("diffRecords", async (t) => {
       const evictionLimit = 5000;
 
       for (let i = 0; i < burstSize; i++) {
-        const tenantId = `tenant_${i % 10}::or`;
-        const modifiedTenantId = `tenant_${(i % 10) + 1}::or`;
+        const tenantId = `tenant_${i}::or`;
+        const modifiedTenantId = `tenant_${i + 1}::or`;
         const base = { id: i, tenant_id: tenantId, data: "old".repeat(10) };
         const modified = { id: i, tenant_id: modifiedTenantId, data: "new".repeat(10), counter: i };
 
@@ -557,6 +571,12 @@ test("diffRecords", async (t) => {
 
       // Deep freeze the baseline state to reliably assert structural comparison
       const frozenBaseState = Object.freeze(structuredClone(baseState));
+      if (Array.isArray(frozenBaseState.inventory.used)) {
+        Object.freeze(frozenBaseState.inventory.used);
+      }
+      if (Array.isArray(frozenBaseState.inventory.wasted)) {
+        Object.freeze(frozenBaseState.inventory.wasted);
+      }
 
       const modifiedState = {
         procedureId: "proc-999",
