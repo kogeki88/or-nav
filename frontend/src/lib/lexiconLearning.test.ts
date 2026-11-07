@@ -549,7 +549,7 @@ describe("lexiconLearning & Teaching Intent", () => {
         const promises = [];
 
         for (let i = 0; i < numRequests; i++) {
-          const uniqueTenant = `${tenant}_${i}`;
+          const uniqueTenant = `${tenant}_${i}::or`;
           promises.push(
             new Promise((resolve) => setTimeout(resolve, Math.random() * 10)).then(() => {
               learnAliasClient(uniqueTenant, "or", "burst_alias", "Burst Item", `user_${i}`);
@@ -562,7 +562,7 @@ describe("lexiconLearning & Teaching Intent", () => {
         // Verify across all uniquely generated tenant identifiers for strict namespace isolation
         let totalUsage = 0;
         for (let i = 0; i < numRequests; i++) {
-            const uniqueTenant = `${tenant}_${i}`;
+            const uniqueTenant = `${tenant}_${i}::or`;
             const lexicon = loadFacilityLexicon(uniqueTenant);
             const entries = lexicon.filter(e => e.spokenTerm === "burst_alias");
             assert.strictEqual(entries.length, 1, "Should deduplicate concurrent bursts to a single entry per tenant");
@@ -608,7 +608,7 @@ describe("lexiconLearning & Teaching Intent", () => {
 
         try {
           const promises = Array.from({ length: 50 }, (_, i) => {
-            const isolatedTenant = `${tenant}_fac_burst_${i}`;
+            const isolatedTenant = `${tenant}_fac_burst_${i}::or`;
             return new Promise((resolve) => setTimeout(resolve, Math.random() * 10)).then(() => {
               learnAliasClient(isolatedTenant, "or", "offline_alias", "Offline Item", `user_${i}`);
             });
@@ -618,7 +618,7 @@ describe("lexiconLearning & Teaching Intent", () => {
 
           let totalUsage = 0;
           for (let i = 0; i < 50; i++) {
-              const isolatedTenant = `${tenant}_fac_burst_${i}`;
+              const isolatedTenant = `${tenant}_fac_burst_${i}::or`;
               const resolved = resolveSpokenAliasClient(isolatedTenant, "offline_alias");
               assert.ok(resolved);
               assert.strictEqual(resolved?.canonicalItemName, "Offline Item");
@@ -637,8 +637,8 @@ describe("lexiconLearning & Teaching Intent", () => {
         const promises = [];
 
         for (let i = 0; i < numRequests; i++) {
-          const uTenantA = `tenant_A_fac_burst_${i}`;
-          const uTenantB = `tenant_B_fac_burst_${i}`;
+          const uTenantA = `tenant_A_fac_burst_${i}::or`;
+          const uTenantB = `tenant_B_fac_burst_${i}::or`;
           promises.push(new Promise((resolve) => setTimeout(resolve, Math.random() * 10)).then(() => learnAliasClient(uTenantA, "or", "shared_alias", "Item A", `user_${i}`)));
           promises.push(new Promise((resolve) => setTimeout(resolve, Math.random() * 10)).then(() => learnAliasClient(uTenantB, "or", "shared_alias", "Item B", `user_${i}`)));
         }
@@ -648,8 +648,8 @@ describe("lexiconLearning & Teaching Intent", () => {
         let totalUsageA = 0;
         let totalUsageB = 0;
         for (let i = 0; i < numRequests; i++) {
-          const uTenantA = `tenant_A_fac_burst_${i}`;
-          const uTenantB = `tenant_B_fac_burst_${i}`;
+          const uTenantA = `tenant_A_fac_burst_${i}::or`;
+          const uTenantB = `tenant_B_fac_burst_${i}::or`;
 
           const r1 = resolveSpokenAliasClient(uTenantA, "shared_alias");
           assert.strictEqual(r1?.canonicalItemName, "Item A");
@@ -726,6 +726,7 @@ describe("lexiconLearning & Teaching Intent", () => {
       learnAliasClient(tenant, "or", "initial_alias", "Initial Item", "user1");
       const initialLexicon = loadFacilityLexicon(tenant);
       const initialSnapshot = structuredClone(initialLexicon);
+      Object.freeze(initialSnapshot);
 
       learnAliasClient(tenant, "or", "second_alias", "Second Item", "user2");
       const finalLexicon = loadFacilityLexicon(tenant);
@@ -758,6 +759,7 @@ describe("lexiconLearning & Teaching Intent", () => {
       learnAliasClient(tenant, "or", "matrix_alias", "Matrix Item", "user1");
       let lexicon = loadFacilityLexicon(tenant);
       const initialSnapshot = structuredClone(lexicon[0]);
+      Object.freeze(initialSnapshot);
       assert.strictEqual(lexicon[0].usageCount, 1);
       assert.strictEqual(lexicon[0].confidence, "personal");
 
