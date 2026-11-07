@@ -31,13 +31,16 @@ class LocalStorageMock {
 describe('appSettings', () => {
   let originalWindow: unknown;
   let originalFetch: typeof fetch;
+  let originalLocalStorage: unknown;
 
   beforeEach(() => {
     originalWindow = global.window;
     originalFetch = global.fetch;
+    originalLocalStorage = (global as { localStorage?: unknown }).localStorage;
 
     // Poison global.fetch to strictly enforce offline-first and pure local invariants
-    global.fetch = () => {
+    global.fetch = (...args: any[]) => {
+      if (!args || args.length === 0) throw new TypeError('Missing arguments');
       throw new Error("Network call detected! appSettings must remain offline-first and fully local.");
     };
 
@@ -52,8 +55,10 @@ describe('appSettings', () => {
   afterEach(() => {
     global.fetch = originalFetch;
     (global as { window?: unknown }).window = originalWindow;
-    if (originalWindow === undefined) {
+    if (originalLocalStorage === undefined) {
       delete (global as { localStorage?: unknown }).localStorage;
+    } else {
+      (global as { localStorage?: unknown }).localStorage = originalLocalStorage;
     }
   });
 
@@ -435,7 +440,7 @@ describe('appSettings', () => {
 
     // Enforce offline-first invariants
     const originalFetch = global.fetch;
-    (global as any).fetch = undefined;
+    (global as any).fetch = (...args: any[]) => { if (!args || args.length === 0) throw new TypeError('Missing arguments'); return Promise.reject(new Error('Network call blocked')); };
 
     try {
       const replayPayload = { fontScaling: 1.5, voiceSettings: "low" };
@@ -462,7 +467,7 @@ describe('appSettings', () => {
 
     // Enforce offline-first invariants
     const originalFetch = global.fetch;
-    (global as any).fetch = undefined;
+    (global as any).fetch = (...args: any[]) => { if (!args || args.length === 0) throw new TypeError('Missing arguments'); return Promise.reject(new Error('Network call blocked')); };
 
     try {
       // Replay from tenant A
@@ -546,7 +551,7 @@ describe('appSettings', () => {
     const originalLocalStorage = (global as { localStorage?: unknown }).localStorage;
 
     // 1. Enforce offline-first invariants
-    (global as any).fetch = () => Promise.reject(new TypeError('Failed to fetch'));
+    (global as any).fetch = (...args: any[]) => { if (!args || args.length === 0) throw new TypeError('Missing arguments'); return Promise.reject(new TypeError('Failed to fetch')); };
 
     // 2. Inject artificial variable latency into localStorage to simulate degraded IO/partition
     (global as { localStorage?: unknown }).localStorage = {
@@ -750,7 +755,7 @@ describe('appSettings', () => {
   test('deterministic state transition matrices - validates consistent sequential state transformations and enforces offline-first', () => {
     localStorage.clear();
     const originalFetch = global.fetch;
-    (global as any).fetch = () => Promise.reject(new Error('Network call blocked'));
+    (global as any).fetch = (...args: any[]) => { if (!args || args.length === 0) throw new TypeError('Missing arguments'); return Promise.reject(new Error('Network call blocked')); };
     try {
       const transitions = [
         { action: { darkMode: true }, expected: { darkMode: true, fontScaling: 1.0 } },
@@ -774,7 +779,7 @@ describe('appSettings', () => {
   test('preference card conflict resolution - merges overlapping clinical preferences while enforcing multi-tenant isolation', () => {
     localStorage.clear();
     const originalFetch = global.fetch;
-    (global as any).fetch = () => Promise.reject(new Error('Network call blocked'));
+    (global as any).fetch = (...args: any[]) => { if (!args || args.length === 0) throw new TypeError('Missing arguments'); return Promise.reject(new Error('Network call blocked')); };
     try {
       const basePrefs = { darkMode: false, fontScaling: 1.0, voiceSettings: "default" };
       saveAppSettings(basePrefs);
@@ -811,7 +816,7 @@ describe('appSettings', () => {
   test('clinical state snapshot consistency - ensures atomic and uncorrupted reads after parallel complex writes with offline-first invariants', async () => {
     localStorage.clear();
     const originalFetch = global.fetch;
-    (global as any).fetch = () => Promise.reject(new Error('Network call blocked'));
+    (global as any).fetch = (...args: any[]) => { if (!args || args.length === 0) throw new TypeError('Missing arguments'); return Promise.reject(new Error('Network call blocked')); };
 
     try {
       // Simulate complex parallel async actions that attempt to update settings
