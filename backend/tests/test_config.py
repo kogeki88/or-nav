@@ -502,6 +502,9 @@ def test_get_tenant_high_concurrency(tmp_path, monkeypatch):
         for future in concurrent.futures.as_completed(futures):
             res = future.result()
             assert res.tenant_id.startswith("sacred_heart/or_burst_")
+            # Enforce strict boundary checks to avoid false positive substring matches
+            tenant_num = res.tenant_id.split("or_burst_")[1]
+            assert tenant_num.isdigit()
 
     end_time = time.time()
     latency = end_time - start_time
@@ -658,8 +661,10 @@ def test_config_state_snapshots_and_transitions(tmp_path, monkeypatch):
     # Normalize volatile mutation fields before structural deep equality comparison
     volatile_fields = ["last_verified_at", "verification_score", "status", "verify_count", "user_preferred_term", "facility_name"]
     for field in volatile_fields:
-        baseline_state[0].pop(field, None)
-        post_mutation_state[0].pop(field, None)
+        if baseline_state and len(baseline_state) > 0 and baseline_state[0]:
+            baseline_state[0].pop(field, None)
+        if post_mutation_state and len(post_mutation_state) > 0 and post_mutation_state[0]:
+            post_mutation_state[0].pop(field, None)
 
     assert baseline_state == post_mutation_state
 
