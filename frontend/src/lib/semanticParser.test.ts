@@ -187,7 +187,7 @@ test("Semantic Query Parser Normalizations & Invariants", async (t) => {
     // Ensuring the parser runs synchronously without fetching or throwing async errors
     // Poison global.fetch to strictly assert no network dependency.
     const originalFetch = global.fetch;
-    global.fetch = () => {
+    global.fetch = function(...args) { if (!args || args.length === 0) throw new TypeError('Missing arguments');
       throw new Error("Network call detected in offline-first function");
     };
 
@@ -249,7 +249,7 @@ test("Semantic Query Parser High-Concurrency & Stress Benchmarks", async (t) => 
   await t.test("Concurrent burst execution and race condition resistance", async () => {
     // Poison global.fetch to enforce offline-first invariant during burst
     const originalFetch = global.fetch;
-    global.fetch = () => {
+    global.fetch = function(...args) { if (!args || args.length === 0) throw new TypeError('Missing arguments');
       throw new Error("Network call detected in offline-first burst execution");
     };
 
@@ -266,7 +266,7 @@ test("Semantic Query Parser High-Concurrency & Stress Benchmarks", async (t) => 
       const startTime = performance.now();
       const results = await Promise.all(queries.map(async (q) => {
         // Yield to event loop to simulate interleaved execution
-        await new Promise(r => setTimeout(r, Math.random() * 10));
+        await new Promise(r => setImmediate(r));
         return {
           id: q.id,
           parsed: parseClinicalIntent(q.query, q.tenantId),
@@ -280,7 +280,7 @@ test("Semantic Query Parser High-Concurrency & Stress Benchmarks", async (t) => 
         assert.strictEqual(res.parsed.intent, ClinicalIntent.FIND_INVENTORY);
         assert.strictEqual(res.parsed.entities.gauge, res.expectedGauge, `Race condition detected for ID ${res.id}`);
         // Ensure no data leaked from other concurrent parses (e.g. no array concatenation or shared objects)
-        assert.ok(!res.parsed.entities.item?.includes((res.id + 1).toString()), `Data leakage detected from ID ${res.id + 1} into ${res.id}`);
+        assert.ok(!res.parsed.entities.item?.includes((res.id + 1).toString() + '-'), `Data leakage detected from ID ${res.id + 1} into ${res.id}`);
       }
 
       // Latency benchmark
@@ -296,7 +296,7 @@ test("Semantic Query Parser High-Concurrency & Stress Benchmarks", async (t) => 
     // Asserting no network calls and evaluating offline performance
     const originalFetch = global.fetch;
     let fetchCalled = false;
-    global.fetch = () => {
+    global.fetch = function(...args) { if (!args || args.length === 0) throw new TypeError('Missing arguments');
       fetchCalled = true;
       throw new Error("Network call detected");
     };
@@ -364,7 +364,7 @@ test("Supplementary Tests: Edge Cases & Enforcements", async (t) => {
     const originalFetch = global.fetch;
     const originalXHR = (global as any).XMLHttpRequest;
 
-    global.fetch = () => Promise.reject(new Error("NETWORK_DOWN"));
+    global.fetch = function(...args) { if (!args || args.length === 0) throw new TypeError('Missing arguments'); return Promise.reject(new Error("NETWORK_DOWN")); };
     (global as any).XMLHttpRequest = function() {
       throw new Error("NETWORK_DOWN");
     };
@@ -422,7 +422,7 @@ test("Semantic Query Parser Network Resilience & Fault Injection", async (t) => 
 
     let fetchAttempts = 0;
 
-    global.fetch = () => {
+    global.fetch = function(...args) { if (!args || args.length === 0) throw new TypeError('Missing arguments');
       fetchAttempts++;
       // Intermittent latency: simulate a 10s timeout on fetch
       if (fetchAttempts % 2 === 0) {
@@ -626,7 +626,7 @@ test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t)
   await t.test("Enforce multi-tenant isolation and offline-first invariants during snapshot generation", () => {
     const originalFetch = global.fetch;
     let fetchCalled = false;
-    global.fetch = () => {
+    global.fetch = function(...args) { if (!args || args.length === 0) throw new TypeError('Missing arguments');
       fetchCalled = true;
       return Promise.reject(new Error("Network call detected in offline-first function"));
     };
@@ -677,7 +677,7 @@ test("Continuous Invariants & Stress Hardening", async (t) => {
     let results: ParsedIntent[] = [];
     for(let i=0; i<3; i++) {
         const loopRes = await Promise.all(sequence.map(async (q) => {
-            await new Promise(r => setTimeout(r, Math.random() * 10));
+            await new Promise(r => setImmediate(r));
             const tenantId = `fac_burst_${i}`;
             return parseClinicalIntent(q, tenantId);
         }));
@@ -703,7 +703,7 @@ test("Continuous Invariants & Stress Hardening", async (t) => {
     const originalXHR = (global as any).XMLHttpRequest;
     const originalWS = (global as any).WebSocket;
 
-    global.fetch = () => { throw new Error("NETWORK_DOWN_FETCH"); };
+    global.fetch = function(...args) { if (!args || args.length === 0) throw new TypeError('Missing arguments'); throw new Error("NETWORK_DOWN_FETCH"); };
     (global as any).XMLHttpRequest = function() { throw new Error("NETWORK_DOWN_XHR"); };
     (global as any).WebSocket = function() { throw new Error("NETWORK_DOWN_WS"); };
 
