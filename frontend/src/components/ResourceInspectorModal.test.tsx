@@ -95,7 +95,7 @@ describe('ResourceInspectorModal', () => {
     await userEvent.type(itemInput, 'Heavy Item');
     const saveBtn = screen.getByTestId('btn-save-new-item');
 
-    await act(async () => {
+    act(() => {
       saveBtn.click();
     });
 
@@ -208,12 +208,21 @@ describe('ResourceInspectorModal', () => {
 
   it('maintains acceptable render latency under stress conditions', async () => {
     const start = performance.now();
+    const roots: HTMLElement[] = [];
+    const unmounts: (() => void)[] = [];
+
     await act(async () => {
-      for (let i = 0; i < 20; i++) {
-        const { unmount } = render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId={`stress_tenant_${i}`} />);
-        act(() => unmount());
-      }
+      await Promise.all(
+        Array.from({ length: 20 }).map(async (_, i) => {
+          const root = document.createElement('div');
+          roots.push(root);
+          const { unmount } = render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId={`stress_tenant_${i}`} />, { container: root });
+          unmounts.push(unmount);
+        })
+      );
     });
+
+    unmounts.forEach(u => act(() => u()));
     const end = performance.now();
     expect(end - start).toBeLessThan(1500);
   });
@@ -239,7 +248,7 @@ describe('ResourceInspectorModal', () => {
 
     const saveBtn = screen.getByTestId('btn-save-new-item');
 
-    await act(async () => {
+    act(() => {
         saveBtn.click();
         saveBtn.click();
         saveBtn.click();
@@ -278,7 +287,11 @@ describe('ResourceInspectorModal', () => {
 
     expect(screen.getByText(/Installed Resources Explorer & Studio/i)).toBeTruthy();
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) {
+        delete (global as any).fetch;
+      } else {
+        global.fetch = originalFetch;
+      }
     }
   });
 
@@ -531,9 +544,16 @@ describe('ResourceInspectorModal', () => {
     });
 
     expect(saveOfflinePreferenceCard).toHaveBeenCalled();
-    expect(cards.length).toBe(1);
-    expect(cards[0].surgeon).toBe('Dr. Smith');
-    expect(cards[0].gloves).toBe('Size 8 Gloves');
+    expect(cards).toEqual([
+      {
+        id: expect.any(String),
+        tenant_id: 'tenant-a::or',
+        surgeon: 'Dr. Smith',
+        procedure: 'Appendectomy',
+        instruments: [],
+        gloves: 'Size 8 Gloves'
+      }
+    ]);
   });
 
   it('verifies clinical state snapshot consistency across offline-first multi-tenant export', async () => {
@@ -572,9 +592,10 @@ describe('ResourceInspectorModal', () => {
 
     expect(exportTenantResourcesJson).toHaveBeenCalledWith('tenant-multi::iso');
 
+    const customClone = typeof structuredClone === 'function' ? structuredClone : (val: any) => JSON.parse(JSON.stringify(val));
     const parsed = JSON.parse(exportedData);
-    const cloneParsed = structuredClone(parsed);
-    const cloneExpected = structuredClone(snapshotPayload);
+    const cloneParsed = customClone(parsed);
+    const cloneExpected = customClone(snapshotPayload);
 
     // Normalize volatile metadata
     delete cloneParsed.exportedAt;
