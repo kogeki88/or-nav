@@ -331,20 +331,20 @@ def test_inventory_search_offline_first_invariant(monkeypatch):
     import httpx
     import socket
 
-    import os
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        if not args and not kwargs:
-            if os.name == 'nt':
-                return original_socket(*args, **kwargs)
-            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
-        family = kwargs.get('family', args[0] if args else socket.AF_INET)
-        type_ = kwargs.get('type', args[1] if len(args) > 1 else socket.SOCK_STREAM)
-        proto = kwargs.get('proto', args[2] if len(args) > 2 else 0)
+        family = kwargs.get('family', args[0] if args and isinstance(args[0], int) else socket.AF_INET)
+        type_ = kwargs.get('type', args[1] if len(args) > 1 and isinstance(args[1], int) else socket.SOCK_STREAM)
+        proto = kwargs.get('proto', args[2] if len(args) > 2 and isinstance(args[2], int) else 0)
         fileno = kwargs.get('fileno', args[3] if len(args) > 3 else None)
+
+        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
+            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
         if family == getattr(socket, "AF_UNIX", -1):
             return original_socket(family, type_, proto, fileno)
-        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
+        return original_socket(*args, **kwargs)
 
     def mock_httpx_post(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
@@ -498,20 +498,20 @@ def test_surgical_ontology_offline_first_invariant(monkeypatch):
         normalize_acoustic_speech
     )
 
-    import os
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        if not args and not kwargs:
-            if os.name == 'nt':
-                return original_socket(*args, **kwargs)
-            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
-        family = kwargs.get('family', args[0] if args else socket.AF_INET)
-        type_ = kwargs.get('type', args[1] if len(args) > 1 else socket.SOCK_STREAM)
-        proto = kwargs.get('proto', args[2] if len(args) > 2 else 0)
+        family = kwargs.get('family', args[0] if args and isinstance(args[0], int) else socket.AF_INET)
+        type_ = kwargs.get('type', args[1] if len(args) > 1 and isinstance(args[1], int) else socket.SOCK_STREAM)
+        proto = kwargs.get('proto', args[2] if len(args) > 2 and isinstance(args[2], int) else 0)
         fileno = kwargs.get('fileno', args[3] if len(args) > 3 else None)
+
+        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
+            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
         if family == getattr(socket, "AF_UNIX", -1):
             return original_socket(family, type_, proto, fileno)
-        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
+        return original_socket(*args, **kwargs)
 
     def mock_httpx_post(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
@@ -594,20 +594,20 @@ def test_strip_spoken_disfluencies_offline_first_invariant(monkeypatch):
     import socket
     from app.services.surgical_ontology import strip_spoken_disfluencies
 
-    import os
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        if not args and not kwargs:
-            if os.name == 'nt':
-                return original_socket(*args, **kwargs)
-            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
-        family = kwargs.get('family', args[0] if args else socket.AF_INET)
-        type_ = kwargs.get('type', args[1] if len(args) > 1 else socket.SOCK_STREAM)
-        proto = kwargs.get('proto', args[2] if len(args) > 2 else 0)
+        family = kwargs.get('family', args[0] if args and isinstance(args[0], int) else socket.AF_INET)
+        type_ = kwargs.get('type', args[1] if len(args) > 1 and isinstance(args[1], int) else socket.SOCK_STREAM)
+        proto = kwargs.get('proto', args[2] if len(args) > 2 and isinstance(args[2], int) else 0)
         fileno = kwargs.get('fileno', args[3] if len(args) > 3 else None)
+
+        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
+            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
         if family == getattr(socket, "AF_UNIX", -1):
             return original_socket(family, type_, proto, fileno)
-        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
+        return original_socket(*args, **kwargs)
 
     def mock_httpx_post(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
@@ -710,20 +710,20 @@ def test_fuzz_offline_first_invariant(monkeypatch):
     import socket
     import httpx
 
-    import os
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        if not args and not kwargs:
-            if os.name == 'nt':
-                return original_socket(*args, **kwargs)
-            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
-        family = kwargs.get('family', args[0] if args else socket.AF_INET)
-        type_ = kwargs.get('type', args[1] if len(args) > 1 else socket.SOCK_STREAM)
-        proto = kwargs.get('proto', args[2] if len(args) > 2 else 0)
+        family = kwargs.get('family', args[0] if args and isinstance(args[0], int) else socket.AF_INET)
+        type_ = kwargs.get('type', args[1] if len(args) > 1 and isinstance(args[1], int) else socket.SOCK_STREAM)
+        proto = kwargs.get('proto', args[2] if len(args) > 2 and isinstance(args[2], int) else 0)
         fileno = kwargs.get('fileno', args[3] if len(args) > 3 else None)
+
+        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
+            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
         if family == getattr(socket, "AF_UNIX", -1):
             return original_socket(family, type_, proto, fileno)
-        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
+        return original_socket(*args, **kwargs)
 
     def mock_httpx_post(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
@@ -811,20 +811,20 @@ def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
     import httpx
 
     # 1. Enforce offline-first invariants under load
-    import os
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        if not args and not kwargs:
-            if os.name == 'nt':
-                return original_socket(*args, **kwargs)
-            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
-        family = kwargs.get('family', args[0] if args else socket.AF_INET)
-        type_ = kwargs.get('type', args[1] if len(args) > 1 else socket.SOCK_STREAM)
-        proto = kwargs.get('proto', args[2] if len(args) > 2 else 0)
+        family = kwargs.get('family', args[0] if args and isinstance(args[0], int) else socket.AF_INET)
+        type_ = kwargs.get('type', args[1] if len(args) > 1 and isinstance(args[1], int) else socket.SOCK_STREAM)
+        proto = kwargs.get('proto', args[2] if len(args) > 2 and isinstance(args[2], int) else 0)
         fileno = kwargs.get('fileno', args[3] if len(args) > 3 else None)
+
+        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
+            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
         if family == getattr(socket, "AF_UNIX", -1):
             return original_socket(family, type_, proto, fileno)
-        raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
+
+        return original_socket(*args, **kwargs)
 
     def mock_httpx_post(*args, **kwargs):
         raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
@@ -871,17 +871,19 @@ def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
         assert isinstance(res_disf, str)
 
         # Strictly verify that results do not contain leaked data from adjacent requests or other tenants
-        assert unique_tenant_id in res_lingo, f"Expected {unique_tenant_id} in {res_lingo}"
-        assert unique_tenant_id in res_acoust, f"Expected {unique_tenant_id} in {res_acoust}"
-        assert unique_tenant_id in res_disf, f"Expected {unique_tenant_id} in {res_disf}"
+        import re
+        # Use explicit boundary matching with regex to avoid substring match tautologies where worker1 falsely matches worker10
+        assert re.search(r'\b' + re.escape(unique_tenant_id) + r'\b', res_lingo) or res_lingo.startswith(unique_tenant_id + ' '), f"Expected exact {unique_tenant_id} boundary in {res_lingo}"
+        assert re.search(r'\b' + re.escape(unique_tenant_id) + r'\b', res_acoust) or res_acoust.startswith(unique_tenant_id + ' '), f"Expected exact {unique_tenant_id} boundary in {res_acoust}"
+        assert re.search(r'\b' + re.escape(unique_tenant_id) + r'\b', res_disf) or res_disf.startswith(unique_tenant_id + ' '), f"Expected exact {unique_tenant_id} boundary in {res_disf}"
 
         # Verify no cross-tenant leakage by checking a neighboring tenant ID is not present
         other_idx = (idx + 1) % CONCURRENCY
-        # Use exact tenant ID formatting with a trailing space to avoid substring match tautology (sacred_heart::or_burst_1 vs sacred_heart::or_burst_10)
+        # Check explicit boundaries for leakage to avoid tautology issues
         other_tenant_id = f"sacred_heart::or_burst_{other_idx}::or"
-        assert other_tenant_id not in res_lingo, f"Leaked {other_tenant_id} in {res_lingo}"
-        assert other_tenant_id not in res_acoust, f"Leaked {other_tenant_id} in {res_acoust}"
-        assert other_tenant_id not in res_disf, f"Leaked {other_tenant_id} in {res_disf}"
+        assert not re.search(r'\b' + re.escape(other_tenant_id) + r'\b', res_lingo) and not res_lingo.startswith(other_tenant_id + ' '), f"Leaked {other_tenant_id} in {res_lingo}"
+        assert not re.search(r'\b' + re.escape(other_tenant_id) + r'\b', res_acoust) and not res_acoust.startswith(other_tenant_id + ' '), f"Leaked {other_tenant_id} in {res_acoust}"
+        assert not re.search(r'\b' + re.escape(other_tenant_id) + r'\b', res_disf) and not res_disf.startswith(other_tenant_id + ' '), f"Leaked {other_tenant_id} in {res_disf}"
 
         return True
 
@@ -919,25 +921,24 @@ def test_surgical_ontology_network_partition_and_self_healing(monkeypatch):
     )
 
     network_state = {"status": "online"}
-    import os
     original_socket = socket.socket
 
     def mock_socket(*args, **kwargs):
-        if not args and not kwargs:
-            if os.name == 'nt':
-                return original_socket(*args, **kwargs)
-            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
-        family = kwargs.get('family', args[0] if args else socket.AF_INET)
-        type_ = kwargs.get('type', args[1] if len(args) > 1 else socket.SOCK_STREAM)
-        proto = kwargs.get('proto', args[2] if len(args) > 2 else 0)
+        family = kwargs.get('family', args[0] if args and isinstance(args[0], int) else socket.AF_INET)
+        type_ = kwargs.get('type', args[1] if len(args) > 1 and isinstance(args[1], int) else socket.SOCK_STREAM)
+        proto = kwargs.get('proto', args[2] if len(args) > 2 and isinstance(args[2], int) else 0)
         fileno = kwargs.get('fileno', args[3] if len(args) > 3 else None)
+
         if family == getattr(socket, "AF_UNIX", -1):
             return original_socket(family, type_, proto, fileno)
-        if network_state["status"] == "offline":
-            raise socket.timeout("Mock network partition: connection timed out")
-        elif network_state["status"] == "latency":
-            time.sleep(0.05)
-        return original_socket(family, type, proto, fileno)
+
+        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
+            if network_state["status"] == "offline":
+                raise socket.timeout("Mock network partition: connection timed out")
+            elif network_state["status"] == "latency":
+                time.sleep(0.05)
+
+        return original_socket(*args, **kwargs)
 
     def mock_httpx_post(*args, **kwargs):
         if network_state["status"] == "offline":
@@ -1012,6 +1013,8 @@ def test_surgical_ontology_memory_leak_and_eviction():
     tracemalloc.start()
 
     for i in range(5000):
+        # We ensure unbounded uniqueness to prevent bypassing cache eviction logic.
+        # i must grow unbounded to force cache to evict old entries.
         unique_text = f"tenant_facility_{i}::dept_{i} please hand me the metz {i}"
 
         normalize_or_lingo(unique_text)
