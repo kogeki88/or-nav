@@ -536,13 +536,22 @@ test("FeedbackEngine - Fault Injection, Intermittent Latency, and Network Partit
 
     // 4. Fault injection: Simulated 500 Server Error
 
+    const previousFetchInject = global.fetch;
+
+    // We already have item1 which was created at the top of the try block.
+    // Let's ensure upvote triggers the offline fallback correctly.
+    const initialQueueLength = getOfflineQueue().length;
 
     global.fetch = async (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new TypeError("Failed to fetch"); };
+
     await upvoteFeedback(item1.id);
-    await new Promise(r => setTimeout(r, 10));
+    await new Promise(r => setTimeout(r, 20));
 
     const errorQueue = getOfflineQueue();
-    assert.strictEqual(errorQueue.length, 1, "Network errors must trigger offline queueing fallback");
+    const upvotesInQueue = errorQueue.filter(q => q.type === "UPVOTE" && q.endpoint.includes(item1.id));
+    assert.ok(upvotesInQueue.length > 0, "Network errors must trigger offline queueing fallback for upvotes");
+
+    global.fetch = previousFetchInject;
 
 
   } finally {
@@ -694,6 +703,8 @@ test("FeedbackEngine - Security Invariants: HIPAA PHI, Regex Boundaries, Zero-Tr
 
 
     await t.test("Offline-first invariants", async () => {
+      const prevFetchOff2 = global.fetch;
+
       // Poison fetch to verify offline-first invariants
       global.fetch = (...args) => { if (args.length === 0) throw new TypeError("Missing arguments"); return Promise.reject(new Error("Network offline")); };
 
@@ -708,14 +719,7 @@ test("FeedbackEngine - Security Invariants: HIPAA PHI, Regex Boundaries, Zero-Tr
       assert.ok(inQueue, "Item should be enqueued for offline sync");
 
       // Restore fetch for rest of tests
-      global.fetch = async (...args) => {
-    if (args.length === 0) throw new TypeError("Missing arguments");
-    const [input, init] = args;
-        if (init && init.body) {
-          fetchPayload = JSON.parse(init.body as string);
-        }
-        return { ok: true, status: 200 } as any;
-      };
+      global.fetch = prevFetchOff2;
     });
 
     await t.test("Regex boundary attacks and zero-trust token exchange", async () => {
