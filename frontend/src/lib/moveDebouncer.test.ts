@@ -267,9 +267,10 @@ describe("moveDebouncer", () => {
 
       const numRequests = 10000;
       const tenants = ["tenantA::or", "tenantB::icu", "tenantC::er"];
+      let idCounter = 0;
       const payloads = Array.from({ length: numRequests }, (_, i) => ({
         tenant_id: tenants[i % tenants.length],
-        id: i,
+        id: idCounter++,
         data: `data-${i}`
       }));
 
@@ -522,13 +523,14 @@ describe("moveDebouncer", () => {
         }
       }, 10);
 
-      for (let i = 0; i < 10000; i++) { debouncer({ id: i }); }
+      let idCounter = 0;
+      for (let i = 0; i < 10000; i++) { debouncer({ id: idCounter++ }); }
       await sleep(20);
 
-      for (let i = 0; i < 10000; i++) { debouncer({ id: i + 10000 }); }
+      for (let i = 0; i < 10000; i++) { debouncer({ id: idCounter++ }); }
       await sleep(20);
 
-      for (let i = 0; i < 10000; i++) { debouncer({ id: i + 20000 }); }
+      for (let i = 0; i < 10000; i++) { debouncer({ id: idCounter++ }); }
       await sleep(20);
 
       assert.strictEqual(receivedBatches, 3);
@@ -766,8 +768,9 @@ describe("moveDebouncer", () => {
       const workers = Array.from({ length: numWorkers }, (_, wIdx) => {
         const tenantId = `sacred_heart::fac_burst_${wIdx}`;
         return async () => {
+          let idCounter = 0;
           for (let i = 0; i < itemsPerWorker; i++) {
-            debouncer({ tenant_id: tenantId, worker_id: wIdx, id: i, data: `data_${wIdx}_${i}` });
+            debouncer({ tenant_id: tenantId, worker_id: wIdx, id: idCounter++, data: `data_${wIdx}_${i}` });
             // simulate true interleaving
             await new Promise(r => setTimeout(r, (i * 13) % 10));
           }
@@ -813,16 +816,17 @@ describe("moveDebouncer", () => {
     };
 
     // Freeze the baseline state to catch implicit mutations
-    Object.freeze(baselineState);
-    Object.freeze(baselineState.metadata);
+    const frozenClone = structuredClone(baselineState);
+    Object.freeze(frozenClone.metadata);
+    const frozenState = Object.freeze(frozenClone);
 
-    debouncer(baselineState);
+    debouncer(frozenState);
 
     await sleep(80);
 
     assert.strictEqual(receivedItems.length, 1);
     // Structural assertions against explicit deep clones to prevent tautologies
-    assert.deepStrictEqual(receivedItems[0], structuredClone(baselineState));
+    assert.deepStrictEqual(receivedItems[0], frozenState);
     // Since moveDebouncer stores the reference, we must pass the explicit deep clone to it and assert against another deep clone, or just use the clone.
   });
 });
