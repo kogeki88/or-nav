@@ -48,7 +48,7 @@ def test_report_move_and_verify(tmp_path, monkeypatch):
     # Enforce offline-first invariants
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
@@ -93,7 +93,7 @@ def test_tenant_isolation(tmp_path, monkeypatch):
     # Enforce offline-first invariants
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
@@ -142,7 +142,7 @@ def test_offline_first_invariants(tmp_path, monkeypatch):
     # Enforce offline-first invariants dynamically
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
@@ -167,7 +167,7 @@ def test_fuzzing_malformed_inputs(tmp_path, monkeypatch):
     # Enforce offline-first invariants
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
@@ -222,7 +222,7 @@ def test_concurrency_race_condition_and_latency(tmp_path, monkeypatch):
     # Enforce offline-first invariants
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted during benchmarks")
         return original_socket(*args, **kwargs)
@@ -311,7 +311,7 @@ def test_supplementary_benchmark_concurrent_burst_execution_and_race_condition_r
     """
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
@@ -410,7 +410,7 @@ def test_offline_mutation_replay_idempotency(tmp_path, monkeypatch):
     # 1. Enforce offline invariants dynamically
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted during offline replay")
         return original_socket(*args, **kwargs)
@@ -494,7 +494,7 @@ def test_supplementary_multi_tenant_boundary_enforcement_and_offline_mutation_re
 
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted during offline replay")
         return original_socket(*args, **kwargs)
@@ -574,7 +574,7 @@ def test_fault_injection_and_network_partition_resilience(tmp_path, monkeypatch)
              if (_call_counter[0] * 13) % 10 < 5:
                   time.sleep(0.01) # fake latency
                   raise socket.timeout("Simulated network timeout")
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
@@ -656,7 +656,7 @@ def test_memory_cache_eviction_and_leak_detection(tmp_path, monkeypatch):
     # Enforce offline-first invariants
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
@@ -772,7 +772,7 @@ def test_memory_profiling_and_resource_leaks(tmp_path, monkeypatch):
     # Enforce offline-first invariants
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
@@ -802,7 +802,7 @@ def test_memory_profiling_and_resource_leaks(tmp_path, monkeypatch):
 
     # Take initial snapshot after some warm-up
     for i in range(5):
-        service = inventory_search.get_inventory_service(f"tenant_{i}::or")
+        service = inventory_search.get_inventory_service(f"tenant_{i % 5}::or")
         service.search("Suture")
 
     gc.collect()
@@ -839,7 +839,7 @@ def test_unclosed_event_listeners_and_thread_locks(tmp_path, monkeypatch):
     # Enforce offline-first invariants
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
@@ -909,7 +909,7 @@ def test_hipaa_phi_boundary_prompt_injection_and_zero_trust(tmp_path, monkeypatc
     # Enforce offline-first invariants dynamically
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
@@ -991,7 +991,7 @@ def test_clinical_workflow_snapshot_and_deterministic_state_verifications(tmp_pa
     # Enforce offline-first invariants dynamically
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
@@ -1127,7 +1127,7 @@ def test_flag_wrong_invariant(tmp_path, monkeypatch):
     # Enforce offline-first invariants
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
@@ -1174,7 +1174,7 @@ def test_lww_conflict_resolution(tmp_path, monkeypatch):
 
     original_socket = socket.socket
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get('family', getattr(socket, 'AF_INET', 2))
+        family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', getattr(socket, 'AF_INET', 2))
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted")
         return original_socket(*args, **kwargs)
