@@ -832,8 +832,7 @@ describe('appSettings', () => {
 
       const activeState = getAppSettings();
       // To strictly adhere to the invariant, freeze before validating properties
-      Object.freeze(activeState);
-      const snapshot = structuredClone(activeState);
+      const snapshot = Object.freeze(structuredClone(activeState));
 
       // Assert structural deep copy matches frozen state
       assert.deepStrictEqual(snapshot, activeState);
