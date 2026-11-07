@@ -76,7 +76,7 @@ from pydantic import Field
 
 class CreateQuestionRequest(BaseModel):
 
-    @field_validator("question_text", "questionText", mode="before", check_fields=False)
+    @field_validator("question_text", "questionText", "asked_by", "askedBy", "role", "idempotency_key", mode="before", check_fields=False)
     @classmethod
     def sanitize_html(cls, v):
         if isinstance(v, str):
@@ -86,12 +86,12 @@ class CreateQuestionRequest(BaseModel):
 
     tenant_id: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
     tenantId: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
-    question_text: Optional[str] = Field(default=None, min_length=1, max_length=1000)
-    questionText: Optional[str] = Field(default=None, min_length=1, max_length=1000)
-    asked_by: Optional[str] = "Sean Iglesia, RN (Orientee)"
-    askedBy: Optional[str] = None
-    role: Optional[str] = "Orientee"
-    idempotency_key: Optional[str] = None
+    question_text: Optional[str] = Field(default=None, min_length=1, max_length=1000, pattern=r"^[^<]*$")
+    questionText: Optional[str] = Field(default=None, min_length=1, max_length=1000, pattern=r"^[^<]*$")
+    asked_by: Optional[str] = Field(default="Sean Iglesia, RN (Orientee)", min_length=1, max_length=100, pattern=r"^[^<]*$")
+    askedBy: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[^<]*$")
+    role: Optional[str] = Field(default="Orientee", min_length=1, max_length=100, pattern=r"^[^<]*$")
+    idempotency_key: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[^<]*$")
 
 
 class CreateAnswerRequest(BaseModel):

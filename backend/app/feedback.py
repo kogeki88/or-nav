@@ -20,7 +20,7 @@ from app.scrubber import scrub_phi
 import uuid
 import threading
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter(prefix="/api/feedback", tags=["feedback"])
 
@@ -54,15 +54,23 @@ class FeedbackListResponse(BaseModel):
 
 
 class CreateFeedbackRequest(BaseModel):
-    tenantId: Optional[str] = "sacred_heart::or"
-    userName: Optional[str] = "Staff Clinician"
-    userRole: Optional[str] = "Circulating RN"
-    source: Optional[str] = "manual_submission"
-    category: Optional[str] = None
-    severity: Optional[str] = None
-    rawText: str
-    aiRecommendation: Optional[str] = None
-    suggestedFixPrompt: Optional[str] = None
+    tenantId: Optional[str] = Field(default="sacred_heart::or", max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
+    userName: Optional[str] = Field(default="Staff Clinician", max_length=100, pattern=r"^[^<]*$")
+    userRole: Optional[str] = Field(default="Circulating RN", max_length=100, pattern=r"^[^<]*$")
+    source: Optional[str] = Field(default="manual_submission", max_length=100, pattern=r"^[a-zA-Z0-9_]+$")
+    category: Optional[str] = Field(default=None, max_length=50, pattern=r"^[a-zA-Z0-9_]+$")
+    severity: Optional[str] = Field(default=None, max_length=50, pattern=r"^[a-zA-Z0-9_]+$")
+    rawText: str = Field(..., max_length=2000, pattern=r"^[^<]*$")
+    aiRecommendation: Optional[str] = Field(default=None, max_length=1000, pattern=r"^[^<]*$")
+    suggestedFixPrompt: Optional[str] = Field(default=None, max_length=1000, pattern=r"^[^<]*$")
+
+    @field_validator("rawText", "userName", "userRole", "aiRecommendation", "suggestedFixPrompt", mode="before", check_fields=False)
+    @classmethod
+    def sanitize_html(cls, v):
+        if isinstance(v, str):
+            if "<script" in v.lower():
+                raise ValueError("Payload contains forbidden HTML/Script tags")
+        return v
 
 
 class PatchFeedbackRequest(BaseModel):
