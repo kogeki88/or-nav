@@ -107,11 +107,12 @@ def test_intent_parser_fuzzing():
 def test_intent_parser_offline_first(monkeypatch):
     orig_socket = socket.socket
     def poison(*args, **kwargs):
-        if not args and not kwargs:
+        family = kwargs.get('family', socket.AF_INET)
+        if args and isinstance(args[0], int):
+            family = args[0]
+        if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted! Offline invariant violated.")
-        if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
-            return orig_socket(*args, **kwargs)
-        if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
+        if hasattr(socket, 'AF_UNIX') and family == getattr(socket, 'AF_UNIX', -1):
             return orig_socket(*args, **kwargs)
         raise RuntimeError("Network call attempted! Offline invariant violated.")
 
@@ -141,11 +142,12 @@ def test_intent_parser_multi_tenant_isolation(monkeypatch):
 def test_intent_parser_offline_mutation_replay_idempotency(monkeypatch):
     orig_socket = socket.socket
     def poison(*args, **kwargs):
-        if not args and not kwargs:
+        family = kwargs.get('family', socket.AF_INET)
+        if args and isinstance(args[0], int):
+            family = args[0]
+        if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted! Offline invariant violated.")
-        if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
-            return orig_socket(*args, **kwargs)
-        if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
+        if hasattr(socket, 'AF_UNIX') and family == getattr(socket, 'AF_UNIX', -1):
             return orig_socket(*args, **kwargs)
         raise RuntimeError("Network call attempted! Offline invariant violated.")
 
@@ -182,11 +184,12 @@ def _poison_and_parse(args):
     orig_socket = socket.socket
     # Enforce offline-first invariant globally for this worker process
     def poison(*args, **kwargs):
-        if not args and not kwargs:
+        family = kwargs.get('family', socket.AF_INET)
+        if args and isinstance(args[0], int):
+            family = args[0]
+        if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted! Offline invariant violated.")
-        if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
-            return orig_socket(*args, **kwargs)
-        if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
+        if hasattr(socket, 'AF_UNIX') and family == getattr(socket, 'AF_UNIX', -1):
             return orig_socket(*args, **kwargs)
         raise RuntimeError("Network call attempted! Offline invariant violated.")
 
@@ -230,16 +233,18 @@ def test_intent_parser_concurrent_burst():
     # Assert correctness (no race conditions and correct behavior under concurrency)
     for res, expected_intent, tenant, uid in results:
         assert res.intent == expected_intent, f"Race condition or bad parse for {expected_intent}. got {res.intent}"
-        assert f"uid_{uid} " in res.raw_query + " ", "Leaked request data"
-        assert f"uid_{uid+1} " not in res.raw_query + " ", "Leaked request data"
+        import re
+        assert re.search(rf"\buid_{uid}\b", res.raw_query), "Leaked request data"
+        assert not re.search(rf"\buid_{uid+1}\b", res.raw_query), "Leaked request data"
 def test_intent_parser_supplementary_isolation(monkeypatch):
     orig_socket = socket.socket
     def poison(*args, **kwargs):
-        if not args and not kwargs:
+        family = kwargs.get('family', socket.AF_INET)
+        if args and isinstance(args[0], int):
+            family = args[0]
+        if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted! Offline invariant violated.")
-        if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
-            return orig_socket(*args, **kwargs)
-        if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
+        if hasattr(socket, 'AF_UNIX') and family == getattr(socket, 'AF_UNIX', -1):
             return orig_socket(*args, **kwargs)
         raise RuntimeError("Network call attempted! Offline invariant violated.")
 
@@ -262,11 +267,12 @@ def test_intent_parser_offline_mutation_replay_idempotency_extended(monkeypatch)
     import httpx
     orig_socket = socket.socket
     def poison(*args, **kwargs):
-        if not args and not kwargs:
+        family = kwargs.get('family', socket.AF_INET)
+        if args and isinstance(args[0], int):
+            family = args[0]
+        if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network call attempted! Offline invariant violated.")
-        if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
-            return orig_socket(*args, **kwargs)
-        if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
+        if hasattr(socket, 'AF_UNIX') and family == getattr(socket, 'AF_UNIX', -1):
             return orig_socket(*args, **kwargs)
         raise RuntimeError("Network call attempted! Offline invariant violated.")
 
@@ -281,9 +287,8 @@ def test_intent_parser_offline_mutation_replay_idempotency_extended(monkeypatch)
     res2 = parse_clinical_intent(input_str)
     res3 = parse_clinical_intent(input_str)
 
-    assert res1.intent == res2.intent == res3.intent == ClinicalIntent.MUTATE_INVENTORY
-    assert res1.entities == res2.entities == res3.entities
-    assert res1.confidence == res2.confidence == res3.confidence
+    assert res1 == res2 == res3
+    assert res1.intent == ClinicalIntent.MUTATE_INVENTORY
 
 def test_intent_parser_network_partition_degraded_recovery(monkeypatch):
     """
@@ -295,22 +300,18 @@ def test_intent_parser_network_partition_degraded_recovery(monkeypatch):
 
     orig_socket = socket.socket
     def poison(*args, **kwargs):
-        if not args and not kwargs:
-            if network_state["status"] == "offline":
-                raise RuntimeError("Network offline!")
-            elif network_state["status"] == "degraded":
-                raise TimeoutError("Network degraded!")
-            raise RuntimeError("Network call attempted! Offline invariant violated.")
-
         if network_state["status"] == "offline":
             raise RuntimeError("Network offline!")
         elif network_state["status"] == "degraded":
             raise TimeoutError("Network degraded!")
 
-        # online
-        if hasattr(socket, 'AF_UNIX') and kwargs.get('family') == getattr(socket, 'AF_UNIX', -1):
-            return orig_socket(*args, **kwargs)
-        if args and hasattr(socket, 'AF_UNIX') and args[0] == getattr(socket, 'AF_UNIX', -1):
+        family = kwargs.get('family', socket.AF_INET)
+        if args and isinstance(args[0], int):
+            family = args[0]
+        if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
+            raise RuntimeError("Network call attempted! Offline invariant violated.")
+
+        if hasattr(socket, 'AF_UNIX') and family == getattr(socket, 'AF_UNIX', -1):
             return orig_socket(*args, **kwargs)
         raise RuntimeError("Network call attempted! Offline invariant violated.")
 
@@ -338,9 +339,9 @@ def test_intent_parser_network_partition_degraded_recovery(monkeypatch):
     assert res3.intent == ClinicalIntent.VIEW_PREFERENCE_CARD
 
     # Assert multi-tenant isolation integrity
-    assert "hospital_offline" in res1.raw_query
-    assert "hospital_degraded" in res2.raw_query
-    assert "hospital_online" in res3.raw_query
+    assert "hospital_offline::" in res1.raw_query
+    assert "hospital_degraded::" in res2.raw_query
+    assert "hospital_online::" in res3.raw_query
 
 def test_intent_parser_memory_eviction_hardening(monkeypatch, tmp_path):
     import tracemalloc
