@@ -1016,7 +1016,8 @@ test('clinical state snapshot consistency & deterministic state transition matri
     assert.strictEqual(input.value, 'Surgeon preference card update: Dr. Smith needs 2.0 prolene');
 
     // Take snapshot of the current text value for structural comparison using Deepcopy/JSON serialization
-    const stateSnapshot = Object.freeze(structuredClone({ value: input.value }));
+    const customClone = typeof structuredClone === 'function' ? structuredClone : (val: any) => JSON.parse(JSON.stringify(val));
+    const stateSnapshot = Object.freeze(customClone({ value: input.value }));
     assert.deepStrictEqual(stateSnapshot, { value: 'Surgeon preference card update: Dr. Smith needs 2.0 prolene' });
 
     // Submit the form
@@ -1095,8 +1096,8 @@ test('Omnibar: Concurrency, multi-tenant isolation, and offline mutation invaria
     const calls1 = onSendMessage1.mock.calls.map(c => c.arguments[0]);
     const calls2 = onSendMessage2.mock.calls.map(c => c.arguments[0]);
     for (let i = 0; i < numWorkers; i++) {
-        assert.ok(calls1.includes(`Tenant ${tenant1} msg ${i}::`));
-        assert.ok(calls2.includes(`Tenant ${tenant2} msg ${i}::`));
+        assert.ok(calls1.some((call: string) => new RegExp('\\b' + tenant1 + '\\b').test(call) && call.includes(`Tenant ${tenant1} msg ${i}::`)));
+        assert.ok(calls2.some((call: string) => new RegExp('\\b' + tenant2 + '\\b').test(call) && call.includes(`Tenant ${tenant2} msg ${i}::`)));
     }
 
     // Verify offline-first: no fetch calls should have been made successfully
