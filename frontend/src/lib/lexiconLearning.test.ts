@@ -407,8 +407,8 @@ describe("lexiconLearning & Teaching Intent", () => {
       });
 
       test("should enforce multi-tenant isolation with fuzzed tenant IDs", () => {
-        const tenant1 = "tenant_" + Math.random().toString(36).substring(7);
-        const tenant2 = "tenant_" + Math.random().toString(36).substring(7);
+        const tenant1 = "tenant_" + Math.random().toString(36).substring(7) + "::or";
+        const tenant2 = "tenant_" + Math.random().toString(36).substring(7) + "::or";
 
         learnAliasClient(tenant1, "or", "shared_alias", "Item A");
         learnAliasClient(tenant2, "or", "shared_alias", "Item B");
@@ -551,7 +551,7 @@ describe("lexiconLearning & Teaching Intent", () => {
         for (let i = 0; i < numRequests; i++) {
           const uniqueTenant = `${tenant}_${i}::or`;
           promises.push(
-            new Promise((resolve) => setTimeout(resolve, Math.random() * 10)).then(() => {
+            new Promise((resolve) => setTimeout(resolve, (i * 13) % 10)).then(() => {
               learnAliasClient(uniqueTenant, "or", "burst_alias", "Burst Item", `user_${i}`);
             })
           );
@@ -609,7 +609,7 @@ describe("lexiconLearning & Teaching Intent", () => {
         try {
           const promises = Array.from({ length: 50 }, (_, i) => {
             const isolatedTenant = `${tenant}_fac_burst_${i}::or`;
-            return new Promise((resolve) => setTimeout(resolve, Math.random() * 10)).then(() => {
+            return new Promise((resolve) => setTimeout(resolve, (i * 13) % 10)).then(() => {
               learnAliasClient(isolatedTenant, "or", "offline_alias", "Offline Item", `user_${i}`);
             });
           });
@@ -639,8 +639,8 @@ describe("lexiconLearning & Teaching Intent", () => {
         for (let i = 0; i < numRequests; i++) {
           const uTenantA = `tenant_A_fac_burst_${i}::or`;
           const uTenantB = `tenant_B_fac_burst_${i}::or`;
-          promises.push(new Promise((resolve) => setTimeout(resolve, Math.random() * 10)).then(() => learnAliasClient(uTenantA, "or", "shared_alias", "Item A", `user_${i}`)));
-          promises.push(new Promise((resolve) => setTimeout(resolve, Math.random() * 10)).then(() => learnAliasClient(uTenantB, "or", "shared_alias", "Item B", `user_${i}`)));
+          promises.push(new Promise((resolve) => setTimeout(resolve, (i * 13) % 10)).then(() => learnAliasClient(uTenantA, "or", "shared_alias", "Item A", `user_${i}`)));
+          promises.push(new Promise((resolve) => setTimeout(resolve, (i * 13) % 10)).then(() => learnAliasClient(uTenantB, "or", "shared_alias", "Item B", `user_${i}`)));
         }
 
         await Promise.all(promises);
@@ -727,6 +727,7 @@ describe("lexiconLearning & Teaching Intent", () => {
       const initialLexicon = loadFacilityLexicon(tenant);
       const initialSnapshot = structuredClone(initialLexicon);
       Object.freeze(initialSnapshot);
+      initialSnapshot.forEach((item: any) => Object.freeze(item));
 
       learnAliasClient(tenant, "or", "second_alias", "Second Item", "user2");
       const finalLexicon = loadFacilityLexicon(tenant);
@@ -760,6 +761,7 @@ describe("lexiconLearning & Teaching Intent", () => {
       let lexicon = loadFacilityLexicon(tenant);
       const initialSnapshot = structuredClone(lexicon[0]);
       Object.freeze(initialSnapshot);
+      if (initialSnapshot.usedByUsers) Object.freeze(initialSnapshot.usedByUsers);
       assert.strictEqual(lexicon[0].usageCount, 1);
       assert.strictEqual(lexicon[0].confidence, "personal");
 
