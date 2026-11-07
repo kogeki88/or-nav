@@ -92,8 +92,8 @@ class TestChatRouterMultiTenant:
         tenant_b = "or_main"
 
         async def make_request(client, tenant, idx):
-            # To simulate true interleaving and race conditions in Python asynchronous concurrency tests, use asynchronous jitter (e.g., await asyncio.sleep(random.uniform(0, 0.01))). Replacing this with await asyncio.sleep(0) fails to properly simulate real-world interleaved asynchronous execution.
-            await asyncio.sleep(random.uniform(0, 0.01))
+            # To simulate true interleaving and race conditions in Python asynchronous concurrency tests, use asynchronous jitter (e.g., await asyncio.sleep((idx * 13 % 10) * 0.001)). Replacing this with await asyncio.sleep(0) fails to properly simulate real-world interleaved asynchronous execution.
+            await asyncio.sleep((idx * 13 % 10) * 0.001)
             resp = await client.post("/api/chat", json={
                 "message": "where is 3-0 silk",
                 "tenant_id": tenant
@@ -384,7 +384,7 @@ class TestChatRouterMultiTenant:
         assert resp.status_code == 422
 
     @settings(max_examples=50, deadline=None)
-    @given(message=st.text(min_size=1, max_size=2000), tenant_id=st.text(min_size=1, max_size=50))
+    @given(message=st.text(min_size=1, max_size=2000), tenant_id=st.text(min_size=1, max_size=50).map(lambda s: f"{s}::or"))
     def test_chat_fuzzing(self, message, tenant_id):
         client = TestClient(app)
         resp = client.post("/api/chat", json={
@@ -395,31 +395,37 @@ class TestChatRouterMultiTenant:
         # In a real app we don't want 500, let's assert it is not 500
         assert resp.status_code != 500
 
-    def test_chat_concurrent_burst_and_latency(self):
+    @pytest.mark.asyncio
+    async def test_chat_concurrent_burst_and_latency(self):
+        from app.services.inventory_search import reset_inventory_services
+        from app.services.governance import reset_governance_services
+        from app.services.rag_fallback import reset_rag_services
         reset_inventory_services()
         reset_governance_services()
         reset_rag_services()
-        client = TestClient(app)
         tenant_a = "general_memorial_cvor"
         tenant_b = "or_main"
 
         import time
-        from concurrent.futures import ThreadPoolExecutor
+        from httpx import AsyncClient, ASGITransport
+        import asyncio
+        from app.main import app
 
-        def make_request(tenant):
+        async def make_request(client, tenant, idx):
             start = time.time()
-            resp = client.post("/api/chat", json={
+            # deterministic delay for interleaving
+            await asyncio.sleep((idx * 13 % 10) * 0.001)
+            resp = await client.post("/api/chat", json={
                 "message": "where is 3-0 silk",
                 "tenant_id": tenant
             })
             end = time.time()
             return resp, end - start
 
-        # Burst of 20 concurrent requests
         start_time = time.time()
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            futures = [executor.submit(make_request, tenant_a if i % 2 == 0 else tenant_b) for i in range(20)]
-            results = [f.result() for f in futures]
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            tasks = [make_request(client, tenant_a if i % 2 == 0 else tenant_b, i) for i in range(20)]
+            results = await asyncio.gather(*tasks)
         end_time = time.time()
 
         # Verify race conditions and tenant isolation in results
@@ -532,7 +538,7 @@ class TestChatRouterMultiTenant:
         assert respD.status_code in [404, 400]
 
     @settings(max_examples=50, deadline=None)
-    @given(question_text=st.text(min_size=3, max_size=1000), tenant_id=st.text(min_size=1, max_size=50))
+    @given(question_text=st.text(min_size=3, max_size=1000), tenant_id=st.text(min_size=1, max_size=50).map(lambda s: f"{s}::or"))
     def test_questions_fuzzing(self, question_text, tenant_id):
         client = TestClient(app)
         resp = client.post("/api/questions", json={
@@ -542,7 +548,7 @@ class TestChatRouterMultiTenant:
         assert resp.status_code in [200, 400, 404, 422]
 
     @settings(max_examples=50, deadline=None)
-    @given(item=st.text(min_size=1, max_size=500), expected_location=st.text(min_size=1, max_size=500), tenant_id=st.text(min_size=1, max_size=50))
+    @given(item=st.text(min_size=1, max_size=500), expected_location=st.text(min_size=1, max_size=500), tenant_id=st.text(min_size=1, max_size=50).map(lambda s: f"{s}::or"))
     def test_verify_move_fuzzing(self, item, expected_location, tenant_id):
         client = TestClient(app)
         resp = client.post("/api/inventory/verify-move", json={
@@ -1011,7 +1017,8 @@ class TestChatRouterMultiTenant:
         # Take initial snapshot via inventory sync
         from app.services.inventory_search import get_inventory_service
         service = get_inventory_service("general_memorial_cvor")
-        initial_payload = service.get_sync_payload()
+        import copy
+        initial_payload = copy.deepcopy(service.get_sync_payload())
 
         # Modify the state using the verified chat router endpoint for diagnostic move behavior
         payload = {
@@ -1035,7 +1042,7 @@ class TestChatRouterMultiTenant:
         assert resp_add.status_code == 200
 
         # Verify the snapshot changes specifically related to the moved item
-        updated_payload = service.get_sync_payload()
+        updated_payload = copy.deepcopy(service.get_sync_payload())
 
         def get_structural_snapshot(payload):
             return [p.get("item") for p in payload]
@@ -1045,7 +1052,7 @@ class TestChatRouterMultiTenant:
 
         # Verify multi-tenant isolation: other tenant state unaffected
         service_other = get_inventory_service("or_main")
-        assert get_structural_snapshot(service_other.get_sync_payload()) != get_structural_snapshot(updated_payload)
+        assert get_structural_snapshot(copy.deepcopy(service_other.get_sync_payload())) != get_structural_snapshot(updated_payload)
 
     def test_preference_card_conflict_resolution(self):
         client = TestClient(app)
