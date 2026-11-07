@@ -1019,8 +1019,10 @@ class TestVoiceRouter:
             assert resp.status_code == 200
             data = resp.json()
             normalized_tenant = expected_tenant.strip().lower()
-            assert f"{normalized_tenant} " in data["transcript"].strip().lower() + " "
-            assert f"{normalized_tenant} " in data["safe_transcript"].strip().lower() + " "
+
+            assert data["transcript"].strip().lower().endswith(normalized_tenant) or f"{normalized_tenant} " in data["transcript"].strip().lower()
+            assert data["safe_transcript"].strip().lower().endswith(normalized_tenant) or f"{normalized_tenant} " in data["safe_transcript"].strip().lower()
+
             latencies.append(latency)
 
         avg_latency = sum(latencies) / len(latencies)
