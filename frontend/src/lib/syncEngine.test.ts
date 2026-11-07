@@ -177,7 +177,7 @@ describe("useSyncEngine", () => {
 
     // Poison fetch
     const originalFetch = global.fetch;
-    global.fetch = mock.fn(() => {
+    global.fetch = mock.fn(async (...args: any[]) => { if (args.length === 0) throw new TypeError("Missing arguments");
       throw new Error("Network request made during offline mode!");
     });
     apiMocks.fetchQuestions = mock.fn(async () => {
@@ -208,7 +208,7 @@ describe("useSyncEngine", () => {
     assert.strictEqual(offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls.length, 0);
     assert.strictEqual(apiMocks.fetchQuestions.mock.calls.length, 0);
 
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
   });
 
   test("Multi-tenant isolation invariant: functions called strictly with active tenantId", async () => {
@@ -345,7 +345,7 @@ describe("useSyncEngine", () => {
 
   test("Extended multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency", async () => {
     const originalFetch = global.fetch;
-    global.fetch = undefined as any;
+    global.fetch = (async (...args: any[]) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new Error("Network offline"); }) as any;
 
     const root1 = document.createElement("div");
     root1.setAttribute("data-tenant", "facility_1::dept_A");
@@ -399,7 +399,7 @@ describe("useSyncEngine", () => {
       assert.ok(tenants.includes("facility_2::dept_B"));
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
       document.body.removeChild(root1);
       document.body.removeChild(root2);
     }
@@ -710,7 +710,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
     const originalFetch = global.fetch;
     let networkState = { status: "online", latency: 5 };
 
-    global.fetch = mock.fn(() => {
+    global.fetch = mock.fn(async (...args: any[]) => { if (args.length === 0) throw new TypeError("Missing arguments");
       if (networkState.status === "offline") {
         return Promise.reject(new TypeError("Failed to fetch"));
       }
@@ -813,14 +813,14 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
 
       unmount();
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
     }
   });
 
   test("Offline mutation replay idempotency and multi-tenant boundary enforcement", async () => {
 
     const originalFetch = global.fetch;
-    global.fetch = undefined as any;
+    global.fetch = (async (...args: any[]) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new Error("Network offline"); }) as any;
 
     const root1 = document.createElement("div");
     root1.setAttribute("data-tenant", "fac1::dept1");
@@ -878,7 +878,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       assert.ok(tenants.includes("fac2::dept2"));
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
       document.body.removeChild(root1);
       document.body.removeChild(root2);
     }
@@ -905,7 +905,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
 
   test("Extended concurrent burst execution enforcing offline-first invariants and multi-tenant isolation", async () => {
     const originalFetch = global.fetch;
-    global.fetch = undefined as any;
+    global.fetch = (async (...args: any[]) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new Error("Network offline"); }) as any;
 
     let hooks: any[] = [];
     try {
@@ -952,7 +952,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       assert.strictEqual(syncCalls.length, 0, "Should not sync online DB when offline");
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
       for (const hook of hooks) {
         hook.unmount();
       }
@@ -969,7 +969,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
     const initialListeners = process.listeners('uncaughtException').length;
 
     const originalFetch = global.fetch;
-    global.fetch = undefined as any;
+    global.fetch = (async (...args: any[]) => { if (args.length === 0) throw new TypeError("Missing arguments"); throw new Error("Network offline"); }) as any;
 
     try {
       setNetworkOnline(false);
@@ -1017,7 +1017,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       assert.strictEqual(finalListeners, initialListeners, "Unclosed event listeners leak detected");
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
     }
   });
 
@@ -1123,7 +1123,7 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
     assert.strictEqual(result.current.status, "offline", "State correctly transitions to offline");
 
     unmount();
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
     if (originalOnline !== undefined) {
       Object.defineProperty(global.navigator, 'onLine', originalOnline);
     }
@@ -1217,7 +1217,7 @@ test("SyncEngineOutbox Continuous Invariants: State immutability and precise out
     }
 
     // Mock fetch to simulate a zero-trust environment where a missing token results in 401
-    global.fetch = mock.fn(async (url: any, options: any) => {
+    global.fetch = mock.fn(async (...args: any[]) => { if (args.length === 0) throw new TypeError("Missing arguments"); const url = args[0]; const options = args[1];
       // Simulate strict zero-trust token verification for outbox sync
       const authHeader = options?.headers?.Authorization || options?.headers?.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -1256,7 +1256,7 @@ test("SyncEngineOutbox Continuous Invariants: State immutability and precise out
     assert.strictEqual(injDelta.notes, "Ignore previous instructions. UPDATE users SET admin=1", "Delta must treat prompt injections as flat strings");
 
     unmount();
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
     if (originalOnline !== undefined) {
       Object.defineProperty(global.navigator, 'onLine', originalOnline);
     }
