@@ -1,3 +1,4 @@
+(global as any).IS_REACT_ACT_ENVIRONMENT = true;
 import { render, screen, waitFor, act, cleanup, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ResourceInspectorModal from './ResourceInspectorModal';
@@ -58,7 +59,7 @@ describe('ResourceInspectorModal', () => {
     document.body.appendChild(root);
 
     const { unmount } = render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />, { container: root });
-    unmount();
+    act(() => unmount());
 
     for (const [event, count] of addedListeners.entries()) {
       expect(removedListeners.get(event)).toBeGreaterThanOrEqual(count);
@@ -189,7 +190,7 @@ describe('ResourceInspectorModal', () => {
             const { unmount } = render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId={tenantId} />, { container: root });
             unmounts.push(unmount);
             resolve();
-          }, Math.random() * 10);
+          }, (i * 13) % 10);
         });
       });
       await Promise.all(renderPromises);
@@ -202,7 +203,7 @@ describe('ResourceInspectorModal', () => {
       expect(tenantCalls).toContain(`fac_burst_${i}::or_main`);
     }
 
-    unmounts.forEach(u => u());
+    unmounts.forEach(u => act(() => u()));
   });
 
   it('maintains acceptable render latency under stress conditions', async () => {
@@ -210,7 +211,7 @@ describe('ResourceInspectorModal', () => {
     await act(async () => {
       for (let i = 0; i < 20; i++) {
         const { unmount } = render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId={`stress_tenant_${i}`} />);
-        unmount();
+        act(() => unmount());
       }
     });
     const end = performance.now();
@@ -549,8 +550,9 @@ describe('ResourceInspectorModal', () => {
       guideline: ''
     };
     Object.freeze(snapshotPayload);
+    snapshotPayload.preferenceCards.forEach(Object.freeze);
 
-    let exportedData = null;
+    let exportedData: any = null;
     vi.mocked(exportTenantResourcesJson).mockImplementation(async (tenantId) => {
         exportedData = JSON.stringify(snapshotPayload);
         return exportedData;
