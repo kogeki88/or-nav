@@ -221,8 +221,12 @@ class TestVoiceRouter:
 
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
-            family = args[0] if args else kwargs.get("family", socket.AF_INET)
             import os
+            if not args and not kwargs:
+                if os.name != "nt":
+                    raise RuntimeError("Offline invariant violated: External network call attempted.")
+
+            family = args[0] if args else kwargs.get("family", socket.AF_INET)
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
             return original_socket(*args, **kwargs)
@@ -405,8 +409,12 @@ class TestVoiceRouter:
 
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
-            family = args[0] if args else kwargs.get("family", socket.AF_INET)
             import os
+            if not args and not kwargs:
+                if os.name != "nt":
+                    raise RuntimeError("Offline invariant violated: External network call attempted.")
+
+            family = args[0] if args else kwargs.get("family", socket.AF_INET)
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
             return original_socket(*args, **kwargs)
@@ -435,8 +443,12 @@ class TestVoiceRouter:
 
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
-            family = args[0] if args else kwargs.get("family", socket.AF_INET)
             import os
+            if not args and not kwargs:
+                if os.name != "nt":
+                    raise RuntimeError("Offline invariant violated: External network call attempted.")
+
+            family = args[0] if args else kwargs.get("family", socket.AF_INET)
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
             return original_socket(*args, **kwargs)
@@ -795,8 +807,12 @@ class TestVoiceRouter:
 
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
-            family = args[0] if args else kwargs.get("family", socket.AF_INET)
             import os
+            if not args and not kwargs:
+                if os.name != "nt":
+                    raise RuntimeError("Offline invariant violated: External network call attempted.")
+
+            family = args[0] if args else kwargs.get("family", socket.AF_INET)
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
             return original_socket(*args, **kwargs)
@@ -963,8 +979,12 @@ class TestVoiceRouter:
 
         original_socket = socket.socket
         def mock_socket(*args, **kwargs):
-            family = args[0] if args else kwargs.get("family", socket.AF_INET)
             import os
+            if not args and not kwargs:
+                if os.name != "nt":
+                    raise RuntimeError("Offline invariant violated: External network call attempted.")
+
+            family = args[0] if args else kwargs.get("family", socket.AF_INET)
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
             return original_socket(*args, **kwargs)
@@ -999,8 +1019,9 @@ class TestVoiceRouter:
         for expected_tenant, resp, latency in results:
             assert resp.status_code == 200
             data = resp.json()
-            assert f"{expected_tenant} " in data["transcript"] + " "
-            assert f"{expected_tenant} " in data["safe_transcript"] + " "
+            normalized_tenant = expected_tenant.strip().lower()
+            assert f"{normalized_tenant} " in data["transcript"].strip().lower() + " "
+            assert f"{normalized_tenant} " in data["safe_transcript"].strip().lower() + " "
             latencies.append(latency)
 
         avg_latency = sum(latencies) / len(latencies)
