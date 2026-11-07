@@ -11,7 +11,11 @@ REST endpoints:
 """
 
 from datetime import datetime, timezone
-import fcntl
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
+import filelock
 from contextlib import contextmanager
 import json
 import os
@@ -32,12 +36,16 @@ def peer_qna_lock():
     lock_file = str(PEER_QUESTIONS_FILE) + ".lock"
     # Ensure directory exists
     PEER_QUESTIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with open(lock_file, "w") as f:
-        try:
-            fcntl.flock(f, fcntl.LOCK_EX)
+    if fcntl:
+        with open(lock_file, "w") as f:
+            try:
+                fcntl.flock(f, fcntl.LOCK_EX)
+                yield
+            finally:
+                fcntl.flock(f, fcntl.LOCK_UN)
+    else:
+        with filelock.FileLock(lock_file):
             yield
-        finally:
-            fcntl.flock(f, fcntl.LOCK_UN)
 
 
 # --- Data Models ---
