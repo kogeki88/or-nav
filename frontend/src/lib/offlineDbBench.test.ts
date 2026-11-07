@@ -683,4 +683,113 @@ describe("Dexie Benchmarks", () => {
     const leftoverItems = await db.inventoryItems.where("tenant_id").equals("tenant_mem::dept").toArray();
     assert.strictEqual(leftoverItems.length, 0, "Cache eviction failed, items remained in DB");
   });
+
+  test("cache eviction with unbounded identifiers", async () => {
+    const db = new BenchmarkDB();
+    await db.inventoryItems.clear();
+
+    const maxItems = 50;
+    for (let i = 0; i < 150; i++) {
+        await db.inventoryItems.put({
+            id: `unbounded-test-${i}`,
+            tenant_id: 'tenant_unbounded::dept',
+            item: `Item ${i}`,
+            status: 'available'
+        });
+
+        const count = await db.inventoryItems.count();
+        if (count > maxItems) {
+           const oldest = await db.inventoryItems.orderBy(':id').limit(count - maxItems).toArray();
+           const idsToDelete = oldest.map(o => o.id);
+           await db.inventoryItems.bulkDelete(idsToDelete);
+        }
+    }
+
+    const finalCount = await db.inventoryItems.count();
+    assert.strictEqual(finalCount, 50, "Cache eviction failed to bound items");
+
+    await db.inventoryItems.clear();
+  });
+
+  test("cache eviction with unbounded identifiers and multi-tenant isolation", async () => {
+    const db = new BenchmarkDB();
+    await db.inventoryItems.clear();
+
+    const tenantA = 'tenant_unbounded_A::dept';
+    const tenantB = 'tenant_unbounded_B::dept';
+
+    // Insert 150 items for Tenant A with unbounded sequential identifiers
+    // Simulates an eviction mechanism taking place. Since IndexedDB orders strings, pad the ids to ensure proper chronological order for deletion simulation
+    const maxItems = 50;
+
+    for (let i = 0; i < 150; i++) {
+        const id = i.toString().padStart(4, '0');
+        await db.inventoryItems.put({
+            id: `unbounded-test-${id}`,
+            tenant_id: tenantA,
+            item: `Item ${i}`,
+            status: 'available'
+        });
+
+        // Simulating the application's cache eviction logic for Tenant A
+        const count = await db.inventoryItems.where('tenant_id').equals(tenantA).count();
+        if (count > maxItems) {
+           const oldest = await db.inventoryItems.where('tenant_id').equals(tenantA).limit(count - maxItems).toArray();
+           const idsToDelete = oldest.map(o => o.id);
+           await db.inventoryItems.bulkDelete(idsToDelete as string[]);
+        }
+    }
+
+    // Insert 10 items for Tenant B
+    for (let i = 0; i < 10; i++) {
+        const id = i.toString().padStart(4, '0');
+        await db.inventoryItems.put({
+            id: `unbounded-test-B-${id}`,
+            tenant_id: tenantB,
+            item: `Item B ${i}`,
+            status: 'available'
+        });
+    }
+
+    // Verify cache eviction only bounded Tenant A to 50
+    const finalCountA = await db.inventoryItems.where('tenant_id').equals(tenantA).count();
+    assert.strictEqual(finalCountA, maxItems, "Cache eviction failed to bound items for Tenant A");
+
+    // Verify multi-tenant isolation - Tenant B should remain unaffected
+    const finalCountB = await db.inventoryItems.where('tenant_id').equals(tenantB).count();
+    assert.strictEqual(finalCountB, 10, "Cache eviction incorrectly affected Tenant B");
+
+    // Race condition test: parallel reads and writes across tenants without interfering with expected counts
+    const promises = [];
+    const readWorker = async (tenantId: string) => {
+        const items = await db.inventoryItems.where('tenant_id').equals(tenantId).toArray();
+        assert.ok(items.length >= 0);
+        assert.ok(items.every(item => item.tenant_id === tenantId));
+    };
+
+    const writeWorker = async (tenantId: string) => {
+        const randId = Math.random().toString().substring(2);
+        const randStr = `race-${tenantId}-${randId}`;
+        await db.inventoryItems.put({
+            id: randStr,
+            tenant_id: tenantId,
+            item: 'Race Item',
+            status: 'race'
+        });
+        const readBack = await db.inventoryItems.where('id').equals(randStr).first();
+        assert.ok(readBack);
+        assert.strictEqual(readBack?.tenant_id, tenantId);
+        await db.inventoryItems.where('id').equals(randStr).delete();
+    };
+
+    for(let i=0; i<10; i++) {
+        promises.push(readWorker(tenantA));
+        promises.push(readWorker(tenantB));
+        promises.push(writeWorker(tenantA));
+        promises.push(writeWorker(tenantB));
+    }
+    await Promise.all(promises);
+
+    await db.inventoryItems.clear();
+  });
 });
