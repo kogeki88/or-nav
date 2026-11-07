@@ -153,7 +153,7 @@ class TestChatRouterMultiTenant:
 
         def deep_clean(d):
             if isinstance(d, dict):
-                for field in ["latency_ms", "match_stage", "facility_aliases", "user_preferred_term", "facility_name", "last_verified_at", "verification_score", "status", "verify_count", "usageCount", "confidence", "usedByUsers", "updatedAt"]:
+                for field in ["latency_ms", "match_stage", "facility_aliases", "user_preferred_term", "facility_name", "last_verified_at", "verification_score", "usageCount", "confidence", "usedByUsers", "updatedAt"]:
                     if field in d:
                         del d[field]
                 for k, v in d.items():
@@ -479,7 +479,7 @@ class TestChatRouterMultiTenant:
 
         def deep_clean(d):
             if isinstance(d, dict):
-                for field in ["last_verified_at", "latency_ms", "verification_score", "status", "verify_count", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases"]:
+                for field in ["last_verified_at", "latency_ms", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases"]:
                     if field in d:
                         del d[field]
                 for k, v in d.items():
@@ -637,7 +637,7 @@ class TestChatRouterMultiTenant:
 
         def deep_clean(d):
             if isinstance(d, dict):
-                for field in ["last_verified_at", "latency_ms", "verification_score", "status", "verify_count", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases"]:
+                for field in ["last_verified_at", "latency_ms", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases"]:
                     if field in d:
                         del d[field]
                 for k, v in d.items():
@@ -686,7 +686,7 @@ class TestChatRouterMultiTenant:
 
         def deep_clean(d):
             if isinstance(d, dict):
-                for field in ["last_verified_at", "latency_ms", "verification_score", "status", "verify_count", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases"]:
+                for field in ["last_verified_at", "latency_ms", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases"]:
                     if field in d:
                         del d[field]
                 for k, v in d.items():
@@ -758,7 +758,7 @@ class TestChatRouterMultiTenant:
 
         def deep_clean(d):
             if isinstance(d, dict):
-                for field in ["last_verified_at", "latency_ms", "verification_score", "status", "verify_count", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases"]:
+                for field in ["last_verified_at", "latency_ms", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases"]:
                     if field in d:
                         del d[field]
                 for k, v in list(d.items()):
