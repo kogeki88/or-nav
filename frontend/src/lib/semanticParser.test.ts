@@ -291,7 +291,8 @@ test("Semantic Query Parser High-Concurrency & Stress Benchmarks", async (t) => 
         assert.strictEqual(res.parsed.intent, ClinicalIntent.FIND_INVENTORY);
         assert.strictEqual(res.parsed.entities.gauge, res.expectedGauge, `Race condition detected for ID ${res.id}`);
         // Ensure no data leaked from other concurrent parses (e.g. no array concatenation or shared objects)
-        assert.ok(!res.parsed.entities.item?.includes((res.id + 1).toString() + '-'), `Data leakage detected from ID ${res.id + 1} into ${res.id}`);
+        const nextId = (res.id + 1).toString();
+        assert.ok(!new RegExp('\\b' + nextId + '\\b').test(res.parsed.entities.item || ''), `Data leakage detected from ID ${nextId} into ${res.id}`);
       }
 
       // Latency benchmark
@@ -479,7 +480,7 @@ test("Semantic Query Parser Network Resilience & Fault Injection", async (t) => 
       assert.ok(duration < 50, `Parser blocked by network mock! Took ${duration}ms`);
 
       // Self-healing reconnection: After mock is restored, parser should still work
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else global.fetch = originalFetch;
       if (originalXHR === undefined) delete (global as any).XMLHttpRequest; else (global as any).XMLHttpRequest = originalXHR;
 
       const q4 = parseClinicalIntent("where is the 3-0 silk");
@@ -537,14 +538,10 @@ test("Semantic Query Parser Memory Profiling & Resource Hardening", async (t) =>
     );
 
     let parsedCount = 0;
-    try {
-      for (const query of uniqueLargeQueries) {
-        const res = parseClinicalIntent(query);
-        assert.strictEqual(res.intent, ClinicalIntent.MUTATE_INVENTORY);
-        parsedCount++;
-      }
-    } catch (err: any) {
-      assert.fail(`Out of memory or crash during large unique query processing: ${err.message}`);
+    for (const query of uniqueLargeQueries) {
+      const res = parseClinicalIntent(query);
+      assert.strictEqual(res.intent, ClinicalIntent.MUTATE_INVENTORY);
+      parsedCount++;
     }
 
     assert.strictEqual(parsedCount, 5000, "Not all queries were parsed successfully");
@@ -642,10 +639,9 @@ test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t)
 
     // Snapshot consistency check
     const customCloneRes = customClone(res);
-    const frozenState = Object.freeze(customCloneRes);
-    if (frozenState.entities) Object.freeze(frozenState.entities);
-    if (frozenState.disambiguation_options) Object.freeze(frozenState.disambiguation_options);
-    const expected = frozenState;
+    if (customCloneRes.entities) Object.freeze(customCloneRes.entities);
+    if (customCloneRes.disambiguation_options) Object.freeze(customCloneRes.disambiguation_options);
+    const expected = Object.freeze(customCloneRes);
     const res2 = parseClinicalIntent(query);
     assert.deepStrictEqual(res2, expected, "Clinical state snapshot must remain perfectly consistent across identical parses without identical references");
   });
