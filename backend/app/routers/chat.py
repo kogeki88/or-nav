@@ -186,8 +186,11 @@ class VerifyMoveRequest(BaseModel):
     @classmethod
     def sanitize_html(cls, v):
         if isinstance(v, str):
-            if "<script" in v.lower():
+            lower_v = v.lower()
+            if "<script" in lower_v:
                 raise ValueError("Payload contains forbidden HTML/Script tags")
+            if any(sql in lower_v for sql in ["drop table", "insert into", "select *", "union all"]):
+                raise ValueError("Payload contains forbidden SQL injection patterns")
         return v
 
 class VerifyMoveResponse(BaseModel):
@@ -214,8 +217,11 @@ class FlagWrongRequest(BaseModel):
     @classmethod
     def sanitize_html(cls, v):
         if isinstance(v, str):
-            if "<script" in v.lower():
+            lower_v = v.lower()
+            if "<script" in lower_v:
                 raise ValueError("Payload contains forbidden HTML/Script tags")
+            if any(sql in lower_v for sql in ["drop table", "insert into", "select *", "union all"]):
+                raise ValueError("Payload contains forbidden SQL injection patterns")
         return v
 
 class CreateQuestionRequest(BaseModel):
@@ -228,8 +234,11 @@ class CreateQuestionRequest(BaseModel):
     @classmethod
     def sanitize_html(cls, v):
         if isinstance(v, str):
-            if "<script" in v.lower():
+            lower_v = v.lower()
+            if "<script" in lower_v:
                 raise ValueError("Payload contains forbidden HTML/Script tags")
+            if any(sql in lower_v for sql in ["drop table", "insert into", "select *", "union all"]):
+                raise ValueError("Payload contains forbidden SQL injection patterns")
         return v
 
 class AnswerQuestionRequest(BaseModel):

@@ -62,3 +62,11 @@ def test_peer_create_question_request_fuzzing_extended():
         PeerCreateQuestionRequest(tenant_id="valid", question_text="Valid", role="<script>alert(1)</script>")
     with pytest.raises(ValidationError):
         PeerCreateQuestionRequest(tenant_id="valid", question_text="Valid", idempotency_key="<script>alert(1)</script>")
+
+def test_sql_injection_rejection():
+    with pytest.raises(ValidationError):
+        VerifyMoveRequest(tenant_id="valid", item="DROP TABLE items")
+    with pytest.raises(ValidationError):
+        FlagWrongRequest(tenant_id="valid", item="Valid", reason="UNION ALL SELECT")
+    with pytest.raises(ValidationError):
+        ChatCreateQuestionRequest(tenant_id="valid", question_text="SELECT * FROM test")

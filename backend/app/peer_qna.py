@@ -80,8 +80,11 @@ class CreateQuestionRequest(BaseModel):
     @classmethod
     def sanitize_html(cls, v):
         if isinstance(v, str):
-            if "<script" in v.lower():
+            lower_v = v.lower()
+            if "<script" in lower_v:
                 raise ValueError("Payload contains forbidden HTML/Script tags")
+            if any(sql in lower_v for sql in ["drop table", "insert into", "select *", "union all"]):
+                raise ValueError("Payload contains forbidden SQL injection patterns")
         return v
 
     tenant_id: Optional[str] = Field(default=None, min_length=1, max_length=100, pattern=r"^[a-zA-Z0-9_\-\:]+$")
