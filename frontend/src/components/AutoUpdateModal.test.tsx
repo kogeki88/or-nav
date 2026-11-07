@@ -906,7 +906,8 @@ test('enforces deep state immutability to prevent invalid or separate-tenant tra
   };
 
   // Apply Object.freeze to ensure immutability and catch implicit mutations
-  const activeManifest = Object.freeze({ ...originalManifest });
+  const activeManifest = structuredClone(originalManifest);
+  Object.freeze(activeManifest);
 
   const root = document.createElement('div');
   root.setAttribute('data-tenant', 'tenant_freeze');
