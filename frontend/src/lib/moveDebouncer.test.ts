@@ -323,7 +323,7 @@ describe("moveDebouncer", () => {
 
     } finally {
       // Restore original fetch
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
 
@@ -400,7 +400,7 @@ describe("moveDebouncer", () => {
       assert.strictEqual(callCounts.get("tenant3::or"), 1);
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
 
@@ -470,7 +470,7 @@ describe("moveDebouncer", () => {
       assert.strictEqual(callCounts.get("facility1::deptA"), 3);
       assert.strictEqual(callCounts.get("facility2::deptB"), 2);
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
 
@@ -643,7 +643,7 @@ describe("moveDebouncer", () => {
 
     } finally {
       // Restore original fetch
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
 
@@ -685,7 +685,7 @@ describe("moveDebouncer", () => {
       assert.strictEqual(tenantB_items[0].state, "START");
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
 
@@ -728,7 +728,7 @@ describe("moveDebouncer", () => {
       assert.strictEqual(tenantB.action, "ADD");
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
   test("verifies isExecuting invariant prevents race conditions", async () => {
@@ -799,7 +799,7 @@ describe("moveDebouncer", () => {
         }
       }
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) delete (global as any).fetch; else (global as any).fetch = originalFetch;
     }
   });
 
@@ -828,5 +828,75 @@ describe("moveDebouncer", () => {
     // Structural assertions against explicit deep clones to prevent tautologies
     assert.deepStrictEqual(receivedItems[0], frozenState);
     // Since moveDebouncer stores the reference, we must pass the explicit deep clone to it and assert against another deep clone, or just use the clone.
+  });
+
+
+  test("continuous data stream structural immutability invariants and isolated execution context", async () => {
+    const receivedItems: any[] = [];
+    const debouncer = createMoveDebouncer((items: any[]) => {
+      receivedItems.push(...items);
+    }, 20);
+
+    const inputData = [
+      { tenant_id: "hospital_a::ward_1", type: "UPDATE", timestamp: 100 },
+      { tenant_id: "hospital_b::ward_2", type: "DELETE", timestamp: 200 }
+    ];
+
+    // Create deep frozen copies to enforce immutability
+    const frozenInput = inputData.map(item => Object.freeze(structuredClone(item)));
+    Object.freeze(frozenInput);
+
+    // Feed continuous stream
+    for (const item of frozenInput) {
+      debouncer(item);
+    }
+
+    await sleep(50);
+
+    assert.strictEqual(receivedItems.length, 2);
+
+    // Verify structural immutability invariant:
+    // The items pushed into the debouncer MUST remain exactly identical structurally
+    // without any side-effects or reference mutation from the debouncing process itself.
+    assert.deepStrictEqual(receivedItems[0], frozenInput[0]);
+    assert.deepStrictEqual(receivedItems[1], frozenInput[1]);
+
+    // Also verify strict equality if the debouncer preserves object references
+    assert.strictEqual(receivedItems[0], frozenInput[0]);
+    assert.strictEqual(receivedItems[1], frozenInput[1]);
+  });
+
+  test("continuous race condition resilience: interleaving heavy overlapping bursts with distinct delays", async () => {
+    let callLog: any[] = [];
+
+    // We will track the specific execution bursts
+    const debouncer = createMoveDebouncer(async (items: any[]) => {
+      callLog.push({ count: items.length, ids: items.map(i => i.id) });
+      await sleep(30); // Simulate slow processing
+    }, 15);
+
+    debouncer({ id: "burst1_A" });
+    debouncer({ id: "burst1_B" });
+    await sleep(5);
+    debouncer({ id: "burst1_C" }); // Still in window 1
+
+    // Window 1 fires around 15ms. It takes 30ms to process, so it finishes at ~45ms.
+    await sleep(20);
+    // Now at ~25ms. Window 1 is currently processing.
+
+    // This burst happens while isExecuting is true
+    debouncer({ id: "burst2_A" });
+    debouncer({ id: "burst2_B" });
+
+    // Wait until Window 1 definitely finishes (at ~45ms)
+    // Then Window 2 should be flushed because it was queued
+    await sleep(60);
+
+    assert.strictEqual(callLog.length, 2);
+    assert.strictEqual(callLog[0].count, 3);
+    assert.deepStrictEqual(callLog[0].ids, ["burst1_A", "burst1_B", "burst1_C"]);
+
+    assert.strictEqual(callLog[1].count, 2);
+    assert.deepStrictEqual(callLog[1].ids, ["burst2_A", "burst2_B"]);
   });
 });
