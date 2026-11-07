@@ -729,14 +729,20 @@ describe("Departments Configuration and Lookups", () => {
 
   describe("Clinical State Snapshot Consistency", () => {
     test("freezes baseline state and verifies structural consistency post-mutation via deep copy", () => {
+      const customClone = typeof structuredClone === 'function' ? structuredClone : (val: any) => JSON.parse(JSON.stringify(val));
+
       // Set initial clinical state
       setActiveDepartmentId("pacu_periop");
 
       // Freeze baseline using deepcopy equivalent for state snapshot consistency
-      const baselineState = Object.freeze(structuredClone({
+      const baselineClone = customClone({
         activeDept: getActiveDepartmentId(),
         deptDef: getDepartment(getActiveDepartmentId())
-      }));
+      });
+      baselineClone.deptDef.starterPrompts.forEach(Object.freeze);
+      Object.freeze(baselineClone.deptDef.starterPrompts);
+      Object.freeze(baselineClone.deptDef);
+      const baselineState = Object.freeze(baselineClone);
 
       // Perform state mutations (simulating a clinical session workflow)
       setActiveDepartmentId("er_trauma");
@@ -749,10 +755,14 @@ describe("Departments Configuration and Lookups", () => {
       setActiveDepartmentId("pacu_periop");
 
       // Extract post-mutation snapshot
-      const postMutationState = Object.freeze(structuredClone({
+      const postMutationClone = customClone({
         activeDept: getActiveDepartmentId(),
         deptDef: getDepartment(getActiveDepartmentId())
-      }));
+      });
+      postMutationClone.deptDef.starterPrompts.forEach(Object.freeze);
+      Object.freeze(postMutationClone.deptDef.starterPrompts);
+      Object.freeze(postMutationClone.deptDef);
+      const postMutationState = Object.freeze(postMutationClone);
 
       // Structural comparison against baseline
       assert.deepStrictEqual(postMutationState, baselineState, "Clinical state snapshot structural comparison failed after mutation cycle");
