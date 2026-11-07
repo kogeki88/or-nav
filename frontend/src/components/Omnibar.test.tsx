@@ -672,12 +672,12 @@ test('high-concurrency burst execution, race conditions, latency, and multi-tena
     await Promise.all(
       inputs.map(async (input, i) => {
         // Yield to event loop to simulate true concurrency and micro-jitters
-        await new Promise(r => setTimeout(r, Math.random() * 10));
+        await new Promise(r => setTimeout(r, (i * 13) % 10));
 
         const payload = `tenant ${i} burst message`;
         fireEvent.change(input, { target: { value: payload } });
 
-        await new Promise(r => setTimeout(r, Math.random() * 5));
+        await new Promise(r => setTimeout(r, (i * 7) % 5));
         fireEvent.click(submitBtns[i]);
       })
     );
@@ -748,9 +748,9 @@ test('supplementary benchmark: additional high-concurrency burst execution verif
     const startTime = performance.now();
     await Promise.all(
       inputs.map(async (input, i) => {
-        await new Promise(r => setTimeout(r, Math.random() * 5));
+        await new Promise(r => setTimeout(r, (i * 7) % 5));
         fireEvent.change(input, { target: { value: `supp tenant ${i}` } });
-        await new Promise(r => setTimeout(r, Math.random() * 2));
+        await new Promise(r => setTimeout(r, (i * 3) % 2));
         fireEvent.click(submitBtns[i]);
       })
     );
@@ -1016,7 +1016,7 @@ test('clinical state snapshot consistency & deterministic state transition matri
     assert.strictEqual(input.value, 'Surgeon preference card update: Dr. Smith needs 2.0 prolene');
 
     // Take snapshot of the current text value for structural comparison using Deepcopy/JSON serialization
-    const stateSnapshot = structuredClone({ value: input.value });
+    const stateSnapshot = Object.freeze(structuredClone({ value: input.value }));
     assert.deepStrictEqual(stateSnapshot, { value: 'Surgeon preference card update: Dr. Smith needs 2.0 prolene' });
 
     // Submit the form
@@ -1055,7 +1055,10 @@ test('Omnibar: Concurrency, multi-tenant isolation, and offline mutation invaria
   document.body.appendChild(root2);
 
   const tempFetch = global.fetch;
-  global.fetch = mock.fn(() => Promise.reject(new TypeError("Failed to fetch")));
+  global.fetch = mock.fn((...args) => {
+    if (args.length === 0) throw new TypeError("Missing arguments");
+    return Promise.reject(new TypeError("Failed to fetch"));
+  });
 
   try {
     const onSendMessage1 = mock.fn();
@@ -1072,7 +1075,7 @@ test('Omnibar: Concurrency, multi-tenant isolation, and offline mutation invaria
     // Simulate concurrent burst across isolated tenants
     const numWorkers = 50;
     const burstOperations = Array.from({ length: numWorkers }).map((_, i) => {
-      return new Promise(r => setTimeout(r, Math.random() * 10)).then(() => {
+      return new Promise(r => setTimeout(r, (i * 13) % 10)).then(() => {
         // Tenant 1
         fireEvent.change(input1, { target: { value: `Tenant ${tenant1} msg ${i}::` } });
         fireEvent.click(submitBtn1);
