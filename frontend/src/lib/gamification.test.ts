@@ -136,8 +136,8 @@ test("Gamification Engine", async (t) => {
     assert.equal(loadedRewards.xp, 50);
   });
   await t.test("enforces multi-tenant isolation by user ID", () => {
-    const user1 = "tenant_A_user_1";
-    const user2 = "tenant_B_user_2";
+    const user1 = "tenant_A_user_1::or";
+    const user2 = "tenant_B_user_2::or";
 
     awardClinicalXP("lookup", undefined, user1);
     awardClinicalXP("peer_answer", undefined, user2);
@@ -201,7 +201,7 @@ test("Gamification Engine", async (t) => {
 });
 
 test("resilient to malformed payloads and fuzzing", () => {
-  const user = "fuzz_user";
+  const user = "fuzz_user::or";
   (global as any).window = {
     dispatchEvent: () => true
   }; // Ensure logic triggers window-based localstorage
@@ -237,8 +237,8 @@ test("resilient to malformed payloads and fuzzing", () => {
 });
 
 test("concurrent burst execution, race condition resistance, and latency benchmarks", async () => {
-  const userA = "benchmark_user_latency_A";
-  const userB = "benchmark_user_latency_B";
+  const userA = "benchmark_user_latency_A::or";
+  const userB = "benchmark_user_latency_B::or";
 
   const NUM_AWARDS = 1000;
 
@@ -254,7 +254,7 @@ test("concurrent burst execution, race condition resistance, and latency benchma
           const targetUser = i % 2 === 0 ? userA : userB;
           awardClinicalXP("lookup", undefined, targetUser);
           resolve();
-        }, Math.random() * 5);
+        }, (i * 13) % 10);
       });
     })
   );
@@ -301,8 +301,8 @@ test("enforces offline mutation replay idempotency", () => {
 });
 
 test("enforces multi-tenant boundary isolation (facility_id::dept_id)", () => {
-  const tenant1 = "fac_ny::dept_er";
-  const tenant2 = "fac_ny::dept_icu";
+  const tenant1 = "fac_ny::dept_er::or";
+  const tenant2 = "fac_ny::dept_icu::or";
 
   awardClinicalXP("lookup", undefined, tenant1);
   awardClinicalXP("peer_answer", undefined, tenant2);
@@ -321,8 +321,8 @@ test("enforces multi-tenant boundary isolation (facility_id::dept_id)", () => {
 });
 
 test("fault injection, network partition degradation, intermittent latency, and self-healing reconnection", async () => {
-  const tenant1 = "fac_ny::dept_er";
-  const tenant2 = "fac_ny::dept_icu";
+  const tenant1 = "fac_ny::dept_er::or";
+  const tenant2 = "fac_ny::dept_icu::or";
 
   // 1. Fault Injection & Network Partition Degradation
   // Simulate offline state where localStorage throws (quota exceeded / disabled)
@@ -430,7 +430,7 @@ test("Memory Profiling & Resource Eviction Hardening: detects memory leaks, uncl
     };
 
     for (let i = 0; i < NUM_OPS; i++) {
-      const tenantId = `tenant_mem_${i % 5}`;
+      const tenantId = `tenant_mem_${i}::or`;
       // We use empty functions for event listener stubs instead of mock.fn() to avoid mock memory accumulation
       awardClinicalXP("lookup", undefined, tenantId, `mut_mem_${i}`);
     }
@@ -498,7 +498,7 @@ test("HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust t
     console.warn = () => {};
     // 1. HIPAA PHI / PII & Prompt Injection in Custom Labels
     maliciousPayloads.forEach((payload, idx) => {
-      const user = `user_phi_label_${idx}`;
+      const user = `user_phi_label_${idx}::or`;
       assert.doesNotThrow(() => {
         // We simulate that the label was potentially passed in from a speech-to-text or free text boundary
         awardClinicalXP("lookup", payload, user, `mut_phi_${idx}`);
@@ -522,7 +522,7 @@ test("HIPAA PII/PHI redaction verification, regex boundary attacks, zero-trust t
 
     // 3. Prompt Injection & Boundary Attacks on MutationId (Idempotency Key)
     maliciousPayloads.forEach((payload, idx) => {
-      const user = `user_mut_inj_${idx}`;
+      const user = `user_mut_inj_${idx}::or`;
 
       // Award first time
       assert.doesNotThrow(() => {
@@ -552,8 +552,8 @@ test("Deterministic State Transitions, Clinical Workflow Snapshot Consistency, a
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const assert = require("node:assert/strict");
 
-  const tenantA = "tenant_snapshot_A";
-  const tenantB = "tenant_snapshot_B";
+  const tenantA = "tenant_snapshot_A::or";
+  const tenantB = "tenant_snapshot_B::or";
 
   // Mock offline storage, but keep window so saves persist
   const tempLocalStorage = (global as any).localStorage;
@@ -603,7 +603,10 @@ test("Deterministic State Transitions, Clinical Workflow Snapshot Consistency, a
 
     // 2. Clinical State Snapshot Consistency
     // Use structured cloning strategy to freeze baseline for structural comparison
-    const snapshot = structuredClone(finalState);
+    const snapshot = Object.freeze(structuredClone(finalState));
+    Object.freeze(snapshot.stats);
+    Object.freeze(snapshot.dailyQuests);
+    snapshot.dailyQuests.forEach(Object.freeze);
     assert.deepEqual(snapshot.stats, finalState.stats);
     assert.deepEqual(snapshot.dailyQuests, finalState.dailyQuests);
 
