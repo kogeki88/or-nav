@@ -202,7 +202,7 @@ test("getFacilityIdFromTenant normalizes facility ID resolution", async (t) => {
                     const tenant = tenants[i % tenants.length];
 
                     // Simulate random micro-jitters using setTimeout to test race condition resistance
-                    await new Promise(r => setTimeout(r, Math.random() * 5));
+                    await new Promise(r => setTimeout(r, (i * 7) % 5));
 
                     return {
                         input: tenant,
@@ -586,7 +586,7 @@ test("Concurrent burst execution against synchronous storage", async (t) => {
         const promises = [];
         for (let i = 0; i < iterations; i++) {
             promises.push(
-                new Promise(r => setTimeout(r, Math.random() * 10)).then(() => {
+                new Promise(r => setTimeout(r, (i * 13) % 10)).then(() => {
                     return learnAliasClient(fac, "er", "scalpel", "blade_10", "user_" + i);
                 })
             );
@@ -687,7 +687,7 @@ test("Concurrent multi-tenant isolation burst execution", async (t) => {
         const promises = [];
         for (let idx = 0; idx < iterations; idx++) {
             promises.push(
-                new Promise(r => setTimeout(r, Math.random() * 10)).then(() => {
+                new Promise(r => setTimeout(r, (idx * 13) % 10)).then(() => {
                     // Use uniquely generated tenant identifiers for strict namespace isolation
                     const tenantId = `fac_burst_${idx}`;
                     return learnAliasClient(tenantId, "or", "clamp", `clamp_type_${idx}`, `worker${idx}::`);
