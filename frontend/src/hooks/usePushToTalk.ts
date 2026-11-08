@@ -22,6 +22,8 @@ export function usePushToTalk({
   const [isHoldingPTT, setIsHoldingPTT] = useState<boolean>(false);
   const [roomError, setRoomError] = useState<string | null>(null);
 
+  const pttOpRef = useRef<Promise<void>>(Promise.resolve());
+
   const roomRef = useRef<Room | null>(null);
 
   // 1. Check Voice Server Status on mount
@@ -118,26 +120,32 @@ export function usePushToTalk({
   const startPTT = useCallback(async () => {
     setIsHoldingPTT(true);
 
-    if (voiceMode === "LIVEKIT_WEBRTC" && roomRef.current?.localParticipant) {
-      try {
-        await roomRef.current.localParticipant.setMicrophoneEnabled(true);
-      } catch (err) {
-        console.error("Error enabling LiveKit microphone:", err);
+    pttOpRef.current = pttOpRef.current.then(async () => {
+      if (voiceMode === "LIVEKIT_WEBRTC" && roomRef.current?.localParticipant) {
+        try {
+          await roomRef.current.localParticipant.setMicrophoneEnabled(true);
+        } catch (err) {
+          console.error("Error enabling LiveKit microphone:", err);
+        }
       }
-    }
+    });
+    await pttOpRef.current;
   }, [voiceMode]);
 
   // 4. Push-to-Talk Release Handler
   const stopPTT = useCallback(async () => {
     setIsHoldingPTT(false);
 
-    if (voiceMode === "LIVEKIT_WEBRTC" && roomRef.current?.localParticipant) {
-      try {
-        await roomRef.current.localParticipant.setMicrophoneEnabled(false);
-      } catch (err) {
-        console.error("Error muting LiveKit microphone:", err);
+    pttOpRef.current = pttOpRef.current.then(async () => {
+      if (voiceMode === "LIVEKIT_WEBRTC" && roomRef.current?.localParticipant) {
+        try {
+          await roomRef.current.localParticipant.setMicrophoneEnabled(false);
+        } catch (err) {
+          console.error("Error muting LiveKit microphone:", err);
+        }
       }
-    }
+    });
+    await pttOpRef.current;
   }, [voiceMode]);
 
   const toggleVoiceMode = () => {

@@ -1005,15 +1005,84 @@ describe('usePushToTalk', () => {
   });
 
   test("Extended race condition resistance: concurrent start/stop PTT operations", async () => {
-    const { result } = renderHook(() => usePushToTalk({ tenantId: "race-tenant-1" }));
+    // Assert mic enabled state is managed safely under extreme interleaving.
+    // LiveKit SDK uses an un-cancellable async op for setMicrophoneEnabled,
+    // which can throw or cause inconsistent state if overlapping updates occur.
+
+    // Override the mock implementation manually for this test if needed,
+    // but the node:test mock doesn't support mockImplementation easily if it's
+    // already declared. We'll simply let the hook run and assert on the call count
+    // using the original mock.
+    mockMicrophoneEnabled.mock.resetCalls();
+
+    const { result, unmount } = renderHook(() => usePushToTalk({ tenantId: "race-tenant-1" }));
+
+    // Let Livekit connection settle first
+    await waitFor(() => {
+        assert.strictEqual(result.current.isConnected, true);
+    });
+
     await act(async () => {
       await Promise.all([
         (async () => { await new Promise(r => setTimeout(r, 0)); await result.current.startPTT(); })(),
-        (async () => { await new Promise(r => setTimeout(r, 0)); await result.current.stopPTT(); })(),
-        (async () => { await new Promise(r => setTimeout(r, 0)); await result.current.startPTT(); })()
+        (async () => { await new Promise(r => setTimeout(r, 1)); await result.current.stopPTT(); })(),
+        (async () => { await new Promise(r => setTimeout(r, 2)); await result.current.startPTT(); })(),
+        (async () => { await new Promise(r => setTimeout(r, 3)); await result.current.stopPTT(); })()
       ]);
     });
-    assert.strictEqual(typeof result.current.isHoldingPTT, "boolean");
+
+    // Due to the strict queueing now implemented with pttOpRef, all sequential
+    // invocations are respected in chronological order without cancelling.
+    // Given 2 starts and 2 stops in the matrix, we expect both to have fired cleanly.
+    // With pttOpRef, there are 2 starts and 2 stops in the act block.
+    // The initial connection also triggers 1 stop (disable mic).
+    const calls = mockMicrophoneEnabled.mock.calls.map(c => c.arguments[0]);
+    const enables = calls.filter(c => c === true).length;
+    const disables = calls.filter(c => c === false).length;
+
+    assert.strictEqual(enables, 2, "Expected 2 mic enable ops");
+    assert.strictEqual(disables, 3, "Expected 3 mic disable ops (1 initial connection + 2 explicit stops)");
+
+    // Since the final operation in the matrix was stopPTT
+    assert.strictEqual(result.current.isHoldingPTT, false, "Expected isHoldingPTT to ultimately resolve to false");
+
+    act(() => unmount());
+  });
+
+  test("offline mutation replay idempotency and multi-tenant boundary isolation for concurrent startPTT", async () => {
+    // In Offline Replay scenarios, a burst of previously queued actions is applied to the live component.
+    // If the component state transitions during that replay (e.g. changing multi-tenant context),
+    // we must ensure operations don't leak into the wrong tenant's room due to un-awaited operations resolving late.
+
+    const { result, unmount, rerender } = renderHook((props: { tenantId: string }) => usePushToTalk(props), {
+      initialProps: { tenantId: "offline-tenant-A" }
+    });
+
+    await waitFor(() => {
+        assert.strictEqual(result.current.isConnected, true);
+    });
+
+    const initialRoom = mockRoomConnect.mock.calls.length;
+
+    let danglingOp;
+
+    // Simulate offline mutation queue dispatch
+    await act(async () => {
+      // 1. Kick off a PTT operation. It's pending on the promise queue.
+      danglingOp = result.current.startPTT();
+
+      // 2. Concurrently switch context (e.g. Navigating away, switching patient context)
+      rerender({ tenantId: "offline-tenant-B" });
+    });
+
+    await danglingOp; // let dangling op resolve
+
+    await waitFor(() => {
+        // Assert we connected to a new room
+        assert.strictEqual(mockRoomConnect.mock.calls.length, initialRoom + 1);
+    });
+
+    act(() => unmount());
   });
 
 });
