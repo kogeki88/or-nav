@@ -130,15 +130,15 @@ test('ChatCanvas enforces multi-tenant isolation', async () => {
   const { container: containerA, unmount: unmountA } = render(
     <ChatCanvas messages={messagesTenantA} loading={false} tenantId="tenant_A" onVerifyPendingMove={async () => {}} />
   );
-  assert.ok(containerA.innerHTML.includes('TenantA_Item<'));
-  assert.ok(!containerA.innerHTML.includes('TenantB_Item<'));
+  assert.ok(new RegExp('\\bTenantA_Item<').test(containerA.innerHTML));
+  assert.ok(!new RegExp('\\bTenantB_Item<').test(containerA.innerHTML));
   act(() => { unmountA(); });
 
   const { container: containerB, unmount: unmountB } = render(
     <ChatCanvas messages={messagesTenantB} loading={false} tenantId="tenant_B" onVerifyPendingMove={async () => {}} />
   );
-  assert.ok(containerB.innerHTML.includes('TenantB_Item<'));
-  assert.ok(!containerB.innerHTML.includes('TenantA_Item<'));
+  assert.ok(new RegExp('\\bTenantB_Item<').test(containerB.innerHTML));
+  assert.ok(!new RegExp('\\bTenantA_Item<').test(containerB.innerHTML));
   act(() => { unmountB(); });
 });
 
@@ -203,7 +203,7 @@ test('ChatCanvas enforces offline-first invariants and idempotency', async () =>
     assert.strictEqual(savedCalls, 1);
 
   } finally {
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
   }
 });
 
@@ -289,6 +289,8 @@ test('ChatCanvas concurrent burst execution (race condition resistance & latency
 
       const latency = Date.now() - startTime;
 
+      await new Promise(r => setTimeout(r, 20));
+
       act(() => { unmount(); });
       return { btnFound: !!btn, latency };
     }));
@@ -306,7 +308,7 @@ test('ChatCanvas concurrent burst execution (race condition resistance & latency
     assert.strictEqual(savedCalls, 50, `Expected exactly 50 save calls but got ${savedCalls} under burst execution`);
 
   } finally {
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
   }
 });
 
@@ -358,15 +360,15 @@ test('ChatCanvas enforces multi-tenant boundary (facility_id::dept_id)', async (
   const { container: containerA, unmount: unmountA } = render(
     <ChatCanvas messages={messagesTenantA} loading={false} tenantId="facility1::dept1" onVerifyPendingMove={async () => {}} />
   );
-  assert.ok(containerA.innerHTML.includes('Fac1_Dept1_Item<'));
-  assert.ok(!containerA.innerHTML.includes('Fac2_Dept2_Item<'));
+  assert.ok(new RegExp('\\bFac1_Dept1_Item<').test(containerA.innerHTML));
+  assert.ok(!new RegExp('\\bFac2_Dept2_Item<').test(containerA.innerHTML));
   act(() => { unmountA(); });
 
   const { container: containerB, unmount: unmountB } = render(
     <ChatCanvas messages={messagesTenantB} loading={false} tenantId="facility2::dept2" onVerifyPendingMove={async () => {}} />
   );
-  assert.ok(containerB.innerHTML.includes('Fac2_Dept2_Item<'));
-  assert.ok(!containerB.innerHTML.includes('Fac1_Dept1_Item<'));
+  assert.ok(new RegExp('\\bFac2_Dept2_Item<').test(containerB.innerHTML));
+  assert.ok(!new RegExp('\\bFac1_Dept1_Item<').test(containerB.innerHTML));
   act(() => { unmountB(); });
 });
 
@@ -427,7 +429,7 @@ test('ChatCanvas enforces offline mutation replay idempotency with mocked offlin
     }
 
   } finally {
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
   }
 });
 
@@ -558,6 +560,8 @@ test('ChatCanvas ensures no unclosed event listeners (Node.js Process)', async (
   }
   cleanup();
 
+  await new Promise(resolve => setTimeout(resolve, 0));
+
   const finalWarningListeners = process.listeners('warning').length;
   const finalUncaughtExceptionListeners = process.listeners('uncaughtException').length;
   const finalUnhandledRejectionListeners = process.listeners('unhandledRejection').length;
@@ -649,7 +653,7 @@ test('ChatCanvas strictly enforces zero-trust token exchange and token validatio
     // Just testing that it renders and behaves properly with potentially missing tokens context.
     assert.ok(container.innerHTML.includes('Offline_Mutation_Item'));
   } finally {
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
   }
 });
 
@@ -755,7 +759,7 @@ test('ChatCanvas deterministic state transition matrices, preference card confli
     assert.strictEqual(html.length, reRenderedHtml.length, 'Deterministic state transition broken on re-render');
 
   } finally {
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) { delete (global as any).fetch; } else { global.fetch = originalFetch; }
   }
 });
 
