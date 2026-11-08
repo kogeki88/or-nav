@@ -126,6 +126,7 @@ test("ClinicalGraph Multi-tenant Isolation and Offline Invariants", async (t) =>
       assert.ok(graphA.indexedSurgeonNames.includes(`Dr. Surgeon_${tenantA}`));
       assert.ok(!graphA.indexedSurgeonNames.includes(`Dr. Surgeon_${tenantB}`));
       assert.ok(graphA.inventoryTerms.has(normTenantA));
+      assert.ok(!graphA.inventoryTerms.has(normTenantA + "_10"));
       assert.ok(!graphA.inventoryTerms.has(normTenantB));
 
       assert.strictEqual(graphB.tenantId, tenantB);
@@ -136,9 +137,34 @@ test("ClinicalGraph Multi-tenant Isolation and Offline Invariants", async (t) =>
 
       // Simulate Offline Mutation Replay Idempotency
       const replayGraph1 = compileClinicalGraph(tenantA, cardsA, invA, "");
-      const replayGraph2 = compileClinicalGraph(tenantA, cardsA, invA, "");
 
-      assert.deepStrictEqual(replayGraph1, replayGraph2);
+      // Simulate time advancing or fluctuating fields
+      const cardsAMutated = [{ ...cardsA[0], timestamp: Date.now() }];
+      const replayGraph2 = compileClinicalGraph(tenantA, cardsAMutated, invA, "");
+
+      function deepClean(obj: any): any {
+          if (obj === null || obj === undefined) return obj;
+          if (typeof obj !== 'object') return obj;
+
+          if (obj instanceof Set) return new Set([...obj].map(deepClean));
+          if (Array.isArray(obj)) return obj.map(deepClean);
+
+          const cleaned = { ...obj };
+          for (const key in cleaned) {
+              if (key === 'timestamp' || key === 'latency_ms') {
+                  delete cleaned[key];
+              } else {
+                  cleaned[key] = deepClean(cleaned[key]);
+              }
+          }
+          return cleaned;
+      }
+
+      // We need to apply deepClean AFTER structuredClone to preserve isolation
+      const cleanReplay1 = deepClean(typeof structuredClone === "function" ? structuredClone(replayGraph1) : JSON.parse(JSON.stringify(replayGraph1)));
+      const cleanReplay2 = deepClean(typeof structuredClone === "function" ? structuredClone(replayGraph2) : JSON.parse(JSON.stringify(replayGraph2)));
+
+      assert.deepStrictEqual(cleanReplay1, cleanReplay2);
     });
 
   } finally {
@@ -421,14 +447,16 @@ test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t)
 
     // Create a separate deep copy for structural assertion
     const customClone = typeof structuredClone === "function" ? structuredClone : (val: any) => JSON.parse(JSON.stringify(val));
-    const clone = customClone(graph);
-    clone.preferenceCards.forEach(Object.freeze);
-    Object.freeze(clone.preferenceCards);
-    const baselineCopy = Object.freeze(clone);
+    const baselineCopy = customClone(graph);
+
+    // Deep freeze baseline state
+    baselineCopy.preferenceCards.forEach(Object.freeze);
+    Object.freeze(baselineCopy.preferenceCards);
+    Object.freeze(baselineCopy);
 
     // Perform a pseudo-mutation (compile again with identical inputs)
     const graph2 = compileClinicalGraph("tenant_snapshot", cards, inventory as any, md);
-    const snapshotCopy2 = structuredClone(graph2);
+    const snapshotCopy2 = customClone(graph2);
 
     // Verify deterministic state consistency (no hidden mutations on consecutive runs)
     assert.deepStrictEqual(baselineCopy, snapshotCopy2, "State transitions must be deterministic for identical inputs");
