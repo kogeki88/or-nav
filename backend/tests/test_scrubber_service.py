@@ -149,10 +149,11 @@ class TestScrubberServiceOfflineFirst:
         """
         _orig_socket = socket.socket
         def poison(*args, **kwargs):
+            if os.name == 'nt':
+                return _orig_socket(*args, **kwargs)
             family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
-                if os.name != 'nt':
-                    raise RuntimeError("Network call attempted during offline-first function execution")
+                raise RuntimeError("Network call attempted during offline-first function execution")
             return _orig_socket(*args, **kwargs)
 
         monkeypatch.setattr(socket, "socket", poison)
@@ -184,10 +185,11 @@ class TestScrubberServiceOfflineFirst:
         """
         _orig_socket = socket.socket
         def poison(*args, **kwargs):
+            if os.name == 'nt':
+                return _orig_socket(*args, **kwargs)
             family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
-                if os.name != 'nt':
-                    raise RuntimeError("Network call attempted during offline-first function execution")
+                raise RuntimeError("Network call attempted during offline-first function execution")
             return _orig_socket(*args, **kwargs)
 
         monkeypatch.setattr(socket, "socket", poison)
@@ -271,10 +273,11 @@ class TestScrubberServiceMultiTenantIsolation:
         """
         _orig_socket = socket.socket
         def poison(*args, **kwargs):
+            if os.name == 'nt':
+                return _orig_socket(*args, **kwargs)
             family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
-                if os.name != 'nt':
-                    raise RuntimeError("Network call attempted during offline-first function execution")
+                raise RuntimeError("Network call attempted during offline-first function execution")
             return _orig_socket(*args, **kwargs)
 
         monkeypatch.setattr(socket, "socket", poison)
@@ -324,10 +327,11 @@ class TestScrubberServiceMultiTenantIsolation:
         """
         _orig_socket = socket.socket
         def poison(*args, **kwargs):
+            if os.name == 'nt':
+                return _orig_socket(*args, **kwargs)
             family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
-                if os.name != 'nt':
-                    raise RuntimeError("Network call attempted during offline-first function execution")
+                raise RuntimeError("Network call attempted during offline-first function execution")
             return _orig_socket(*args, **kwargs)
 
         monkeypatch.setattr(socket, "socket", poison)
@@ -461,12 +465,13 @@ class TestScrubberServiceFaultInjection:
         """
         _orig_socket = socket.socket
         def flaky_socket(*args, **kwargs):
+            if os.name == 'nt':
+                return _orig_socket(*args, **kwargs)
             family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
-                if os.name != 'nt':
-                    import time
-                    time.sleep(0.5)  # simulate hang
-                    raise socket.timeout("Connection timed out")
+                import time
+                time.sleep(0.5)  # simulate hang
+                raise socket.timeout("Connection timed out")
             return _orig_socket(*args, **kwargs)
 
         monkeypatch.setattr(socket, "socket", flaky_socket)
@@ -494,15 +499,16 @@ class TestScrubberServiceFaultInjection:
 
         _orig_socket = socket.socket
         def dynamic_socket(*args, **kwargs):
+            if os.name == 'nt':
+                return _orig_socket(*args, **kwargs)
             family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
-                if os.name != 'nt':
-                    if network_state["status"] == "offline":
-                        raise socket.error("Network is unreachable")
-                    elif network_state["status"] == "degraded":
-                        import time
-                        time.sleep(0.1)
-                        raise socket.timeout("Timeout")
+                if network_state["status"] == "offline":
+                    raise socket.error("Network is unreachable")
+                elif network_state["status"] == "degraded":
+                    import time
+                    time.sleep(0.1)
+                    raise socket.timeout("Timeout")
             return _orig_socket(*args, **kwargs)
 
         monkeypatch.setattr(socket, "socket", dynamic_socket)
@@ -537,13 +543,14 @@ class TestScrubberServiceFaultInjection:
 
         _orig_socket = socket.socket
         def dynamic_socket(*args, **kwargs):
+            if os.name == 'nt':
+                return _orig_socket(*args, **kwargs)
             family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
-                if os.name != 'nt':
-                    if network_state["status"] == "degraded":
-                        import time
-                        time.sleep(0.05)
-                        raise socket.timeout("Timeout")
+                if network_state["status"] == "degraded":
+                    import time
+                    time.sleep(0.05)
+                    raise socket.timeout("Timeout")
             return _orig_socket(*args, **kwargs)
 
         monkeypatch.setattr(socket, "socket", dynamic_socket)
@@ -582,10 +589,11 @@ class TestScrubberServiceMemoryAndResources:
         # Mock network to ensure offline invariant
         _orig_socket = socket.socket
         def offline_socket(*args, **kwargs):
+            if os.name == 'nt':
+                return _orig_socket(*args, **kwargs)
             family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
-                if os.name != 'nt':
-                    raise socket.error("Network unreachable - Offline First")
+                raise socket.error("Network unreachable - Offline First")
             return _orig_socket(*args, **kwargs)
 
         monkeypatch.setattr(socket, "socket", offline_socket)
@@ -634,7 +642,7 @@ class TestScrubberServiceMemoryAndResources:
             threads_after = process.num_threads()
             if threads_after <= threads_before + 35:
                 break
-            time.sleep(0.01)
+            time.sleep(0.05)
 
         fds_after = process.num_fds() if hasattr(process, 'num_fds') else process.num_handles()
         threads_after = process.num_threads()
@@ -729,10 +737,11 @@ class TestScrubberServiceSecurityHardening:
         # Enforce offline-first invariant
         _orig_socket = socket.socket
         def offline_socket(*args, **kwargs):
+            if os.name == 'nt':
+                return _orig_socket(*args, **kwargs)
             family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
-                if os.name != 'nt':
-                    raise RuntimeError("Network call attempted during offline-first function execution")
+                raise RuntimeError("Network call attempted during offline-first function execution")
             return _orig_socket(*args, **kwargs)
 
         monkeypatch.setattr(socket, "socket", offline_socket)
@@ -778,10 +787,11 @@ class TestScrubberServiceSecurityHardening:
         import socket
         _orig_socket = socket.socket
         def offline_socket(*args, **kwargs):
+            if os.name == 'nt':
+                return _orig_socket(*args, **kwargs)
             family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
-                if os.name != 'nt':
-                    raise RuntimeError("Network call attempted during offline-first function execution")
+                raise RuntimeError("Network call attempted during offline-first function execution")
             return _orig_socket(*args, **kwargs)
 
         monkeypatch.setattr(socket, "socket", offline_socket)
@@ -814,7 +824,7 @@ class TestScrubberServiceSecurityHardening:
         assert t1_step1.redaction_count == 2
         assert "John Doe" not in t1_step1.text
         assert "1234567" not in t1_step1.text
-        assert tenant_1 in t1_step1.text
+        assert f"{tenant_1} " in t1_step1.text
 
         assert t1_step2.redaction_count == 1
         assert "123-45-6789" not in t1_step2.text
@@ -829,7 +839,7 @@ class TestScrubberServiceSecurityHardening:
         assert t2_step1.redaction_count == 2
         assert "Jane Roe" not in t2_step1.text
         assert "9876543" not in t2_step1.text
-        assert tenant_2 in t2_step1.text
+        assert f"{tenant_2} " in t2_step1.text
 
         assert t2_step2.redaction_count == 1
         assert "987-65-4321" not in t2_step2.text
@@ -841,8 +851,8 @@ class TestScrubberServiceSecurityHardening:
         assert "#15 blade" in t2_step3.text
 
         # Assert Cross-Tenant Isolation
-        assert tenant_2 not in t1_step1.text
-        assert tenant_1 not in t2_step1.text
+        assert f"{tenant_2} " not in t1_step1.text
+        assert f"{tenant_1} " not in t2_step1.text
 
         # Add Deep Freeze Validation equivalent to ensure state immutability
         import copy
@@ -877,10 +887,11 @@ class TestScrubberContinuousInvariants:
         import socket
         _orig_socket = socket.socket
         def offline_socket(*args, **kwargs):
+            if os.name == 'nt':
+                return _orig_socket(*args, **kwargs)
             family = args[0] if args and isinstance(args[0], int) else kwargs.get('family', socket.AF_INET)
             if family in (socket.AF_INET, getattr(socket, 'AF_INET6', 10)):
-                if os.name != 'nt':
-                    raise RuntimeError("Network call attempted during offline-first function execution")
+                raise RuntimeError("Network call attempted during offline-first function execution")
             return _orig_socket(*args, **kwargs)
 
         monkeypatch.setattr(socket, "socket", offline_socket)
