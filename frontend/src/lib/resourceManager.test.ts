@@ -49,7 +49,8 @@ describe("ResourceManagerChecksum", () => {
     const pack = await resourceManager.installPack(packMeta);
     assert.strictEqual(pack.packId, "pack_security_test");
 
-    const items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac_sec::or").toArray();
+    const items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac_sec::").toArray();
+    assert.ok(items?.every(i => i.tenant_id === "fac_sec::or"));
     assert.ok(items && items.length > 0);
 
     // 1. Verify PHI/PII Redaction via normalizeClientQuery
@@ -243,7 +244,8 @@ describe("ResourceManagerChecksum", () => {
     assert.strictEqual(installed.length, 1);
     assert.strictEqual(installed[0].packId, "pack_1");
 
-    const items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    const items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac1::").toArray();
+    assert.ok(items?.every(i => i.tenant_id === "fac1::or"));
     assert.ok(items && items.length > 0);
     // Find Scalpel because offlineDb might be seeded with other items too
     const scalpel = items.find(i => i.item === "Scalpel");
@@ -566,8 +568,10 @@ describe("ResourceManagerChecksum", () => {
     });
 
     // 2. Verify multi-tenant isolation invariant (items for one tenant don't leak to another)
-    let itemsFac1 = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
-    let itemsFac2 = await offlineDb?.inventoryItems.where("tenant_id").equals("fac2::er").toArray();
+    let itemsFac1 = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac1::").toArray();
+    assert.ok(itemsFac1?.every(i => i.tenant_id === "fac1::or"));
+    let itemsFac2 = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac2::").toArray();
+    assert.ok(itemsFac2?.every(i => i.tenant_id === "fac2::er"));
 
     assert.ok(itemsFac1 && itemsFac1.some(i => i.item === "Scalpel"));
     assert.ok(itemsFac1 && !itemsFac1.some(i => i.item === "Forceps")); // No Fac2 data
@@ -594,12 +598,14 @@ describe("ResourceManagerChecksum", () => {
     });
 
     // Verify v2 is active and replaces v1 data
-    itemsFac1 = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    itemsFac1 = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac1::").toArray();
+    assert.ok(itemsFac1?.every(i => i.tenant_id === "fac1::or"));
     assert.ok(itemsFac1 && itemsFac1.some(i => i.item === "Scalpel"));
     assert.ok(itemsFac1 && itemsFac1.some(i => i.item === "Retractor"));
 
     // Verify Fac2 data is still isolated and untouched
-    itemsFac2 = await offlineDb?.inventoryItems.where("tenant_id").equals("fac2::er").toArray();
+    itemsFac2 = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac2::").toArray();
+    assert.ok(itemsFac2?.every(i => i.tenant_id === "fac2::er"));
     assert.ok(itemsFac2 && itemsFac2.some(i => i.item === "Forceps"));
     assert.ok(itemsFac2 && !itemsFac2.some(i => i.item === "Retractor"));
 
@@ -663,7 +669,8 @@ describe("ResourceManagerChecksum", () => {
     let installed = await resourceManager.getInstalledPacks();
     assert.strictEqual(installed.length, 1);
 
-    let items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac_del::or").toArray();
+    let items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac_del::").toArray();
+    assert.ok(items?.every(i => i.tenant_id === "fac_del::or"));
     assert.ok(items && items.length > 0);
 
     // We expect 1 item (Scalpel) from the CSV, plus whatever getSeedInventoryItems returned (143 items in or_main)
@@ -675,7 +682,8 @@ describe("ResourceManagerChecksum", () => {
     installed = await resourceManager.getInstalledPacks();
     assert.strictEqual(installed.length, 0);
 
-    items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac_del::or").toArray();
+    items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac_del::").toArray();
+    assert.ok(items?.every(i => i.tenant_id === "fac_del::or"));
 
     // Since we delete all tenant items in deletePack and rehydrate, it'll rehydrate from seeds (no scalpel)
     const scalpelAfter = items?.find(i => i.item === "Scalpel");
@@ -730,7 +738,8 @@ describe("ResourceManagerChecksum", () => {
     // Activation (Unpacking to Dexie)
     const count = await resourceManager.unpackInstalledPacksToDexie("fac1", "or");
     assert.ok(count !== undefined);
-    const items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    const items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac1::").toArray();
+    assert.ok(items?.every(i => i.tenant_id === "fac1::or"));
     assert.ok(items && items.length > 0);
     const guidelineItem = items?.find(i => i.item === "Guideline");
     assert.ok(guidelineItem);
@@ -797,7 +806,8 @@ describe("ResourceManagerChecksum", () => {
     // Phase 1: Try to install pack while network is degraded (intermittent latency)
     networkState.status = "degraded";
     await resourceManager.installPack(fac1PackMeta);
-    let fac1Items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    let fac1Items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac1::").toArray();
+    assert.ok(fac1Items?.every(i => i.tenant_id === "fac1::or"));
     assert.ok(fac1Items && fac1Items.some(i => i.item === "Scalpel"));
 
     // Clear inventory for next phase
@@ -811,13 +821,15 @@ describe("ResourceManagerChecksum", () => {
       },
       /Failed to download pack file/
     );
-    fac1Items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    fac1Items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac1::").toArray();
+    assert.ok(fac1Items?.every(i => i.tenant_id === "fac1::or"));
     assert.strictEqual(fac1Items?.length, 0);
 
     // Phase 3: Self-healing reconnection (online again)
     networkState.status = "online";
     await resourceManager.installPack(fac1PackMeta);
-    fac1Items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    fac1Items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac1::").toArray();
+    assert.ok(fac1Items?.every(i => i.tenant_id === "fac1::or"));
     assert.ok(fac1Items && fac1Items.some(i => i.item === "Scalpel"));
 
   });
@@ -848,14 +860,16 @@ describe("ResourceManagerChecksum", () => {
 
     // Clear the inventory items to simulate app restart without hydration
     await offlineDb?.inventoryItems.clear();
-    let items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac_unpack::or").toArray();
+    let items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac_unpack::").toArray();
+    assert.ok(items?.every(i => i.tenant_id === "fac_unpack::or"));
     assert.strictEqual(items?.length, 0);
 
     // Call unpack to re-hydrate from installed pack (which overlays over base seed data)
     const count = await resourceManager.unpackInstalledPacksToDexie("fac_unpack", "or");
 
     // Check that we got the overlayed item
-    items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac_unpack::or").toArray();
+    items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac_unpack::").toArray();
+    assert.ok(items?.every(i => i.tenant_id === "fac_unpack::or"));
     assert.ok(items && items.length > 0);
     assert.strictEqual(count, items!.length);
 
@@ -889,11 +903,13 @@ describe("ResourceManagerChecksum", () => {
 
     // Install multiple times sequentially for offline replay idempotency
     await resourceManager.installPack(fac1PackMeta);
-    const fac1ItemsAfterFirst = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    const fac1ItemsAfterFirst = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac1::").toArray();
+    assert.ok(fac1ItemsAfterFirst?.every(i => i.tenant_id === "fac1::or"));
     const fac1InstalledPacksAfterFirst = await resourceManager.getInstalledPacks();
 
     await resourceManager.installPack(fac1PackMeta);
-    const fac1ItemsAfterSecond = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    const fac1ItemsAfterSecond = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac1::").toArray();
+    assert.ok(fac1ItemsAfterSecond?.every(i => i.tenant_id === "fac1::or"));
     const fac1InstalledPacksAfterSecond = await resourceManager.getInstalledPacks();
 
     assert.deepStrictEqual(fac1ItemsAfterFirst, fac1ItemsAfterSecond);
@@ -913,8 +929,10 @@ describe("ResourceManagerChecksum", () => {
     await resourceManager.installPack(fac2PackMeta);
 
     // Verify multi-tenant boundary isolation
-    const fac1Items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
-    const fac2Items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac2::er").toArray();
+    const fac1Items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac1::").toArray();
+    assert.ok(fac1Items?.every(i => i.tenant_id === "fac1::or"));
+    const fac2Items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac2::").toArray();
+    assert.ok(fac2Items?.every(i => i.tenant_id === "fac2::er"));
 
     assert.ok(fac1Items && fac1Items.some(i => i.item === "Scalpel"));
     assert.ok(fac1Items && !fac1Items.some(i => i.item === "Forceps")); // No Fac2 data
@@ -980,15 +998,18 @@ describe("ResourceManagerChecksum", () => {
 
     // Install multiple times sequentially for offline replay idempotency
     await resourceManager.installPack(fac1PackMeta);
-    const fac1ItemsAfterFirst = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    const fac1ItemsAfterFirst = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac1::").toArray();
+    assert.ok(fac1ItemsAfterFirst?.every(i => i.tenant_id === "fac1::or"));
 
     await resourceManager.installPack(fac1PackMeta);
-    const fac1ItemsAfterSecond = await offlineDb?.inventoryItems.where("tenant_id").equals("fac1::or").toArray();
+    const fac1ItemsAfterSecond = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac1::").toArray();
+    assert.ok(fac1ItemsAfterSecond?.every(i => i.tenant_id === "fac1::or"));
 
     assert.deepStrictEqual(fac1ItemsAfterFirst, fac1ItemsAfterSecond);
 
     await resourceManager.installPack(fac2PackMeta);
-    const fac2Items = await offlineDb?.inventoryItems.where("tenant_id").equals("fac2::er").toArray();
+    const fac2Items = await offlineDb?.inventoryItems.where("tenant_id").startsWith("fac2::").toArray();
+    assert.ok(fac2Items?.every(i => i.tenant_id === "fac2::er"));
 
     assert.ok(fac1ItemsAfterFirst && fac1ItemsAfterFirst.some(i => i.item === "Suture"));
     assert.ok(fac1ItemsAfterFirst && !fac1ItemsAfterFirst.some(i => i.item === "Gauze"));
@@ -1042,10 +1063,10 @@ describe("ResourceManagerChecksum", () => {
 
     // Freeze the baseline snapshot using a deep copy
     const clone = structuredClone(JSON.parse(snapshotJson));
-    clone.preferenceCards.forEach(Object.freeze);
-    clone.inventory.forEach(Object.freeze);
     Object.freeze(clone.preferenceCards);
     Object.freeze(clone.inventory);
+    clone.preferenceCards.forEach(Object.freeze);
+    clone.inventory.forEach(Object.freeze);
     const baselineSnapshot = Object.freeze(clone);
 
     await offlineDb?.inventoryItems.clear();
@@ -1066,12 +1087,14 @@ describe("ResourceManagerChecksum", () => {
     assert.ok(importResult.importedItems > 0);
     assert.ok(importResult.importedCards > 0);
 
-    const finalCards = await offlineDb?.preferenceCards.where("tenant_id").equals(normTenant).toArray();
+    const finalCards = await offlineDb?.preferenceCards.where("tenant_id").startsWith(normTenant).toArray();
+    assert.ok(finalCards?.every(c => c.tenant_id === normTenant));
     assert.ok(finalCards);
     const restoredCard = finalCards.find(c => c.id === "fac_state::or::card_custom");
     assert.ok(restoredCard);
 
-    const finalItems = await offlineDb?.inventoryItems.where("tenant_id").equals(normTenant).toArray();
+    const finalItems = await offlineDb?.inventoryItems.where("tenant_id").startsWith(normTenant).toArray();
+    assert.ok(finalItems?.every(i => i.tenant_id === normTenant));
     assert.ok(finalItems);
     const restoredItem = finalItems.find(i => i.item === "Scalpel");
     assert.ok(restoredItem);
@@ -1127,7 +1150,7 @@ describe("ResourceManagerChecksum", () => {
       const packMeta = {
         packId: `pack_mem_${i}`,
         // Let the identifier grow unbounded to properly trigger cache eviction limit and measure memory footprint
-        facilityId: `fac_mem_${i}`,
+        facilityId: `fac_mem_${i.toString().padStart(4, "0")}`,
         departmentId: `or_${i}`,
         title: `Test Pack ${i}`,
         category: "department",
@@ -1160,13 +1183,14 @@ describe("ResourceManagerChecksum", () => {
 
     // unpackInstalledPacksToDexie is required to fully hydrate the items in memory
     for (let i = 0; i < numPacks; i++) {
-      await resourceManager.unpackInstalledPacksToDexie(`fac_mem_${i}`, `or_${i}`);
+      await resourceManager.unpackInstalledPacksToDexie(`fac_mem_${i.toString().padStart(4, "0")}`, `or_${i}`);
     }
 
     // Validate that we successfully installed the good packs and skipped the bad ones
     for (let i = 0; i < numPacks; i++) {
       if (i % 5 !== 0) {
-        const items = await offlineDb?.inventoryItems.where("tenant_id").equals(`fac_mem_${i}::or_${i}`).toArray();
+        const items = await offlineDb?.inventoryItems.where("tenant_id").startsWith(`fac_mem_${i.toString().padStart(4, "0")}::`).toArray();
+        assert.ok(items?.every(item => item.tenant_id === `fac_mem_${i.toString().padStart(4, "0")}::or_${i}`));
         assert.ok(items && items.length > 0);
       }
     }
@@ -1186,7 +1210,7 @@ describe("ResourceManagerChecksum", () => {
     // Clean up
     for (let i = 0; i < numPacks; i++) {
       if (i % 5 !== 0) {
-        await offlineDb?.inventoryItems.where("tenant_id").equals(`fac_mem_${i}::or_${i}`).delete();
+        await offlineDb?.inventoryItems.where("tenant_id").startsWith(`fac_mem_${i.toString().padStart(4, "0")}::`).delete();
         await resourceManager.deletePack(`pack_mem_${i}`);
       }
     }
