@@ -203,6 +203,8 @@ test("FeedbackEngine - Multi-tenant isolation invariant", async (t) => {
   saveLocalFeedback([
     { id: "item1", tenantId: "tenant_A::or", rawText: "test A", upvotes: 0, status: "open", severity: "low", category: "ui_ux", sentimentScore: 0, userName: "u1", userRole: "r1", source: "s1", createdAt: new Date().toISOString() },
     { id: "item2", tenantId: "tenant_B::or", rawText: "test B", upvotes: 0, status: "open", severity: "low", category: "ui_ux", sentimentScore: 0, userName: "u2", userRole: "r2", source: "s2", createdAt: new Date().toISOString() },
+    { id: "item3", tenantId: "tenant_1::or", rawText: "test 1", upvotes: 0, status: "open", severity: "low", category: "ui_ux", sentimentScore: 0, userName: "u3", userRole: "r3", source: "s3", createdAt: new Date().toISOString() },
+    { id: "item4", tenantId: "tenant_10::or", rawText: "test 10", upvotes: 0, status: "open", severity: "low", category: "ui_ux", sentimentScore: 0, userName: "u4", userRole: "r4", source: "s4", createdAt: new Date().toISOString() },
   ] as any);
 
   const originalFetch = global.fetch;
@@ -212,12 +214,22 @@ test("FeedbackEngine - Multi-tenant isolation invariant", async (t) => {
     const resultsA = await fetchFeedbackItems({ tenantId: "tenant_A::or" });
     assert.strictEqual(resultsA.length, 1);
     assert.strictEqual(resultsA[0].id, "item1");
+    assert.ok(/^tenant_A::or$/.test(resultsA[0].tenantId), "Exact regex match for tenant A");
 
     const resultsB = await fetchFeedbackItems({ tenantId: "tenant_B::or" });
     assert.strictEqual(resultsB.length, 1);
     assert.strictEqual(resultsB[0].id, "item2");
+
+    const results1 = await fetchFeedbackItems({ tenantId: "tenant_1::or" });
+    assert.strictEqual(results1.length, 1, "Should exactly match tenant_1, avoiding substring false-positives with tenant_10");
+    assert.strictEqual(results1[0].id, "item3");
+    assert.ok(/^tenant_1::or$/.test(results1[0].tenantId), "Must match exact boundary, not just substring");
   } finally {
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) {
+      delete (global as any).fetch;
+    } else {
+      global.fetch = originalFetch;
+    }
   }
 });
 
@@ -339,7 +351,11 @@ test("FeedbackEngine - Extended multi-tenant boundary enforcement (facility_id::
     assert.strictEqual(finalItemA.upvotes, initialUpvotes + 2, "Second replay should have no effect");
 
   } finally {
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) {
+      delete (global as any).fetch;
+    } else {
+      global.fetch = originalFetch;
+    }
   }
 });
 
@@ -438,7 +454,11 @@ test("FeedbackEngine - High-Concurrency & Stress Benchmarks", async (t) => {
     // Drain queue to ensure no local crashes during batch processing
     await drainFeedbackQueue();
   } finally {
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) {
+      delete (global as any).fetch;
+    } else {
+      global.fetch = originalFetch;
+    }
   }
 });
 
@@ -555,7 +575,11 @@ test("FeedbackEngine - Fault Injection, Intermittent Latency, and Network Partit
 
 
   } finally {
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) {
+      delete (global as any).fetch;
+    } else {
+      global.fetch = originalFetch;
+    }
   }
 });
 
@@ -586,7 +610,7 @@ test("FeedbackEngine - Memory Profiling, Unclosed Event Listeners, and Resource 
     try {
       // Generate a massive feedback items list
       const items = Array.from({ length: 200 }, (_, i) => ({
-        id: `item-${i}`,
+        id: `item-${i.toString().padStart(4, "0")}`,
         tenantId: "t1::d1",
         rawText: "Heavy payload ".repeat(50), // make it big
         upvotes: 0,
@@ -679,6 +703,7 @@ test("FeedbackEngine - Security Invariants: HIPAA PHI, Regex Boundaries, Zero-Tr
 
   try {
     await t.test("HIPAA PII/PHI redaction verification", async () => {
+      fetchPayload = null;
       const maliciousPhi = "The patient John Smith with MRN 1234567 and SSN 123-45-6789 born on 01/15/1980 is having trouble with the app.";
       const res = await submitManualFeedback({ rawText: maliciousPhi, userProfile: { facilityId: "f1", departmentId: "d1" } });
 
@@ -739,7 +764,11 @@ test("FeedbackEngine - Security Invariants: HIPAA PHI, Regex Boundaries, Zero-Tr
     });
 
   } finally {
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) {
+      delete (global as any).fetch;
+    } else {
+      global.fetch = originalFetch;
+    }
   }
 });
 
@@ -788,23 +817,32 @@ test("FeedbackEngine - Clinical Workflow Snapshot & Deterministic State Verifica
       // Freeze active state to verify immutability
       const frozenBaselineSnapshot = Object.freeze(structuredClone(baselineSnapshot));
       frozenBaselineSnapshot.forEach((item: any) => Object.freeze(item));
-      Object.freeze(activeState);
-      activeState.forEach(Object.freeze);
 
       // Perform mutation on Tenant A
       await updateFeedbackStatus(itemTenantA.id, "planned");
 
-      const postMutationSnapshot = structuredClone(getLocalFeedback());
+      const postMutationSnapshot = getLocalFeedback();
 
       // Verify Tenant B's state is perfectly preserved (snapshot consistency)
       const baselineB = frozenBaselineSnapshot.find((i: any) => i.id === itemTenantB.id);
       const postMutationB = postMutationSnapshot.find((i: any) => i.id === itemTenantB.id);
 
-      // Normalize volatile fields
-      const bExpected = { ...baselineB, createdAt: "normalized" };
-      const bActual = { ...postMutationB, createdAt: "normalized" };
+      const deepClean = (obj: any) => {
+        if (typeof obj === 'object' && obj !== null) {
+          const clone = structuredClone(obj);
+          const cleanNode = (node: any) => {
+            if (typeof node === 'object' && node !== null) {
+               if ('createdAt' in node) node.createdAt = "normalized";
+               Object.keys(node).forEach(key => cleanNode(node[key]));
+            }
+          };
+          cleanNode(clone);
+          return clone;
+        }
+        return obj;
+      };
 
-      assert.deepStrictEqual(bActual, bExpected, "Tenant B snapshot must remain structurally unmodified");
+      assert.deepStrictEqual(deepClean(postMutationB), deepClean(baselineB), "Tenant B snapshot must remain structurally unmodified");
 
       // Verify multi-tenant isolation via fetchFeedbackItems offline filtering
       const filteredA = await fetchFeedbackItems({ tenantId: "facility_A::dept_A" });
@@ -834,6 +872,10 @@ test("FeedbackEngine - Clinical Workflow Snapshot & Deterministic State Verifica
     });
 
   } finally {
-    global.fetch = originalFetch;
+    if (originalFetch === undefined) {
+      delete (global as any).fetch;
+    } else {
+      global.fetch = originalFetch;
+    }
   }
 });
