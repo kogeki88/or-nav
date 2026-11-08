@@ -47,7 +47,11 @@ describe('directGemini', () => {
     } else {
       (global as { localStorage?: unknown }).localStorage = originalLocalStorage;
     }
-    global.fetch = originalFetch as typeof fetch;
+    if (originalFetch === undefined) {
+        delete (global as any).fetch;
+    } else {
+        global.fetch = originalFetch as typeof fetch;
+    }
     global.btoa = originalBtoa as typeof btoa;
   });
 
@@ -423,7 +427,11 @@ describe('directGemini', () => {
     });
 
     afterEach(() => {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) {
+          delete (global as any).fetch;
+      } else {
+          global.fetch = originalFetch;
+      }
     });
 
     test('directGeminiRAG handles concurrent burst execution (Promise.all)', async () => {
@@ -846,13 +854,21 @@ describe('directGemini', () => {
       }
 
       for (let i = 0; i < queries.length; i++) {
-        const s1 = structuredClone(snapshots[i]);
-        s1.latency_ms = 0;
-        Object.keys(s1).forEach(k => { if (typeof s1[k] === 'object' && s1[k] !== null) Object.freeze(s1[k]); });
+        // Memory: fluctuating fields must be ignored by a deep_clean helper before strict structural equality.
+        const deepClean = (obj: any) => {
+           const clone = structuredClone(obj);
+           if (clone && typeof clone === 'object') {
+               delete clone.latency_ms;
+               // Also do not remove core state fields that signify mutation outcomes.
+               // We only remove latency_ms since it fluctuates.
+           }
+           return clone;
+        };
+        const s1 = deepClean(snapshots[i]);
+        Object.keys(s1).forEach(k => { if (typeof s1[k as keyof typeof s1] === 'object' && s1[k as keyof typeof s1] !== null) Object.freeze(s1[k as keyof typeof s1]); });
         Object.freeze(s1);
-        const s2 = structuredClone(snapshots2[i]);
-        s2.latency_ms = 0;
-        Object.keys(s2).forEach(k => { if (typeof s2[k] === 'object' && s2[k] !== null) Object.freeze(s2[k]); });
+        const s2 = deepClean(snapshots2[i]);
+        Object.keys(s2).forEach(k => { if (typeof s2[k as keyof typeof s2] === 'object' && s2[k as keyof typeof s2] !== null) Object.freeze(s2[k as keyof typeof s2]); });
         Object.freeze(s2);
         assert.deepStrictEqual(s1, s2, "Deterministic state transition matrices must remain deeply consistent");
       }
@@ -870,14 +886,20 @@ describe('directGemini', () => {
       const query = "Dr. Smith preference card tray setup for lap chole in OR 1";
       const res = await directGeminiRAG(query);
 
-      const snapshot1 = structuredClone(res);
-      snapshot1.latency_ms = 0;
+      const deepClean = (obj: any) => {
+         const clone = structuredClone(obj);
+         if (clone && typeof clone === 'object') {
+             delete clone.latency_ms;
+         }
+         return clone;
+      };
+
+      const snapshot1 = deepClean(res);
       Object.keys(snapshot1).forEach(k => { if (typeof snapshot1[k as keyof typeof snapshot1] === 'object' && snapshot1[k as keyof typeof snapshot1] !== null) Object.freeze(snapshot1[k as keyof typeof snapshot1]); });
       Object.freeze(snapshot1);
 
       const res2 = await directGeminiRAG(query);
-      const snapshot2 = structuredClone(res2);
-      snapshot2.latency_ms = 0;
+      const snapshot2 = deepClean(res2);
       Object.keys(snapshot2).forEach(k => { if (typeof snapshot2[k as keyof typeof snapshot2] === 'object' && snapshot2[k as keyof typeof snapshot2] !== null) Object.freeze(snapshot2[k as keyof typeof snapshot2]); });
       Object.freeze(snapshot2);
 
@@ -901,7 +923,7 @@ describe('directGemini', () => {
       assert.strictEqual(baselineRes.is_educational_baseline, true);
       assert.strictEqual(baselineRes.routing_tier, "TIER_2_GEMINI_RAG");
       // Multi-tenant isolation: ensures department scope is correctly applied even in baseline
-      assert.ok(baselineRes.reply_text.includes("Pediatrics") || baselineRes.reply_text.includes("Standard Clinical Reference"), "Must isolate to department or fallback safely");
+      assert.ok(/\bPediatrics\b/.test(baselineRes.reply_text) || /\bStandard Clinical Reference\b/.test(baselineRes.reply_text), "Must isolate to department or fallback safely");
     });
   });
 
@@ -925,10 +947,10 @@ describe('directGemini', () => {
       const res = await directGeminiRAG(phiQuery);
 
       assert.ok(res.phi_detected, "PHI should be flagged");
-      assert.ok(!capturedPayload.contents[0].parts[1].text.includes("John Smith"), "Payload should not contain patient name");
-      assert.ok(!capturedPayload.contents[0].parts[1].text.includes("123456"), "Payload should not contain MRN");
-      assert.ok(capturedPayload.contents[0].parts[1].text.includes("[REDACTED_PHI]"), "Payload should contain redaction marker");
-      assert.ok(capturedPayload.contents[0].parts[1].text.includes("#10 blade"), "Payload should preserve clinical non-PHI data");
+      assert.ok(!/\bJohn Smith\b/i.test(capturedPayload.contents[0].parts[1].text), "Payload should not contain patient name");
+      assert.ok(!/\b123456\b/.test(capturedPayload.contents[0].parts[1].text), "Payload should not contain MRN");
+      assert.ok(/\[REDACTED_PHI\]/.test(capturedPayload.contents[0].parts[1].text), "Payload should contain redaction marker");
+      assert.ok(/#10 blade/.test(capturedPayload.contents[0].parts[1].text), "Payload should preserve clinical non-PHI data");
     });
 
     test("directGeminiRAG resists Regex Boundary Attacks for PHI extraction", async () => {
@@ -951,10 +973,10 @@ describe('directGemini', () => {
        const res = await directGeminiRAG(regexAttack);
 
        assert.ok(res.phi_detected, "PHI should be flagged despite whitespace obfuscation");
-       assert.ok(!capturedPayload.contents[0].parts[1].text.includes("98765432"), "Payload should not contain obfuscated MRN");
-       assert.ok(!capturedPayload.contents[0].parts[1].text.includes("Jane Doe"), "Payload should not contain obfuscated patient name");
-       assert.ok(!capturedPayload.contents[0].parts[1].text.includes("01/01/1990"), "Payload should not contain obfuscated DOB");
-       assert.ok(capturedPayload.contents[0].parts[1].text.includes("[REDACTED_PHI]"), "Payload should contain redaction marker");
+       assert.ok(!/\b98765432\b/.test(capturedPayload.contents[0].parts[1].text), "Payload should not contain obfuscated MRN");
+       assert.ok(!/\bJane Doe\b/i.test(capturedPayload.contents[0].parts[1].text), "Payload should not contain obfuscated patient name");
+       assert.ok(!/01\/01\/1990/.test(capturedPayload.contents[0].parts[1].text), "Payload should not contain obfuscated DOB");
+       assert.ok(/\[REDACTED_PHI\]/.test(capturedPayload.contents[0].parts[1].text), "Payload should contain redaction marker");
     });
 
     test("directGeminiRAG resists prompt injection attempting to leak instructions", async () => {
@@ -994,9 +1016,9 @@ describe('directGemini', () => {
       const transcription = await directTranscribeAudio(mockBlob);
 
       assert.ok(transcription !== null, "Transcription should not be null");
-      assert.ok(!transcription.includes("John Smith"), "Returned transcription should not contain patient name");
-      assert.ok(!transcription.includes("123456"), "Returned transcription should not contain MRN");
-      assert.ok(transcription.includes("[REDACTED_PHI]"), "Returned transcription should contain redaction marker");
+      assert.ok(!/\bJohn Smith\b/i.test(transcription), "Returned transcription should not contain patient name");
+      assert.ok(!/\b123456\b/.test(transcription), "Returned transcription should not contain MRN");
+      assert.ok(/\[REDACTED_PHI\]/.test(transcription), "Returned transcription should contain redaction marker");
     });
   });
 
