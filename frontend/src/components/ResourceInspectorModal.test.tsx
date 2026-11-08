@@ -59,7 +59,7 @@ describe('ResourceInspectorModal', () => {
     document.body.appendChild(root);
 
     const { unmount } = render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />, { container: root });
-    act(() => unmount());
+    unmount();
 
     for (const [event, count] of addedListeners.entries()) {
       expect(removedListeners.get(event)).toBeGreaterThanOrEqual(count);
@@ -95,9 +95,7 @@ describe('ResourceInspectorModal', () => {
     await userEvent.type(itemInput, 'Heavy Item');
     const saveBtn = screen.getByTestId('btn-save-new-item');
 
-    act(() => {
-      saveBtn.click();
-    });
+    fireEvent.click(saveBtn);
 
     await waitFor(() => {
       expect(screen.getByTestId('resource-inspector-status-toast').textContent).toContain('Error');
@@ -142,10 +140,10 @@ describe('ResourceInspectorModal', () => {
   });
 
   it('renders the modal when isOpen is true', async () => {
-    await act(async () => {
-      render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />);
+    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />);
+    await waitFor(() => {
+      expect(screen.getByText(/Installed Resources Explorer & Studio/i)).toBeTruthy();
     });
-    expect(screen.getByText(/Installed Resources Explorer & Studio/i)).toBeTruthy();
   });
 
   it('does not render when isOpen is false', () => {
@@ -155,8 +153,10 @@ describe('ResourceInspectorModal', () => {
 
   it('calls onClose when close button is clicked', async () => {
     const handleClose = vi.fn();
-    await act(async () => {
-      render(<ResourceInspectorModal isOpen={true} onClose={handleClose} />);
+    render(<ResourceInspectorModal isOpen={true} onClose={handleClose} />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
     });
 
     const closeBtn = screen.getByTestId('btn-close-resource-inspector');
@@ -166,8 +166,9 @@ describe('ResourceInspectorModal', () => {
 
   it('verifies offline-first isolated queries for multi-tenant environment', async () => {
     const { getOfflineInventory } = await import('@/lib/offlineDb');
-    await act(async () => {
-      render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />);
+    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} />);
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
     });
     expect(getOfflineInventory).toHaveBeenCalledWith('sacred_heart::or_main');
   });
@@ -203,7 +204,7 @@ describe('ResourceInspectorModal', () => {
       expect(tenantCalls).toContain(`fac_burst_${i}::or_main`);
     }
 
-    unmounts.forEach(u => act(() => u()));
+    unmounts.forEach(u => u());
   });
 
   it('maintains acceptable render latency under stress conditions', async () => {
@@ -222,7 +223,7 @@ describe('ResourceInspectorModal', () => {
       );
     });
 
-    unmounts.forEach(u => act(() => u()));
+    unmounts.forEach(u => u());
     const end = performance.now();
     expect(end - start).toBeLessThan(1500);
   });
@@ -236,8 +237,10 @@ describe('ResourceInspectorModal', () => {
     });
     vi.mocked(createOfflineInventoryItem).mockClear();
 
-    await act(async () => {
-      render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId="sacred_heart::or_main" />);
+    render(<ResourceInspectorModal isOpen={true} onClose={() => {}} tenantId="sacred_heart::or_main" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Loading local IndexedDB studio records.../i)).toBeNull();
     });
 
     const addItemBtn = screen.getByTestId('btn-add-inventory-item');
@@ -248,11 +251,7 @@ describe('ResourceInspectorModal', () => {
 
     const saveBtn = screen.getByTestId('btn-save-new-item');
 
-    act(() => {
-        saveBtn.click();
-        saveBtn.click();
-        saveBtn.click();
-    });
+    fireEvent.click(saveBtn); fireEvent.click(saveBtn); fireEvent.click(saveBtn);
 
     await waitFor(() => {
         expect(createOfflineInventoryItem).toHaveBeenCalledWith('sacred_heart::or_main', expect.objectContaining({ item: 'New Scalpel' }));
@@ -315,9 +314,7 @@ describe('ResourceInspectorModal', () => {
         vi.mocked(importTenantResourcesJson).mockImplementationOnce(() => Promise.resolve({ success: false, message: 'Parse error' }));
 
         const file = new File([malformedContent], 'backup.json', { type: 'application/json' });
-        await act(async () => {
-          await user.upload(fileInput, file);
-        });
+        await user.upload(fileInput, file);
 
         if (malformedContent) {
            expect(importTenantResourcesJson).toHaveBeenCalledWith('sacred_heart::or_main', malformedContent);
@@ -469,7 +466,7 @@ describe('ResourceInspectorModal', () => {
 
     await user.type(spokenInput, rawPHI);
     await user.type(canonicalInput, rawMalicious);
-    await act(async () => { await user.click(saveBtn); });
+    await user.click(saveBtn);
 
     expect(saveOfflineLexiconAlias).toHaveBeenCalledWith(
       'tenant-zero-trust',
@@ -536,7 +533,7 @@ describe('ResourceInspectorModal', () => {
     });
     const saveBtn = screen.getByTestId('btn-save-preference-card');
 
-    await act(async () => { await user.click(saveBtn); });
+    await user.click(saveBtn);
 
     expect(saveOfflinePreferenceCard).toHaveBeenCalled();
     expect(cards).toEqual([
