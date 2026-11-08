@@ -110,26 +110,29 @@ test("ClinicalGraph Multi-tenant Isolation and Offline Invariants", async (t) =>
 
     await t.test("multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency", () => {
       const tenantA = "facility_id::dept_id";
-      const cardsA = [{ id: "A1", surgeon: "Dr. TenantA", procedure: "ProcA" }];
-      const invA = [{ item: "ItemA", aliases: "item_a" }] as any;
+      const cardsA = [{ id: `A1_${tenantA}`, surgeon: `Dr. Surgeon_${tenantA}`, procedure: `Proc_${tenantA}` }];
+      const invA = [{ item: `Item_${tenantA}`, aliases: `item_alias_${tenantA}` }] as any;
       const graphA = compileClinicalGraph(tenantA, cardsA, invA, "");
 
       const tenantB = "other_facility::other_dept";
-      const cardsB = [{ id: "B1", surgeon: "Dr. TenantB", procedure: "ProcB" }];
-      const invB = [{ item: "ItemB", aliases: "item_b" }] as any;
+      const cardsB = [{ id: `B1_${tenantB}`, surgeon: `Dr. Surgeon_${tenantB}`, procedure: `Proc_${tenantB}` }];
+      const invB = [{ item: `Item_${tenantB}`, aliases: `item_alias_${tenantB}` }] as any;
       const graphB = compileClinicalGraph(tenantB, cardsB, invB, "");
 
+      const normTenantA = "item facility id dept id";
+      const normTenantB = "item other facility other dept";
+
       assert.strictEqual(graphA.tenantId, tenantA);
-      assert.ok(graphA.indexedSurgeonNames.includes("Dr. TenantA"));
-      assert.ok(!graphA.indexedSurgeonNames.includes("Dr. TenantB"));
-      assert.ok(graphA.inventoryTerms.has("itema"));
-      assert.ok(!graphA.inventoryTerms.has("itemb"));
+      assert.ok(graphA.indexedSurgeonNames.includes(`Dr. Surgeon_${tenantA}`));
+      assert.ok(!graphA.indexedSurgeonNames.includes(`Dr. Surgeon_${tenantB}`));
+      assert.ok(graphA.inventoryTerms.has(normTenantA));
+      assert.ok(!graphA.inventoryTerms.has(normTenantB));
 
       assert.strictEqual(graphB.tenantId, tenantB);
-      assert.ok(graphB.indexedSurgeonNames.includes("Dr. TenantB"));
-      assert.ok(!graphB.indexedSurgeonNames.includes("Dr. TenantA"));
-      assert.ok(graphB.inventoryTerms.has("itemb"));
-      assert.ok(!graphB.inventoryTerms.has("itema"));
+      assert.ok(graphB.indexedSurgeonNames.includes(`Dr. Surgeon_${tenantB}`));
+      assert.ok(!graphB.indexedSurgeonNames.includes(`Dr. Surgeon_${tenantA}`));
+      assert.ok(graphB.inventoryTerms.has(normTenantB));
+      assert.ok(!graphB.inventoryTerms.has(normTenantA));
 
       // Simulate Offline Mutation Replay Idempotency
       const replayGraph1 = compileClinicalGraph(tenantA, cardsA, invA, "");
@@ -239,16 +242,12 @@ test("ClinicalGraph Fault Injection & Network Partition Resilience", async (t) =
       };
     };
 
-    let error = null;
-
     // 1. Network partition state
-    try {
-      await syncManagerFetch();
-    } catch (err) {
-      error = err;
-    }
-
-    assert.ok(error !== null, "Should have thrown a network partition error");
+    await assert.rejects(
+      async () => { await syncManagerFetch(); },
+      (err) => err.message === "Network partition error - connection refused",
+      "Should have thrown a network partition error"
+    );
 
     // Compile graph handles offline fallback gracefully (using seed data / empty data)
     const offlineGraph = compileClinicalGraph("tenant_offline", [], [], "");
@@ -416,13 +415,16 @@ test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t)
     const graph = compileClinicalGraph("tenant_snapshot", cards, inventory as any, md);
 
     // Deep freeze active state to trigger TypeError on implicit mutation
-    Object.freeze(graph);
-    Object.freeze(graph.preferenceCards);
     graph.preferenceCards.forEach(Object.freeze);
+    Object.freeze(graph.preferenceCards);
+    Object.freeze(graph);
 
     // Create a separate deep copy for structural assertion
-    const baselineCopy = Object.freeze(structuredClone(graph));
-    baselineCopy.preferenceCards.forEach(Object.freeze);
+    const customClone = typeof structuredClone === "function" ? structuredClone : (val: any) => JSON.parse(JSON.stringify(val));
+    const clone = customClone(graph);
+    clone.preferenceCards.forEach(Object.freeze);
+    Object.freeze(clone.preferenceCards);
+    const baselineCopy = Object.freeze(clone);
 
     // Perform a pseudo-mutation (compile again with identical inputs)
     const graph2 = compileClinicalGraph("tenant_snapshot", cards, inventory as any, md);
