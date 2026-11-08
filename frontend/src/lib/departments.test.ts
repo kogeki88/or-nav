@@ -247,8 +247,9 @@ describe("Departments Configuration and Lookups", () => {
         assert.strictEqual(attempts, 2);
 
         assert.doesNotThrow(() => {
-          const id = getActiveDepartmentId();
-          assert.strictEqual(id, DEFAULT_DEPARTMENT_ID);
+          const initialResult = getDepartment(DEFAULT_DEPARTMENT_ID);
+          const replayResult = getDepartment(getActiveDepartmentId());
+          assert.deepStrictEqual(replayResult, initialResult);
         });
       } finally {
         if (originalLocalStorage !== undefined) {
