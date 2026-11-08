@@ -299,7 +299,7 @@ describe("scrubClient standard and adversarial tests", () => {
         assert.strictEqual(req2.answer_text, `Tenant A (fac_1) patient ${REDACTION}`);
 
       } finally {
-        (global as any).fetch = originalFetch;
+        if (originalFetch === undefined) { delete (global as any).fetch; } else { (global as any).fetch = originalFetch; }
         if (offlineDb) await offlineDb.offlineOutbox.clear();
       }
     });
@@ -329,7 +329,7 @@ describe("scrubClient standard and adversarial tests", () => {
         assert.ok(fetchTime >= 40, `fetch took ${fetchTime}ms, expected >= 40ms`);
 
       } finally {
-        (global as any).fetch = originalFetch;
+        if (originalFetch === undefined) { delete (global as any).fetch; } else { (global as any).fetch = originalFetch; }
       }
     });
 
@@ -395,7 +395,7 @@ describe("scrubClient standard and adversarial tests", () => {
         assert.strictEqual(result.text, `Patient ${REDACTION} needs 3-0 silk`);
         assert.strictEqual(result.redactionCount, 1);
       } finally {
-        (global as any).fetch = originalFetch;
+        if (originalFetch === undefined) { delete (global as any).fetch; } else { (global as any).fetch = originalFetch; }
       }
     });
 
@@ -413,7 +413,7 @@ describe("scrubClient standard and adversarial tests", () => {
         assert.deepStrictEqual(replay1, replay2);
         assert.deepStrictEqual(replay2, replay3);
       } finally {
-        (global as any).fetch = originalFetch;
+        if (originalFetch === undefined) { delete (global as any).fetch; } else { (global as any).fetch = originalFetch; }
       }
     });
 
@@ -480,9 +480,8 @@ describe("scrubClient standard and adversarial tests", () => {
           const tenantId = `fac_burst_${workerIdx}::`;
           const results = [];
 
-          for (let i = 0; i < iterationsPerWorker; i++) {
+          const iterPromises = Array.from({ length: iterationsPerWorker }, async (_, i) => {
             await new Promise(r => setTimeout(r, (i * 13) % 10)); // Explicitly yield to event loop for true concurrency
-
             const inputs = [
               `${tenantId} Patient MRN 123456 needs surgery`,
               `${tenantId} Where is the 3-0 silk?`,
@@ -492,12 +491,11 @@ describe("scrubClient standard and adversarial tests", () => {
               undefined,
               `${tenantId} We need a #10 blade`,
             ];
-
             const input = inputs[i % inputs.length];
             const res = scrubPhi(input as any);
-            results.push({ input, res, tenantId });
-          }
-          return results;
+            return { input, res, tenantId };
+          });
+          return Promise.all(iterPromises);
         });
 
         const allResults = await Promise.all(workerPromises);
@@ -522,7 +520,7 @@ describe("scrubClient standard and adversarial tests", () => {
           }
         }
       } finally {
-        (global as any).fetch = originalFetch;
+        if (originalFetch === undefined) { delete (global as any).fetch; } else { (global as any).fetch = originalFetch; }
       }
     });
 
@@ -670,8 +668,11 @@ describe("scrubClient standard and adversarial tests", () => {
       const baselineSnapshot = Object.freeze(structuredClone(snapshot));
       Object.freeze(baselineSnapshot.meta);
 
-      const result = scrubPhi(snapshot.data);
-      assert.strictEqual(result.text, `Patient ${REDACTION} needs 3-0 silk and ${REDACTION}`);
+      const serialized = JSON.stringify(snapshot);
+      const result = scrubPhi(serialized);
+      const parsedResult = JSON.parse(result.text);
+
+      assert.strictEqual(parsedResult.data, `Patient ${REDACTION} needs 3-0 silk and ${REDACTION}`);
       assert.strictEqual(result.redactionCount, 2);
 
       // Verify snapshot meta is completely isolated and untouched
@@ -720,7 +721,7 @@ describe("scrubClient standard and adversarial tests", () => {
         // Caching isolated by distinct strings
         assert.strictEqual(getScrubCacheSize(), 2);
       } finally {
-        (global as any).fetch = originalFetch;
+        if (originalFetch === undefined) { delete (global as any).fetch; } else { (global as any).fetch = originalFetch; }
       }
     });
   });
