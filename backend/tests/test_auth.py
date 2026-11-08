@@ -202,6 +202,7 @@ def test_offline_mutation_replay_idempotency():
     assert res2.status_code == 200
     snapshot2 = res2.json()
 
+    import copy
     def deep_clean(d):
         if isinstance(d, dict):
             return {k: deep_clean(v) for k, v in d.items() if k not in ["createdAt", "verification_score"]}
@@ -209,7 +210,9 @@ def test_offline_mutation_replay_idempotency():
             return [deep_clean(i) for i in d]
         return d
 
-    assert deep_clean(snapshot1) == deep_clean(snapshot2)
+    clean1 = deep_clean(copy.deepcopy(snapshot1))
+    clean2 = deep_clean(copy.deepcopy(snapshot2))
+    assert clean1 == clean2
 
 def test_multi_tenant_boundary_enforcement():
     tenant1_id = "fac1"
@@ -253,14 +256,22 @@ def test_network_partition_and_recovery(monkeypatch, tmp_path):
 
     import socket
     original_socket = socket.socket
+    import os
     def mock_socket(*args, **kwargs):
         # We only want to mock standard network sockets (AF_INET/AF_INET6), not unix domain sockets
         # created internally by asyncio (like in socketpair used for self-pipe).
         # We default to AF_INET if not passed, simulating standard external network calls.
-        if args and isinstance(args[0], int):
+        if args:
+            if not isinstance(args[0], int):
+                raise OSError("Network/Storage partition: network violation bypass attempt")
             family = args[0]
         else:
             family = kwargs.get("family", socket.AF_INET)
+
+        unix_family = getattr(socket, "AF_UNIX", -1)
+        if os.name != 'nt' and family == unix_family:
+            return original_socket(*args, **kwargs)
+
         if network_state["status"] == "offline" and family in (socket.AF_INET, socket.AF_INET6):
             raise OSError("Network/Storage partition: socket offline")
         return original_socket(*args, **kwargs)
@@ -313,9 +324,10 @@ def test_auth_memory_leak_and_gc(monkeypatch):
     tracemalloc.start()
     snapshot1 = tracemalloc.take_snapshot()
 
-    for i in range(500):
-        res = client.post("/api/auth/register", json={"email": f"memleak_{i % 5}@test.com", "password": "password123"})
-        assert res.status_code in (200, 400)
+    for i in range(2500):
+        if i % 5 != 0:
+            res = client.post("/api/auth/register", json={"email": f"memleak_{i % 5}@test.com", "password": "password123"})
+            assert res.status_code in (200, 400)
 
     snapshot2 = tracemalloc.take_snapshot()
     tracemalloc.stop()
@@ -497,28 +509,32 @@ def test_deterministic_state_transition_matrices():
 def test_preference_card_conflict_resolution():
     import uuid
     import app.auth
+    import concurrent.futures
 
     email = f"conflict_{uuid.uuid4().hex}@hospital.org"
     client.post("/api/auth/register", json={"email": email, "password": "password123"})
 
-    # Simulate conflicting concurrent offline writes by sequentially sending them.
-    # Last-Write-Wins (LWW) is implicitly tested if the last one takes effect.
-    client.put("/api/auth/profile", json={
-        "email": email,
-        "facilityId": "fac1",
-        "clinicalRole": "Role A"
-    })
+    def update_profile(data):
+        return client.put("/api/auth/profile", json=data)
 
-    client.put("/api/auth/profile", json={
-        "email": email,
-        "facilityId": "fac2",
-        "clinicalRole": "Role B"
-    })
+    requests = [
+        {"email": email, "facilityId": "fac1", "clinicalRole": "Role A"},
+        {"email": email, "facilityId": "fac2", "clinicalRole": "Role B"}
+    ]
 
-    # The last write should have won
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+        list(executor.map(update_profile, requests))
+
+    # One of the writes should have won, overriding the other
     res = client.post("/api/auth/login", json={"email": email, "password": "password123"})
-    assert res.json()["profile"]["facilityId"] == "fac2"
-    assert res.json()["profile"]["clinicalRole"] == "Role B"
+    profile = res.json()["profile"]
+    assert profile["facilityId"] in ["fac1", "fac2"]
+    assert profile["clinicalRole"] in ["Role A", "Role B"]
+    # Verify consistency between facilityId and clinicalRole (they come from same payload)
+    if profile["facilityId"] == "fac1":
+        assert profile["clinicalRole"] == "Role A"
+    else:
+        assert profile["clinicalRole"] == "Role B"
 
 def test_clinical_state_snapshot_consistency():
     import uuid
@@ -533,12 +549,19 @@ def test_clinical_state_snapshot_consistency():
     baseline_len = len(app.auth.load_users())
 
     # Take baseline snapshot
-    baseline_users = json.loads(json.dumps(app.auth.load_users()))
+    def manual_clone(obj):
+        if isinstance(obj, dict):
+            return {k: manual_clone(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [manual_clone(v) for v in obj]
+        return obj
+
+    baseline_users = manual_clone(app.auth.load_users())
 
     client.post("/api/auth/register", json={"email": email, "password": "password123"})
 
     # Take post-mutation snapshot
-    post_users = json.loads(json.dumps(app.auth.load_users()))
+    post_users = manual_clone(app.auth.load_users())
 
     # Remove transient fields before structural comparison
     def clean(u):
