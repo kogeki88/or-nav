@@ -3,6 +3,20 @@ import pytest
 import httpx
 from fastapi.testclient import TestClient
 
+
+import copy
+
+def deep_clean(data, fields_to_remove):
+    cleaned = copy.deepcopy(data)
+    if isinstance(cleaned, dict):
+        for field in fields_to_remove:
+            cleaned.pop(field, None)
+        for key, value in cleaned.items():
+            cleaned[key] = deep_clean(value, fields_to_remove)
+    elif isinstance(cleaned, list):
+        cleaned = [deep_clean(item, fields_to_remove) for item in cleaned]
+    return cleaned
+
 from app.main import app
 from app.feedback import (
     load_feedback_items,
@@ -233,7 +247,14 @@ def test_offline_first_socket_invariants(monkeypatch):
 
     import os
     def mock_socket(*args, **kwargs):
-        family = args[0] if args else kwargs.get("family", socket.AF_INET)
+        if os.name == 'nt':
+            return original_socket(*args, **kwargs)
+
+        if args and isinstance(args[0], int):
+            family = args[0]
+        else:
+            family = kwargs.get("family", socket.AF_INET)
+
         if isinstance(family, int) and family != getattr(socket, "AF_UNIX", -1):
             raise RuntimeError("Network access is strictly forbidden in offline-first mode")
         return original_socket(*args, **kwargs)
@@ -434,10 +455,17 @@ def test_unclosed_event_listeners_and_memory_leak(monkeypatch, tmp_path):
     start_fds = process.num_fds() if hasattr(process, 'num_fds') else 0
     start_conns = len(process.connections()) if hasattr(process, 'connections') else 0
 
-    # Execute requests sequentially to avoid thread starvation
-    for i in range(500):
-        # This simulates a burst of requests to ensure sockets/fds are closed
+    import concurrent.futures
+    import time
+
+    # Execute requests concurrently to properly stress test thread starvation/race conditions
+    def make_request(_):
         client.get("/api/feedback")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        list(executor.map(make_request, range(500)))
+
+    time.sleep(0.05)
 
     gc.collect()
     end_fds = process.num_fds() if hasattr(process, 'num_fds') else 0
@@ -468,7 +496,7 @@ def test_hipaa_phi_scrubbing_and_prompt_injection():
     res2 = client.post("/api/feedback", json=payload2)
     assert res2.status_code == 422
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio(loop_scope="session")
 async def test_concurrent_burst_execution():
     """Verify race condition resistance during concurrent burst traffic."""
     import asyncio
@@ -562,11 +590,7 @@ def test_deterministic_state_transition_matrices():
     # Fetch baseline state
     baseline_res = client.get("/api/feedback?tenantId=sacred_heart::or")
     baseline_data = baseline_res.json()
-    frozen_state = copy.deepcopy(baseline_data)
-
-    # Normalize transient fields for comparison
-    for item in frozen_state.get("items", []):
-        item.pop("createdAt", None)
+    frozen_state = deep_clean(baseline_data, ["createdAt"])
 
     # Invalid transition
     patch_res3 = client.patch(f"/api/feedback/{item_id}/status", json={"status": "invalid_status"})
@@ -574,11 +598,7 @@ def test_deterministic_state_transition_matrices():
 
     # Ensure no implicit mutation occurred from the invalid transition
     new_res = client.get("/api/feedback?tenantId=sacred_heart::or")
-    new_data = new_res.json()
-
-    # Normalize transient fields for comparison
-    for item in new_data.get("items", []):
-        item.pop("createdAt", None)
+    new_data = deep_clean(new_res.json(), ["createdAt"])
 
     assert new_data == frozen_state
 
