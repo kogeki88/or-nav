@@ -260,6 +260,7 @@ test('enforces multi-tenant isolation by ensuring network settings are not impro
   });
 
   unmount();
+  await new Promise(r => setTimeout(r, 20));
   assert.strictEqual(screen.queryByRole('dialog'), null);
   QRCodeToDataURLMock.mock.resetCalls();
 
@@ -304,6 +305,7 @@ test('handles malformed payload correctly with fast-check (boundary inputs)', as
         });
 
         unmount();
+        await new Promise(r => setTimeout(r, 20));
       }
     ),
     { numRuns: 20 }
@@ -374,6 +376,7 @@ test('concurrent burst execution: handles massive volume of concurrent network r
   }, { timeout: 5000 });
 
   renders.forEach((r) => r.unmount());
+  await new Promise(r => setTimeout(r, 20));
 });
 
 test('latency benchmark: ensures UI remains responsive despite slow network fetches and updates gracefully', async () => {
@@ -412,6 +415,7 @@ test('extended multi-tenant boundary & offline mutation idempotency (facility_id
   });
 
   unmountA();
+  await new Promise(r => setTimeout(r, 20));
   assert.strictEqual(screen.queryByRole('dialog'), null);
   QRCodeToDataURLMock.mock.resetCalls();
 
@@ -433,6 +437,7 @@ test('extended multi-tenant boundary & offline mutation idempotency (facility_id
   });
 
   unmountB();
+  await new Promise(r => setTimeout(r, 20));
 });
 
 test('fault injection & network partition degradation: validates self-healing reconnection logic with intermittent latency', async () => {
@@ -476,6 +481,7 @@ test('fault injection & network partition degradation: validates self-healing re
   }, { timeout: 2000 });
 
   unmount();
+  await new Promise(r => setTimeout(r, 20));
 });
 
 
@@ -513,6 +519,7 @@ test('memory profiling: unclosed event listeners and component garbage collectio
       assert.ok(screen.getByRole('dialog'));
     });
     unmount();
+    await new Promise(r => setTimeout(r, 20));
   }
 
   window.addEventListener = originalAddEventListener;
@@ -549,6 +556,7 @@ test('cache eviction under constrained runtime memory: simulates memory pressure
   });
 
   unmount();
+  await new Promise(r => setTimeout(r, 20));
 });
 
 
@@ -580,6 +588,7 @@ test('Security invariant: HIPAA PII/PHI strict boundary and unauthenticated disp
   });
 
   unmount();
+  await new Promise(r => setTimeout(r, 20));
   fetchNetworkInfoMock.mock.resetCalls();
 });
 
@@ -604,6 +613,7 @@ test('Security invariant: Prompt Injection & Malicious HTML entity hardening in 
   });
 
   unmount();
+  await new Promise(r => setTimeout(r, 20));
   fetchNetworkInfoMock.mock.resetCalls();
 });
 
@@ -631,6 +641,7 @@ test('Deterministic state transitions & clinical snapshot consistency: verifies 
   assert.ok(!screen.queryByText('HTTPS Secure Context active — full Walkie-Talkie Push-to-Talk & PWA install supported.'));
 
   unmount();
+  await new Promise(r => setTimeout(r, 20));
   fetchNetworkInfoMock.mock.resetCalls();
   QRCodeToDataURLMock.mock.resetCalls();
 });
@@ -665,6 +676,7 @@ test('Preference card conflict resolution: simulated overriding preference prope
   });
 
   unmount();
+  await new Promise(r => setTimeout(r, 20));
   fetchNetworkInfoMock.mock.resetCalls();
   QRCodeToDataURLMock.mock.resetCalls();
 });
@@ -691,6 +703,7 @@ test('multi-tenant isolation: strict composite-key delimiter injection boundary 
     });
 
     unmount();
+    await new Promise(r => setTimeout(r, 20));
     QRCodeToDataURLMock.mock.resetCalls();
   }
 });
@@ -723,6 +736,7 @@ test('offline-first compliance: validates fallback network state snapshot immuta
   assert.ok(args.some((arg: string) => arg.includes(':3000') && arg.startsWith('http://')), 'Fallback uses the expected offline URL structure');
 
   unmount();
+  await new Promise(r => setTimeout(r, 20));
 });
 
 test('race condition resistance: concurrent offline-first fallback generation with deterministic jitter', async () => {
@@ -751,4 +765,115 @@ test('race condition resistance: concurrent offline-first fallback generation wi
   }, { timeout: 5000 });
 
   renders.forEach((r, i) => r.unmount());
+  await new Promise(r => setTimeout(r, 20));
+});
+
+test('multi-tenant isolation: ensures tenant context is strictly preserved across mode switches and not leaked', async () => {
+  fetchNetworkInfoMock.mock.mockImplementation(async () => ({
+    lan_ip: '192.168.1.10',
+    lan_url: 'http://tenant_A_isolated::192.168.1.10:3000',
+    mobile_url: 'http://tenant_A_isolated::192.168.1.10:3000',
+    https_url: 'https://tenant_A_isolated::example.trycloudflare.com',
+    https_active: true
+  }));
+
+  const { unmount } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  await waitFor(() => {
+    assert.ok(screen.getByText('📶 Local LAN IP'));
+  });
+
+  const lanBtn = screen.getByText('📶 Local LAN IP');
+  fireEvent.click(lanBtn);
+
+  await waitFor(() => {
+    const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+    const hasLanCall = args.some((arg: string) => arg.includes('tenant_A_isolated::') && arg.includes('http://'));
+    assert.ok(hasLanCall, "Expected LAN URL to retain tenant A isolation boundary");
+  });
+
+  // Switch back to HTTPS
+  const httpsBtn = screen.getByText('🔒 HTTPS Tunnel');
+  fireEvent.click(httpsBtn);
+
+  await waitFor(() => {
+    const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+    const hasHttpsCall = args.some((arg: string) => arg.includes('tenant_A_isolated::') && arg.includes('https://'));
+    assert.ok(hasHttpsCall, "Expected HTTPS URL to retain tenant A isolation boundary");
+  });
+
+  unmount();
+  await new Promise(r => setTimeout(r, 20));
+});
+
+test('race condition resistance: rapidly toggling between modes maintains deterministic final state without state corruption', async () => {
+  fetchNetworkInfoMock.mock.mockImplementation(async () => ({
+    lan_ip: '192.168.1.10',
+    lan_url: 'http://192.168.1.10:3000',
+    mobile_url: 'http://192.168.1.10:3000',
+    https_url: 'https://example.trycloudflare.com',
+    https_active: true
+  }));
+
+  const { unmount } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  await waitFor(() => {
+    assert.ok(screen.getByText('📶 Local LAN IP'));
+  });
+
+  const lanBtn = screen.getByText('📶 Local LAN IP');
+  const httpsBtn = screen.getByText('🔒 HTTPS Tunnel');
+
+  for (let i = 0; i < 20; i++) {
+    fireEvent.click(lanBtn);
+    fireEvent.click(httpsBtn);
+    fireEvent.click(lanBtn);
+  }
+
+  await waitFor(() => {
+    const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+    // The last click was LAN
+    const lastCall = args[args.length - 1];
+    assert.ok(lastCall.includes('http://192.168.1.10:3000'), "Expected final state to match the last toggled mode deterministically");
+  });
+
+  unmount();
+  await new Promise(r => setTimeout(r, 20));
+});
+
+test('offline-first invariants: ensures component robustly recovers when network is restored after an offline failure', async () => {
+  let isOffline = true;
+  fetchNetworkInfoMock.mock.mockImplementation(async () => {
+    if (isOffline) {
+      throw new Error('Network offline');
+    }
+    return {
+      lan_ip: '192.168.1.200',
+      lan_url: 'http://192.168.1.200:3000',
+      mobile_url: 'http://192.168.1.200:3000',
+      https_url: 'https://recovered.example.com',
+      https_active: true
+    };
+  });
+
+  const { unmount } = render(<QRPairModal isOpen={true} onClose={() => {}} />);
+
+  await waitFor(() => {
+    const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+    assert.ok(args.some((arg: string) => arg.includes(':3000') && !arg.includes('192.168.1.200')), 'Local fallback URL should be used when offline');
+  });
+
+  // Restore network and simulate user manually trying to reconnect by clicking HTTPS
+  isOffline = false;
+
+  const httpsBtn = screen.getByText('🔒 HTTPS Tunnel');
+  fireEvent.click(httpsBtn);
+
+  await waitFor(() => {
+    const args = QRCodeToDataURLMock.mock.calls.map((c: any) => c.arguments[0]);
+    assert.ok(args.some((arg: string) => arg.includes('recovered.example.com')), 'Self-healing recovered the HTTPS URL');
+  }, { timeout: 2000 });
+
+  unmount();
+  await new Promise(r => setTimeout(r, 20));
 });
