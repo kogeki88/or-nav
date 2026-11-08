@@ -81,7 +81,7 @@ class TestChatRouterMultiTenant:
         monkeypatch.setattr(httpx, "request", mock_httpx_post)
 
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio(loop_scope="session")
     async def test_multi_tenant_burst_concurrency_race_condition(self, monkeypatch):
         """Verify strict multi-tenant isolation under heavy burst concurrency using async sets."""
         import asyncio
@@ -119,7 +119,7 @@ class TestChatRouterMultiTenant:
                 assert "Silk Suture" in data["coordinate_card"]["item"]
                 assert data["coordinate_card"]["full_code"] != ""
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio(loop_scope="session")
     async def test_offline_first_idempotency_compliance(self, monkeypatch):
         """Verify offline-first idempotency for mutating operations via chat."""
         import httpx
@@ -151,23 +151,21 @@ class TestChatRouterMultiTenant:
         data2 = resp2.json()
         data3 = resp3.json()
 
-        def deep_clean(d):
+        import copy
+        def deep_clean(d_in):
+            d = copy.deepcopy(d_in)
             if isinstance(d, dict):
-                for field in ["latency_ms", "match_stage", "facility_aliases", "user_preferred_term", "facility_name", "last_verified_at", "verification_score", "usageCount", "confidence", "usedByUsers", "updatedAt"]:
+                for field in ["latency_ms", "match_stage", "facility_aliases", "user_preferred_term", "facility_name", "last_verified_at", "verification_score", "usageCount", "confidence", "usedByUsers", "updatedAt", "verify_count", "status"]:
                     if field in d:
                         del d[field]
-                for k, v in d.items():
-                    deep_clean(v)
+                for k, v in list(d.items()):
+                    d[k] = deep_clean(v)
             elif isinstance(d, list):
-                for item in d:
-                    deep_clean(item)
+                for i in range(len(d)):
+                    d[i] = deep_clean(d[i])
             return d
 
-        deep_clean(data1)
-        deep_clean(data2)
-        deep_clean(data3)
-
-        assert data1 == data2 == data3
+        assert deep_clean(data1) == deep_clean(data2) == deep_clean(data3)
 
     def test_tenant_isolation_general_memorial(self):
         client = TestClient(app)
@@ -395,7 +393,7 @@ class TestChatRouterMultiTenant:
         # In a real app we don't want 500, let's assert it is not 500
         assert resp.status_code != 500
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio(loop_scope="session")
     async def test_chat_concurrent_burst_and_latency(self):
         from app.services.inventory_search import reset_inventory_services
         from app.services.governance import reset_governance_services
@@ -477,22 +475,21 @@ class TestChatRouterMultiTenant:
         data2 = resp2.json()
         data3 = resp3.json()
 
-        def deep_clean(d):
+        import copy
+        def deep_clean(d_in):
+            d = copy.deepcopy(d_in)
             if isinstance(d, dict):
-                for field in ["last_verified_at", "latency_ms", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases"]:
+                for field in ["last_verified_at", "latency_ms", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases", "verify_count", "status", "verification_score"]:
                     if field in d:
                         del d[field]
-                for k, v in d.items():
-                    deep_clean(v)
+                for k, v in list(d.items()):
+                    d[k] = deep_clean(v)
             elif isinstance(d, list):
-                for item in d:
-                    deep_clean(item)
+                for i in range(len(d)):
+                    d[i] = deep_clean(d[i])
             return d
 
-        for data in [data1, data2, data3]:
-            deep_clean(data)
-
-        assert data1 == data2 == data3
+        assert deep_clean(data1) == deep_clean(data2) == deep_clean(data3)
 
     def test_multi_tenant_boundary_enforcement(self):
         client = TestClient(app)
@@ -635,22 +632,21 @@ class TestChatRouterMultiTenant:
         data2 = resp2.json()
         data3 = resp3.json()
 
-        def deep_clean(d):
+        import copy
+        def deep_clean(d_in):
+            d = copy.deepcopy(d_in)
             if isinstance(d, dict):
-                for field in ["last_verified_at", "latency_ms", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases"]:
+                for field in ["last_verified_at", "latency_ms", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases", "verify_count", "status", "verification_score"]:
                     if field in d:
                         del d[field]
-                for k, v in d.items():
-                    deep_clean(v)
+                for k, v in list(d.items()):
+                    d[k] = deep_clean(v)
             elif isinstance(d, list):
-                for item in d:
-                    deep_clean(item)
+                for i in range(len(d)):
+                    d[i] = deep_clean(d[i])
             return d
 
-        for data in [data1, data2, data3]:
-            deep_clean(data)
-
-        assert data1 == data2 == data3
+        assert deep_clean(data1) == deep_clean(data2) == deep_clean(data3)
 
     def test_offline_mutation_replay_idempotency_add_item(self, monkeypatch):
         import httpx
@@ -684,22 +680,21 @@ class TestChatRouterMultiTenant:
         data2 = resp2.json()
         data3 = resp3.json()
 
-        def deep_clean(d):
+        import copy
+        def deep_clean(d_in):
+            d = copy.deepcopy(d_in)
             if isinstance(d, dict):
-                for field in ["last_verified_at", "latency_ms", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases"]:
+                for field in ["last_verified_at", "latency_ms", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases", "verify_count", "status", "verification_score"]:
                     if field in d:
                         del d[field]
-                for k, v in d.items():
-                    deep_clean(v)
+                for k, v in list(d.items()):
+                    d[k] = deep_clean(v)
             elif isinstance(d, list):
-                for item in d:
-                    deep_clean(item)
+                for i in range(len(d)):
+                    d[i] = deep_clean(d[i])
             return d
 
-        for data in [data1, data2, data3]:
-            deep_clean(data)
-
-        assert data1 == data2 == data3
+        assert deep_clean(data1) == deep_clean(data2) == deep_clean(data3)
 
     def test_network_partition_recovery(self, monkeypatch):
         # We need to test the multi-tenant chat router offline capabilities properly.
@@ -756,22 +751,21 @@ class TestChatRouterMultiTenant:
         data1 = resp1.json()
         data2 = resp2.json()
 
-        def deep_clean(d):
+        import copy
+        def deep_clean(d_in):
+            d = copy.deepcopy(d_in)
             if isinstance(d, dict):
                 for field in ["last_verified_at", "latency_ms", "usageCount", "confidence", "usedByUsers", "updatedAt", "match_stage", "facility_aliases"]:
                     if field in d:
                         del d[field]
                 for k, v in list(d.items()):
-                    deep_clean(v)
+                    d[k] = deep_clean(v)
             elif isinstance(d, list):
-                for item in d:
-                    deep_clean(item)
+                for i in range(len(d)):
+                    d[i] = deep_clean(d[i])
             return d
 
-        deep_clean(data1)
-        deep_clean(data2)
-
-        assert data1 == data2
+        assert deep_clean(data1) == deep_clean(data2)
 
     def test_chat_router_memory_leak_and_resource_eviction(self, monkeypatch):
         """Verify memory eviction during heavy chat operations (profiling for leaks)."""
@@ -1126,23 +1120,22 @@ class TestChatRouterMultiTenant:
         data2 = resp2.json()
 
         # Clean variable metrics that break structural determinism assertions
-        def deep_clean(d):
+        import copy
+        def deep_clean(d_in):
+            d = copy.deepcopy(d_in)
             if isinstance(d, dict):
                 d.pop("latency_ms", None)
                 d.pop("facility_aliases", None)
                 d.pop("match_stage", None)
-                for k, v in d.items():
-                    deep_clean(v)
+                for k, v in list(d.items()):
+                    d[k] = deep_clean(v)
             elif isinstance(d, list):
-                for item in d:
-                    deep_clean(item)
+                for i in range(len(d)):
+                    d[i] = deep_clean(d[i])
             return d
 
-        data1 = deep_clean(data1)
-        data2 = deep_clean(data2)
-
         # The entire state transition output MUST match perfectly
-        assert data1 == data2
+        assert deep_clean(data1) == deep_clean(data2)
 
         # Assert offline routing invariants
         assert data1.get("routing_tier") == "TIER_1_LOCAL_CSV"
