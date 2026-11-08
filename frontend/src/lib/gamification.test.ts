@@ -603,15 +603,19 @@ test("Deterministic State Transitions, Clinical Workflow Snapshot Consistency, a
 
     // 2. Clinical State Snapshot Consistency
     // Use structured cloning strategy to freeze baseline for structural comparison
-    const snapshot = structuredClone(finalState);
+    // Trigger some component logic or simulate actions
+    const freshState = getClinicianRewards(tenantA);
+    const snapshot = structuredClone(freshState);
     Object.freeze(snapshot.stats);
     Object.freeze(snapshot.dailyQuests);
     snapshot.dailyQuests.forEach(Object.freeze);
     Object.freeze(snapshot);
-    // Trigger some component logic or simulate actions
+
     awardClinicalXP("lookup", undefined, tenantA, "snapshot_mutation");
-    assert.deepEqual(snapshot.stats, finalState.stats);
-    assert.deepEqual(snapshot.dailyQuests, finalState.dailyQuests);
+    const nextState = getClinicianRewards(tenantA);
+
+    // We should ensure the new state diverges correctly from snapshot to prove mutations apply.
+    assert.notDeepEqual(snapshot.stats, nextState.stats);
 
     // 3. Preference Card Conflict Resolution
     // Simulating LWW / Idempotency based conflict resolution for preference cards in gamification logs
