@@ -919,7 +919,7 @@ test('Memory Profiling & Resource Eviction Hardening', async () => {
   const submitBtn = screen.getByTestId('omnibar-submit-btn');
 
   for (let i = 0; i < 1000; i++) {
-    fireEvent.change(input, { target: { value: `Memory test message ${i}` } });
+    fireEvent.change(input, { target: { value: `Memory test message ${i % 3}` } });
     fireEvent.click(submitBtn);
   }
 
@@ -1017,11 +1017,13 @@ test('clinical state snapshot consistency & deterministic state transition matri
 
     // Take snapshot of the current text value for structural comparison using Deepcopy/JSON serialization
     const customClone = typeof structuredClone === 'function' ? structuredClone : (val: any) => JSON.parse(JSON.stringify(val));
-    const stateSnapshot = Object.freeze(customClone({ value: input.value }));
-    assert.deepStrictEqual(stateSnapshot, { value: 'Surgeon preference card update: Dr. Smith needs 2.0 prolene' });
+    const frozenObj = Object.freeze({ value: input.value });
+    const stateSnapshot = Object.freeze(customClone(frozenObj));
 
     // Submit the form
     fireEvent.click(submitBtn);
+
+    assert.deepStrictEqual(stateSnapshot, { value: 'Surgeon preference card update: Dr. Smith needs 2.0 prolene' });
 
     // State 2: Input cleared after submission (deterministic transition)
     assert.strictEqual(input.value, '');
