@@ -2,6 +2,7 @@ from hypothesis import given, strategies as st
 import pytest
 from fastapi.testclient import TestClient
 import uuid
+import copy
 import socket
 import time
 import concurrent.futures
@@ -35,7 +36,9 @@ def clean_auth_state(tmp_path, monkeypatch):
         if os.name == 'nt':
             return orig_socket(*args, **kwargs)
         # Ensure we block network requests safely, considering args[0] might be a URL for httpx
-        family = args[0] if len(args) > 0 and isinstance(args[0], int) else kwargs.get("family")
+        if len(args) > 0 and not isinstance(args[0], int):
+            raise RuntimeError("Network requests are disabled in this test suite.")
+        family = args[0] if len(args) > 0 else kwargs.get("family", getattr(socket, 'AF_INET', 2))
         # Strictly block AF_INET and AF_INET6
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network requests are disabled in this test suite.")
@@ -48,6 +51,17 @@ def clean_auth_state(tmp_path, monkeypatch):
     save_users(DEFAULT_DEMO_USERS)
 
     yield
+
+
+def deep_clean(obj):
+    if not isinstance(obj, dict):
+        return obj
+    cleaned = copy.deepcopy(obj)
+    cleaned.pop("latency_ms", None)
+    cleaned.pop("last_verified_at", None)
+    if "profile" in cleaned and isinstance(cleaned["profile"], dict):
+        cleaned["profile"].pop("facilityName", None)
+    return cleaned
 
 class TestAuthTokenRotation:
     """Test Suite for AuthTokenRotation. Tests that tokens are unique."""
@@ -104,7 +118,7 @@ class TestAuthTokenRotation:
         assert token1.startswith("token-")
         assert token2.startswith("token-")
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio(loop_scope="session")
     async def test_auth_token_rotation_concurrent_burst(self):
         """Verify race condition resistance and measure latency for concurrent requests."""
         num_requests = 50
@@ -264,19 +278,11 @@ class TestAuthTokenRotation:
 
         res1 = client.put("/api/auth/profile", json=payload)
         assert res1.status_code == 200
-        data1 = res1.json()
-        data1.pop("latency_ms", None)
-        data1.pop("last_verified_at", None)
-        if "facilityName" in data1.get("profile", {}):
-            data1["profile"].pop("facilityName", None)
+        data1 = deep_clean(res1.json())
 
         res2 = client.put("/api/auth/profile", json=payload)
         assert res2.status_code == 200
-        data2 = res2.json()
-        data2.pop("latency_ms", None)
-        data2.pop("last_verified_at", None)
-        if "facilityName" in data2.get("profile", {}):
-            data2["profile"].pop("facilityName", None)
+        data2 = deep_clean(res2.json())
 
         assert data1 == data2
         assert data2["profile"]["facilityId"] == "sacred_heart"
@@ -325,19 +331,11 @@ class TestAuthTokenRotation:
 
         res1 = client.post("/api/auth/reset-password", json=payload)
         assert res1.status_code == 200
-        data1 = res1.json()
-        data1.pop("latency_ms", None)
-        data1.pop("last_verified_at", None)
-        if "facilityName" in data1.get("profile", {}):
-            data1["profile"].pop("facilityName", None)
+        data1 = deep_clean(res1.json())
 
         res2 = client.post("/api/auth/reset-password", json=payload)
         assert res2.status_code == 200
-        data2 = res2.json()
-        data2.pop("latency_ms", None)
-        data2.pop("last_verified_at", None)
-        if "facilityName" in data2.get("profile", {}):
-            data2["profile"].pop("facilityName", None)
+        data2 = deep_clean(res2.json())
 
         assert data1 == data2
         assert data2["success"] is True
@@ -387,19 +385,11 @@ class TestAuthTokenRotation:
 
         res_a1 = client.put("/api/auth/profile", json=payload_a)
         assert res_a1.status_code == 200
-        data_a1 = res_a1.json()
-        data_a1.pop("latency_ms", None)
-        data_a1.pop("last_verified_at", None)
-        if "facilityName" in data_a1.get("profile", {}):
-            data_a1["profile"].pop("facilityName", None)
+        data_a1 = deep_clean(res_a1.json())
 
         res_a2 = client.put("/api/auth/profile", json=payload_a)
         assert res_a2.status_code == 200
-        data_a2 = res_a2.json()
-        data_a2.pop("latency_ms", None)
-        data_a2.pop("last_verified_at", None)
-        if "facilityName" in data_a2.get("profile", {}):
-            data_a2["profile"].pop("facilityName", None)
+        data_a2 = deep_clean(res_a2.json())
 
         assert data_a1 == data_a2
 
@@ -412,6 +402,16 @@ class TestAuthTokenRotation:
         # Ensure user A cannot access user B's tenant/department
         assert profile_a["facilityId"] != profile_b["facilityId"]
         assert profile_a["departmentId"] != profile_b["departmentId"]
+
+        # Verify strict multi-tenant boundaries using exact matching / non-word boundaries
+        import re
+        tenant_boundary_a = f"{profile_a['facilityId']}::{profile_a['departmentId']}"
+        tenant_boundary_b = f"{profile_b['facilityId']}::{profile_b['departmentId']}"
+
+        # We ensure that A's boundary pattern never falsely matches B's
+        pattern_a = re.compile(rf"(?<!\w){re.escape(tenant_boundary_a)}(?!\w)")
+        assert not pattern_a.search(tenant_boundary_b), f"Boundary leak: {tenant_boundary_a} matched inside {tenant_boundary_b}"
+        assert pattern_a.search(tenant_boundary_a)
 
         # Test offline-first profile mutations (idempotency over network-disconnected state)
         res_a_offline = client.put("/api/auth/profile", json={
