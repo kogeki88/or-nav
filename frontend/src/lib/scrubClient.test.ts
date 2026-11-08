@@ -434,6 +434,10 @@ describe("scrubClient standard and adversarial tests", () => {
       assert.strictEqual(resultB1.redactionCount, 2);
       assert.strictEqual(resultA2.redactionCount, 2);
       assert.strictEqual(resultB2.redactionCount, 2);
+
+      // Strict regex boundary assertion
+      assert.ok(!/\bfac_2\b/.test(resultA1.text));
+      assert.ok(!/\bfac_1\b/.test(resultB1.text));
     });
   });
 
@@ -662,10 +666,11 @@ describe("scrubClient standard and adversarial tests", () => {
     test("clinical state snapshot consistency", () => {
       const snapshot = {
         meta: { timestamp: "2024-01-01T12:00:00Z", v: 1 },
-        data: "Patient Jane Doe needs 3-0 silk and MRN 987654"
+        data: "Patient Jane Doe needs 3-0 silk and MRN 987654",
+        optionalField: undefined
       };
 
-      const baselineSnapshot = Object.freeze(structuredClone(snapshot));
+      const baselineSnapshot = Object.freeze({ ...snapshot, meta: { ...snapshot.meta } });
       Object.freeze(baselineSnapshot.meta);
 
       const serialized = JSON.stringify(snapshot);
