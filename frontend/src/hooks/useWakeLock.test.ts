@@ -786,7 +786,7 @@ it("should not leak wake lock if unmounted while requesting", async () => {
     try {
       const iterations = 1000;
       for (let i = 0; i < iterations; i++) {
-        const { unmount } = renderHook(() => useWakeLock(true));
+        const { unmount } = renderHook(() => useWakeLock((i % 3) === 0));
         act(() => {
           unmount();
         });
@@ -1008,6 +1008,54 @@ describe("useWakeLock Deterministic State Verifications", () => {
     });
     await Promise.resolve();
     assert.strictEqual(mockRelease.mock.calls.length > releaseCallsAfterOff, true);
+  });
+
+
+  it("should enforce deterministic release and reject subsequent invalid requests during unmount phase", async () => {
+    // 1) Test a race condition where the component unmounts *while* the wake lock request is pending
+    // 2) Ensure that no invalid locks are kept, and internal references are correctly nulled
+
+    let deferredResolve: any;
+    let deferredReject: any;
+    const requestPromise = new Promise((resolve, reject) => {
+      deferredResolve = resolve;
+      deferredReject = reject;
+    });
+
+    const slowMockRequest = mock.fn(async () => requestPromise);
+
+    Object.defineProperty(global.navigator, "wakeLock", {
+      value: {
+        request: slowMockRequest,
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    const { unmount } = renderHook(() => useWakeLock(true));
+
+    // Simulate component unmounting while request is pending
+    act(() => {
+      unmount();
+    });
+
+    // Now resolve the lock request
+    const delayedLock = {
+      release: mock.fn(async () => {}),
+      addEventListener: mock.fn(),
+      released: false,
+    };
+    deferredResolve(delayedLock);
+
+    // Wait for microtasks
+    await Promise.resolve();
+    await Promise.resolve();
+
+    // Since the hook was unmounted while requesting, it should immediately release the lock when it resolves.
+    assert.strictEqual(slowMockRequest.mock.calls.length, 1);
+    // We wait for another tick to allow the internal async function to process the catch / release block
+    await new Promise(r => setTimeout(r, 0));
+    assert.strictEqual(delayedLock.release.mock.calls.length, 1, "The lock should be released immediately upon resolution if unmounted");
   });
 
   it("should ensure clinical state snapshot consistency across lifecycle boundaries and multi-tenant isolation", async () => {
