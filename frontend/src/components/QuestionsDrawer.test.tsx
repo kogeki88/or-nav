@@ -859,6 +859,7 @@ describe("QuestionsDrawer", () => {
       await new Promise(r => setTimeout(r, (idx * 13) % 10));
 
       await userEvent.click(askButton);
+      await new Promise(r => setTimeout(r, 20));
 
       act(() => { unmount(); });
       document.body.removeChild(root);
@@ -879,7 +880,7 @@ describe("QuestionsDrawer", () => {
 
       // Memory: When asserting strict multi-tenant or concurrent data isolation using sequential string payloads, include explicit boundary delimiters
       assert.strictEqual(call.question_text, expectedText, `Cross-tenant leakage detected for ${tenant}`);
-      assert.ok(call.question_text.includes(`worker::${i}::`), `Strict boundary check failed for ${tenant}`);
+      assert.ok(new RegExp('^worker::' + i + '::').test(call.question_text), `Strict boundary check failed for ${tenant}`);
     }
   });
 
