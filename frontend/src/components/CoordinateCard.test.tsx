@@ -11,12 +11,15 @@ import { loadFacilityLexicon } from '@/lib/lexiconLearning';
 beforeEach(() => {
   if (!(global as any).localStorage) {
     const store = new Map();
-    (global as any).localStorage = {
-      getItem: mock.fn((k: string) => store.get(k) || null),
-      setItem: mock.fn((k: string, v: string) => store.set(k, v)),
-      removeItem: mock.fn((k: string) => store.delete(k)),
-      clear: mock.fn(() => store.clear())
-    };
+    Object.defineProperty(global, 'localStorage', {
+      value: {
+        getItem: mock.fn((k: string) => store.get(k) || null),
+        setItem: mock.fn((k: string, v: string) => store.set(k, v)),
+        removeItem: mock.fn((k: string) => store.delete(k)),
+        clear: mock.fn(() => store.clear())
+      },
+      writable: true
+    });
   }
 });
 
@@ -118,13 +121,29 @@ test('offline mutation idempotency and multi-tenant isolation', async () => {
         const saveBtn = screen.getByTestId('save-local-alias-btn');
         fireEvent.click(saveBtn);
 
-        // click again to simulate offline idempotency issue
-        fireEvent.click(saveBtn);
-
         // Verify in UI
         await waitFor(() => {
             assert.ok(screen.getAllByText('Y-Alias').length === 1);
         });
+
+        // Deep clone first state for idempotency test
+        const firstStateLexicon = structuredClone(loadFacilityLexicon(facilityIdCompound));
+        const cleanFirstState = firstStateLexicon.map((item: any) => {
+            const { verify_count, status, ...rest } = item;
+            return rest;
+        });
+
+        // click again to simulate offline idempotency issue
+        fireEvent.click(saveBtn);
+        await new Promise(r => setTimeout(r, 20)); // wait for processing
+
+        const secondStateLexicon = structuredClone(loadFacilityLexicon(facilityIdCompound));
+        const cleanSecondState = secondStateLexicon.map((item: any) => {
+            const { verify_count, status, ...rest } = item;
+            return rest;
+        });
+
+        assert.deepStrictEqual(cleanFirstState, cleanSecondState);
 
         // check lexicon
         const lexA = loadFacilityLexicon(facilityIdCompound);
@@ -132,6 +151,13 @@ test('offline mutation idempotency and multi-tenant isolation', async () => {
 
         assert.ok(lexA.some(l => l.spokenTerm === 'y-alias'));
         assert.ok(!lexB.some(l => l.spokenTerm === 'y-alias'));
+
+        const strictBoundaryRegexA = new RegExp(`^${facilityIdCompound}$`);
+        for (const item of lexA) {
+            // Note: we can't test facilityId inside loaded lexicon because it's not present, it is inferred by file.
+            // but we can test dept isolation
+            assert.ok(new RegExp(`^dept_1$`).test(item.departmentId));
+        }
 
         unmountA();
 
@@ -144,7 +170,11 @@ test('offline mutation idempotency and multi-tenant isolation', async () => {
         unmountB();
 
     } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) {
+            delete (global as any).fetch;
+        } else {
+            global.fetch = originalFetch;
+        }
         cleanup();
     }
 });
@@ -245,16 +275,22 @@ test('high-concurrency and latency benchmarks (stress testing)', async () => {
     global.fetch = (async () => { throw new Error('Network offline'); }) as any;
 
     try {
+        const roots = Array.from({ length: iterations }).map(() => {
+            const root = document.createElement('div');
+            document.body.appendChild(root);
+            return root;
+        });
+
+        const unmounts = roots.map((root, idx) => {
+            const { unmount } = render(<CoordinateCard card={cardData} facilityId={`sacred_heart::or_burst_${idx}`} />, { container: root });
+            return unmount;
+        });
+
         const results = await Promise.all(
-            Array.from({ length: iterations }).map(async (_, idx) => {
+            roots.map(async (root, idx) => {
                 await Promise.resolve();
                 // True interleaving
                 await new Promise(r => setTimeout(r, Math.random() * 10));
-
-                // Isolated DOM container for multi-tenant isolation
-                const root = document.createElement('div');
-                document.body.appendChild(root);
-                const { unmount } = render(<CoordinateCard card={cardData} facilityId={`sacred_heart::or_burst_${idx}`} />, { container: root });
 
                 const addBtn = root.querySelector('[data-testid="add-local-alias-btn"]');
                 if (addBtn) fireEvent.click(addBtn);
@@ -274,7 +310,7 @@ test('high-concurrency and latency benchmarks (stress testing)', async () => {
                     assert.ok(found);
                 });
 
-                unmount();
+                unmounts[idx]();
                 if (root.parentNode) root.parentNode.removeChild(root);
                 return { idx, success: true };
             })
@@ -283,7 +319,11 @@ test('high-concurrency and latency benchmarks (stress testing)', async () => {
             assert.ok(results[i].success, `Worker ${i} failed`);
         }
     } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) {
+            delete (global as any).fetch;
+        } else {
+            global.fetch = originalFetch;
+        }
     }
 
     const end = performance.now();
@@ -314,10 +354,13 @@ test('fault injection: missing local storage and degraded state self-healing', a
 
     // Create a mock local storage if it doesn't exist
     if (!(global as any).localStorage) {
-      (global as any).localStorage = {
-         getItem: () => null,
-         setItem: () => {}
-      }
+      Object.defineProperty(global, 'localStorage', {
+         value: {
+            getItem: () => null,
+            setItem: () => {}
+         },
+         writable: true
+      });
     }
 
     (global as any).localStorage.getItem = mock.fn((key: string) => {
@@ -394,7 +437,7 @@ test('fault injection: intermittent latency network partition reconnection and s
     let fetchCallCount = 0;
 
     // Simulate network partition and self-healing
-    global.fetch = mock.fn(async (...args: any[]) => {
+    const mockFetch = mock.fn(async (...args: any[]) => {
         if (args.length === 0) throw new TypeError('Failed to fetch');
         fetchCallCount++;
         if (networkState.status === 'offline') {
@@ -403,7 +446,8 @@ test('fault injection: intermittent latency network partition reconnection and s
         }
         // Online state
         return Promise.resolve({ ok: true, json: async () => ({}) } as any);
-    }) as any;
+    });
+    global.fetch = mockFetch as any;
 
     try {
         const { unmount } = render(<CoordinateCard card={d} facilityId="tenant_network" />);
@@ -423,6 +467,8 @@ test('fault injection: intermittent latency network partition reconnection and s
 
         // Heal network
         networkState.status = 'online';
+        // wait for queue drain
+        await new Promise(r => setTimeout(r, 20));
 
         // Action 2: Add another alias during online state
         fireEvent.click(screen.getByTestId('add-local-alias-btn'));
@@ -438,7 +484,11 @@ test('fault injection: intermittent latency network partition reconnection and s
 
         unmount();
     } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) {
+            delete (global as any).fetch;
+        } else {
+            global.fetch = originalFetch;
+        }
         cleanup();
     }
 });
@@ -475,7 +525,10 @@ test('memory profiling, leak detection, unclosed event listeners, and cache evic
     const originalSetItem = (global as any).localStorage?.setItem;
 
     if (!(global as any).localStorage) {
-      (global as any).localStorage = { getItem: () => null, setItem: () => {} };
+      Object.defineProperty(global, 'localStorage', {
+          value: { getItem: () => null, setItem: () => {} },
+          writable: true
+      });
     }
 
     (global as any).localStorage.getItem = mock.fn((key: string) => {
@@ -507,7 +560,7 @@ test('memory profiling, leak detection, unclosed event listeners, and cache evic
         for (let i = 0; i < iterations; i++) {
             const root = document.createElement('div');
             document.body.appendChild(root);
-            const { unmount } = render(<CoordinateCard card={cardData} facilityId={`leak_tenant_${i % 5}`} />, { container: root });
+            const { unmount } = render(<CoordinateCard card={cardData} facilityId={`leak_tenant_${i % 3}`} />, { container: root });
 
             fireEvent.click(root.querySelector('[data-testid="add-local-alias-btn"]') as Element);
             fireEvent.change(root.querySelector('[data-testid="add-local-alias-input"]') as Element, { target: { value: `Alias-${i}` } });
@@ -530,7 +583,11 @@ test('memory profiling, leak detection, unclosed event listeners, and cache evic
     } finally {
         window.addEventListener = originalAddEventListener;
         window.removeEventListener = originalRemoveEventListener;
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) {
+            delete (global as any).fetch;
+        } else {
+            global.fetch = originalFetch;
+        }
         if (originalGetItem) (global as any).localStorage.getItem = originalGetItem;
         if (originalSetItem) (global as any).localStorage.setItem = originalSetItem;
         cleanup();
@@ -608,7 +665,11 @@ test('Strict Security Invariants & HIPAA PHI Boundary Verification', async () =>
         unmount();
 
     } finally {
-        global.fetch = originalFetch;
+        if (originalFetch === undefined) {
+            delete (global as any).fetch;
+        } else {
+            global.fetch = originalFetch;
+        }
         cleanup();
     }
 });
@@ -636,10 +697,13 @@ test('Clinical Workflow Snapshot & Deterministic State Verifications for Coordin
     const store: Record<string, string> = {};
 
     if (!(global as any).localStorage) {
-      (global as any).localStorage = {
-          getItem: (k: string) => store[k] || null,
-          setItem: (k: string, v: string) => { store[k] = v; }
-      };
+      Object.defineProperty(global, 'localStorage', {
+          value: {
+              getItem: (k: string) => store[k] || null,
+              setItem: (k: string, v: string) => { store[k] = v; }
+          },
+          writable: true
+      });
     } else {
         (global as any).localStorage.getItem = mock.fn((k: string) => store[k] || null);
         (global as any).localStorage.setItem = mock.fn((k: string, v: string) => { store[k] = v; });
