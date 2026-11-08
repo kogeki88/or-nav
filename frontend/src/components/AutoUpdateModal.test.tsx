@@ -527,7 +527,7 @@ test('supplementary: extends concurrent burst execution, race condition resistan
 
   // Temporarily remove global.fetch to strictly test offline-first resilient behavior
   const tempFetch = global.fetch;
-  global.fetch = undefined as any;
+  delete (global as any).fetch;
 
   try {
     const renderPromises = rootNodes.map(async ({ root, isTenant1 }, index) => {
@@ -587,7 +587,7 @@ test('supplementary: enforces multi-tenant boundary isolation (facility_id::dept
   document.body.appendChild(root2);
 
   const tempFetch = global.fetch;
-  global.fetch = undefined as any;
+  delete (global as any).fetch;
 
   try {
     const manifestTenant1: VersionManifest = {
@@ -676,17 +676,17 @@ test('enforces memory profiling, leak detection, unclosed event listeners, and c
   });
 
   const tempFetch = global.fetch;
-  global.fetch = undefined as any;
+  delete (global as any).fetch;
 
   try {
-    const renderPromises = rootNodes.map(async ({ root, isTenant1 }, index) => {
+    rootNodes.forEach(({ root, isTenant1 }, index) => {
       const currentManifest = {
         ...manifest,
         version: isTenant1 ? `v0.999-MemOne-${index}` : `v0.999-MemTwo-${index}`,
         build_number: index + 1000
       };
 
-      const { unmount, queryByText } = render(
+      const { unmount, queryByText, rerender } = render(
         <AutoUpdateModal
           isOpen={true}
           onClose={() => {}}
@@ -698,21 +698,18 @@ test('enforces memory profiling, leak detection, unclosed event listeners, and c
       );
 
       // Simulate cache eviction by re-rendering with new props rapidly
-      const { rerender } = render(
+      rerender(
         <AutoUpdateModal
           isOpen={true}
           onClose={() => {}}
           manifest={{ ...currentManifest, version: currentManifest.version + '-updated' }}
           currentVersion="v0.61"
           currentBuild={18}
-        />,
-        { container: root }
+        />
       );
 
       act(() => { unmount(); });
     });
-
-    await Promise.all(renderPromises);
   } finally {
     global.fetch = tempFetch;
     rootNodes.forEach(({ root }) => {
@@ -768,7 +765,7 @@ test('enforces HIPAA PII/PHI redaction verification, regex boundary attacks, zer
 
   // Temporarily remove global.fetch to strictly test offline-first resilient behavior
   const tempFetch = global.fetch;
-  global.fetch = undefined as any;
+  delete (global as any).fetch;
 
   try {
     const { unmount } = render(
@@ -817,7 +814,7 @@ test('enforces clinical state snapshot consistency, preference card conflict res
   document.body.appendChild(root2);
 
   const tempFetch = global.fetch;
-  global.fetch = undefined as any;
+  delete (global as any).fetch;
 
   try {
     // Clinical state snapshot 1: Initial manifest (Preference Card A)
@@ -914,7 +911,7 @@ test('enforces deep state immutability to prevent invalid or separate-tenant tra
   document.body.appendChild(root);
 
   const tempFetch = global.fetch;
-  global.fetch = undefined as any;
+  delete (global as any).fetch;
 
   try {
     const { unmount, rerender } = render(
