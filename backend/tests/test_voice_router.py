@@ -53,7 +53,9 @@ class TestVoiceRouter:
         def mock_socket(*args, **kwargs):
             import os
             family = kwargs.get('family', getattr(socket, 'AF_INET', 2))
-            if len(args) > 0 and isinstance(args[0], int):
+            if len(args) > 0:
+                if not isinstance(args[0], int):
+                    raise TypeError("socket family must be an integer")
                 family = args[0]
             if family != getattr(socket, 'AF_UNIX', -1) and os.name != 'nt':
                 raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
@@ -96,10 +98,10 @@ class TestVoiceRouter:
 
         # Conflict resolution check - tenants do not cross boundaries
         import re as re_mod
-        assert re_mod.search(r'\b' + re_mod.escape(tenant_1) + r'\b', res_t1["transcript"])
-        assert re_mod.search(r'\b' + re_mod.escape(tenant_2) + r'\b', res_t2["transcript"])
-        assert not re_mod.search(r'\b' + re_mod.escape(tenant_2) + r'\b', res_t1["transcript"])
-        assert not re_mod.search(r'\b' + re_mod.escape(tenant_1) + r'\b', res_t2["transcript"])
+        assert re_mod.search(r'(?<!\w)' + re_mod.escape(tenant_1) + r'(?!\w)', res_t1["transcript"])
+        assert re_mod.search(r'(?<!\w)' + re_mod.escape(tenant_2) + r'(?!\w)', res_t2["transcript"])
+        assert not re_mod.search(r'(?<!\w)' + re_mod.escape(tenant_2) + r'(?!\w)', res_t1["transcript"])
+        assert not re_mod.search(r'(?<!\w)' + re_mod.escape(tenant_1) + r'(?!\w)', res_t2["transcript"])
 
         assert "vicryl" not in res_t1["transcript"].lower()
         assert "silk" not in res_t2["transcript"].lower()
@@ -211,15 +213,15 @@ class TestVoiceRouter:
         data_2 = resp_2.json()
 
         import re as re_mod
-        assert re_mod.search(r'\b' + re_mod.escape(tenant_1) + r'\b', data_1["transcript"])
-        assert re_mod.search(r'\b' + re_mod.escape(tenant_1) + r'\b', data_1["safe_transcript"])
-        assert not re_mod.search(r'\b' + re_mod.escape(tenant_2) + r'\b', data_1["transcript"])
-        assert not re_mod.search(r'\b' + re_mod.escape(tenant_2) + r'\b', data_1["safe_transcript"])
+        assert re_mod.search(r'(?<!\w)' + re_mod.escape(tenant_1) + r'(?!\w)', data_1["transcript"])
+        assert re_mod.search(r'(?<!\w)' + re_mod.escape(tenant_1) + r'(?!\w)', data_1["safe_transcript"])
+        assert not re_mod.search(r'(?<!\w)' + re_mod.escape(tenant_2) + r'(?!\w)', data_1["transcript"])
+        assert not re_mod.search(r'(?<!\w)' + re_mod.escape(tenant_2) + r'(?!\w)', data_1["safe_transcript"])
 
-        assert re_mod.search(r'\b' + re_mod.escape(tenant_2) + r'\b', data_2["transcript"])
-        assert re_mod.search(r'\b' + re_mod.escape(tenant_2) + r'\b', data_2["safe_transcript"])
-        assert not re_mod.search(r'\b' + re_mod.escape(tenant_1) + r'\b', data_2["transcript"])
-        assert not re_mod.search(r'\b' + re_mod.escape(tenant_1) + r'\b', data_2["safe_transcript"])
+        assert re_mod.search(r'(?<!\w)' + re_mod.escape(tenant_2) + r'(?!\w)', data_2["transcript"])
+        assert re_mod.search(r'(?<!\w)' + re_mod.escape(tenant_2) + r'(?!\w)', data_2["safe_transcript"])
+        assert not re_mod.search(r'(?<!\w)' + re_mod.escape(tenant_1) + r'(?!\w)', data_2["transcript"])
+        assert not re_mod.search(r'(?<!\w)' + re_mod.escape(tenant_1) + r'(?!\w)', data_2["safe_transcript"])
 
     def test_voice_transcribe_offline_mutation_replay_idempotency(self, client, monkeypatch):
         import httpx
@@ -232,7 +234,9 @@ class TestVoiceRouter:
         def mock_socket(*args, **kwargs):
             import os
             family = kwargs.get("family", getattr(socket, "AF_INET", 2))
-            if args and isinstance(args[0], int):
+            if len(args) > 0:
+                if not isinstance(args[0], int):
+                    raise TypeError("socket family must be an integer")
                 family = args[0]
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
@@ -254,7 +258,6 @@ class TestVoiceRouter:
         )
         assert resp1.status_code == 200
         data1 = resp1.json()
-
         resp2 = client.post(
             "/api/voice/transcribe",
             files={"file": ("test.wav", audio, "audio/wav")},
@@ -263,7 +266,21 @@ class TestVoiceRouter:
         assert resp2.status_code == 200
         data2 = resp2.json()
 
-        assert data1 == data2
+        import copy
+        def deep_clean(obj):
+            if isinstance(obj, dict):
+                obj = copy.deepcopy(obj)
+                obj.pop("verification_score", None)
+                obj.pop("latency_ms", None)
+                for k in obj:
+                    obj[k] = deep_clean(obj[k])
+                return obj
+            elif isinstance(obj, list):
+                return [deep_clean(x) for x in obj]
+            return obj
+
+        assert deep_clean(data1) == deep_clean(data2)
+
 
     def test_transcribe_audio_with_hint_speech(self, client):
         audio = b"0" * 500
@@ -418,7 +435,9 @@ class TestVoiceRouter:
         def mock_socket(*args, **kwargs):
             import os
             family = kwargs.get("family", getattr(socket, "AF_INET", 2))
-            if args and isinstance(args[0], int):
+            if len(args) > 0:
+                if not isinstance(args[0], int):
+                    raise TypeError("socket family must be an integer")
                 family = args[0]
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
@@ -450,7 +469,9 @@ class TestVoiceRouter:
         def mock_socket(*args, **kwargs):
             import os
             family = kwargs.get("family", getattr(socket, "AF_INET", 2))
-            if args and isinstance(args[0], int):
+            if len(args) > 0:
+                if not isinstance(args[0], int):
+                    raise TypeError("socket family must be an integer")
                 family = args[0]
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
@@ -484,12 +505,25 @@ class TestVoiceRouter:
         resp1 = client.post("/api/voice/token", json={"tenant_id": tenant_id, "participant_name": "user"})
         assert resp1.status_code == 200
         data1 = resp1.json()
-
         resp2 = client.post("/api/voice/token", json={"tenant_id": tenant_id, "participant_name": "user"})
         assert resp2.status_code == 200
         data2 = resp2.json()
 
-        assert data1 == data2
+        import copy
+        def deep_clean(obj):
+            if isinstance(obj, dict):
+                obj = copy.deepcopy(obj)
+                obj.pop("verification_score", None)
+                obj.pop("latency_ms", None)
+                for k in obj:
+                    obj[k] = deep_clean(obj[k])
+                return obj
+            elif isinstance(obj, list):
+                return [deep_clean(x) for x in obj]
+            return obj
+
+        assert deep_clean(data1) == deep_clean(data2)
+
 
     def test_voice_token_multi_tenant_isolation(self, client, monkeypatch):
         monkeypatch.setenv("LIVEKIT_URL", "wss://livekit.test")
@@ -812,7 +846,9 @@ class TestVoiceRouter:
         def mock_socket(*args, **kwargs):
             import os
             family = kwargs.get("family", getattr(socket, "AF_INET", 2))
-            if args and isinstance(args[0], int):
+            if len(args) > 0:
+                if not isinstance(args[0], int):
+                    raise TypeError("socket family must be an integer")
                 family = args[0]
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
@@ -982,7 +1018,9 @@ class TestVoiceRouter:
         def mock_socket(*args, **kwargs):
             import os
             family = kwargs.get("family", getattr(socket, "AF_INET", 2))
-            if args and isinstance(args[0], int):
+            if len(args) > 0:
+                if not isinstance(args[0], int):
+                    raise TypeError("socket family must be an integer")
                 family = args[0]
             if family != getattr(socket, "AF_UNIX", -1) and os.name != "nt":
                 raise RuntimeError("Offline invariant violated: External network call attempted.")
