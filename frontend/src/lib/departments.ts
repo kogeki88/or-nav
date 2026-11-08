@@ -138,5 +138,5 @@ export function setActiveDepartmentId(id: string): void {
 export function getDepartment(id?: string): DepartmentDefinition {
   if (!id) return DEPARTMENTS[DEFAULT_DEPARTMENT_ID];
   if (id === "general_memorial_cvor") return DEPARTMENTS.or_main;
-  return DEPARTMENTS[id] || DEPARTMENTS[DEFAULT_DEPARTMENT_ID];
+  return DEPARTMENTS[id] ?? DEPARTMENTS[DEFAULT_DEPARTMENT_ID];
 }
