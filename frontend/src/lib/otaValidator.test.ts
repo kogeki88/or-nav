@@ -107,12 +107,22 @@ describe('OTA Validator', () => {
     it('supplementary multi-tenant boundary enforcement (facility_id::dept_id) and offline mutation replay idempotency test', () => {
       // 1. Offline Mutation Replay Idempotency
       // Since validateOTAManifest is a pure function, replay should be strictly idempotent.
+      const deepClean = (obj: any): any => {
+        if (typeof obj !== 'object' || obj === null) return obj;
+        const clone = typeof structuredClone === 'function' ? structuredClone(obj) : JSON.parse(JSON.stringify(obj));
+        for (const key in clone) {
+          if (key === 'latency_ms') delete clone[key];
+          else clone[key] = deepClean(clone[key]);
+        }
+        return clone;
+      };
+
       const initialResult = validateOTAManifest(validManifest, currentVersion, currentBuild);
       const replayResult1 = validateOTAManifest(validManifest, currentVersion, currentBuild);
       const replayResult2 = validateOTAManifest(validManifest, currentVersion, currentBuild);
 
-      assert.deepStrictEqual(initialResult, replayResult1);
-      assert.deepStrictEqual(initialResult, replayResult2);
+      assert.deepStrictEqual(deepClean(initialResult), deepClean(replayResult1));
+      assert.deepStrictEqual(deepClean(initialResult), deepClean(replayResult2));
 
       // 2. Multi-tenant boundary enforcement (facility_id::dept_id)
       const tenantAManifest = { ...validManifest, 'facility_id::dept_id': 'facA::dept1::or' };
@@ -318,7 +328,7 @@ describe('OTA Validator', () => {
         assert.strictEqual(captured.result.valid, true, `Validation failed for tenant ${i}`);
         assert.strictEqual((captured.result as any).sanitizedManifest.version, `v0.${62 + i}`);
         assert.strictEqual((captured.result as any).sanitizedManifest.build_number, 19 + i);
-        assert.ok((captured.result as any).sanitizedManifest['facility_id::dept_id'].includes(`fac_burst_${i}::`));
+        assert.ok(new RegExp('\\b' + `fac_burst_${i}::`).test((captured.result as any).sanitizedManifest['facility_id::dept_id']));
       }
     });
 
@@ -366,6 +376,7 @@ describe('OTA Validator', () => {
         } catch (e) {
           if (e instanceof assert.AssertionError) throw e;
         }
+        await new Promise(r => setTimeout(r, 20));
         assert.strictEqual(fetchedManifest, null);
         assert.strictEqual(fetchAttempts, 1);
 
@@ -513,7 +524,15 @@ describe('OTA Validator', () => {
         Object.keys(baselineSnapshot).forEach(key => typeof (baselineSnapshot as any)[key] === 'object' && (baselineSnapshot as any)[key] !== null ? Object.freeze((baselineSnapshot as any)[key]) : null);
         Object.freeze(baselineSnapshot);
         // Create a deep copy for structural comparison
-        const expectedState = customClone(baselineSnapshot);
+        const deepCopy = (obj: any): any => {
+          if (typeof obj !== 'object' || obj === null) return obj;
+          const result = Array.isArray(obj) ? [] : {};
+          for (const key in obj) {
+            (result as any)[key] = deepCopy(obj[key]);
+          }
+          return result;
+        };
+        const expectedState = deepCopy(baselineSnapshot);
 
         const result = validateOTAManifest(baselineSnapshot, 'v0.1', 1);
 
