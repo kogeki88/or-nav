@@ -314,8 +314,9 @@ export function learnAliasClient(
   const cleanUser = (userId || "anonymous").trim().toLowerCase();
   const disp = displayName || titleCaseTerm(spokenTerm);
 
-  const existing = entries.find((e) => e && (e.spokenTerm || "").toLowerCase() === normTerm);
-  if (existing) {
+  const existingIdx = entries.findIndex((e) => e && (e.spokenTerm || "").toLowerCase() === normTerm);
+  if (existingIdx !== -1) {
+    let existing = { ...entries[existingIdx] };
     if (existing.canonicalItemName !== canonicalItem && typeof canonicalItem !== 'undefined') {
       existing.usageCount = 1;
       existing.usedByUsers = [];
@@ -324,6 +325,7 @@ export function learnAliasClient(
       existing.usageCount = (existing.usageCount || 1) + 1;
     }
     const userSet = new Set(existing.usedByUsers || []);
+
     if (cleanUser && cleanUser !== "anonymous") userSet.add(cleanUser);
     existing.usedByUsers = Array.from(userSet);
     existing.canonicalItemName = canonicalItem;
@@ -338,6 +340,7 @@ export function learnAliasClient(
     } else {
       existing.confidence = "personal";
     }
+    entries[existingIdx] = existing;
     saveFacilityLexicon(facilityId, entries);
     return existing;
   }
@@ -376,8 +379,9 @@ export function recordPhoneticCorrection(
   const cleanUser = (userId || "anonymous").trim().toLowerCase();
   const disp = titleCaseTerm(misheardTerm);
 
-  const existing = entries.find((e) => e && (e.spokenTerm || "").toLowerCase() === normTerm && e.type === "phonetic") as PhoneticCorrectionEntry | undefined;
-  if (existing) {
+  const existingIdx = entries.findIndex((e) => e && (e.spokenTerm || "").toLowerCase() === normTerm && e.type === "phonetic");
+  if (existingIdx !== -1) {
+    let existing = { ...entries[existingIdx] } as PhoneticCorrectionEntry;
     if (existing.canonicalItemName !== actualTerm && typeof actualTerm !== 'undefined') {
       existing.usageCount = 1;
       existing.usedByUsers = [];
@@ -386,6 +390,7 @@ export function recordPhoneticCorrection(
       existing.usageCount = (existing.usageCount || 1) + 1;
     }
     const userSet = new Set(existing.usedByUsers || []);
+
     if (cleanUser && cleanUser !== "anonymous") userSet.add(cleanUser);
     existing.usedByUsers = Array.from(userSet);
     existing.canonicalItemName = actualTerm;
@@ -400,6 +405,7 @@ export function recordPhoneticCorrection(
     } else {
       existing.confidence = "personal";
     }
+    entries[existingIdx] = existing;
     saveFacilityLexicon(facilityId, entries);
     return existing;
   }
