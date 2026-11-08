@@ -636,8 +636,8 @@ describe("Clinical Workflow Snapshot & Deterministic State Verifications", () =>
 
     // Create baseline state
     const originalState = { tenantId: visualizer.getTenantId() };
-    Object.freeze(originalState);
     const frozenState = structuredClone(originalState);
+    Object.freeze(frozenState);
 
     // Mutate
     visualizer.setTenantId("princeton_plainsboro::or");
