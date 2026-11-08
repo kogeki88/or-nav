@@ -6,6 +6,31 @@ import { LiveKitAudioVisualizer } from "./livekitClient";
 import { z, ZodError } from "zod";
 import type { LocalAudioTrack } from "livekit-client";
 
+function deepClone(obj: any): any {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(deepClone);
+  const cloned: any = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      cloned[key] = deepClone(obj[key]);
+    }
+  }
+  return cloned;
+}
+
+function deepClean(obj: any): void {
+  if (obj === null || typeof obj !== 'object') return;
+  if (Array.isArray(obj)) {
+    obj.forEach(deepClean);
+    return;
+  }
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      deepClean(obj[key]);
+    }
+  }
+}
+
 // Mock LiveKit track
 class MockAudioTrack {
   private listeners: Record<string, ((...args: unknown[]) => void)[]> = {};
@@ -231,9 +256,25 @@ describe("Fuzzing & Invariants", () => {
       visualizer.setTenantId(tenantAId);
       assert.strictEqual(visualizer.getTenantId(), tenantAId);
 
+      // Snapshot baseline state
+      const initialResult = deepClone({
+        tenantId: visualizer.getTenantId(),
+        animationFrameId: (visualizer as any).animationFrameId,
+        canvasCtx: (visualizer as any).canvasCtx
+      });
+
       // Replaying the mutation multiple times (offline idempotency)
       visualizer.setTenantId(tenantAId);
       visualizer.setTenantId(tenantAId);
+
+      const replayResult = deepClone({
+        tenantId: visualizer.getTenantId(),
+        animationFrameId: (visualizer as any).animationFrameId,
+        canvasCtx: (visualizer as any).canvasCtx
+      });
+      deepClean(initialResult);
+      deepClean(replayResult);
+      assert.deepStrictEqual(initialResult, replayResult);
       assert.strictEqual(visualizer.getTenantId(), tenantAId);
 
       try {
@@ -636,7 +677,7 @@ describe("Clinical Workflow Snapshot & Deterministic State Verifications", () =>
 
     // Create baseline state
     const originalState = { tenantId: visualizer.getTenantId() };
-    const frozenState = structuredClone(originalState);
+    const frozenState = deepClone(originalState);
     Object.freeze(frozenState);
 
     // Mutate
