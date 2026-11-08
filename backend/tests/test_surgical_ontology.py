@@ -338,11 +338,11 @@ def test_inventory_search_offline_first_invariant(monkeypatch):
         proto = kwargs.get('proto', args[2] if len(args) > 2 and isinstance(args[2], int) else 0)
         fileno = kwargs.get('fileno', args[3] if len(args) > 3 else None)
 
-        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
-            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
-
         if family == getattr(socket, "AF_UNIX", -1):
             return original_socket(family, type_, proto, fileno)
+
+        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
+            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
 
         return original_socket(*args, **kwargs)
 
@@ -505,11 +505,11 @@ def test_surgical_ontology_offline_first_invariant(monkeypatch):
         proto = kwargs.get('proto', args[2] if len(args) > 2 and isinstance(args[2], int) else 0)
         fileno = kwargs.get('fileno', args[3] if len(args) > 3 else None)
 
-        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
-            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
-
         if family == getattr(socket, "AF_UNIX", -1):
             return original_socket(family, type_, proto, fileno)
+
+        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
+            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
 
         return original_socket(*args, **kwargs)
 
@@ -601,11 +601,11 @@ def test_strip_spoken_disfluencies_offline_first_invariant(monkeypatch):
         proto = kwargs.get('proto', args[2] if len(args) > 2 and isinstance(args[2], int) else 0)
         fileno = kwargs.get('fileno', args[3] if len(args) > 3 else None)
 
-        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
-            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
-
         if family == getattr(socket, "AF_UNIX", -1):
             return original_socket(family, type_, proto, fileno)
+
+        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
+            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
 
         return original_socket(*args, **kwargs)
 
@@ -717,11 +717,11 @@ def test_fuzz_offline_first_invariant(monkeypatch):
         proto = kwargs.get('proto', args[2] if len(args) > 2 and isinstance(args[2], int) else 0)
         fileno = kwargs.get('fileno', args[3] if len(args) > 3 else None)
 
-        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
-            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
-
         if family == getattr(socket, "AF_UNIX", -1):
             return original_socket(family, type_, proto, fileno)
+
+        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
+            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
 
         return original_socket(*args, **kwargs)
 
@@ -818,11 +818,11 @@ def test_surgical_ontology_high_concurrency_and_isolation(monkeypatch):
         proto = kwargs.get('proto', args[2] if len(args) > 2 and isinstance(args[2], int) else 0)
         fileno = kwargs.get('fileno', args[3] if len(args) > 3 else None)
 
-        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
-            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
-
         if family == getattr(socket, "AF_UNIX", -1):
             return original_socket(family, type_, proto, fileno)
+
+        if family in (socket.AF_INET, getattr(socket, "AF_INET6", -1)):
+            raise RuntimeError("Network calls are forbidden during SurgicalOntologyService resolution")
 
         return original_socket(*args, **kwargs)
 
