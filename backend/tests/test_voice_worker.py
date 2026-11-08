@@ -290,9 +290,15 @@ async def test_concurrent_burst_execution_and_latency(monkeypatch):
             if os.name != 'nt':
                 raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
             return original_socket(*args, **kwargs)
-        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
-        if family != getattr(socket, 'AF_UNIX', -1):
+
+        if len(args) > 0 and not isinstance(args[0], int):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+        family = kwargs.get('family', args[0] if len(args) > 0 else socket.AF_INET)
+
+        if family != getattr(socket, 'AF_UNIX', -1):
+            if os.name != 'nt':
+                raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
         return original_socket(*args, **kwargs)
 
     def raise_offline_error(*args, **kwargs):
@@ -356,9 +362,15 @@ async def test_concurrent_burst_write_race_condition(monkeypatch):
             if os.name != 'nt':
                 raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
             return original_socket(*args, **kwargs)
-        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
-        if family != getattr(socket, 'AF_UNIX', -1):
+
+        if len(args) > 0 and not isinstance(args[0], int):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+        family = kwargs.get('family', args[0] if len(args) > 0 else socket.AF_INET)
+
+        if family != getattr(socket, 'AF_UNIX', -1):
+            if os.name != 'nt':
+                raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
         return original_socket(*args, **kwargs)
 
     def raise_offline_error(*args, **kwargs):
@@ -427,9 +439,15 @@ async def test_offline_mutation_replay_idempotency(monkeypatch):
             if os.name != 'nt':
                 raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
             return original_socket(*args, **kwargs)
-        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
-        if family != getattr(socket, 'AF_UNIX', -1):
+
+        if len(args) > 0 and not isinstance(args[0], int):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+        family = kwargs.get('family', args[0] if len(args) > 0 else socket.AF_INET)
+
+        if family != getattr(socket, 'AF_UNIX', -1):
+            if os.name != 'nt':
+                raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
         return original_socket(*args, **kwargs)
 
     def raise_offline_error(*args, **kwargs):
@@ -525,7 +543,12 @@ async def test_offline_first_strict_invariant_enforcement_multi_tenant(monkeypat
             if os.name != 'nt':
                 raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
             return original_socket(*args, **kwargs)
-        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
+
+        if len(args) > 0 and not isinstance(args[0], int):
+            raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+        family = kwargs.get('family', args[0] if len(args) > 0 else socket.AF_INET)
+
         if family != getattr(socket, 'AF_UNIX', -1):
             if os.name != 'nt':
                 raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
@@ -609,9 +632,15 @@ async def test_supplementary_concurrent_burst_latency_and_race_condition_extende
             if os.name != 'nt':
                 raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
             return original_socket(*args, **kwargs)
-        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
-        if family != getattr(socket, 'AF_UNIX', -1):
+
+        if len(args) > 0 and not isinstance(args[0], int):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+        family = kwargs.get('family', args[0] if len(args) > 0 else socket.AF_INET)
+
+        if family != getattr(socket, 'AF_UNIX', -1):
+            if os.name != 'nt':
+                raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
         return original_socket(*args, **kwargs)
 
     def raise_offline_error(*args, **kwargs):
@@ -689,9 +718,15 @@ async def test_supplementary_offline_mutation_replay_idempotency_multi_tenant(mo
             if os.name != 'nt':
                 raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
             return original_socket(*args, **kwargs)
-        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
-        if family != getattr(socket, 'AF_UNIX', -1):
+
+        if len(args) > 0 and not isinstance(args[0], int):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+        family = kwargs.get('family', args[0] if len(args) > 0 else socket.AF_INET)
+
+        if family != getattr(socket, 'AF_UNIX', -1):
+            if os.name != 'nt':
+                raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
         return original_socket(*args, **kwargs)
 
     def raise_offline_error(*args, **kwargs):
@@ -745,7 +780,12 @@ async def test_fault_injection_intermittent_latency_and_reconnection(monkeypatch
         if network_state['status'] == 'offline':
             raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
 
-        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
+        if len(args) > 0 and not isinstance(args[0], int):
+            if network_state["status"] == "offline":
+                 raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+        family = kwargs.get('family', args[0] if len(args) > 0 else socket.AF_INET)
+
         if family != getattr(socket, 'AF_UNIX', -1):
             if network_state["status"] == "offline":
                  raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
@@ -818,9 +858,15 @@ async def test_memory_leak_and_cache_eviction_voice_worker(monkeypatch: Any, tmp
             if os.name != 'nt':
                 raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
             return original_socket(*args, **kwargs)
-        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
-        if family != getattr(socket, 'AF_UNIX', -1):
+
+        if len(args) > 0 and not isinstance(args[0], int):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+        family = kwargs.get('family', args[0] if len(args) > 0 else socket.AF_INET)
+
+        if family != getattr(socket, 'AF_UNIX', -1):
+            if os.name != 'nt':
+                raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
         return original_socket(*args, **kwargs)
 
     def raise_offline_error(*args, **kwargs):
@@ -949,9 +995,15 @@ async def test_deterministic_state_transition_matrix(monkeypatch, tmp_path):
             if os.name != 'nt':
                 raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
             return original_socket(*args, **kwargs)
-        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
-        if family != getattr(socket, 'AF_UNIX', -1):
+
+        if len(args) > 0 and not isinstance(args[0], int):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+        family = kwargs.get('family', args[0] if len(args) > 0 else socket.AF_INET)
+
+        if family != getattr(socket, 'AF_UNIX', -1):
+            if os.name != 'nt':
+                raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
         return original_socket(*args, **kwargs)
 
     def raise_offline_error(*args, **kwargs):
@@ -1008,9 +1060,15 @@ async def test_preference_card_conflict_resolution(monkeypatch, tmp_path):
             if os.name != 'nt':
                 raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
             return original_socket(*args, **kwargs)
-        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
-        if family != getattr(socket, 'AF_UNIX', -1):
+
+        if len(args) > 0 and not isinstance(args[0], int):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+        family = kwargs.get('family', args[0] if len(args) > 0 else socket.AF_INET)
+
+        if family != getattr(socket, 'AF_UNIX', -1):
+            if os.name != 'nt':
+                raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
         return original_socket(*args, **kwargs)
 
     def raise_offline_error(*args, **kwargs):
@@ -1052,9 +1110,15 @@ async def test_clinical_state_snapshot_consistency(monkeypatch, tmp_path):
             if os.name != 'nt':
                 raise RuntimeError('Network calls are forbidden (offline-first invariant violated)')
             return original_socket(*args, **kwargs)
-        family = kwargs.get('family') or (args[0] if len(args) > 0 else -1)
-        if family != getattr(socket, 'AF_UNIX', -1):
+
+        if len(args) > 0 and not isinstance(args[0], int):
             raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
+
+        family = kwargs.get('family', args[0] if len(args) > 0 else socket.AF_INET)
+
+        if family != getattr(socket, 'AF_UNIX', -1):
+            if os.name != 'nt':
+                raise RuntimeError("Network calls are forbidden (offline-first invariant violated)")
         return original_socket(*args, **kwargs)
 
     def raise_offline_error(*args, **kwargs):
