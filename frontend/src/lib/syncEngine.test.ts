@@ -363,8 +363,12 @@ describe("useSyncEngine", () => {
 
       let res1First, res2First;
       await act(async () => {
-        res1First = await hook1.result.current.triggerSync();
-        res2First = await hook2.result.current.triggerSync();
+        const [r1, r2] = await Promise.all([
+          hook1.result.current.triggerSync(),
+          hook2.result.current.triggerSync()
+        ]);
+        res1First = r1;
+        res2First = r2;
       });
 
       const state1First = { status: hook1.result.current.status, pendingCount: hook1.result.current.pendingCount };
@@ -372,8 +376,12 @@ describe("useSyncEngine", () => {
 
       let res1Replay, res2Replay;
       await act(async () => {
-        res1Replay = await hook1.result.current.triggerSync();
-        res2Replay = await hook2.result.current.triggerSync();
+        const [r1, r2] = await Promise.all([
+          hook1.result.current.triggerSync(),
+          hook2.result.current.triggerSync()
+        ]);
+        res1Replay = r1;
+        res2Replay = r2;
       });
 
       const state1Replay = { status: hook1.result.current.status, pendingCount: hook1.result.current.pendingCount };
@@ -388,8 +396,10 @@ describe("useSyncEngine", () => {
 
       setNetworkOnline(true);
       await act(async () => {
-        await hook1.result.current.triggerSync();
-        await hook2.result.current.triggerSync();
+        await Promise.all([
+          hook1.result.current.triggerSync(),
+          hook2.result.current.triggerSync()
+        ]);
       });
 
       const calls = offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls;
@@ -839,8 +849,12 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
 
       let res1First, res2First;
       await act(async () => {
-        res1First = await hook1.result.current.triggerSync();
-        res2First = await hook2.result.current.triggerSync();
+        const [r1, r2] = await Promise.all([
+          hook1.result.current.triggerSync(),
+          hook2.result.current.triggerSync()
+        ]);
+        res1First = r1;
+        res2First = r2;
       });
 
       const state1First = { status: hook1.result.current.status, pendingCount: hook1.result.current.pendingCount };
@@ -849,8 +863,12 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       // Replay identical inputs sequentially to simulate idempotency
       let res1Replay, res2Replay;
       await act(async () => {
-        res1Replay = await hook1.result.current.triggerSync();
-        res2Replay = await hook2.result.current.triggerSync();
+        const [r1, r2] = await Promise.all([
+          hook1.result.current.triggerSync(),
+          hook2.result.current.triggerSync()
+        ]);
+        res1Replay = r1;
+        res2Replay = r2;
       });
 
       const state1Replay = { status: hook1.result.current.status, pendingCount: hook1.result.current.pendingCount };
@@ -867,8 +885,10 @@ describe("useSyncEngine High-Concurrency & Stress Benchmarks", () => {
       // Now switch online and enforce multi-tenant boundaries during real execution
       setNetworkOnline(true);
       await act(async () => {
-        await hook1.result.current.triggerSync();
-        await hook2.result.current.triggerSync();
+        await Promise.all([
+          hook1.result.current.triggerSync(),
+          hook2.result.current.triggerSync()
+        ]);
       });
 
       const calls = offlineDbMocks.syncTenantInventoryToOfflineDb.mock.calls;
@@ -1135,13 +1155,14 @@ test("SyncEngineOutbox Continuous Invariants: State immutability and precise out
     const baseState = { procedureId: "proc-999", patientVitals: { hr: 75, bp: { sys: 120, dia: 80 } }, inventory: { used: ["item-1"], wasted: [] } };
     const mutation1 = { procedureId: "proc-999", patientVitals: { hr: 78, bp: { sys: 118, dia: 79 } }, inventory: { used: ["item-1", "item-2"], wasted: ["item-3"] } };
 
-    const clone = structuredClone(baseState);
-    clone.patientVitals.bp = Object.freeze(clone.patientVitals.bp); // freeze nested deep
-    clone.patientVitals = Object.freeze(clone.patientVitals); // freeze nested
-    clone.inventory.used = Object.freeze(clone.inventory.used);
-    clone.inventory.wasted = Object.freeze(clone.inventory.wasted);
-    clone.inventory = Object.freeze(clone.inventory); // fully deep freeze as requested
-    const frozenBase = Object.freeze(clone); // freeze parent
+    // Freeze local baseline state before cloning to enforce strict runtime checks.
+    Object.freeze(baseState.patientVitals.bp);
+    Object.freeze(baseState.patientVitals);
+    Object.freeze(baseState.inventory.used);
+    Object.freeze(baseState.inventory.wasted);
+    Object.freeze(baseState.inventory);
+    const frozenBase = Object.freeze(baseState);
+    const clone = structuredClone(frozenBase);
 
     // We are testing diffRecords explicitly because it's the core delta engine of SyncEngineOutbox.
     const delta1 = diffRecords(frozenBase, mutation1);
