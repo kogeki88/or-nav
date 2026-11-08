@@ -625,8 +625,10 @@ test("Deep Freeze validation for snapshot consistency", async (t) => {
         learnAliasClient(fac, "icu", "monitor", "vitals_monitor");
         const internalLexicon = loadFacilityLexicon(fac);
 
-        // Freeze the array and its contents
-        const internalLexiconCopy = structuredClone(internalLexicon);
+        // Deep clone manually to avoid structuredClone dropping undefined properties
+        const internalLexiconCopy = internalLexicon.map(entry => ({ ...entry }));
+
+        // Freeze the ACTUAL array returned by loadFacilityLexicon to ensure internal logic doesn't mutate it by reference
         internalLexicon.forEach(entry => Object.freeze(entry));
         Object.freeze(internalLexicon);
 
@@ -721,13 +723,17 @@ test("Offline-first compliance: explicit window and localStorage mocking", async
     global.fetch = () => { throw new Error("Network call detected"); };
 
     // Explicitly define global.window and mock localStorage for testing offline logic
-    (global as any).window = {};
+    Object.defineProperty(global, 'window', { value: {}, writable: true, configurable: true });
     const mockStorage = new Map();
-    (global as any).localStorage = {
-        getItem: (key: string) => mockStorage.get(key) || null,
-        setItem: (key: string, val: string) => mockStorage.set(key, val),
-        removeItem: (key: string) => mockStorage.delete(key),
-    };
+    Object.defineProperty(global, 'localStorage', {
+        value: {
+            getItem: (key: string) => mockStorage.get(key) || null,
+            setItem: (key: string, val: string) => mockStorage.set(key, val),
+            removeItem: (key: string) => mockStorage.delete(key),
+        },
+        writable: true,
+        configurable: true
+    });
 
     try {
         const fac = "offline_facility";
@@ -744,12 +750,12 @@ test("Offline-first compliance: explicit window and localStorage mocking", async
         if (originalWindow === undefined) {
             delete (global as any).window;
         } else {
-            (global as any).window = originalWindow;
+            Object.defineProperty(global, 'window', { value: originalWindow, writable: true, configurable: true });
         }
         if (originalLocalStorage === undefined) {
             delete (global as any).localStorage;
         } else {
-            (global as any).localStorage = originalLocalStorage;
+            Object.defineProperty(global, 'localStorage', { value: originalLocalStorage, writable: true, configurable: true });
         }
     }
 });
