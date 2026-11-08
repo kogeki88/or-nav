@@ -1,5 +1,23 @@
 [
   {
+    "id": "q-54faa861",
+    "hospital_id": "general_memorial_cvor",
+    "question_text": "Where do we keep the backup cryo nerve probe?",
+    "asked_by_role": "CVOR Orientee RN",
+    "status": "verified",
+    "created_at": "2026-11-08T18:03:55Z",
+    "verified_at": "2026-11-08T18:03:55Z",
+    "answers": [
+      {
+        "id": "ans-b47cbd",
+        "responder_role": "CVOR Peer RN",
+        "answer_text": "Cryo probe is in Core Supply Pyxis D Bin 3.",
+        "confidence": "confident",
+        "created_at": "2026-11-08T18:03:55Z"
+      }
+    ]
+  },
+  {
     "id": "q-0e339d0b",
     "hospital_id": "general_memorial_cvor",
     "question_text": "How is the arterial line transducer leveled for sternotomy?",
