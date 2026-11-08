@@ -608,17 +608,18 @@ test('UserProfileModal enforces clinical state snapshot consistency, preference 
   const mockOnClose = mock.fn();
 
   // Test deterministic state transition matrices
-  const baseProfile = Object.freeze({
+  const baseProfile = {
     ...DEFAULT_USER_PROFILE,
     facilityId: 'tenant_state',
     departmentId: 'or_main',
-  });
+  };
+  const frozenBaseProfile = Object.freeze(structuredClone(baseProfile));
 
   const { rerender } = render(
     <UserProfileModal
       isOpen={true}
       onClose={mockOnClose}
-      currentProfile={baseProfile}
+      currentProfile={frozenBaseProfile}
       onSaveProfile={onSaveProfileMock}
     />
   );
@@ -675,7 +676,7 @@ test('UserProfileModal enforces clinical state snapshot consistency, preference 
     clinicalRole: 'CRNA'
   };
 
-  assert.deepStrictEqual(structuredClone(finalSnapshot), structuredClone(expectedSnapshot), "Clinical state snapshot consistency failed");
+  assert.deepStrictEqual(finalSnapshot, expectedSnapshot, "Clinical state snapshot consistency failed");
 
   mock.restoreAll();
 });
