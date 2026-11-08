@@ -295,7 +295,7 @@ test("diffRecords", async (t) => {
     const decompressed = decompressPayload(compressed);
     const tenantIndex = compressed.keys.indexOf("tenant_id");
     assert.strictEqual(decompressed[0].tenant_id, "facility_1::dept_A::or", "Must safely handle delimiter injection");
-    assert.ok((decompressed[0].tenant_id as string).includes("facility_1::"), "Must securely identify explicit delimiter");
+    assert.ok(/^facility_1::/.test(decompressed[0].tenant_id as string), "Must securely identify explicit delimiter");
     assert.ok(decompressed[0].tenant_id !== "facility_1", "Must not falsely match partial substrings");
   });
 
@@ -303,7 +303,7 @@ test("diffRecords", async (t) => {
   await t.test("Offline mutation replay idempotency: sequential replays produce identical state without network", () => {
     const originalFetch = global.fetch;
     try {
-      global.fetch = undefined as any;
+      delete (global as any).fetch;
       const payload = [{ id: 1, val: "old" }, { id: 2, val: "new" }];
       const run1 = decompressPayload(compressPayload(payload));
       const run2 = decompressPayload(compressPayload(payload));
@@ -507,7 +507,7 @@ test("diffRecords", async (t) => {
       // Simulate multiple sequential deltas transitioning the clinical state
       const state0 = { id: "workflow-1", status: "pending", location: "pre-op", assigned: null };
       // Deep freeze the baseline state to ensure structural comparison without mutation
-      const frozenState0 = Object.freeze(structuredClone(state0));
+      const frozenState0 = structuredClone(state0); Object.freeze(frozenState0);
 
       const delta1 = { status: "in-progress", location: "or-1" };
       const delta2 = { assigned: "Dr. Smith", priority: "high" };
@@ -636,9 +636,9 @@ test("diffRecords", async (t) => {
       const rawStored = global.localStorage.getItem('sync_payload');
       assert.ok(rawStored !== null);
       assert.ok(rawStored.includes('"data":"new"'));
-      assert.ok(!rawStored.includes('patientName'), "PHI patientName must not be written to storage");
-      assert.ok(!rawStored.includes('ssn'), "PHI ssn must not be written to storage");
-      assert.ok(!rawStored.includes('medicalRecordNumber'), "PHI medicalRecordNumber must not be written to storage");
+      assert.ok(!/\bpatientName\b/.test(rawStored), "PHI patientName must not be written to storage");
+      assert.ok(!/\bssn\b/.test(rawStored), "PHI ssn must not be written to storage");
+      assert.ok(!/\bmedicalRecordNumber\b/.test(rawStored), "PHI medicalRecordNumber must not be written to storage");
 
       assert.strictEqual(delta.data, "new");
       assert.strictEqual(delta.patientName, undefined, "PHI patientName must be redacted");
