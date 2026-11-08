@@ -1122,12 +1122,15 @@ test('deterministic state transition matrices, preference card conflict resoluti
 
     // Add structural immutability check to enforce baseline state snapshot consistency
     const activeState = Array.from(snapshotState.values());
-    const snapshot = Object.freeze(structuredClone(activeState));
-    snapshot.forEach(Object.freeze);
+    Object.freeze(activeState);
+    activeState.forEach(Object.freeze);
+    const snapshot = structuredClone(activeState);
 
     // Simulate some logic and check structural equality of the frozen snapshot
-    // E.g., re-running a fetch or simulating another update attempt
-    await fetchFeedbackItemsMock();
+    fireEvent.click(screen.getByTestId('tab-give-feedback'));
+    await waitFor(() => {
+        assert.ok(screen.queryAllByTestId('feedback-input-text').length > 0);
+    });
 
     const activeStateAfter = Array.from(snapshotState.values());
     assert.deepStrictEqual(activeStateAfter, snapshot);
