@@ -347,17 +347,14 @@ describe('ResourceInspectorModal', () => {
         const category = categoryRaw.replace(/[{[]/g, '');
         const aliases = aliasesRaw.replace(/[{[]/g, '');
 
-        await act(async () => {
-          await user.click(screen.getByTestId('btn-add-inventory-item'));
-        });
+        await user.click(screen.getByTestId('btn-add-inventory-item'));
 
         const itemNameInput = screen.getByTestId('input-new-item-name');
         const categoryInput = screen.getByTestId('input-new-item-category');
         const aliasesInput = screen.getByTestId('input-new-item-aliases');
 
 
-        await act(async () => {
-          await user.clear(itemNameInput);
+        await user.clear(itemNameInput);
           if (name) await user.type(itemNameInput, name);
 
           await user.clear(categoryInput);
@@ -366,9 +363,8 @@ describe('ResourceInspectorModal', () => {
           await user.clear(aliasesInput);
           if (aliases) await user.type(aliasesInput, aliases);
 
-                    const saveBtn2 = screen.getByTestId('btn-save-new-item');
+          const saveBtn2 = screen.getByTestId('btn-save-new-item');
           await user.click(saveBtn2);
-        });
 
         if (name && name.trim()) {
            expect(createOfflineInventoryItem).toHaveBeenCalledWith(
@@ -381,9 +377,7 @@ describe('ResourceInspectorModal', () => {
            );
         } else {
            expect(createOfflineInventoryItem).not.toHaveBeenCalled();
-           await act(async () => {
-              await user.click(screen.getByText('Cancel'));
-           });
+           await user.click(screen.getByText('Cancel'));
         }
       }),
       { numRuns: 10 }
@@ -475,7 +469,7 @@ describe('ResourceInspectorModal', () => {
 
     await user.type(spokenInput, rawPHI);
     await user.type(canonicalInput, rawMalicious);
-    await user.click(saveBtn);
+    await act(async () => { await user.click(saveBtn); });
 
     expect(saveOfflineLexiconAlias).toHaveBeenCalledWith(
       'tenant-zero-trust',
@@ -532,16 +526,17 @@ describe('ResourceInspectorModal', () => {
 
     const glovesInput = screen.getByPlaceholderText('e.g. Size 7.5 Biogel Under / 7.5 Over');
 
-    await act(async () => {
-        fireEvent.change(surgeonInput, { target: { value: 'Dr. Smith' } });
+    fireEvent.change(surgeonInput, { target: { value: 'Dr. Smith' } });
         fireEvent.change(procedureInput, { target: { value: 'Appendectomy' } });
         fireEvent.change(glovesInput, { target: { value: 'Size 8 Gloves' } });
-    });
 
-    const saveBtn = screen.getByTestId('btn-save-preference-card');
-    await act(async () => {
-      await user.click(saveBtn);
+
+    await waitFor(() => {
+        expect(screen.queryByTestId('btn-save-preference-card')).not.toBeNull();
     });
+    const saveBtn = screen.getByTestId('btn-save-preference-card');
+
+    await act(async () => { await user.click(saveBtn); });
 
     expect(saveOfflinePreferenceCard).toHaveBeenCalled();
     expect(cards).toEqual([
@@ -586,9 +581,7 @@ describe('ResourceInspectorModal', () => {
 
     await user.click(screen.getByTestId('tab-protocols-management'));
 
-    await act(async () => {
-      await user.click(screen.getByTestId('btn-export-json-backup'));
-    });
+    await user.click(screen.getByTestId('btn-export-json-backup'));
 
     expect(exportTenantResourcesJson).toHaveBeenCalledWith('tenant-multi::iso');
 
