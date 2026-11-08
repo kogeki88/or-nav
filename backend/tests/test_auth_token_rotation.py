@@ -32,12 +32,14 @@ def clean_auth_state(tmp_path, monkeypatch):
     orig_socket = socket.socket
     def mock_socket(*args, **kwargs):
         import os
+        if os.name == 'nt':
+            return orig_socket(*args, **kwargs)
         # Ensure we block network requests safely, considering args[0] might be a URL for httpx
-        family = args[0] if len(args) > 0 and isinstance(args[0], int) else kwargs.get("family", getattr(socket, 'AF_INET', 2))
+        family = args[0] if len(args) > 0 and isinstance(args[0], int) else kwargs.get("family")
         # Strictly block AF_INET and AF_INET6
         if family in (getattr(socket, 'AF_INET', 2), getattr(socket, 'AF_INET6', 10)):
             raise RuntimeError("Network requests are disabled in this test suite.")
-        if family == getattr(socket, 'AF_UNIX', -1) or os.name == 'nt':
+        if family == getattr(socket, 'AF_UNIX', -1):
             return orig_socket(*args, **kwargs)
         raise RuntimeError("Network requests are disabled in this test suite.")
     monkeypatch.setattr(socket, "socket", mock_socket)
@@ -650,10 +652,9 @@ class TestAuthTokenRotation:
         assert token1 != token2  # Verify token rotation
 
         # 3. Network partition degradation (count=3)
-        try:
+        import pytest
+        with pytest.raises(OSError):
             client.post("/api/auth/login", json={"email": "fault1@test.com", "password": "password"})
-        except OSError:
-            pass # Expected failure due to underlying IO/network error bubbling up
 
         # 4. Self-healing reconnection (count=4)
         res4 = client.post("/api/auth/login", json={"email": "fault1@test.com", "password": "password"})
