@@ -124,7 +124,11 @@ test("deltaSyncPayload edge cases and invariants", async (t) => {
       assert.deepStrictEqual(restored, mutations);
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) {
+        delete (global as any).fetch;
+      } else {
+        global.fetch = originalFetch;
+      }
     }
   });
 
@@ -151,9 +155,7 @@ test("deltaSyncPayload edge cases and invariants", async (t) => {
     assert.deepStrictEqual(duplicateMutations[0], duplicateMutations[1]);
 
     // Explicitly verify core state fields signifying mutation outcomes are preserved in the replayed state
-    assert.ok("id" in duplicateMutations[0]);
-    assert.ok("type" in duplicateMutations[0]);
-    assert.ok("tenant_id" in duplicateMutations[0]);
+    assert.deepStrictEqual(duplicateMutations[0], mutations[0]);
   });
 });
 
@@ -232,7 +234,7 @@ test("deltaSyncPayload concurrency, race conditions, and performance benchmarks"
       for (let itemIdx = 0; itemIdx < 100; itemIdx++) {
         assert.strictEqual(decompressed[itemIdx].workerId, workerIdx);
         assert.strictEqual(decompressed[itemIdx].tenant_id, `tenant_${workerIdx}::or`);
-        assert.ok(new RegExp(`\\btenant_${workerIdx}::or\\b`).test(decompressed[itemIdx].tenant_id), "Explicit boundary check for multi-tenant isolation");
+        assert.ok(new RegExp(`^tenant_${workerIdx}::or$`).test(decompressed[itemIdx].tenant_id), "Explicit boundary check for multi-tenant isolation");
         assert.strictEqual(decompressed[itemIdx].id, itemIdx);
         assert.strictEqual(decompressed[itemIdx].val, `worker-${workerIdx}-item-${itemIdx}`);
       }
@@ -376,7 +378,11 @@ test("deltaSyncPayload network resilience and fault injection", async (t) => {
       }
 
     } finally {
-      global.fetch = originalFetch;
+      if (originalFetch === undefined) {
+        delete (global as any).fetch;
+      } else {
+        global.fetch = originalFetch;
+      }
     }
   });
 });
@@ -600,15 +606,15 @@ test("deltaSyncPayload state consistency", async (t) => {
     };
 
     // Freeze the baseline state for structural comparison and immutability checking
-    Object.freeze(baselineState);
-    const frozenBaseline = Object.freeze(structuredClone(baselineState));
+    const baselineClone = { ...baselineState };
+    Object.freeze(baselineClone);
 
-    const mutations = [ baselineState, { ...baselineState, clinical_status: "post_op" } ];
+    const mutations = [ baselineClone, { ...baselineState, clinical_status: "post_op" } ];
     const compressed = compressPayload(mutations);
     const decompressed = decompressPayload(compressed) as any[];
 
     // Assert snapshot consistency
-    assert.deepStrictEqual(decompressed[0], frozenBaseline, "Clinical state snapshot consistency must perfectly match frozen baseline");
+    assert.deepStrictEqual(decompressed[0], baselineClone, "Clinical state snapshot consistency must perfectly match frozen baseline");
 
     // Offline-first multi-tenant invariants
     assert.strictEqual(decompressed[0].tenant_id, "tenant_Y");
@@ -627,7 +633,7 @@ test("deltaSyncPayload expanded hardening", async (t) => {
     ];
 
     // Simulate some active modifications and deep immutability check
-    const original = structuredClone(mixedPayloads);
+    const original = mixedPayloads.map(p => ({ ...p }));
     original.forEach(Object.freeze);
     Object.freeze(original);
 
