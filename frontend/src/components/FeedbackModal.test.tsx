@@ -7,6 +7,19 @@ import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/re
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const proxyquire = require('proxyquire');
 
+
+
+const deepClone = (obj: any): any => {
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(deepClone);
+    const clone: Record<string, any> = {};
+    for (const key in obj) {
+        clone[key] = deepClone(obj[key]);
+    }
+    return clone;
+};
+
+
 const dummyProfile = {
   id: 'u1',
   fullName: 'Test Nurse',
@@ -101,7 +114,7 @@ test('opens modal and allows selecting feedback type', async () => {
     render(<FeedbackModal isOpen={true} onClose={onCloseMock} userProfile={dummyProfile} />);
 
     // Check if modal is rendered
-    assert.ok(screen.getByTestId('feedback-modal'));
+    assert.notStrictEqual(screen.queryByTestId('feedback-modal'), null);
 
     // Check categories
     const bugBtn = screen.getByText('🐛 Bug');
@@ -131,7 +144,7 @@ test('submits payload successfully', async () => {
 
     // Success banner
     await waitFor(() => {
-        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.notStrictEqual(screen.queryByTestId('feedback-success-banner'), null);
     });
 });
 
@@ -152,14 +165,14 @@ test('triage interactions for admin', async () => {
     // As an admin, triage hub is visible and fetchFeedbackItems should be called.
     // Wait for reloadFeedback to complete.
     await waitFor(() => {
-        assert.ok(screen.getByTestId('tab-recommendations-hub'));
+        assert.notStrictEqual(screen.queryByTestId('tab-recommendations-hub'), null);
     });
 
     const triageTab = screen.getByTestId('tab-recommendations-hub');
     fireEvent.click(triageTab);
 
     await waitFor(() => {
-        assert.ok(screen.getByTestId('recommendations-hub'));
+        assert.notStrictEqual(screen.queryByTestId('recommendations-hub'), null);
         assert.ok(screen.getByText('"Test issue"'));
     });
 
@@ -239,7 +252,7 @@ test('offline queueing shows specific success message', async () => {
 
     // Success banner should appear with offline message
     await waitFor(() => {
-        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.notStrictEqual(screen.queryByTestId('feedback-success-banner'), null);
         assert.ok(screen.getByText('Saved offline. Will sync when connected.'));
     });
 
@@ -284,7 +297,7 @@ test('renders error banner when submission throws an exception', async () => {
 
     // Error banner should appear
     await waitFor(() => {
-        assert.ok(screen.getByTestId('feedback-error-banner'));
+        assert.notStrictEqual(screen.queryByTestId('feedback-error-banner'), null);
         assert.ok(screen.getByText('❌ Failed to submit feedback. Please try again.'));
     });
 });
@@ -373,7 +386,7 @@ test('offline-first invariant: handles fetch rejection gracefully and displays o
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.notStrictEqual(screen.queryByTestId('feedback-success-banner'), null);
         assert.ok(screen.getByText('Saved offline. Will sync when connected.'));
     });
 
@@ -402,7 +415,7 @@ test('fuzzing boundary inputs: empty, large text, unicode, xss payloads', async 
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.notStrictEqual(screen.queryByTestId('feedback-success-banner'), null);
     });
 });
 
@@ -418,7 +431,7 @@ test('malformed payload resilience: handles missing userProfile fields gracefull
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.notStrictEqual(screen.queryByTestId('feedback-success-banner'), null);
     });
 });
 
@@ -449,7 +462,7 @@ test('tenant isolation fallback: missing facilityId and departmentId', async () 
     render(<IsolatedFeedbackModal isOpen={true} onClose={onCloseMock} userProfile={{ fullName: 'Unknown' }} />);
 
     await waitFor(() => {
-        assert.ok(screen.getByTestId('tab-recommendations-hub'));
+        assert.notStrictEqual(screen.queryByTestId('tab-recommendations-hub'), null);
     });
 
     const triageTab = screen.getByTestId('tab-recommendations-hub');
@@ -566,7 +579,7 @@ test('concurrent burst execution: handles double clicks and prevents multiple su
 
     // Wait for the submission process to complete
     await waitFor(() => {
-        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.notStrictEqual(screen.queryByTestId('feedback-success-banner'), null);
     });
 
     assert.strictEqual(submitManualFeedbackMock.mock.calls.length, 1);
@@ -622,7 +635,7 @@ test('high latency resilience: displays loading state and processes event loop p
 
     // Wait for resolution
     await waitFor(() => {
-        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.notStrictEqual(screen.queryByTestId('feedback-success-banner'), null);
     }, { timeout: 2000 });
 });
 
@@ -673,7 +686,7 @@ test('multi-tenant boundary enforcement (facility_id::dept_id) and offline mutat
     ]);
 
     await waitFor(() => {
-        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.notStrictEqual(screen.queryByTestId('feedback-success-banner'), null);
         assert.ok(screen.getByText('Saved offline. Will sync when connected.'));
     });
 
@@ -734,7 +747,7 @@ test('network partition degradation and self-healing reconnection', async () => 
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.notStrictEqual(screen.queryByTestId('feedback-success-banner'), null);
         assert.ok(screen.getByText('Saved offline. Will sync when connected.'));
     });
 
@@ -798,7 +811,7 @@ test('intermittent network latency and delayed response resilience', async () =>
     assert.strictEqual((submitBtn as HTMLButtonElement).disabled, true);
 
     await waitFor(() => {
-        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.notStrictEqual(screen.queryByTestId('feedback-success-banner'), null);
     }, { timeout: 1500 });
 
     assert.strictEqual(submitManualFeedbackMock.mock.calls.length, 1);
@@ -878,6 +891,7 @@ test('memory profiling, leak detection, unclosed event listeners, and cache evic
             { container: root }
         );
         unmount();
+        await new Promise(r => setTimeout(r, 0));
 
         // Remove from body to enforce total isolation and cleanup
         document.body.removeChild(root);
@@ -966,7 +980,7 @@ test('Strict Security Invariants & HIPAA PHI Boundary Verification', async () =>
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
-        assert.ok(screen.getByTestId('feedback-success-banner'));
+        assert.notStrictEqual(screen.queryByTestId('feedback-success-banner'), null);
     });
 
     assert.strictEqual(submitManualFeedbackMock.mock.calls.length, 1);
@@ -1124,7 +1138,7 @@ test('deterministic state transition matrices, preference card conflict resoluti
     const activeState = Array.from(snapshotState.values());
     Object.freeze(activeState);
     activeState.forEach(Object.freeze);
-    const snapshot = structuredClone(activeState);
+    const snapshot = deepClone(activeState);
 
     // Simulate some logic and check structural equality of the frozen snapshot
     fireEvent.click(screen.getByTestId('tab-give-feedback'));
@@ -1134,8 +1148,6 @@ test('deterministic state transition matrices, preference card conflict resoluti
 
     const activeStateAfter = Array.from(snapshotState.values());
     assert.deepStrictEqual(activeStateAfter, snapshot);
-
-
-
     unmount1();
+    await new Promise(r => setTimeout(r, 0));
 });
