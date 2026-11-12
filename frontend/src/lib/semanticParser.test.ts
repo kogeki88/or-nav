@@ -1,5 +1,23 @@
 // Replace native structuredClone with a fallback for older environments if needed
-const customClone = typeof structuredClone === 'function' ? structuredClone : (val: any) => JSON.parse(JSON.stringify(val));
+function customClone(obj: any): any {
+  if (obj === null || typeof obj !== 'object') {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    const arrCopy = [];
+    for (let i = 0; i < obj.length; i++) {
+      arrCopy[i] = customClone(obj[i]);
+    }
+    return arrCopy;
+  }
+  const objCopy: any = {};
+  for (const key in obj) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
+      objCopy[key] = customClone(obj[key]);
+    }
+  }
+  return objCopy;
+}
 import test from "node:test";
 import assert from "node:assert";
 import { parseClinicalIntent, ClinicalIntent, extractAndNormalizeCoordinateClient, normalizeClinicalSpeech } from "./semanticParser";
@@ -239,8 +257,8 @@ test("Semantic Query Parser Normalizations & Invariants", async (t) => {
     // Explicit boundary verification
     // Since parseClinicalIntent doesn't return the tenant ID in its schema, we ensure
     // we don't inappropriately check payload fields for raw tenant identifiers without delimiter.
-    assert.ok(t1.includes("::"));
-    assert.ok(t2.includes("::"));
+    assert.match(t1, /^[^:]+::[^:]+$/);
+    assert.match(t2, /^[^:]+::[^:]+$/);
   });
 
   await t.test("Invariant: Offline mutation replay idempotency", () => {
@@ -277,7 +295,7 @@ test("Semantic Query Parser High-Concurrency & Stress Benchmarks", async (t) => 
       const startTime = performance.now();
       const results = await Promise.all(queries.map(async (q) => {
         // Yield to event loop to simulate interleaved execution
-        await new Promise(r => setImmediate(r));
+        await new Promise(r => setTimeout(r, 5));
         return {
           id: q.id,
           parsed: parseClinicalIntent(q.query, q.tenantId),
@@ -429,8 +447,8 @@ test("Supplementary Tests: Edge Cases & Enforcements", async (t) => {
 
       // Verify isolation and boundaries
       assert.notDeepStrictEqual(tenantA, tenantB);
-      assert.ok(tenantA.includes("::"));
-      assert.ok(tenantB.includes("::"));
+      assert.match(tenantA, /^[^:]+::[^:]+$/);
+      assert.match(tenantB, /^[^:]+::[^:]+$/);
     } finally {
       if (originalFetch === undefined) delete (global as any).fetch; else global.fetch = originalFetch;
     }
@@ -671,8 +689,8 @@ test("Clinical Workflow Snapshot & Deterministic State Verifications", async (t)
       assert.notStrictEqual(snapA, snapB, "Snapshots must not share object references across tenants");
 
       // Explicit boundary verification
-      assert.ok(tenantA.includes("::"));
-      assert.ok(tenantB.includes("::"));
+      assert.match(tenantA, /^[^:]+::[^:]+$/);
+      assert.match(tenantB, /^[^:]+::[^:]+$/);
     } finally {
       if (originalFetch === undefined) delete (global as any).fetch; else global.fetch = originalFetch;
     }
@@ -704,7 +722,7 @@ test("Continuous Invariants & Stress Hardening", async (t) => {
     let results: ParsedIntent[] = [];
     for(let i=0; i<3; i++) {
         const loopRes = await Promise.all(sequence.map(async (q) => {
-            await new Promise(r => setImmediate(r));
+            await new Promise(r => setTimeout(r, 5));
             const tenantId = `fac_burst_${i}`;
             return parseClinicalIntent(q, tenantId);
         }));
